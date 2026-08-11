@@ -1,2 +1,0 @@
-# AdClarity-FlyerAPP
-flyer app
