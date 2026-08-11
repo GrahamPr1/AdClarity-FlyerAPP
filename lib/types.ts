@@ -1,12 +1,12 @@
 // ---------------------------------------------------------------------------
-// AdClarity shared data contracts
+// OneFlyer shared data contracts
 //
 // These interfaces define the shapes exchanged between the marketing site,
-// the client dashboard, and the EXTERNAL Claude-based agent pipeline (built
+// the client dashboard, and the EXTERNAL flyer-generation pipeline (built
 // outside of v0). Keep them stable so the pipeline can match up cleanly.
 // ---------------------------------------------------------------------------
 
-export type PlanId = "foundation" | "foundation_plus"
+export type PlanId = "trial" | "base" | "pro"
 
 export interface Plan {
   id: PlanId
@@ -15,37 +15,32 @@ export interface Plan {
   tagline: string
   /** Small badge shown on the card, e.g. "Most Popular" / "Best Value" */
   badge?: string
-  /** One-time build fee in whole dollars */
-  setupFee: number
-  /** Recurring monthly retainer in whole dollars. 0 when the monthly amount is the client-chosen ad spend. */
-  monthlyFee: number
-  /** When true, the monthly amount is the client's chosen ad spend (entered at checkout) rather than a fixed retainer. */
-  hasAdSpend?: boolean
-  /** Framing of the real-world value delivered, e.g. "$8,000+ in agency build value" */
-  valueAnchor: string
+  /** Recurring price in whole dollars. 0 for the free trial. */
+  price: number
+  /** Small label shown next to the price, e.g. "/mo" or "free for 3 days" */
+  priceLabel: string
+  /**
+   * The flyer allowance EXACTLY as the product enforces it — this is the hard
+   * limit, not a marketing promise. e.g. "3 flyers total", "15 flyers / month",
+   * "Unlimited flyers".
+   */
+  flyerLimit: string
+  /** The numeric hard cap the backend enforces. null = unlimited. */
+  flyerCap: number | null
+  /** How the cap resets, surfaced to the user. */
+  flyerPeriod: "trial" | "month" | "unlimited"
   description: string
   features: string[]
-  /** Explains what the monthly retainer buys the client (ongoing updates, refresh limits, etc.) */
-  retainerNote: string
-  /** A short outcome-focused line reinforcing the result they get */
-  outcome: string
+  /** Optional highlight chip (amber) reinforcing the tier's key value */
+  highlight?: string
   mostPopular?: boolean
-  /** Placeholder Stripe price IDs — wire these to real prices later */
-  stripeSetupPriceId: string
-  stripeMonthlyPriceId: string
+  /** Placeholder Stripe price ID — wire this to a real price later */
+  stripePriceId: string
   ctaLabel: string
 }
 
-/** Shared guarantee/reassurance line shown beneath both plans */
-export const PLAN_GUARANTEE = "14-day satisfaction guarantee · Cancel anytime · You own everything we build"
-
-/** Explains the monthly retainer model shown beneath the pricing grid */
-export const RETAINER_EXPLANATION =
-  "After your one-time build fee, the low monthly retainer keeps your account active so you can come back anytime and have your materials refreshed, rewritten, and re-designed as your business changes — up to 20 flyers per month included. Your build isn't a one-and-done file dump; it's a living system you can keep updating."
-
-/** Default and minimum monthly ad spend (whole dollars) for the plan that includes paid ads */
-export const AD_SPEND_MIN = 300
-export const AD_SPEND_DEFAULT = 500
+/** Shared reassurance line shown beneath the plans */
+export const PLAN_GUARANTEE = "Cancel anytime · No long-term contracts · Start with a free 3-day trial"
 
 // ---- Intake / onboarding -------------------------------------------------
 
@@ -58,8 +53,6 @@ export interface ServiceItem {
 
 export interface IntakeSubmission {
   planId: PlanId | null
-  /** Monthly ad spend in whole dollars — only set for the plan that includes paid ads */
-  adSpend?: number
   businessName: string
   industry: string
   yearsInBusiness: string
