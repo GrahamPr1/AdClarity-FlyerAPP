@@ -1,5 +1,5 @@
 import type { IntakeSubmission } from "@/lib/types"
-import { markAllFlyersInProgress, markFlyerFailed, markPendingFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable } from "@/lib/store"
+import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable } from "@/lib/store"
 import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
@@ -140,15 +140,17 @@ export async function continuePipelineFromIntake(email: string, intake: Normaliz
   // work with even if this very attempt is what fails.
   await savePipelineState(email, intake, flyerRequests)
 
+  const ids = flyerRequests.map((r) => r.id)
+
   try {
     await seedFlyerDeliverables(email, flyerRequests.map((r) => ({ id: r.id, purpose: r.purpose })))
-    await markAllFlyersInProgress(email)
+    await markFlyersInProgress(email, ids)
 
     await withTimeout(runBatch(email, intake, flyerRequests), PIPELINE_TIMEOUT_MS)
   } catch (err) {
     const reason = describeFailure(err)
     console.error("[agent-pipeline] Pipeline failed:", reason)
-    await markPendingFlyersFailed(email, reason).catch((e) => console.error("[agent-pipeline] Failed to record failure:", e))
+    await markFlyersFailed(email, ids, reason).catch((e) => console.error("[agent-pipeline] Failed to record failure:", e))
   }
 }
 

@@ -59,13 +59,19 @@ export async function saveIntake(submission: IntakeSubmission): Promise<IntakeSu
   await redis.set(INTAKE_KEY, saved)
   await redis.set(LATEST_EMAIL_KEY, email)
 
-  // A fresh submission starts a fresh deliverable run — clear out any flyers
-  // from a previous run so stale entries don't linger alongside new ones.
+  // Preserves existing flyers — a client can submit more than once (up to
+  // their free-tier limit or indefinitely on Pro), and every prior flyer
+  // should stay visible on their dashboard. This used to reset flyers: []
+  // on every submission, which silently wiped a client's flyer history
+  // (and its status/download links) the moment they submitted again, even
+  // though the separate lifetime flyersCreated counter kept accumulating
+  // correctly — the mismatch between "used: N" and an N-flyer-shorter
+  // visible list was exactly that bug.
   const plan = getPlan(submission.planId)
+  const current = await readDeliverables(email)
   await writeDeliverables(email, {
-    ...DEFAULT_DELIVERABLES,
+    ...current,
     intakeStatus: "Submitted",
-    flyers: [],
     planId: plan?.id ?? "free",
     planName: plan?.name ?? "Free",
   })
@@ -108,22 +114,29 @@ export async function getDeliverables(): Promise<Deliverables> {
   return getDeliverablesForEmail(email)
 }
 
-// Replaces the flyer list with fresh "Pending" placeholders once the Intake
-// Agent has determined how many flyers are actually needed and why. Called
-// by the pipeline right after Intake completes.
+// Appends fresh "Pending" placeholders for THIS batch once the Intake Agent
+// has determined how many flyers are actually needed and why — added to
+// any existing flyers, not replacing them, so earlier submissions stay
+// visible. Called by the pipeline right after Intake completes. Relies on
+// the caller having given each request a globally-unique id (see
+// crypto.randomUUID() in /api/intake) — the Intake Agent's own ids restart
+// at "flyer-1" for every batch, which would collide across submissions.
 export async function seedFlyerDeliverables(email: string, requests: { id: string; purpose: string }[]): Promise<void> {
   const current = await readDeliverables(email)
+  const newFlyers = requests.map((r): FlyerDeliverable => ({ id: r.id, title: r.purpose, status: "Pending" }))
   await writeDeliverables(email, {
     ...current,
-    flyers: requests.map((r): FlyerDeliverable => ({ id: r.id, title: r.purpose, status: "Pending" })),
+    flyers: [...current.flyers, ...newFlyers],
   })
 }
 
-export async function markAllFlyersInProgress(email: string): Promise<void> {
+/** Marks only THIS batch's flyers (by id) In Progress — never touches other batches' already-Ready or Failed flyers. */
+export async function markFlyersInProgress(email: string, ids: string[]): Promise<void> {
+  const idSet = new Set(ids)
   const current = await readDeliverables(email)
   await writeDeliverables(email, {
     ...current,
-    flyers: current.flyers.map((f) => ({ ...f, status: "In Progress" as const })),
+    flyers: current.flyers.map((f) => (idSet.has(f.id) ? { ...f, status: "In Progress" as const } : f)),
   })
 }
 
@@ -163,12 +176,13 @@ export async function markFlyerFailed(email: string, id: string, reason: string)
   await writeDeliverables(email, current)
 }
 
-/** Marks every flyer for this client that isn't already Ready as Failed — used when the whole batch's generation crashes or times out. */
-export async function markPendingFlyersFailed(email: string, reason: string): Promise<void> {
+/** Marks THIS batch's flyers (by id) that aren't already Ready as Failed — never touches other batches. Used when a batch's generation crashes or times out. */
+export async function markFlyersFailed(email: string, ids: string[], reason: string): Promise<void> {
+  const idSet = new Set(ids)
   const current = await readDeliverables(email)
   await writeDeliverables(email, {
     ...current,
-    flyers: current.flyers.map((f) => (f.status === "Ready" ? f : { ...f, status: "Failed" as const, error: reason })),
+    flyers: current.flyers.map((f) => (idSet.has(f.id) && f.status !== "Ready" ? { ...f, status: "Failed" as const, error: reason } : f)),
   })
 }
 

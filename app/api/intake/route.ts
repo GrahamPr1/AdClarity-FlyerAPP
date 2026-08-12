@@ -75,7 +75,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Intake processing failed unexpectedly" }, { status: 500 })
   }
 
-  const flyerRequests = intake.flyerRequests.slice(0, MAX_FLYERS_PER_BATCH)
+  // Re-ids each request with a globally-unique id before it touches
+  // deliverable storage. The Intake Agent numbers requests "flyer-1",
+  // "flyer-2", ... starting fresh for every batch — fine within one
+  // submission, but a client's flyers now accumulate across ALL their
+  // submissions on one dashboard (see saveIntake in lib/store.ts), so a
+  // second submission's "flyer-1" would collide with the first's.
+  const flyerRequests = intake.flyerRequests.slice(0, MAX_FLYERS_PER_BATCH).map((r) => ({ ...r, id: crypto.randomUUID() }))
   const flyerCount = flyerRequests.length
 
   // -------------------------------------------------------------------------
