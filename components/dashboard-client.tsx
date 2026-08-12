@@ -28,14 +28,22 @@ function StatusBadge({ status }: { status: FlyerStatus | string }) {
 }
 
 /* ------------------------------ Flyer card ------------------------------- */
-function FlyerCard({ flyer, onRetry }: { flyer: FlyerDeliverable; onRetry: (flyerId: string) => void }) {
+function FlyerCard({ flyer, onRetry }: { flyer: FlyerDeliverable; onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }> }) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
   const [retrying, setRetrying] = useState(false)
+  const [retryError, setRetryError] = useState("")
 
   async function handleRetry() {
     setRetrying(true)
-    await onRetry(flyer.id)
+    setRetryError("")
+    // Always reset `retrying` when this settles, success or failure — it
+    // used to stay stuck saying "Retrying…" forever on any failure (an
+    // expired session, a network error, anything), silently, with no
+    // indication anything had gone wrong and nothing actually retried.
+    const result = await onRetry(flyer.id)
+    setRetrying(false)
+    if (!result.ok) setRetryError(result.error ?? "Could not start retry — please try again.")
   }
 
   return (
@@ -61,6 +69,7 @@ function FlyerCard({ flyer, onRetry }: { flyer: FlyerDeliverable; onRetry: (flye
           <p className="text-sm font-medium truncate">{flyer.title}</p>
           <div className="mt-1.5"><StatusBadge status={flyer.status} /></div>
           {failed && flyer.error && <p className="mt-1.5 text-xs text-red-400/80 leading-snug">{flyer.error}</p>}
+          {retryError && <p className="mt-1.5 text-xs text-amber-300 leading-snug">{retryError}</p>}
         </div>
         {ready && flyer.downloadUrl && (
           <a href={flyer.downloadUrl}
@@ -124,13 +133,31 @@ export function DashboardClient() {
     },
   })
 
-  async function handleRetry(flyerId: string) {
-    await fetch("/api/deliverables/retry", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ flyerId }),
-    })
+  async function handleRetry(flyerId: string): Promise<{ ok: boolean; error?: string }> {
+    let res: Response
+    try {
+      res = await fetch("/api/deliverables/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flyerId }),
+      })
+    } catch {
+      return { ok: false, error: "Couldn't reach the server — check your connection and try again." }
+    }
+
+    if (res.status === 401) {
+      router.push("/login")
+      return { ok: false, error: "Your session expired — signing you back in." }
+    }
+
     mutate()
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}) as { message?: string; error?: string })
+      return { ok: false, error: data.message ?? data.error ?? "Could not start retry — please try again." }
+    }
+
+    return { ok: true }
   }
 
   async function handleSignOut() {
