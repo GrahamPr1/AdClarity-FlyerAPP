@@ -3,9 +3,9 @@ import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth"
 
 export async function middleware(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value
-  const valid = await verifySessionToken(token)
+  const session = await verifySessionToken(token)
 
-  if (!valid) {
+  if (!session) {
     const loginUrl = new URL("/login", req.url)
     return NextResponse.redirect(loginUrl)
   }

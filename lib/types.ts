@@ -101,7 +101,7 @@ export interface ClientRecord {
 
 // ---- Deliverables / dashboard --------------------------------------------
 
-export type FlyerStatus = "Pending" | "In Progress" | "Ready"
+export type FlyerStatus = "Pending" | "In Progress" | "Ready" | "Failed"
 export type IntakeStatus = "Submitted" | "Not started"
 export type BillingStatus = "Active" | "Past due" | "Trialing"
 
@@ -111,6 +111,8 @@ export interface FlyerDeliverable {
   status: FlyerStatus
   thumbnailUrl?: string
   downloadUrl?: string
+  /** Set when status is "Failed" — shown to the client, with a retry option. */
+  error?: string
 }
 
 export interface Deliverables {

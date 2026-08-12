@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createSessionToken, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/auth"
+import { createSessionToken, ADMIN_SUB, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/auth"
 
 export async function POST(req: NextRequest) {
   const { password } = await req.json()
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid password" }, { status: 401 })
   }
 
-  const token = await createSessionToken()
+  const token = await createSessionToken(ADMIN_SUB)
   const res = NextResponse.json({ ok: true })
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,

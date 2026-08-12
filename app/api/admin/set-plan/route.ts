@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { isAuthedRequest } from "@/lib/auth"
+import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { setClientPlan } from "@/lib/store"
 import type { PlanId } from "@/lib/types"
 
@@ -16,7 +16,8 @@ import type { PlanId } from "@/lib/types"
 //     body: JSON.stringify({ email: "client@example.com", plan: "pro" }),
 //   })
 export async function POST(request: NextRequest) {
-  if (!(await isAuthedRequest(request))) {
+  const session = await getSessionIdentity(request)
+  if (session?.sub !== ADMIN_SUB) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

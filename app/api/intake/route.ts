@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { waitUntil } from "@vercel/functions"
 import type { IntakeSubmission } from "@/lib/types"
 import { FREE_FLYER_LIMIT } from "@/lib/types"
 import { saveIntake, getOrCreateClient, incrementFlyersCreated } from "@/lib/store"
@@ -112,14 +113,21 @@ export async function POST(request: Request) {
   // -------------------------------------------------------------------------
   // HANDOFF POINT TO THE AGENT PIPELINE (Brand + Flyer stages).
   //
-  // Fired async — deliberately not awaited, so the client gets its response
-  // as soon as the limit check clears rather than waiting on however long
-  // Brand -> Flyer takes. Progress is reported via the same update contract
-  // the /api/agent-callback webhook exposes (see lib/store.ts).
+  // Not awaited, so the client gets its response as soon as the limit check
+  // clears rather than waiting on however long Brand -> Flyer takes — but
+  // wrapped in waitUntil() so Vercel's runtime keeps this function instance
+  // alive until the pipeline actually finishes, instead of potentially
+  // freezing/reclaiming it right after the response is sent (which would
+  // silently kill generation mid-run with no error and no state update —
+  // exactly what left flyers stuck "In Progress" forever before this).
+  // Progress is reported via the same update contract the
+  // /api/agent-callback webhook exposes (see lib/store.ts).
   // -------------------------------------------------------------------------
-  continuePipelineFromIntake(intake, flyerRequests).catch((err) => {
-    console.error("[agent-pipeline] Unhandled pipeline error:", err)
-  })
+  waitUntil(
+    continuePipelineFromIntake(email, intake, flyerRequests).catch((err) => {
+      console.error("[agent-pipeline] Unhandled pipeline error:", err)
+    }),
+  )
 
   return NextResponse.json({ ok: true, submittedAt: saved.submittedAt, flyerCount }, { status: 201 })
 }
