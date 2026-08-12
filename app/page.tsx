@@ -162,14 +162,14 @@ const STEPS = [
 const FAQS = [
   {
     q: "What's the difference between the plans?",
-    a: "Free Trial gives you 3 flyers to try the AI design engine, no credit card required. Basic is $75/month for 15 flyers. Pro is $100/month for 25 flyers plus priority generation, so your flyers finish first.",
+    a: "Free Trial gives you 3 flyers to try the AI design engine, no credit card required. Basic is $75/month for 15 flyers total. Pro is $100/month for 25 flyers total plus priority generation, so your flyers finish first.",
   },
   {
     q: "Do I need any design experience?",
     a: "No. Just tell us about your business and what you need each flyer to say — our AI handles the layout, colors, and fonts automatically, matched to your brand.",
   },
   {
-    q: "What if I run out of flyers for the month?",
+    q: "What if I run out of flyers on my plan?",
     a: "You can upgrade to a higher tier anytime, or email us if you need more than Pro includes — we're happy to help with custom volume.",
   },
   {

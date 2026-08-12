@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import type { Plan, MarketingPlanId } from "@/lib/types"
+import type { Plan, PlanId } from "@/lib/types"
 import { PLAN_GUARANTEE, PLAN_EXPLAINER } from "@/lib/types"
 import { PLANS } from "@/lib/plans"
 import { Reveal } from "@/components/reveal"
@@ -31,8 +31,8 @@ function PlanCard({
   delay,
 }: {
   plan: Plan
-  onSubscribe: (id: MarketingPlanId) => void
-  loadingId: MarketingPlanId | null
+  onSubscribe: (id: PlanId) => void
+  loadingId: PlanId | null
   delay: number
 }) {
   const highlighted = plan.mostPopular
@@ -133,13 +133,13 @@ function PlanCard({
 
 export function PricingCards() {
   const router = useRouter()
-  const [loadingId, setLoadingId] = useState<MarketingPlanId | null>(null)
+  const [loadingId, setLoadingId] = useState<PlanId | null>(null)
 
   // Every tier routes straight to onboarding — no real checkout exists yet
   // (it's being built separately), so nothing here should imply a payment
   // flow happened. Basic/Pro will eventually go through a Stripe Checkout
   // session first (plan.stripeMonthlyPriceId) before landing here.
-  function handleSubscribe(planId: MarketingPlanId) {
+  function handleSubscribe(planId: PlanId) {
     setLoadingId(planId)
     router.push(`/onboarding?plan=${planId}`)
   }

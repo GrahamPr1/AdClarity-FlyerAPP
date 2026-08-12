@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
   if (!email) {
     return NextResponse.json({ error: "Missing required field: email" }, { status: 422 })
   }
-  if (plan !== "free" && plan !== "pro") {
-    return NextResponse.json({ error: 'plan must be "free" or "pro"' }, { status: 422 })
+  if (plan !== "trial" && plan !== "basic" && plan !== "pro") {
+    return NextResponse.json({ error: 'plan must be "trial", "basic", or "pro"' }, { status: 422 })
   }
 
   const client = await setClientPlan(email, plan as PlanId)
