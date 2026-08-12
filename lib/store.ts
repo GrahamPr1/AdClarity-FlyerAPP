@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis"
 import type { ClientRecord, Deliverables, FlyerDeliverable, IntakeSubmission, PlanId } from "./types"
-import { FREE_FLYER_LIMIT } from "./types"
+import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
 import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
@@ -24,17 +24,19 @@ const redis = Redis.fromEnv()
 const INTAKE_KEY = "intake:latest"
 const LATEST_EMAIL_KEY = "latest-email"
 
+// planId/planName are NOT stored here — they used to be captured from
+// whatever a client picked at signup (IntakeSubmission.planId), which drifted
+// out of sync with reality the moment an admin actually changed their real
+// plan (e.g. upgrading someone to Basic still showed "Free Trial" on their
+// dashboard, since nothing re-derived it). Always computed fresh from the
+// real ClientRecord.plan in getDeliverablesForEmail/getDeliverables below.
 interface StoredDeliverables {
-  planId: PlanId
-  planName: string
   billingStatus: Deliverables["billingStatus"]
   intakeStatus: Deliverables["intakeStatus"]
   flyers: FlyerDeliverable[]
 }
 
 const DEFAULT_DELIVERABLES: StoredDeliverables = {
-  planId: "free",
-  planName: "Free",
   billingStatus: "Active",
   intakeStatus: "Not started",
   flyers: [],
@@ -60,21 +62,15 @@ export async function saveIntake(submission: IntakeSubmission): Promise<IntakeSu
   await redis.set(LATEST_EMAIL_KEY, email)
 
   // Preserves existing flyers — a client can submit more than once (up to
-  // their free-tier limit or indefinitely on Pro), and every prior flyer
-  // should stay visible on their dashboard. This used to reset flyers: []
-  // on every submission, which silently wiped a client's flyer history
-  // (and its status/download links) the moment they submitted again, even
-  // though the separate lifetime flyersCreated counter kept accumulating
-  // correctly — the mismatch between "used: N" and an N-flyer-shorter
-  // visible list was exactly that bug.
-  const plan = getPlan(submission.planId)
+  // their plan's flyer limit), and every prior flyer should stay visible on
+  // their dashboard. This used to reset flyers: [] on every submission,
+  // which silently wiped a client's flyer history (and its status/download
+  // links) the moment they submitted again, even though the separate
+  // lifetime flyersCreated counter kept accumulating correctly — the
+  // mismatch between "used: N" and an N-flyer-shorter visible list was
+  // exactly that bug.
   const current = await readDeliverables(email)
-  await writeDeliverables(email, {
-    ...current,
-    intakeStatus: "Submitted",
-    planId: plan?.id ?? "free",
-    planName: plan?.name ?? "Free",
-  })
+  await writeDeliverables(email, { ...current, intakeStatus: "Submitted" })
 
   return saved
 }
@@ -90,16 +86,17 @@ export async function getIntake(): Promise<IntakeSubmission | null> {
 export async function getDeliverablesForEmail(email: string): Promise<Deliverables> {
   const stored = await readDeliverables(email)
 
-  let flyersCreated = 0
-  let flyersLimit: number | null = FREE_FLYER_LIMIT
-
   const client = await getClient(email)
-  if (client) {
-    flyersCreated = client.flyersCreated
-    flyersLimit = client.plan === "pro" ? null : FREE_FLYER_LIMIT
-  }
+  const planId: PlanId = client?.plan ?? "trial"
 
-  return { ...stored, email, flyersCreated, flyersLimit }
+  return {
+    ...stored,
+    email,
+    planId,
+    planName: getPlan(planId)?.name ?? "Free Trial",
+    flyersCreated: client?.flyersCreated ?? 0,
+    flyersLimit: PLAN_LIMITS[planId],
+  }
 }
 
 // Admin-session view — the site owner isn't a client themselves, so this
@@ -109,7 +106,14 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
 export async function getDeliverables(): Promise<Deliverables> {
   const email = await redis.get<string>(LATEST_EMAIL_KEY)
   if (!email) {
-    return { ...DEFAULT_DELIVERABLES, email: null, flyersCreated: 0, flyersLimit: FREE_FLYER_LIMIT }
+    return {
+      ...DEFAULT_DELIVERABLES,
+      email: null,
+      planId: "trial",
+      planName: "Free Trial",
+      flyersCreated: 0,
+      flyersLimit: PLAN_LIMITS.trial,
+    }
   }
   return getDeliverablesForEmail(email)
 }
@@ -239,8 +243,8 @@ export async function getClient(email: string): Promise<ClientRecord | null> {
 export async function getOrCreateClient(email: string): Promise<ClientRecord> {
   const existing = await getClient(email)
   if (existing) return existing
-  await redis.set(planKey(email), "free")
-  return { email, plan: "free", flyersCreated: 0 }
+  await redis.set(planKey(email), "trial")
+  return { email, plan: "trial", flyersCreated: 0 }
 }
 
 // Real enforcement only ever changes here — never inferred from an

@@ -36,7 +36,7 @@ const realFormSubmission: IntakeSubmission = {
 }
 
 const missingRequiredFields: IntakeSubmission = {
-  planId: "free",
+  planId: "trial",
   businessName: "Quickfix Plumbing",
   industry: "",
   yearsInBusiness: "",

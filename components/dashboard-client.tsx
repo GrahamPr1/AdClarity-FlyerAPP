@@ -211,10 +211,12 @@ export function DashboardClient() {
             <div className="rounded-xl border border-white/10 bg-card p-5">
               <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Flyers used</p>
               <p className="mt-2 text-lg font-semibold">
-                {data.flyersLimit === null ? `${data.flyersCreated} · Unlimited` : `${data.flyersCreated} / ${data.flyersLimit}`}
+                {data.flyersCreated} / {data.flyersLimit}
               </p>
-              {data.flyersLimit !== null && data.flyersCreated >= data.flyersLimit && (
-                <p className="mt-1.5 text-xs text-amber-300">Limit reached — upgrade for unlimited flyers.</p>
+              {data.flyersCreated >= data.flyersLimit && (
+                <a href="/#pricing" className="mt-1.5 inline-block text-xs text-amber-300 hover:text-amber-200 transition-colors">
+                  Limit reached — check out our plans for more →
+                </a>
               )}
             </div>
           </div>

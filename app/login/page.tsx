@@ -23,7 +23,16 @@ function AdminLoginForm() {
     setLoading(false)
 
     if (!res.ok) {
-      setError("Incorrect password")
+      // A 500 here means DASHBOARD_PASSWORD isn't set on the server for
+      // this environment — a real config problem, not a wrong password.
+      // Showing "Incorrect password" for both masked exactly that
+      // distinction when the env var was missing on Preview but set on
+      // Production.
+      setError(
+        res.status === 500
+          ? "Server isn't configured for admin login yet (DASHBOARD_PASSWORD missing on this environment) — this isn't about your password."
+          : "Incorrect password",
+      )
       return
     }
 
