@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { ClientRecord, Deliverables, FlyerDeliverable, IntakeSubmission, PlanId } from "./types"
+import type { ClientRecord, Deliverables, FlyerDeliverable, IntakeSubmission, MarketingPlanId, PlanId } from "./types"
 import { FREE_FLYER_LIMIT } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
@@ -25,7 +25,7 @@ const INTAKE_KEY = "intake:latest"
 const LATEST_EMAIL_KEY = "latest-email"
 
 interface StoredDeliverables {
-  planId: PlanId
+  planId: MarketingPlanId
   planName: string
   billingStatus: Deliverables["billingStatus"]
   intakeStatus: Deliverables["intakeStatus"]
@@ -33,8 +33,8 @@ interface StoredDeliverables {
 }
 
 const DEFAULT_DELIVERABLES: StoredDeliverables = {
-  planId: "free",
-  planName: "Free",
+  planId: "trial",
+  planName: "Free Trial",
   billingStatus: "Active",
   intakeStatus: "Not started",
   flyers: [],
@@ -72,8 +72,8 @@ export async function saveIntake(submission: IntakeSubmission): Promise<IntakeSu
   await writeDeliverables(email, {
     ...current,
     intakeStatus: "Submitted",
-    planId: plan?.id ?? "free",
-    planName: plan?.name ?? "Free",
+    planId: plan?.id ?? "trial",
+    planName: plan?.name ?? "Free Trial",
   })
 
   return saved

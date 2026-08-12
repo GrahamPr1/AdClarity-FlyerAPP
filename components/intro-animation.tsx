@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 
-const LETTERS = ["A", "D", "C", "L", "A", "R", "I", "T", "Y"]
+const LETTERS = ["O", "N", "E", "F", "L", "Y", "E", "R"]
 
 const LETTER_IN_STAGGER = 85 // ms between each letter appearing
 const LETTER_IN_DUR = 700 // duration of each letter appear transition
@@ -43,7 +43,7 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[100] pointer-events-none" aria-hidden="true">
-      {/* Full-screen brand panel — the ADCLARITY wordmark rides ON the panel and
+      {/* Full-screen brand panel — the ONEFLYER wordmark rides ON the panel and
           wipes upward together, revealing the page (and nav) in one motion.
           This is the single brand reveal — the title appears exactly once. */}
       <div
@@ -51,13 +51,13 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
         style={{
           transform: wiping ? "translateY(-100%)" : "translateY(0%)",
           transition: wiping ? `transform ${WIPE_DURATION}ms cubic-bezier(0.76, 0, 0.24, 1)` : "none",
-          background: "linear-gradient(160deg, #16273f 0%, #0f1826 55%, #0b1220 100%)",
+          background: "linear-gradient(160deg, #2e2119 0%, #1c140f 55%, #120c08 100%)",
         }}
       >
         {/* soft teal glow behind the wordmark */}
         <div
           className="absolute w-[70vw] h-[70vw] rounded-full blur-[100px] opacity-60"
-          style={{ background: "radial-gradient(circle, rgba(19,168,164,0.28), transparent 65%)" }}
+          style={{ background: "radial-gradient(circle, rgba(201,112,74,0.28), transparent 65%)" }}
         />
 
         <div className="relative flex" style={{ gap: "0.06em" }}>
@@ -79,7 +79,7 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
             return (
               <span
                 key={i}
-                className="font-sans font-bold text-[#eef2f6] leading-none select-none"
+                className="font-sans font-bold text-[#f5efe7] leading-none select-none"
                 style={{
                   fontSize: `calc((100vw - 64px) / ${LETTERS.length})`,
                   letterSpacing: "0.05em",

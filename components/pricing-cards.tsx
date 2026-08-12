@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import type { Plan, PlanId } from "@/lib/types"
+import type { Plan, MarketingPlanId } from "@/lib/types"
 import { PLAN_GUARANTEE, PLAN_EXPLAINER } from "@/lib/types"
 import { PLANS } from "@/lib/plans"
 import { Reveal } from "@/components/reveal"
@@ -31,8 +31,8 @@ function PlanCard({
   delay,
 }: {
   plan: Plan
-  onSubscribe: (id: PlanId) => void
-  loadingId: PlanId | null
+  onSubscribe: (id: MarketingPlanId) => void
+  loadingId: MarketingPlanId | null
   delay: number
 }) {
   const highlighted = plan.mostPopular
@@ -48,7 +48,7 @@ function PlanCard({
         }`}
         style={
           highlighted
-            ? { backgroundImage: "linear-gradient(165deg, rgba(19,168,164,0.16), rgba(14,124,123,0.05))" }
+            ? { backgroundImage: "linear-gradient(165deg, rgba(201,112,74,0.16), rgba(224,138,94,0.05))" }
             : undefined
         }
       >
@@ -70,9 +70,9 @@ function PlanCard({
 
         <div className="mt-6 flex items-baseline gap-2">
           <span className="text-4xl font-bold tracking-tight">
-            {plan.monthlyFee === 0 ? "$0" : `$${plan.monthlyFee.toLocaleString()}`}
+            {plan.monthlyFee === 0 ? "Free" : `$${plan.monthlyFee.toLocaleString()}`}
           </span>
-          <span className="text-sm text-muted-foreground">/ month</span>
+          {plan.monthlyFee > 0 && <span className="text-sm text-muted-foreground">/ month</span>}
         </div>
 
         {plan.ctaHref ? (
@@ -133,22 +133,20 @@ function PlanCard({
 
 export function PricingCards() {
   const router = useRouter()
-  const [loadingId, setLoadingId] = useState<PlanId | null>(null)
+  const [loadingId, setLoadingId] = useState<MarketingPlanId | null>(null)
 
-  // Placeholder subscribe handler.
-  // TODO: Wire the Pro tier to a Stripe Checkout session created on the
-  // server (plan.stripeMonthlyPriceId). Free needs no billing at all — it
-  // just starts onboarding directly. Set success_url to
-  // `${origin}/onboarding?plan=pro`.
-  function handleSubscribe(planId: PlanId) {
+  // Every tier routes straight to onboarding — no real checkout exists yet
+  // (it's being built separately), so nothing here should imply a payment
+  // flow happened. Basic/Pro will eventually go through a Stripe Checkout
+  // session first (plan.stripeMonthlyPriceId) before landing here.
+  function handleSubscribe(planId: MarketingPlanId) {
     setLoadingId(planId)
-    // For now we simulate a successful checkout and go straight to onboarding.
     router.push(`/onboarding?plan=${planId}`)
   }
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
         {PLANS.map((plan, i) => (
           <PlanCard
             key={plan.id}
@@ -160,7 +158,7 @@ export function PricingCards() {
         ))}
       </div>
 
-      {/* How the two tiers relate */}
+      {/* How the tiers relate */}
       <Reveal delay={160}>
         <div className="mt-10 max-w-3xl mx-auto rounded-2xl border border-white/10 bg-card p-6 md:p-7 flex items-start gap-4">
           <div className="w-10 h-10 shrink-0 rounded-xl bg-[var(--brand-teal-tint)] flex items-center justify-center text-[var(--brand-teal-bright)]">
@@ -170,7 +168,7 @@ export function PricingCards() {
             </svg>
           </div>
           <div>
-            <h4 className="text-sm font-semibold">How Free and Pro compare</h4>
+            <h4 className="text-sm font-semibold">How the plans compare</h4>
             <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{PLAN_EXPLAINER}</p>
           </div>
         </div>

@@ -43,13 +43,16 @@ const ICONS = {
   build: <><path d="M14.7 6.3a4 4 0 0 0-5.6 5.6l-6.4 6.4a2 2 0 1 0 2.8 2.8l6.4-6.4a4 4 0 0 0 5.6-5.6l-2.5 2.5-2.1-2.1 2.5-2.5Z" /></>,
   automate: <><path d="M12 2v4" /><path d="m16.2 7.8 2.9-2.9" /><path d="M18 12h4" /><path d="M12 22a10 10 0 1 0-8-4" /></>,
   check: <polyline points="20 6 9 17 4 12" />,
+  sparkles: <><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z" /><path d="M19 13l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z" /></>,
+  download: <><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></>,
+  clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></>,
 }
 
 /* Rotating accent palette for icon tiles — adds color variety across sections */
 const ACCENTS = [
   { fg: "var(--brand-teal-bright)", bg: "var(--brand-teal-tint)" },
   { fg: "var(--brand-amber)", bg: "var(--brand-amber-tint)" },
-  { fg: "var(--brand-sky)", bg: "rgba(70,184,230,0.12)" },
+  { fg: "var(--brand-sky)", bg: "rgba(217,164,92,0.12)" },
 ]
 
 /* ----------------------------- Small helpers ----------------------------- */
@@ -71,7 +74,7 @@ function HeroVisual() {
           <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
           <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
           <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
-          <span className="ml-3 text-[11px] text-muted-foreground tracking-wide">your brand system</span>
+          <span className="ml-3 text-[11px] text-muted-foreground tracking-wide">your flyer, on-brand</span>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {/* Flyer — real white "paper" */}
@@ -83,95 +86,103 @@ function HeroVisual() {
             <div className="h-1.5 w-full rounded bg-[var(--on-white)]/15" />
             <div className="h-1.5 w-2/3 rounded bg-[var(--on-white)]/10" />
           </div>
-          {/* Content post + reviews */}
+          {/* AI design engine + dashboard status preview */}
           <div className="col-span-2 flex flex-col gap-3">
             <div className="rounded-xl bg-[var(--brand-navy-deep)] border border-white/10 p-3">
               <div className="flex items-center gap-2 mb-2">
-                <span className="w-6 h-6 rounded-full bg-[var(--brand-teal)]" />
+                <span className="w-6 h-6 rounded-full bg-[var(--brand-teal)] flex items-center justify-center text-white">
+                  <Icon path={ICONS.sparkles} className="w-3.5 h-3.5" />
+                </span>
                 <div className="flex flex-col gap-1">
-                  <div className="h-1.5 w-20 rounded bg-white/20" />
-                  <div className="h-1.5 w-12 rounded bg-white/10" />
+                  <div className="h-1.5 w-24 rounded bg-white/20" />
+                  <div className="h-1.5 w-14 rounded bg-white/10" />
                 </div>
               </div>
-              <div className="h-14 rounded-lg bg-white/[0.06] flex items-center justify-center text-[var(--brand-teal-bright)]">
-                <Icon path={ICONS.content} />
+              <div className="h-14 rounded-lg bg-white/[0.06] flex items-center justify-center gap-2 px-3">
+                {["var(--brand-teal-bright)", "var(--brand-amber)", "var(--brand-sky)"].map((c) => (
+                  <span key={c} className="w-6 h-6 rounded-full" style={{ background: c }} />
+                ))}
+                <span className="text-xs text-muted-foreground ml-1">brand-matched</span>
               </div>
             </div>
-            <div className="rounded-xl bg-[var(--brand-teal-tint)] border border-[var(--brand-teal)]/40 p-3 flex items-center justify-between">
-              <div className="flex flex-col gap-1">
-                <div className="flex gap-0.5 text-[var(--brand-teal-bright)]">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Icon key={i} path={ICONS.reputation} className="w-3.5 h-3.5" />
-                  ))}
-                </div>
-                <div className="h-1.5 w-24 rounded bg-white/20" />
+            <div className="rounded-xl bg-[var(--brand-teal-tint)] border border-[var(--brand-teal)]/40 p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="h-1.5 w-28 rounded bg-white/20" />
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)] border border-[var(--brand-teal)]/40">
+                  <span className="w-1.5 h-1.5 rounded-full bg-current" />Ready
+                </span>
               </div>
-              <span className="text-xs font-semibold text-[var(--brand-teal-bright)]">+ review</span>
+              <div className="flex items-center justify-between">
+                <div className="h-1.5 w-20 rounded bg-white/15" />
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-400/10 text-amber-300 border border-amber-400/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-current" />In Progress
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      {/* soft teal glow */}
+      {/* soft terracotta glow */}
       <div
         className="absolute -inset-6 -z-10 rounded-[2rem] opacity-40 blur-3xl"
-        style={{ background: "radial-gradient(circle at 70% 30%, rgba(14,124,123,0.35), transparent 60%)" }}
+        style={{ background: "radial-gradient(circle at 70% 30%, rgba(201,112,74,0.35), transparent 60%)" }}
       />
     </div>
   )
 }
 
 /* --------------------------------- Data ---------------------------------- */
-const ADDONS = [
+const WHY_ONEFLYER = [
   {
-    icon: ICONS.content,
-    title: "Organic Content Engine",
-    desc: "Always-on short-form video and post generation and publishing — on-brand, grounded in your real services, with no ad spend.",
+    icon: ICONS.sparkles,
+    title: "AI Design Engine",
+    desc: "Every flyer is generated by AI and automatically matched to your brand — colors, fonts, and layout, no templates to wrestle with.",
     note: null,
   },
   {
-    icon: ICONS.ads,
-    title: "Paid Advertising Management",
-    desc: "Google and Meta campaign management layered on top of your brand foundation — creative, copy, targeting, and optimization handled for you.",
-    note: "Included in the Plus plan — you set your own monthly ad budget.",
+    icon: ICONS.clock,
+    title: "Minutes, Not Days",
+    desc: "Tell us about your business once and get professional flyers back in minutes — not the days or weeks a design agency takes.",
+    note: null,
   },
   {
-    icon: ICONS.comms,
-    title: "Automated Client Communication",
-    desc: "AI receptionist and chat plus automated email and SMS follow-up sequences that keep every lead warm.",
+    icon: ICONS.check,
+    title: "You Own Every Flyer",
+    desc: "Every flyer you generate is yours to keep, download, and reuse — no subscription required to access what you've already made.",
     note: null,
   },
 ]
 
 const STEPS = [
-  { n: "01", icon: ICONS.assess, title: "Assess", desc: "We audit your current branding, materials, listings, and content to find what's missing." },
-  { n: "02", icon: ICONS.build, title: "Build", desc: "We build your brand identity, flyers, website updates, and referral kit — all owned by you." },
-  { n: "03", icon: ICONS.automate, title: "Automate & Manage", desc: "Ongoing reputation, referral, and (if selected) content and communication systems, billed monthly." },
+  { n: "01", icon: ICONS.assess, title: "Tell Us About Your Business", desc: "A quick form covers your services, brand colors, and what you need each flyer to say." },
+  { n: "02", icon: ICONS.build, title: "We Design Your Flyers", desc: "Our AI matches your brand and designs a print-ready flyer for each request — no back-and-forth required." },
+  { n: "03", icon: ICONS.download, title: "Download & Use", desc: "Your finished flyers land in your dashboard, ready to print, share, or post online." },
 ]
 
 const FAQS = [
   {
-    q: "What's the difference between the two plans?",
-    a: "Basic is a $250 one-time build of your brand, collateral, website refresh, and reputation and referral systems that you own outright, then just $50/mo to keep everything updated. Plus is a $500 one-time build that adds managed paid advertising on top — you choose your own monthly ad budget at checkout and can change it anytime.",
+    q: "What's the difference between the plans?",
+    a: "Free Trial gives you 3 flyers to try the AI design engine, no credit card required. Basic is $75/month for 15 flyers. Pro is $100/month for 25 flyers plus priority generation, so your flyers finish first.",
   },
   {
-    q: "What does the $50/mo (or my ad spend) actually pay for?",
-    a: "The monthly retainer keeps your account active so you can come back anytime and have your materials refreshed, rewritten, and re-designed as your business changes — up to 20 flyers per month included. Your build isn't a one-and-done file dump; it's a living system you keep updating. On the Plus plan, your monthly amount is the ad budget you set, which funds your managed Google and Meta campaigns.",
+    q: "Do I need any design experience?",
+    a: "No. Just tell us about your business and what you need each flyer to say — our AI handles the layout, colors, and fonts automatically, matched to your brand.",
   },
   {
-    q: "How does the ad budget work on the Plus plan?",
-    a: "You set your monthly ad spend right at checkout (minimum $300/mo) and can raise or lower it anytime from your dashboard. That budget goes toward your paid ads, and we handle the creative, copy, targeting, and optimization for you.",
+    q: "What if I run out of flyers for the month?",
+    a: "You can upgrade to a higher tier anytime, or email us if you need more than Pro includes — we're happy to help with custom volume.",
   },
   {
     q: "Is there a long-term contract?",
-    a: "No long-term lock-in — the monthly retainer is cancelable anytime. The one-time build fee covers the initial brand and collateral build that you keep regardless of how long you subscribe.",
+    a: "No — Basic and Pro are both cancel-anytime monthly plans. The Free Trial never requires a credit card at all.",
   },
   {
-    q: "How much collateral do I actually get?",
-    a: "Your build covers the full set of flyers, sheets, and one-pagers your business needs to launch, and your monthly retainer includes up to 20 flyer updates or new pieces every month — request them anytime from your client dashboard. Large-scale or specialty campaigns are simply scoped and quoted separately.",
+    q: "What if I don't have a logo or brand colors yet?",
+    a: "That's fine — OneFlyer can still generate a professional, cohesive look for your flyers based on your business details and preferred style.",
   },
   {
-    q: "How do I get my flyers and website once I sign up?",
-    a: "After checkout, you'll complete a short onboarding form with your business details and brand assets. From there you can track progress and download finished flyers and your website from your client dashboard.",
+    q: "How do I get my flyers once I sign up?",
+    a: "After a short onboarding form, your flyers appear in your dashboard as they're generated — track progress and download each one the moment it's ready.",
   },
 ]
 
@@ -190,11 +201,11 @@ export default function Page() {
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
           <div
             className="absolute -top-32 -left-24 w-[36rem] h-[36rem] rounded-full blur-[120px] opacity-40"
-            style={{ background: "radial-gradient(circle, rgba(19,168,164,0.35), transparent 65%)" }}
+            style={{ background: "radial-gradient(circle, rgba(201,112,74,0.35), transparent 65%)" }}
           />
           <div
             className="absolute top-24 -right-24 w-[30rem] h-[30rem] rounded-full blur-[120px] opacity-25"
-            style={{ background: "radial-gradient(circle, rgba(245,181,68,0.28), transparent 65%)" }}
+            style={{ background: "radial-gradient(circle, rgba(240,169,78,0.28), transparent 65%)" }}
           />
         </div>
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-14 items-center">
@@ -206,7 +217,7 @@ export default function Page() {
                 transition: "opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1)",
               }}
             >
-              <Tag>Back-End & Organic Marketing</Tag>
+              <Tag>AI-Designed Flyers</Tag>
             </div>
             <RevealText
               as="h1"
@@ -214,7 +225,7 @@ export default function Page() {
               delay={HERO_REVEAL_MS - 200}
               stagger={55}
             >
-              {"Back-End & Organic\nMarketing Systems for\nGrowing Businesses"}
+              {"Beautiful Flyers\nfor Your Business,\nReady in Minutes"}
             </RevealText>
             <p
               className="mt-6 text-base sm:text-lg text-muted-foreground leading-relaxed max-w-lg"
@@ -224,7 +235,7 @@ export default function Page() {
                 transition: "opacity 0.8s cubic-bezier(0.16,1,0.3,1) 120ms, transform 0.8s cubic-bezier(0.16,1,0.3,1) 120ms",
               }}
             >
-              We build the brand, materials, and always-on reputation systems your business owns outright — no ad spend required to start.
+              OneFlyer designs brand-matched, print-ready flyers for your business using AI — no design skills, no waiting on an agency.
             </p>
             <div
               className="mt-8 flex flex-col sm:flex-row gap-3"
@@ -257,7 +268,7 @@ export default function Page() {
                 transition: "opacity 0.8s cubic-bezier(0.16,1,0.3,1) 340ms, transform 0.8s cubic-bezier(0.16,1,0.3,1) 340ms",
               }}
             >
-              {["No long-term contracts", "You own everything", "Built for local businesses"].map((t) => (
+              {["No credit card required", "You own every flyer", "Built for local businesses"].map((t) => (
                 <span
                   key={t}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-[var(--on-white)] text-xs font-medium shadow-sm"
@@ -296,11 +307,11 @@ export default function Page() {
                 as="h2"
                 className="mt-6 text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight leading-snug text-balance text-[var(--on-white)]"
               >
-                Most businesses have no marketing foundation underneath them.
+                Most small businesses don&apos;t have a designer on call.
               </RevealText>
               <Reveal delay={120}>
                 <p className="mt-6 text-base md:text-lg text-[var(--on-white-muted)] leading-relaxed text-pretty">
-                  Most businesses either have no real marketing infrastructure — no consistent brand, no sales materials, no system for turning referrals or reviews into revenue — or they&apos;re paying for scattered vendors and ad campaigns with no foundation underneath them. OneFlyer builds what&apos;s missing, and you own it outright.
+                  Hiring a designer or agency for every flyer is slow and expensive, and DIY tools still expect you to know design. OneFlyer generates professional, brand-matched flyers in minutes — you just tell us about your business.
                 </p>
               </Reveal>
             </div>
@@ -318,7 +329,7 @@ export default function Page() {
             as="h2"
             className="mt-6 text-3xl md:text-4xl font-semibold tracking-tight leading-tight max-w-2xl text-balance"
           >
-            The core foundation every plan is built on.
+            Everything you need, built into every flyer.
           </RevealText>
 
           <div className="mt-12 grid md:grid-cols-2 gap-6">
@@ -327,13 +338,12 @@ export default function Page() {
                 <div className="w-11 h-11 rounded-xl bg-[var(--brand-teal-tint)] flex items-center justify-center text-[var(--brand-teal-bright)]">
                   <Icon path={ICONS.brand} />
                 </div>
-                <h3 className="mt-5 text-xl font-semibold">Brand & Collateral Build</h3>
+                <h3 className="mt-5 text-xl font-semibold">Your Brand, Applied Automatically</h3>
                 <ul className="mt-5 flex flex-col gap-3">
                   {[
-                    "Visual identity refinement — logo, colors, fonts",
-                    "Professionally designed flyers, sheets & one-pagers for referral partners and new-client packets",
-                    "Website / landing page refresh",
-                    "Referral & partner kits",
+                    "Logo, colors & fonts pulled straight from your business",
+                    "A consistent, professional look across every flyer",
+                    "No design software or skills required",
                   ].map((f) => (
                     <li key={f} className="flex items-start gap-2.5 text-sm text-foreground/85">
                       <span className="text-[var(--brand-teal-bright)] mt-0.5"><Icon path={ICONS.check} className="w-4 h-4" /></span>
@@ -347,15 +357,14 @@ export default function Page() {
             <Reveal delay={100}>
               <div className="h-full rounded-2xl border border-white/10 bg-card p-8">
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "var(--brand-amber-tint)", color: "var(--brand-amber)" }}>
-                  <Icon path={ICONS.reputation} />
+                  <Icon path={ICONS.download} />
                 </div>
-                <h3 className="mt-5 text-xl font-semibold">Reputation & Referral Systems</h3>
+                <h3 className="mt-5 text-xl font-semibold">Ready to Print or Share</h3>
                 <ul className="mt-5 flex flex-col gap-3">
                   {[
-                    "Automated review requests",
-                    "Documented referral program setup",
-                    "Google Business Profile & listings management",
-                    "Systems that turn happy customers into revenue",
+                    "Print-ready, high-resolution flyers",
+                    "Download instantly from your dashboard",
+                    "Use in-store, by mail, or online",
                   ].map((f) => (
                     <li key={f} className="flex items-start gap-2.5 text-sm text-foreground/85">
                       <span className="mt-0.5" style={{ color: "var(--brand-amber)" }}><Icon path={ICONS.check} className="w-4 h-4" /></span>
@@ -369,26 +378,26 @@ export default function Page() {
         </div>
       </section>
 
-      {/* ── OPTIONAL ADD-ONS ─────────────────────────────────────────────── */}
+      {/* ── WHY ONEFLYER ─────────────────────────────────────────────────── */}
       <section className="px-6 md:px-12 lg:px-20 py-24 border-t border-white/[0.06]">
         <div className="max-w-6xl mx-auto">
           <Reveal>
-            <Tag>Optional Add-Ons</Tag>
+            <Tag>Why OneFlyer</Tag>
           </Reveal>
           <RevealText
             as="h2"
             className="mt-6 text-3xl md:text-4xl font-semibold tracking-tight leading-tight max-w-2xl text-balance"
           >
-            Layer on more growth once the foundation is set.
+            Why local businesses choose OneFlyer.
           </RevealText>
           <Reveal delay={80}>
             <p className="mt-4 text-sm text-muted-foreground max-w-xl">
-              These are optional, layered on top of the core plans below.
+              The same AI design engine powers every plan below.
             </p>
           </Reveal>
 
           <div className="mt-12 grid md:grid-cols-3 gap-6">
-            {ADDONS.map((a, i) => {
+            {WHY_ONEFLYER.map((a, i) => {
               const accent = ACCENTS[i % ACCENTS.length]
               return (
                 <Reveal key={a.title} delay={i * 90}>
@@ -422,7 +431,7 @@ export default function Page() {
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
           <div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[42rem] h-[42rem] rounded-full blur-[130px] opacity-25"
-            style={{ background: "radial-gradient(circle, rgba(19,168,164,0.3), transparent 65%)" }}
+            style={{ background: "radial-gradient(circle, rgba(201,112,74,0.3), transparent 65%)" }}
           />
         </div>
         <div className="max-w-6xl mx-auto">
@@ -434,7 +443,7 @@ export default function Page() {
               as="h2"
               className="mt-6 text-3xl md:text-4xl font-semibold tracking-tight leading-tight text-balance"
             >
-              A one-time build, then an owned system on subscription.
+              Simple pricing that grows with your business.
             </RevealText>
           </div>
 
@@ -442,7 +451,7 @@ export default function Page() {
 
           <Reveal delay={160}>
             <p className="mt-8 text-center text-sm text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Both plans include up to 20 flyer updates or new pieces per month. On the Plus plan you set your own monthly ad budget (minimum $300/mo) and can change it anytime. Large-scale or specialty campaigns are scoped separately.
+              Not sure which plan fits your business? Reach out anytime — we&apos;re happy to help you pick.
             </p>
           </Reveal>
         </div>
@@ -459,7 +468,7 @@ export default function Page() {
               as="h2"
               className="mt-6 text-3xl md:text-4xl font-semibold tracking-tight leading-tight text-balance"
             >
-              Three steps to a marketing system you own.
+              Three steps to a flyer you&apos;re proud of.
             </RevealText>
           </div>
 
@@ -541,8 +550,7 @@ export default function Page() {
             </div>
             <div className="flex flex-col gap-2.5">
               <span className="text-xs uppercase tracking-widest text-muted-foreground/70">Contact</span>
-              {/* TODO: Replace with the real business email once set up */}
-              <a href="mailto:hello@oneflyer.co" className="text-sm text-foreground/70 hover:text-white transition-colors">hello@oneflyer.co</a>
+              <a href="mailto:Gpearl1006@gmail.com" className="text-sm text-foreground/70 hover:text-white transition-colors">Questions? Email us at Gpearl1006@gmail.com</a>
               <a href="/dashboard" className="text-sm text-foreground/70 hover:text-white transition-colors">Client Login</a>
               <div className="flex gap-3 mt-1">
                 <span className="text-sm text-muted-foreground/60">Instagram</span>

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import type { BrandStyle, IntakeSubmission, PlanId, ServiceItem } from "@/lib/types"
+import type { BrandStyle, IntakeSubmission, MarketingPlanId, ServiceItem } from "@/lib/types"
 import { getPlan } from "@/lib/plans"
 
 const STEPS = ["Business", "Services", "Brand", "Contact", "Deliverables"] as const
@@ -27,7 +27,7 @@ const nextId = () => `svc-${++idCounter}-${Date.now()}`
 export function OnboardingForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const planId = (searchParams.get("plan") as PlanId | null) ?? null
+  const planId = (searchParams.get("plan") as MarketingPlanId | null) ?? null
   const plan = getPlan(planId)
 
   const [step, setStep] = useState(0)

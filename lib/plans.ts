@@ -1,44 +1,47 @@
 import type { Plan } from "./types"
-import { FREE_FLYER_LIMIT } from "./types"
 
+// NOTE: these three tiers are the MARKETING pricing shown on the homepage —
+// see the MarketingPlanId comment in lib/types.ts. The real backend still
+// only enforces two states (free: FREE_FLYER_LIMIT lifetime, pro:
+// unlimited) — there's no real monthly-reset Basic tier or billing wired up
+// yet. Real checkout is being built separately.
 export const PLANS: Plan[] = [
   {
-    id: "free",
-    name: "Free",
+    id: "trial",
+    name: "Free Trial",
     tagline: "See real, on-brand flyers before you commit to anything.",
     monthlyFee: 0,
-    description: `Generate up to ${FREE_FLYER_LIMIT} flyers, no credit card required — full access to the same AI design engine Pro users get.`,
-    features: [
-      `${FREE_FLYER_LIMIT} flyers included`,
-      "All core design features — brand-matched colors, fonts & layouts",
-      "No credit card required",
-    ],
-    note: `Your ${FREE_FLYER_LIMIT} free flyers never expire. Upgrade anytime for unlimited.`,
+    description: "Try the full AI design engine with a few flyers on us — no credit card required.",
+    features: ["3 flyers free", "No credit card required"],
+    note: "See exactly what you'll get before spending a dime.",
     outcome: "Perfect for testing the waters before you upgrade.",
-    ctaLabel: "Start for free",
+    ctaLabel: "Start Free Trial",
+  },
+  {
+    id: "basic",
+    name: "Basic",
+    tagline: "For businesses that need a steady stream of new materials.",
+    monthlyFee: 75,
+    description: "All the core design features, with enough flyers for a real monthly marketing cadence.",
+    features: ["15 flyers per month", "All core design features"],
+    note: "Refresh your flyers as often as your business needs.",
+    outcome: "A steady stream of on-brand materials, every month.",
+    stripeMonthlyPriceId: "price_basic_monthly_placeholder",
+    ctaLabel: "Get Started",
   },
   {
     id: "pro",
     name: "Pro",
-    tagline: "For businesses that need a steady stream of new materials.",
+    tagline: "For businesses that want the most flyers, generated first.",
     badge: "Most Popular",
-    monthlyFee: 29,
-    description: "Everything in Free, with no cap on how many flyers you generate.",
-    features: [
-      "Unlimited flyers",
-      "Priority generation — jump the queue",
-      "Priority support",
-    ],
-    note: "Generate as many flyers as you need, whenever you need them.",
-    outcome: "Never worry about running out of flyers again.",
+    monthlyFee: 100,
+    description: "Everything in Basic, with more flyers per month and priority generation.",
+    features: ["25 flyers per month", "Priority generation"],
+    note: "Your flyers jump the queue and finish first.",
+    outcome: "Never wait on your marketing materials again.",
     mostPopular: true,
     stripeMonthlyPriceId: "price_pro_monthly_placeholder",
-    // No real checkout wired yet — a button labeled "Upgrade to Pro" that
-    // silently does nothing (or just redirects to onboarding) would imply a
-    // real upgrade happened. Contact-us is the honest interim CTA until
-    // Stripe is wired to stripeMonthlyPriceId.
-    ctaLabel: "Contact us to upgrade",
-    ctaHref: "mailto:hello@oneflyer.co?subject=Upgrade%20to%20OneFlyer%20Pro",
+    ctaLabel: "Get Started",
   },
 ]
 
