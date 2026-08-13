@@ -107,10 +107,11 @@ export function FormFillSection() {
             className="w-full text-sm text-muted-foreground" />
         </div>
         <div>
-          <label htmlFor="info-link" className="block text-sm font-medium mb-1.5">…or a link with the information</label>
+          <label htmlFor="info-link" className="block text-sm font-medium mb-1.5">…or a link with the information (a Google Sheet works too)</label>
           <input id="info-link" type="url" placeholder="https://…" value={infoLink}
             onChange={(e) => setInfoLink(e.target.value)}
             className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
+          <p className="mt-1.5 text-xs text-muted-foreground">For a Google Sheet, set sharing to &quot;Anyone with the link can view&quot; first.</p>
         </div>
         {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
         <button type="submit" disabled={submitting}

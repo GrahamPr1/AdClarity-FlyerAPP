@@ -37,18 +37,58 @@ function stripHtml(html: string): string {
     .trim()
 }
 
-/** Claude has no browsing tool here — a client-provided info link is fetched server-side, never handed to the agent as a bare URL. Returns null on any fetch failure rather than throwing; a bad link just means less context, not a failed request. */
-async function fetchInfoLinkContent(infoLink: string | null): Promise<string | null> {
-  if (!infoLink) return null
+const GOOGLE_SHEETS_URL_RE = /docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/
+
+/** A Google Sheets URL has no readable content via a plain fetch (it's a JS app shell) — converts it to that sheet's public CSV export endpoint instead, which works with no login IF the sheet is shared as "Anyone with the link can view". Preserves a specific tab's gid if the URL included one. */
+function toGoogleSheetsCsvExportUrl(url: string): string | null {
+  const match = url.match(GOOGLE_SHEETS_URL_RE)
+  if (!match) return null
+  const gidMatch = url.match(/[#&?]gid=(\d+)/)
+  return `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv${gidMatch ? `&gid=${gidMatch[1]}` : ""}`
+}
+
+/**
+ * Claude has no browsing tool here — a client-provided info link is
+ * fetched server-side, never handed to the agent as a bare URL.
+ *
+ * A Google Sheets link gets special handling: converted to its CSV export
+ * URL, and a failure there is treated as a real, surfaceable error (most
+ * likely cause: the sheet isn't actually shared publicly) rather than
+ * silently degraded — Google doesn't return a clean 401 for this, it
+ * redirects to an HTML sign-in page with a 200, so content-type is the
+ * real signal a fetch succeeded vs. quietly failed.
+ *
+ * Any other link failing is NOT treated as an error — a bad generic link
+ * just means less context for the agent, not a failed request.
+ */
+async function fetchInfoLinkContent(infoLink: string | null): Promise<{ content: string | null; error: string | null }> {
+  if (!infoLink) return { content: null, error: null }
+
+  const sheetsExportUrl = toGoogleSheetsCsvExportUrl(infoLink)
+
   try {
-    const res = await fetch(infoLink, { redirect: "follow" })
-    if (!res.ok) return null
-    const raw = await res.text()
+    const res = await fetch(sheetsExportUrl ?? infoLink, { redirect: "follow" })
     const contentType = res.headers.get("content-type") ?? ""
+
+    if (sheetsExportUrl) {
+      if (!res.ok || !contentType.includes("csv")) {
+        return {
+          content: null,
+          error: 'Couldn\'t access that Google Sheet — make sure it\'s shared as "Anyone with the link can view", then try again.',
+        }
+      }
+      return { content: await res.text(), error: null }
+    }
+
+    if (!res.ok) return { content: null, error: null }
+    const raw = await res.text()
     const text = contentType.includes("html") ? stripHtml(raw) : raw
-    return text.slice(0, MAX_LINK_FETCH_CHARS)
+    return { content: text.slice(0, MAX_LINK_FETCH_CHARS), error: null }
   } catch {
-    return null
+    return {
+      content: null,
+      error: sheetsExportUrl ? "Couldn't reach that Google Sheet link — please check it and try again." : null,
+    }
   }
 }
 
@@ -75,7 +115,15 @@ async function runFill(
     throw new Error("This PDF has no fillable form fields — only fillable PDF forms are supported right now.")
   }
 
-  const infoLinkContent = await fetchInfoLinkContent(infoLink)
+  const { content: infoLinkContent, error: linkError } = await fetchInfoLinkContent(infoLink)
+  if (linkError) {
+    // A Google Sheet that isn't actually reachable is a real, fixable
+    // problem worth surfacing — but only fail the whole request if it was
+    // the client's ONLY information source; if they also gave a file,
+    // just proceed with that instead of blocking on the broken link.
+    if (!infoFile) throw new Error(linkError)
+    console.error("[form-fill] Info link failed, continuing with infoFile only:", linkError)
+  }
 
   const targetFormDoc: DocumentInput = { base64: Buffer.from(targetFormBytes).toString("base64"), mediaType: "application/pdf" }
   const infoFileDoc: DocumentInput | null = infoFile
