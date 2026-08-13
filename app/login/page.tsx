@@ -60,51 +60,43 @@ function AdminLoginForm() {
 
 function ClientLoginForm({ next }: { next: string }) {
   const [email, setEmail] = useState("")
-  const [code, setCode] = useState("")
-  const [issuedCode, setIssuedCode] = useState("")
   const [error, setError] = useState("")
-  const [requesting, setRequesting] = useState(false)
-  const [signingIn, setSigningIn] = useState(false)
+  const [working, setWorking] = useState(false)
   const router = useRouter()
 
-  async function handleGetCode(e: React.FormEvent) {
+  // One step, not two — get-code-then-manually-re-enter-it never bought
+  // any real security (the code is already fully visible on this same
+  // screen; requiring it to be typed into a second field doesn't prove
+  // anything more), and the extra click was genuinely confusing: after
+  // the code appeared, nothing looked like it had happened until you
+  // noticed a second button had replaced the first one.
+  async function handleContinue(e: React.FormEvent) {
     e.preventDefault()
-    setRequesting(true)
+    setWorking(true)
     setError("")
-    setIssuedCode("")
 
-    const res = await fetch("/api/auth/client-access", {
+    const accessRes = await fetch("/api/auth/client-access", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     })
-    const data = await res.json()
-    setRequesting(false)
+    const accessData = await accessRes.json().catch(() => ({}) as { error?: string; code?: string })
 
-    if (!res.ok) {
-      setError(data.error ?? "Something went wrong")
+    if (!accessRes.ok || !accessData.code) {
+      setWorking(false)
+      setError(accessData.error ?? "Something went wrong")
       return
     }
 
-    setIssuedCode(data.code)
-    setCode(data.code)
-  }
-
-  async function handleSignIn(e: React.FormEvent) {
-    e.preventDefault()
-    setSigningIn(true)
-    setError("")
-
-    const res = await fetch("/api/auth/client-login", {
+    const loginRes = await fetch("/api/auth/client-login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code }),
+      body: JSON.stringify({ email, code: accessData.code }),
     })
 
-    setSigningIn(false)
-
-    if (!res.ok) {
-      setError("Invalid or expired code")
+    if (!loginRes.ok) {
+      setWorking(false)
+      setError("Couldn't sign you in — please try again.")
       return
     }
 
@@ -113,40 +105,20 @@ function ClientLoginForm({ next }: { next: string }) {
   }
 
   return (
-    <div className="mt-6 flex flex-col gap-4">
+    <form onSubmit={handleContinue} className="mt-6 flex flex-col gap-4">
       <div>
         <label htmlFor="email" className="block text-sm font-medium mb-1.5">Email</label>
         <input id="email" type="email" required autoFocus value={email}
-          onChange={(e) => { setEmail(e.target.value); setIssuedCode(""); setCode("") }}
+          onChange={(e) => setEmail(e.target.value)}
           className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
           placeholder="you@business.com" />
       </div>
-
-      {!issuedCode ? (
-        <button onClick={handleGetCode} disabled={requesting || !email} type="button"
-          className="w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
-          {requesting ? "Generating code…" : "Get my access code"}
-        </button>
-      ) : (
-        <>
-          <div className="rounded-lg bg-[var(--brand-teal-tint)] px-4 py-3 text-sm">
-            Your access code: <span className="font-mono font-semibold tracking-wider">{issuedCode}</span>
-            <p className="mt-1 text-xs text-foreground/70">Valid for 15 minutes. Confirm below to continue.</p>
-          </div>
-          <div>
-            <label htmlFor="code" className="block text-sm font-medium mb-1.5">Access code</label>
-            <input id="code" required value={code} onChange={(e) => setCode(e.target.value)}
-              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm font-mono tracking-wider focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
-          </div>
-          <button onClick={handleSignIn} disabled={signingIn || !code} type="button"
-            className="w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
-            {signingIn ? "Signing in…" : "Sign in"}
-          </button>
-        </>
-      )}
-
       {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
-    </div>
+      <button type="submit" disabled={working || !email}
+        className="w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+        {working ? "Signing you in…" : "Continue"}
+      </button>
+    </form>
   )
 }
 
