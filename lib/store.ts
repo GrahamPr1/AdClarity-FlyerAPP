@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { ClientRecord, Deliverables, FlyerDeliverable, IntakeSubmission, PlanId } from "./types"
+import type { ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
@@ -215,6 +215,39 @@ export async function savePipelineState(email: string, intake: NormalizedIntake,
 
 export async function getPipelineState(email: string): Promise<StoredPipelineState | null> {
   return (await redis.get<StoredPipelineState>(pipelineStateKey(email))) ?? null
+}
+
+// ---- Form Fill requests (Pro-only) -----------------------------------------
+//
+// Same accumulate-don't-replace pattern as flyers (see seedFlyerDeliverables)
+// — a client's past form fills stay visible after a new one, rather than
+// each new request wiping the list.
+
+function formFillsKey(email: string) {
+  return `formfills:${email}`
+}
+
+async function readFormFills(email: string): Promise<FormFillRequest[]> {
+  return (await redis.get<FormFillRequest[]>(formFillsKey(email))) ?? []
+}
+
+export async function getFormFillsForEmail(email: string): Promise<FormFillRequest[]> {
+  return readFormFills(email)
+}
+
+export async function seedFormFillRequest(email: string, request: FormFillRequest): Promise<void> {
+  const current = await readFormFills(email)
+  await redis.set(formFillsKey(email), [...current, request])
+}
+
+export async function updateFormFillRequest(
+  email: string,
+  id: string,
+  updates: Partial<Pick<FormFillRequest, "status" | "resultUrl" | "error" | "unfilledNotes">>,
+): Promise<void> {
+  const current = await readFormFills(email)
+  const next = current.map((r) => (r.id === id ? { ...r, ...updates } : r))
+  await redis.set(formFillsKey(email), next)
 }
 
 // ---- Client records (usage limits) ---------------------------------------

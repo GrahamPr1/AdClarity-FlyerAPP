@@ -8,6 +8,7 @@ import type {
   FlyerDeliverable,
   FlyerStatus,
 } from "@/lib/types"
+import { FormFillSection } from "@/components/form-fill-section"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -235,6 +236,7 @@ export function DashboardClient() {
             ))}
           </div>
 
+          {data.planId === "pro" && <FormFillSection />}
         </>
       )}
 
