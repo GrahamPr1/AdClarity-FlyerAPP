@@ -1,16 +1,24 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { waitUntil } from "@vercel/functions"
 import type { IntakeSubmission } from "@/lib/types"
 import { PLAN_LIMITS } from "@/lib/types"
 import { saveIntake, getOrCreateClient, incrementFlyersCreated } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
+import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { continuePipelineFromIntake, runIntakeStage, MAX_FLYERS_PER_BATCH } from "@/lib/agent-pipeline/pipeline"
 
 // POST /api/intake
 // Accepts the onboarding IntakeSubmission, validates required fields,
 // enforces the client's plan flyer limit (see PLAN_LIMITS), and hands off
-// to the agent pipeline.
-export async function POST(request: Request) {
+// to the agent pipeline. Requires a signed-in session — onboarding happens
+// AFTER login now (see app/onboarding/page.tsx), so this is defense in
+// depth against a raw POST bypassing that, not just a UI-level lock.
+export async function POST(request: NextRequest) {
+  const session = await getSessionIdentity(request)
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   let body: IntakeSubmission
   try {
     body = (await request.json()) as IntakeSubmission
@@ -31,6 +39,13 @@ export async function POST(request: Request) {
   }
 
   const email = body.contact.email.trim().toLowerCase()
+
+  // A client session may only ever submit as their own authenticated
+  // email — admin may submit on behalf of any email, same allowance as
+  // /api/deliverables/retry, since there's no "own" email for admin.
+  if (session.sub !== ADMIN_SUB && session.sub !== email) {
+    return NextResponse.json({ error: "Forbidden — you can only submit for your own signed-in email" }, { status: 403 })
+  }
 
   // -------------------------------------------------------------------------
   // PLAN LIMIT — checked BEFORE running any part of the pipeline.

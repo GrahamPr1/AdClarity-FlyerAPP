@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 
 function AdminLoginForm() {
   const [password, setPassword] = useState("")
@@ -58,7 +58,7 @@ function AdminLoginForm() {
   )
 }
 
-function ClientLoginForm() {
+function ClientLoginForm({ next }: { next: string }) {
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
   const [issuedCode, setIssuedCode] = useState("")
@@ -108,7 +108,7 @@ function ClientLoginForm() {
       return
     }
 
-    router.push("/dashboard")
+    router.push(next)
     router.refresh()
   }
 
@@ -150,8 +150,14 @@ function ClientLoginForm() {
   )
 }
 
-export default function LoginPage() {
+function LoginPageInner() {
   const [mode, setMode] = useState<"client" | "admin">("client")
+  const searchParams = useSearchParams()
+  // Where to land after signing in — e.g. /onboarding?plan=pro if that's
+  // what sent them here. Only ever used for the client flow; admin always
+  // goes to /dashboard regardless, since an onboarding redirect makes no
+  // sense for the site-owner login.
+  const next = searchParams.get("next") ?? "/dashboard"
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
@@ -166,7 +172,7 @@ export default function LoginPage() {
             {mode === "client" ? "Enter your email to get an access code and view your flyers." : "Sign in with the site admin password."}
           </p>
 
-          {mode === "client" ? <ClientLoginForm /> : <AdminLoginForm />}
+          {mode === "client" ? <ClientLoginForm next={next} /> : <AdminLoginForm />}
 
           <button onClick={() => setMode(mode === "client" ? "admin" : "client")} type="button"
             className="mt-5 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
@@ -175,5 +181,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
   )
 }

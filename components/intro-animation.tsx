@@ -51,13 +51,13 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
         style={{
           transform: wiping ? "translateY(-100%)" : "translateY(0%)",
           transition: wiping ? `transform ${WIPE_DURATION}ms cubic-bezier(0.76, 0, 0.24, 1)` : "none",
-          background: "linear-gradient(160deg, #2e2119 0%, #1c140f 55%, #120c08 100%)",
+          background: "linear-gradient(160deg, #1f232c 0%, #12141a 55%, #090a0d 100%)",
         }}
       >
         {/* soft teal glow behind the wordmark */}
         <div
           className="absolute w-[70vw] h-[70vw] rounded-full blur-[100px] opacity-60"
-          style={{ background: "radial-gradient(circle, rgba(201,112,74,0.28), transparent 65%)" }}
+          style={{ background: "radial-gradient(circle, rgba(94,184,240,0.28), transparent 65%)" }}
         />
 
         <div className="relative flex" style={{ gap: "0.06em" }}>
@@ -79,7 +79,7 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
             return (
               <span
                 key={i}
-                className="font-sans font-bold text-[#f5efe7] leading-none select-none"
+                className="font-sans font-bold text-[#eef1f5] leading-none select-none"
                 style={{
                   fontSize: `calc((100vw - 64px) / ${LETTERS.length})`,
                   letterSpacing: "0.05em",
