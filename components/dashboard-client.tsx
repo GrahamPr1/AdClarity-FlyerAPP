@@ -12,7 +12,7 @@ import type {
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 /* ----------------------------- Status badge ------------------------------ */
-function StatusBadge({ status }: { status: FlyerStatus | string }) {
+export function StatusBadge({ status }: { status: FlyerStatus | string }) {
   const map: Record<string, string> = {
     Ready: "bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)] border-[var(--brand-teal)]/40",
     "In Progress": "bg-amber-400/10 text-amber-300 border-amber-400/30",
@@ -28,7 +28,7 @@ function StatusBadge({ status }: { status: FlyerStatus | string }) {
 }
 
 /* ------------------------------ Flyer card ------------------------------- */
-function FlyerCard({ flyer, onRetry }: { flyer: FlyerDeliverable; onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }> }) {
+export function FlyerCard({ flyer, onRetry }: { flyer: FlyerDeliverable; onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }> }) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
   const [retrying, setRetrying] = useState(false)

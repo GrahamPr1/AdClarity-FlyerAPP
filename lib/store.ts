@@ -260,6 +260,21 @@ export async function incrementFlyersCreated(email: string, by: number): Promise
   return await redis.incrby(countKey(email), by)
 }
 
+/** Every client's full deliverable state — the admin-only "everyone's flyers" roster view. Never used for a client's own session. */
+export async function listClientsWithDeliverables(): Promise<Deliverables[]> {
+  let cursor = "0"
+  const emails: string[] = []
+  do {
+    const [next, keys] = await redis.scan(cursor, { match: "client:*:plan", count: 100 })
+    cursor = next
+    for (const key of keys) {
+      emails.push(key.slice("client:".length, key.length - ":plan".length))
+    }
+  } while (cursor !== "0")
+
+  return Promise.all(emails.map((email) => getDeliverablesForEmail(email)))
+}
+
 // ---- Client self-serve access codes ---------------------------------------
 //
 // There's no email/SMS delivery wired up, so a client can't be sent a
