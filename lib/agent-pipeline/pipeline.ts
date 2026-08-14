@@ -164,13 +164,11 @@ async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: 
 
 /**
  * Runs Brand -> Flyer for an already-normalized intake and updates
- * deliverable state as each stage completes, using the same update contract
- * the /api/agent-callback webhook exposes (see lib/store.ts's
- * updateDeliverable). Intended to be called via waitUntil() from
- * /api/intake so the response doesn't have to wait on it, but the
- * serverless function is kept alive until it actually finishes — AFTER the
- * caller has already checked the usage limit and incremented
- * flyersCreated.
+ * deliverable state directly (see lib/store.ts's updateDeliverable) as each
+ * stage completes. Intended to be called via waitUntil() from /api/intake
+ * so the response doesn't have to wait on it, but the serverless function
+ * is kept alive until it actually finishes — AFTER the caller has already
+ * checked the usage limit and incremented flyersCreated.
  *
  * email is the submitter's email from the ORIGINAL raw submission, not the
  * normalized intake — the Intake Agent's output has no email field (it's

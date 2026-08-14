@@ -13,8 +13,9 @@ import { getDeliverables, getDeliverablesForEmail } from "@/lib/store"
 // requires — this route serves real client data and middleware.ts's matcher
 // only covers page routes, not API routes.
 //
-// In production this data is owned by the database and continuously updated by
-// the external Claude-based agent pipeline via the /api/agent-callback webhook.
+// Deliverable state is updated in-process by the agent pipeline itself
+// (lib/agent-pipeline/pipeline.ts calling lib/store.ts's updateDeliverable
+// directly) — there's no external webhook involved.
 export async function GET(request: NextRequest) {
   const session = await getSessionIdentity(request)
   if (!session) {
