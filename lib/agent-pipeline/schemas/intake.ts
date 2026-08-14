@@ -25,6 +25,8 @@ export const NormalizedIntakeSchema = z.object({
   voiceTonePreference: z.string().min(1),
   fontStylePreference: z.enum(["modern", "classic", "playful", "minimal"]),
   photos: z.array(z.object({ url: z.string(), caption: z.string() })),
+  /** Verbatim copy of the raw submission's wantsAiPhotos — a real client consent choice, never inferred (see prompts/intake.ts). Defaults to false when absent. */
+  wantsAiPhotos: z.boolean(),
   flyerRequests: z
     .array(
       z.object({

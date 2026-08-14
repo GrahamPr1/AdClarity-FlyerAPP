@@ -97,6 +97,10 @@ export interface IntakeSubmission {
     socialHandles: string
   }
   existingMaterialsFileName?: string
+  /** Real Blob URLs — unlike logoFileName/existingMaterialsFileName, these are actually uploaded (see /api/onboarding/upload-photo), not just filenames. */
+  flyerPhotoUrls?: string[]
+  /** Explicit opt-in to AI-generated stock photos when a flyer has no client photo to use — Pro-only, real server-side gate (see hasProPhotoGeneration in lib/agent-pipeline/pipeline.ts). Never inferred from silence. */
+  wantsAiPhotos?: boolean
   flyerNotes: string
   websitePreferences: string
   submittedAt?: string
