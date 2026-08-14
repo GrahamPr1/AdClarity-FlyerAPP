@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { ClientRecord, Deliverables, FlyerDeliverable, IntakeSubmission, PlanId } from "./types"
+import type { ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
@@ -190,6 +190,21 @@ export async function markFlyersFailed(email: string, ids: string[], reason: str
   })
 }
 
+/**
+ * Removes a flyer from a client's visible deliverables. Deliberately does
+ * NOT touch flyersCreated (a separate Redis key, incremented once at
+ * generation time and never decremented) — a client "hiding" a flyer they
+ * don't like still used up that generation against their plan's lifetime
+ * limit, and shouldn't get it back by deleting the result.
+ */
+export async function deleteFlyerDeliverable(email: string, id: string): Promise<boolean> {
+  const current = await readDeliverables(email)
+  const next = current.flyers.filter((f) => f.id !== id)
+  if (next.length === current.flyers.length) return false
+  await writeDeliverables(email, { ...current, flyers: next })
+  return true
+}
+
 // ---- Pipeline state (for retry) -------------------------------------------
 //
 // The normalized Intake Agent output + flyer requests for a client's most
@@ -215,6 +230,39 @@ export async function savePipelineState(email: string, intake: NormalizedIntake,
 
 export async function getPipelineState(email: string): Promise<StoredPipelineState | null> {
   return (await redis.get<StoredPipelineState>(pipelineStateKey(email))) ?? null
+}
+
+// ---- Form Fill requests (Pro-only) -----------------------------------------
+//
+// Same accumulate-don't-replace pattern as flyers (see seedFlyerDeliverables)
+// — a client's past form fills stay visible after a new one, rather than
+// each new request wiping the list.
+
+function formFillsKey(email: string) {
+  return `formfills:${email}`
+}
+
+async function readFormFills(email: string): Promise<FormFillRequest[]> {
+  return (await redis.get<FormFillRequest[]>(formFillsKey(email))) ?? []
+}
+
+export async function getFormFillsForEmail(email: string): Promise<FormFillRequest[]> {
+  return readFormFills(email)
+}
+
+export async function seedFormFillRequest(email: string, request: FormFillRequest): Promise<void> {
+  const current = await readFormFills(email)
+  await redis.set(formFillsKey(email), [...current, request])
+}
+
+export async function updateFormFillRequest(
+  email: string,
+  id: string,
+  updates: Partial<Pick<FormFillRequest, "status" | "resultUrl" | "error" | "unfilledNotes">>,
+): Promise<void> {
+  const current = await readFormFills(email)
+  const next = current.map((r) => (r.id === id ? { ...r, ...updates } : r))
+  await redis.set(formFillsKey(email), next)
 }
 
 // ---- Client records (usage limits) ---------------------------------------

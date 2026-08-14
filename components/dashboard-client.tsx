@@ -8,6 +8,7 @@ import type {
   FlyerDeliverable,
   FlyerStatus,
 } from "@/lib/types"
+import { FormFillSection } from "@/components/form-fill-section"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -27,12 +28,63 @@ export function StatusBadge({ status }: { status: FlyerStatus | string }) {
   )
 }
 
+/* --------------------------- Flyer thumbnail ------------------------------
+ * A real preview of the generated flyer, rendered before download — not a
+ * generic icon. Sized close to a standard letter page (most flyer requests
+ * land near there) and then shrunk hard as a whole via a CSS transform.
+ * That transform is also the "zoomed out" anti-theft measure the client
+ * asked for: at this scale body copy isn't legible enough to substitute for
+ * the real download — only the layout and colors read — and pointer-events
+ * plus a full sandbox keep it from being clicked, selected, or copied out of
+ * the card. This is a practical deterrent for casual copying, not DRM — a
+ * technical user could still inspect the underlying data URL.
+ */
+const THUMB_SCALE = 0.14
+const THUMB_IFRAME_WIDTH = 850
+const THUMB_IFRAME_HEIGHT = 1100
+
+function FlyerThumbnail({ downloadUrl, title }: { downloadUrl: string; title: string }) {
+  return (
+    <div
+      className="overflow-hidden rounded-md bg-white shadow-inner"
+      style={{ width: THUMB_IFRAME_WIDTH * THUMB_SCALE, height: THUMB_IFRAME_HEIGHT * THUMB_SCALE }}
+    >
+      <iframe
+        src={downloadUrl}
+        title={`${title} preview`}
+        tabIndex={-1}
+        sandbox=""
+        aria-hidden="true"
+        style={{
+          width: THUMB_IFRAME_WIDTH,
+          height: THUMB_IFRAME_HEIGHT,
+          border: "none",
+          transform: `scale(${THUMB_SCALE})`,
+          transformOrigin: "top left",
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  )
+}
+
 /* ------------------------------ Flyer card ------------------------------- */
-export function FlyerCard({ flyer, onRetry }: { flyer: FlyerDeliverable; onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }> }) {
+export function FlyerCard({
+  flyer,
+  onRetry,
+  onDelete,
+}: {
+  flyer: FlyerDeliverable
+  onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
+  onDelete?: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
+}) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
   const [retrying, setRetrying] = useState(false)
   const [retryError, setRetryError] = useState("")
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
 
   async function handleRetry() {
     setRetrying(true)
@@ -46,12 +98,29 @@ export function FlyerCard({ flyer, onRetry }: { flyer: FlyerDeliverable; onRetry
     if (!result.ok) setRetryError(result.error ?? "Could not start retry — please try again.")
   }
 
+  async function handleDelete() {
+    if (!onDelete) return
+    if (!confirmingDelete) {
+      setConfirmingDelete(true)
+      return
+    }
+    setDeleting(true)
+    setDeleteError("")
+    const result = await onDelete(flyer.id)
+    if (!result.ok) {
+      setDeleting(false)
+      setConfirmingDelete(false)
+      setDeleteError(result.error ?? "Could not delete — please try again.")
+    }
+    // On success the card unmounts once the list refreshes, so no need to
+    // reset `deleting`/`confirmingDelete` here.
+  }
+
   return (
     <div className="rounded-xl border border-white/10 bg-card overflow-hidden flex flex-col">
       <div className="aspect-[4/3] bg-[var(--brand-navy-deep)] flex items-center justify-center">
-        {ready && flyer.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={flyer.thumbnailUrl || "/placeholder.svg"} alt={`${flyer.title} preview`} className="w-full h-full object-cover" />
+        {ready && flyer.downloadUrl ? (
+          <FlyerThumbnail downloadUrl={flyer.downloadUrl} title={flyer.title} />
         ) : failed ? (
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-red-400/60">
             <circle cx="12" cy="12" r="9" />
@@ -70,20 +139,33 @@ export function FlyerCard({ flyer, onRetry }: { flyer: FlyerDeliverable; onRetry
           <div className="mt-1.5"><StatusBadge status={flyer.status} /></div>
           {failed && flyer.error && <p className="mt-1.5 text-xs text-red-400/80 leading-snug">{flyer.error}</p>}
           {retryError && <p className="mt-1.5 text-xs text-amber-300 leading-snug">{retryError}</p>}
+          {deleteError && <p className="mt-1.5 text-xs text-amber-300 leading-snug">{deleteError}</p>}
         </div>
-        {ready && flyer.downloadUrl && (
-          <a href={flyer.downloadUrl}
-            download={`${flyer.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.html`}
-            className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
-            Download
-          </a>
-        )}
-        {failed && (
-          <button onClick={handleRetry} disabled={retrying}
-            className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] disabled:opacity-60 transition-colors">
-            {retrying ? "Retrying…" : "Retry"}
-          </button>
-        )}
+        <div className="shrink-0 flex items-center gap-2">
+          {ready && flyer.downloadUrl && (
+            <a href={flyer.downloadUrl}
+              download={`${flyer.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.html`}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
+              Download
+            </a>
+          )}
+          {failed && (
+            <button onClick={handleRetry} disabled={retrying}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] disabled:opacity-60 transition-colors">
+              {retrying ? "Retrying…" : "Retry"}
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={handleDelete} onBlur={() => setConfirmingDelete(false)} disabled={deleting}
+              className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-60 ${
+                confirmingDelete
+                  ? "border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                  : "border-white/12 hover:bg-white/[0.05]"
+              }`}>
+              {deleting ? "Deleting…" : confirmingDelete ? "Confirm?" : "Delete"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -160,6 +242,32 @@ export function DashboardClient() {
     return { ok: true }
   }
 
+  async function handleDelete(flyerId: string): Promise<{ ok: boolean; error?: string }> {
+    let res: Response
+    try {
+      res = await fetch("/api/deliverables/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flyerId }),
+      })
+    } catch {
+      return { ok: false, error: "Couldn't reach the server — check your connection and try again." }
+    }
+
+    if (res.status === 401) {
+      router.push("/login")
+      return { ok: false, error: "Your session expired — signing you back in." }
+    }
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}) as { error?: string })
+      return { ok: false, error: data.error ?? "Could not delete — please try again." }
+    }
+
+    mutate()
+    return { ok: true }
+  }
+
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" })
     router.push("/login")
@@ -231,10 +339,11 @@ export function DashboardClient() {
           </div>
           <div className="mt-5 grid grid-cols-2 md:grid-cols-3 gap-4">
             {data.flyers.map((f) => (
-              <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} />
+              <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete} />
             ))}
           </div>
 
+          {data.planId === "pro" && <FormFillSection />}
         </>
       )}
 

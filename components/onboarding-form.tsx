@@ -24,7 +24,7 @@ function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: str
 let idCounter = 0
 const nextId = () => `svc-${++idCounter}-${Date.now()}`
 
-export function OnboardingForm() {
+export function OnboardingForm({ email }: { email: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const planId = (searchParams.get("plan") as PlanId | null) ?? null
@@ -34,6 +34,9 @@ export function OnboardingForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // contact.email is fixed to the authenticated session's email — signing
+  // in now happens BEFORE onboarding (see app/onboarding/page.tsx), so
+  // this is never a free-text field someone could type any address into.
   const [form, setForm] = useState<IntakeSubmission>({
     planId,
     businessName: "",
@@ -45,7 +48,7 @@ export function OnboardingForm() {
     preferredStyle: "modern",
     voiceTone: "",
     targetAudience: "",
-    contact: { email: "", phone: "", address: "", website: "", socialHandles: "" },
+    contact: { email, phone: "", address: "", website: "", socialHandles: "" },
     existingMaterialsFileName: undefined,
     flyerNotes: "",
     websitePreferences: "",
@@ -227,8 +230,9 @@ export function OnboardingForm() {
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <Label htmlFor="email">Email</Label>
-                <input id="email" type="email" className={fieldBase()} value={form.contact.email}
-                  onChange={(e) => setContact("email", e.target.value)} placeholder="you@business.com" />
+                <input id="email" type="email" readOnly value={form.contact.email}
+                  className={`${fieldBase()} opacity-70 cursor-not-allowed`} />
+                <p className="mt-1.5 text-xs text-muted-foreground">This is the email you signed in with — it's what your flyers will be saved under.</p>
               </div>
               <div>
                 <Label htmlFor="phone">Phone</Label>

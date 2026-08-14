@@ -48,7 +48,7 @@ function PlanCard({
         }`}
         style={
           highlighted
-            ? { backgroundImage: "linear-gradient(165deg, rgba(201,112,74,0.16), rgba(224,138,94,0.05))" }
+            ? { backgroundImage: "linear-gradient(165deg, rgba(94,184,240,0.16), rgba(58,124,168,0.05))" }
             : undefined
         }
       >
@@ -57,7 +57,7 @@ function PlanCard({
             className={`absolute -top-3 left-8 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
               highlighted
                 ? "bg-[var(--brand-teal-bright)] text-white shadow-lg shadow-[color:var(--brand-teal)]/40"
-                : "bg-[var(--brand-amber)] text-[#3a2a00]"
+                : "bg-[var(--brand-amber)] text-[#12141a]"
             }`}
           >
             {plan.badge}

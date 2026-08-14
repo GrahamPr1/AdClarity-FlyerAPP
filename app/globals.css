@@ -4,64 +4,64 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* OneFlyer brand — warm espresso base, terracotta accent, warm foreground.
-     Chosen for a friendlier, less "enterprise SaaS" feel for small business
-     owners (e.g. dental practices) — same structure as before, warmer hues. */
-  --background: #1c140f;          /* deep warm espresso base */
-  --foreground: #f5efe7;          /* warm off-white text */
-  --card: #2c2019;                /* warm brown panel (brand primary) */
-  --card-foreground: #f5efe7;
-  --popover: #2c2019;
-  --popover-foreground: #f5efe7;
-  --primary: #c9704a;             /* brand terracotta */
+  /* OneFlyer brand — grey / white / light blue / black. Replaces the
+     earlier warm espresso/terracotta palette per explicit direction: not
+     brown or orange. Same structure/variable names as before, new hues. */
+  --background: #12141a;          /* near-black, cool grey-blue base */
+  --foreground: #eef1f5;          /* cool near-white text */
+  --card: #1b1e26;                /* dark grey-blue panel (brand primary) */
+  --card-foreground: #eef1f5;
+  --popover: #1b1e26;
+  --popover-foreground: #eef1f5;
+  --primary: #3a7ca8;             /* brand steel blue */
   --primary-foreground: #ffffff;
-  --secondary: #3a2c22;           /* lighter warm brown */
-  --secondary-foreground: #f5efe7;
-  --muted: #3a2c22;
-  --muted-foreground: #b8a696;    /* warm muted taupe */
-  --accent: #c9704a;              /* terracotta accent */
+  --secondary: #232730;           /* lighter grey-blue */
+  --secondary-foreground: #eef1f5;
+  --muted: #232730;
+  --muted-foreground: #97a1ad;    /* cool grey */
+  --accent: #3a7ca8;              /* steel blue accent */
   --accent-foreground: #ffffff;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: #ffffff;
-  --border: rgba(255,235,220,0.10);
-  --input: rgba(255,235,220,0.12);
-  --ring: #c9704a;
-  --chart-1: #c9704a;
-  --chart-2: #e08a5e;
-  --chart-3: #d9a45c;
-  --chart-4: #b98bc9;
-  --chart-5: #f0a94e;
+  --border: rgba(255,255,255,0.10);
+  --input: rgba(255,255,255,0.12);
+  --ring: #5eb8f0;
+  --chart-1: #3a7ca8;
+  --chart-2: #5eb8f0;
+  --chart-3: #8ecbf5;
+  --chart-4: #9aa5b1;
+  --chart-5: #6b7684;
   --radius: 0.75rem;
 
   /* Brand tokens */
-  --brand-navy: #2c2019;
-  --brand-navy-deep: #1c140f;
-  --brand-teal: #c9704a;          /* was cool teal — now warm terracotta */
-  --brand-teal-bright: #e08a5e;   /* pops on dark bg for CTAs */
-  --brand-teal-tint: rgba(201,112,74,0.14); /* soft terracotta tint sections */
-  --brand-amber: #f0a94e;         /* warm secondary accent — value/highlights */
-  --brand-amber-tint: rgba(240,169,78,0.12);
-  --brand-sky: #d9a45c;           /* was cool sky blue — warm gold for variety */
-  --accent-cta: #e08a5e;
-  --accent-cta-hover: #c9704a;
+  --brand-navy: #1b1e26;
+  --brand-navy-deep: #12141a;
+  --brand-teal: #3a7ca8;          /* steel blue */
+  --brand-teal-bright: #5eb8f0;   /* light blue — pops on dark bg for CTAs */
+  --brand-teal-tint: rgba(94,184,240,0.14); /* soft light-blue tint sections */
+  --brand-amber: #9aa5b1;         /* neutral grey secondary accent — value/highlights */
+  --brand-amber-tint: rgba(154,165,177,0.12);
+  --brand-sky: #8ecbf5;           /* very light sky blue, tertiary variety accent */
+  --accent-cta: #5eb8f0;
+  --accent-cta-hover: #3a7ca8;
 
   /* Light / white surfaces — used for contrast bands & "paper" mocks */
   --surface-white: #ffffff;       /* pure white band / card */
-  --surface-soft: #fbf3ea;        /* warm cream panel */
-  --on-white: #2c1e14;            /* warm brown text on white */
-  --on-white-muted: #7a6a5a;      /* warm muted brown-gray text on white */
-  --white-glass: rgba(255,245,235,0.06); /* subtle warm-white glass on dark */
-  --white-glass-strong: rgba(255,245,235,0.10);
-  --white-border: rgba(255,245,235,0.14);
+  --surface-soft: #f3f5f7;        /* light grey-white panel */
+  --on-white: #171a20;            /* near-black text on white */
+  --on-white-muted: #5c6570;      /* cool grey text on white */
+  --white-glass: rgba(255,255,255,0.06); /* subtle white glass on dark */
+  --white-glass-strong: rgba(255,255,255,0.10);
+  --white-border: rgba(255,255,255,0.14);
 
-  --sidebar: #2c2019;
-  --sidebar-foreground: #f5efe7;
-  --sidebar-primary: #c9704a;
+  --sidebar: #1b1e26;
+  --sidebar-foreground: #eef1f5;
+  --sidebar-primary: #3a7ca8;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #3a2c22;
-  --sidebar-accent-foreground: #f5efe7;
-  --sidebar-border: rgba(255,235,220,0.10);
-  --sidebar-ring: #c9704a;
+  --sidebar-accent: #232730;
+  --sidebar-accent-foreground: #eef1f5;
+  --sidebar-border: rgba(255,255,255,0.10);
+  --sidebar-ring: #5eb8f0;
 }
 
 .dark {

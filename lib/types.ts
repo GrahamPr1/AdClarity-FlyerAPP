@@ -144,3 +144,26 @@ export interface Deliverables {
   /** Always a real cap now — no plan is unlimited (see PLAN_LIMITS). */
   flyersLimit: number
 }
+
+// ---- Form Fill (Pro-only) --------------------------------------------------
+//
+// A client uploads a fillable PDF form plus an information source (a file,
+// a link, or both); the Form Fill Agent reads the form's real fields and
+// the info source and returns a completed PDF. Pro-only — gated in
+// /api/form-fill, not just hidden in the UI.
+
+export type FormFillStatus = "Pending" | "In Progress" | "Ready" | "Failed"
+
+export interface FormFillRequest {
+  id: string
+  /** The uploaded form's original filename, for display. */
+  title: string
+  status: FormFillStatus
+  /** Set when status is "Ready" — a Blob URL to the completed PDF. */
+  resultUrl?: string
+  /** Set when status is "Failed". */
+  error?: string
+  /** Fields the agent couldn't confidently fill — surfaced even on an otherwise-successful fill. */
+  unfilledNotes?: string[]
+  createdAt: string
+}

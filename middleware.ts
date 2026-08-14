@@ -7,6 +7,10 @@ export async function middleware(req: NextRequest) {
 
   if (!session) {
     const loginUrl = new URL("/login", req.url)
+    // Sends them back to exactly where they were headed (e.g.
+    // /onboarding?plan=pro) once they've signed in, instead of always
+    // landing on /dashboard regardless of what they were trying to reach.
+    loginUrl.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search)
     return NextResponse.redirect(loginUrl)
   }
 
@@ -14,5 +18,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"], // protects /dashboard and every sub-route
+  // /onboarding now requires signing in first too — a client answers
+  // questions and submits as their own authenticated email, not a
+  // free-text field anyone could type any address into.
+  matcher: ["/dashboard/:path*", "/onboarding/:path*"],
 }

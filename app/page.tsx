@@ -52,7 +52,7 @@ const ICONS = {
 const ACCENTS = [
   { fg: "var(--brand-teal-bright)", bg: "var(--brand-teal-tint)" },
   { fg: "var(--brand-amber)", bg: "var(--brand-amber-tint)" },
-  { fg: "var(--brand-sky)", bg: "rgba(217,164,92,0.12)" },
+  { fg: "var(--brand-sky)", bg: "rgba(142,203,245,0.12)" },
 ]
 
 /* ----------------------------- Small helpers ----------------------------- */
@@ -125,7 +125,7 @@ function HeroVisual() {
       {/* soft terracotta glow */}
       <div
         className="absolute -inset-6 -z-10 rounded-[2rem] opacity-40 blur-3xl"
-        style={{ background: "radial-gradient(circle at 70% 30%, rgba(201,112,74,0.35), transparent 60%)" }}
+        style={{ background: "radial-gradient(circle at 70% 30%, rgba(94,184,240,0.35), transparent 60%)" }}
       />
     </div>
   )
@@ -201,11 +201,11 @@ export default function Page() {
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
           <div
             className="absolute -top-32 -left-24 w-[36rem] h-[36rem] rounded-full blur-[120px] opacity-40"
-            style={{ background: "radial-gradient(circle, rgba(201,112,74,0.35), transparent 65%)" }}
+            style={{ background: "radial-gradient(circle, rgba(94,184,240,0.35), transparent 65%)" }}
           />
           <div
             className="absolute top-24 -right-24 w-[30rem] h-[30rem] rounded-full blur-[120px] opacity-25"
-            style={{ background: "radial-gradient(circle, rgba(240,169,78,0.28), transparent 65%)" }}
+            style={{ background: "radial-gradient(circle, rgba(154,165,177,0.28), transparent 65%)" }}
           />
         </div>
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-14 items-center">
@@ -431,7 +431,7 @@ export default function Page() {
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
           <div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[42rem] h-[42rem] rounded-full blur-[130px] opacity-25"
-            style={{ background: "radial-gradient(circle, rgba(201,112,74,0.3), transparent 65%)" }}
+            style={{ background: "radial-gradient(circle, rgba(94,184,240,0.3), transparent 65%)" }}
           />
         </div>
         <div className="max-w-6xl mx-auto">

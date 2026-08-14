@@ -12,7 +12,7 @@ const NAV_LINKS = [
 const NAV_STYLE = {
   backdropFilter: "blur(16px)",
   WebkitBackdropFilter: "blur(16px)",
-  background: "rgba(44,32,25,0.55)",
+  background: "rgba(27,30,38,0.55)",
   boxShadow: "0 8px 32px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.25)",
 } as const
 

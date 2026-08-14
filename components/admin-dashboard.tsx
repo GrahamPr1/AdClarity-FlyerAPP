@@ -10,9 +10,10 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const PLAN_OPTIONS: PlanId[] = ["trial", "basic", "pro"]
 
-function ClientRow({ client, onRetry, onPlanChange }: {
+function ClientRow({ client, onRetry, onDelete, onPlanChange }: {
   client: Deliverables
   onRetry: (email: string, flyerId: string) => Promise<{ ok: boolean; error?: string }>
+  onDelete: (email: string, flyerId: string) => Promise<{ ok: boolean; error?: string }>
   onPlanChange: (email: string, plan: PlanId) => Promise<void>
 }) {
   const [changingPlan, setChangingPlan] = useState(false)
@@ -47,7 +48,7 @@ function ClientRow({ client, onRetry, onPlanChange }: {
       {client.flyers.length > 0 && (
         <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-4">
           {client.flyers.map((f) => (
-            <FlyerCard key={f.id} flyer={f} onRetry={(flyerId) => onRetry(email, flyerId)} />
+            <FlyerCard key={f.id} flyer={f} onRetry={(flyerId) => onRetry(email, flyerId)} onDelete={(flyerId) => onDelete(email, flyerId)} />
           ))}
         </div>
       )}
@@ -88,6 +89,32 @@ export function AdminDashboard() {
     return { ok: true }
   }
 
+  async function handleDelete(email: string, flyerId: string): Promise<{ ok: boolean; error?: string }> {
+    let res: Response
+    try {
+      res = await fetch("/api/deliverables/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flyerId, email }),
+      })
+    } catch {
+      return { ok: false, error: "Couldn't reach the server — check your connection and try again." }
+    }
+
+    if (res.status === 401) {
+      router.push("/login")
+      return { ok: false, error: "Your session expired — signing you back in." }
+    }
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}) as { error?: string })
+      return { ok: false, error: body.error ?? "Could not delete — please try again." }
+    }
+
+    mutate()
+    return { ok: true }
+  }
+
   async function handlePlanChange(email: string, plan: PlanId) {
     await fetch("/api/admin/set-plan", {
       method: "POST",
@@ -125,7 +152,7 @@ export function AdminDashboard() {
       ) : (
         <div className="mt-8 flex flex-col gap-5">
           {data.clients.map((c) => (
-            <ClientRow key={c.email} client={c} onRetry={handleRetry} onPlanChange={handlePlanChange} />
+            <ClientRow key={c.email} client={c} onRetry={handleRetry} onDelete={handleDelete} onPlanChange={handlePlanChange} />
           ))}
         </div>
       )}
