@@ -6,10 +6,20 @@ const SUPPORTED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", 
 const MAX_FILE_BYTES = 10 * 1024 * 1024
 
 // POST /api/onboarding/upload-photo — a real photo upload for a client's
-// own flyers, used during onboarding. Public access (unlike form-fill's
-// private documents): these URLs get embedded directly in generated flyer
-// HTML via <img src>, the same way a client-supplied photo already worked
-// once it had a real URL — nothing sensitive about a storefront photo.
+// own flyers, used during onboarding.
+//
+// Stored PRIVATE (the only access mode this project's Blob store actually
+// supports — it was provisioned private for form-fill, and Vercel Blob
+// stores don't support mixed public/private access per upload; a second
+// store would need its own read-write token under a different env var
+// name, which the CLI has no way to wire up without dashboard access this
+// session doesn't have). Read back through /api/photos/[...path] instead —
+// a real proxy, not the raw private blob URL, but deliberately
+// UNAUTHENTICATED (unlike form-fill's download route): these photos get
+// embedded in flyer HTML that a customer with no OneFlyer account needs to
+// be able to view (e.g. a flyer they were handed or emailed), so gating
+// the read behind a login would break the actual use case.
+//
 // Available on every plan; this is fixing broken upload capture, not a new
 // paid feature (see the note on IntakeSubmission.flyerPhotoUrls).
 export async function POST(request: NextRequest) {
@@ -17,7 +27,6 @@ export async function POST(request: NextRequest) {
   if (!session || session.sub === ADMIN_SUB) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  const email = session.sub
 
   let formData: FormData
   try {
@@ -37,12 +46,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "file is too large (max 10MB)" }, { status: 422 })
   }
 
+  // Random, not email-derived — this pathname is embedded in a URL that's
+  // reachable with no auth check (see the proxy route), so it shouldn't
+  // leak whose email uploaded it.
+  const pathname = `onboarding-photos/${crypto.randomUUID()}-${file.name}`
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const blob = await put(`onboarding-photos/${email}/${Date.now()}-${file.name}`, Buffer.from(bytes), {
-    access: "public",
+  await put(pathname, Buffer.from(bytes), {
+    access: "private",
     contentType: file.type,
     addRandomSuffix: false,
   })
 
-  return NextResponse.json({ ok: true, url: blob.url })
+  return NextResponse.json({ ok: true, url: `/api/photos/${pathname}` })
 }
