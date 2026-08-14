@@ -159,6 +159,15 @@ export function FlyerCard({
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState("")
 
+  // Refreshes periodically so a scan/click from a few minutes ago shows up
+  // without a manual reload — cheap enough (one small GET) to poll while
+  // the card is mounted rather than needing a push mechanism.
+  const { data: statsData } = useSWR<{ stats: { scans: number; clicks: number } }>(
+    ready && flyer.trackingCode ? `/api/tracking/${flyer.trackingCode}` : null,
+    fetcher,
+    { refreshInterval: 15000 },
+  )
+
   async function handleRetry() {
     setRetrying(true)
     setRetryError("")
@@ -209,7 +218,14 @@ export function FlyerCard({
       <div className="p-4 flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{flyer.title}</p>
-          <div className="mt-1.5"><StatusBadge status={flyer.status} /></div>
+          <div className="mt-1.5 flex items-center gap-2">
+            <StatusBadge status={flyer.status} />
+            {statsData?.stats && (
+              <span className="text-xs text-muted-foreground" title="QR scans / CTA clicks">
+                {statsData.stats.scans} scanned · {statsData.stats.clicks} clicked
+              </span>
+            )}
+          </div>
           {failed && flyer.error && <p className="mt-1.5 text-xs text-red-400/80 leading-snug">{flyer.error}</p>}
           {retryError && <p className="mt-1.5 text-xs text-amber-300 leading-snug">{retryError}</p>}
           {deleteError && <p className="mt-1.5 text-xs text-amber-300 leading-snug">{deleteError}</p>}
