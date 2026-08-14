@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getDeliverablesForEmail, seedPrintRequest } from "@/lib/store"
+import { getClient, getDeliverablesForEmail, seedPrintRequest } from "@/lib/store"
 
 const MAX_QUANTITY = 500
 
@@ -17,13 +17,22 @@ export async function GET(request: NextRequest) {
 // POST /api/print-requests — client requests printed copies of one of
 // their own Ready flyers. NOT a real order — no print API call, no charge.
 // Just queues a request for the admin to fulfill/invoice manually (see the
-// note on PrintRequest in lib/types.ts). Available to every plan.
+// note on PrintRequest in lib/types.ts). Basic+/Pro — real server-side
+// gate, not just hidden in the UI; Trial doesn't include it.
 export async function POST(request: NextRequest) {
   const session = await getSessionIdentity(request)
   if (!session || session.sub === ADMIN_SUB) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const email = session.sub
+
+  const client = await getClient(email)
+  if (client?.plan === "trial") {
+    return NextResponse.json(
+      { error: "plan_required", message: "Print requests are available on Basic and Pro — check out our plans at /#pricing." },
+      { status: 403 },
+    )
+  }
 
   let body: { flyerId?: string; quantity?: number; shippingName?: string; shippingAddress?: string; notes?: string }
   try {

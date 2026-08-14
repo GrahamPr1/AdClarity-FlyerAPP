@@ -44,6 +44,7 @@ const brightsideFlyerInput: FlyerAgentInput = {
     { id: "f1", purpose: "New patient special", notes: "mention $50 off first cleaning", qrCodeDataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" },
   ],
   batchSize: 1,
+  includeRepurposing: true,
 }
 
 async function main() {

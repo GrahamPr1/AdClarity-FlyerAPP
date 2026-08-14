@@ -197,8 +197,8 @@ export interface Deliverables {
 // quantity + shipping address. Deliberately NOT a real order: there's no
 // Stripe billing yet, so nothing here calls a print API or charges anyone.
 // It's a queue the admin sees and fulfills/invoices manually outside the
-// app. Available to every plan, not just Pro — it costs nothing until the
-// admin decides to act on it, so gating it by tier has no real basis.
+// app. Basic+/Pro — Trial doesn't include it (enforced in
+// /api/print-requests, not just hidden in the UI).
 
 export type PrintRequestStatus = "Requested" | "Fulfilled" | "Cancelled"
 

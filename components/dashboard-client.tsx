@@ -237,11 +237,14 @@ export function FlyerCard({
   onRetry,
   onDelete,
   onOrderPrint,
+  showUpgradeHint,
 }: {
   flyer: FlyerDeliverable
   onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
   onDelete?: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
   onOrderPrint?: (payload: { flyerId: string; quantity: number; shippingName: string; shippingAddress: string; notes: string }) => Promise<{ ok: boolean; error?: string }>
+  /** True when this flyer's client is on Trial — QR tracking, repurposing, and print requests aren't generated/available at all (real, server-side gate), so this shows why instead of silently having nothing. */
+  showUpgradeHint?: boolean
 }) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
@@ -356,6 +359,13 @@ export function FlyerCard({
       {ready && onOrderPrint && (
         <div className="px-4 pb-4">
           <PrintOrderSection flyerId={flyer.id} onSubmit={onOrderPrint} />
+        </div>
+      )}
+      {ready && showUpgradeHint && (
+        <div className="px-4 pb-4 pt-3 border-t border-white/10">
+          <a href="/#pricing" className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+            Upgrade to Basic to unlock scan tracking, Instagram/text/Nextdoor versions, and print requests →
+          </a>
         </div>
       )}
     </div>
@@ -558,7 +568,9 @@ export function DashboardClient() {
           </div>
           <div className="mt-5 grid grid-cols-2 md:grid-cols-3 gap-4">
             {data.flyers.map((f) => (
-              <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete} onOrderPrint={handleOrderPrint} />
+              <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete}
+                onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
+                showUpgradeHint={data.planId === "trial"} />
             ))}
           </div>
 
