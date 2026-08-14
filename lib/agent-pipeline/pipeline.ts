@@ -1,5 +1,5 @@
 import type { IntakeSubmission } from "@/lib/types"
-import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable } from "@/lib/store"
+import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient } from "@/lib/store"
 import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
@@ -7,6 +7,17 @@ import { generateImage } from "./higgsfield"
 import { createFlyerTrackingCode, backfillTrackingContent } from "./qrTracking"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
 import type { FlyerRequest } from "./schemas/flyer"
+
+// QR tracking and multi-channel repurposing are Basic+/Pro features — real,
+// server-side gating, not just hidden in the UI. Trial gets flyer
+// generation only. Checked against the CLIENT's real enforcement plan
+// (never the marketing-page selection — see the note on PlanId in
+// lib/types.ts), same source of truth as the usage-limit check in
+// /api/intake.
+async function hasExtraFeatures(email: string): Promise<boolean> {
+  const client = await getClient(email)
+  return client?.plan !== "trial"
+}
 
 export const MAX_FLYERS_PER_BATCH = 10
 
@@ -106,17 +117,19 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
 async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[]): Promise<void> {
   const brandProfile = await runBrandAgent(intake)
   const photos = await buildPhotoPool(intake, flyerRequests)
+  const includeExtras = await hasExtraFeatures(email)
 
   // One tracking code + QR image per flyer, generated before the agent call
   // — it needs a real, ready image to embed, the same way it needs real
-  // photo URLs (see buildPhotoPool). The code -> flyerId mapping lets the
+  // photo URLs (see buildPhotoPool). Skipped entirely on Trial: no tracking
+  // record, no QR, nothing to embed. The code -> flyerId mapping lets the
   // backfill step below match each agent response back to its own record.
   const trackingByFlyerId = new Map(
-    await Promise.all(
-      flyerRequests.map(async (r) => [r.id, await createFlyerTrackingCode(email, r.id, intake)] as const),
-    ),
+    includeExtras
+      ? await Promise.all(flyerRequests.map(async (r) => [r.id, await createFlyerTrackingCode(email, r.id, intake)] as const))
+      : [],
   )
-  const flyerRequestsWithQr = flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: trackingByFlyerId.get(r.id)!.qrDataUrl }))
+  const flyerRequestsWithQr = flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: trackingByFlyerId.get(r.id)?.qrDataUrl ?? null }))
 
   const flyerResult = await runFlyerAgent({
     brandProfile,
@@ -124,6 +137,7 @@ async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: 
     photos,
     flyerRequests: flyerRequestsWithQr,
     batchSize: flyerRequests.length,
+    includeRepurposing: includeExtras,
   })
 
   for (const flyer of flyerResult.flyers) {
@@ -135,12 +149,14 @@ async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: 
       id: flyer.id,
       status: "Ready",
       downloadUrl: toDataUrl(flyer.html),
-      repurposed: {
-        instagramDownloadUrl: toDataUrl(flyer.repurposed.instagramHtml),
-        instagramCaption: flyer.repurposed.instagramCaption,
-        textBlurb: flyer.repurposed.textBlurb,
-        nextdoorPost: flyer.repurposed.nextdoorPost,
-      },
+      ...(flyer.repurposed && {
+        repurposed: {
+          instagramDownloadUrl: toDataUrl(flyer.repurposed.instagramHtml),
+          instagramCaption: flyer.repurposed.instagramCaption,
+          textBlurb: flyer.repurposed.textBlurb,
+          nextdoorPost: flyer.repurposed.nextdoorPost,
+        },
+      }),
       trackingCode: tracking?.code,
     })
   }
@@ -183,38 +199,42 @@ export async function continuePipelineFromIntake(email: string, intake: Normaliz
 async function runSingleFlyerRetry(email: string, intake: NormalizedIntake, flyerRequest: FlyerRequest): Promise<void> {
   const brandProfile = await runBrandAgent(intake)
   const photos = await buildPhotoPool(intake, [flyerRequest])
+  const includeExtras = await hasExtraFeatures(email)
 
-  // A retry gets its own fresh tracking code — the old one (if this flyer
-  // had already generated once) is simply abandoned along with its stats,
-  // since a regenerated flyer's content may no longer match what a scan of
-  // the old QR would have promised.
-  const tracking = await createFlyerTrackingCode(email, flyerRequest.id, intake)
+  // A retry gets its own fresh tracking code (Basic+/Pro only) — the old
+  // one, if this flyer had already generated once, is simply abandoned
+  // along with its stats, since a regenerated flyer's content may no
+  // longer match what a scan of the old QR would have promised.
+  const tracking = includeExtras ? await createFlyerTrackingCode(email, flyerRequest.id, intake) : null
 
   const flyerResult = await runFlyerAgent({
     brandProfile,
     contact: intake.contact,
     photos,
-    flyerRequests: [{ ...flyerRequest, qrCodeDataUrl: tracking.qrDataUrl }],
+    flyerRequests: [{ ...flyerRequest, qrCodeDataUrl: tracking?.qrDataUrl ?? null }],
     batchSize: 1,
+    includeRepurposing: includeExtras,
   })
 
   const flyer = flyerResult.flyers[0]
   if (!flyer) throw new Error("Flyer Agent returned no result")
 
-  await backfillTrackingContent(tracking.code, flyer)
+  if (tracking) await backfillTrackingContent(tracking.code, flyer)
 
   await updateDeliverable(email, {
     type: "flyer",
     id: flyer.id,
     status: "Ready",
     downloadUrl: toDataUrl(flyer.html),
-    repurposed: {
-      instagramDownloadUrl: toDataUrl(flyer.repurposed.instagramHtml),
-      instagramCaption: flyer.repurposed.instagramCaption,
-      textBlurb: flyer.repurposed.textBlurb,
-      nextdoorPost: flyer.repurposed.nextdoorPost,
-    },
-    trackingCode: tracking.code,
+    ...(flyer.repurposed && {
+      repurposed: {
+        instagramDownloadUrl: toDataUrl(flyer.repurposed.instagramHtml),
+        instagramCaption: flyer.repurposed.instagramCaption,
+        textBlurb: flyer.repurposed.textBlurb,
+        nextdoorPost: flyer.repurposed.nextdoorPost,
+      },
+    }),
+    trackingCode: tracking?.code,
   })
 }
 

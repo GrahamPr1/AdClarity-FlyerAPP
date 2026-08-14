@@ -145,25 +145,25 @@ const NEW_FEATURES = [
     icon: ICONS.qr,
     title: "Know What's Working",
     desc: "Every flyer includes a built-in QR code that tracks real scans and clicks — so you can see if a flyer actually got a response, not just that it looks good.",
-    pro: false,
+    tier: "Basic",
   },
   {
     icon: ICONS.share,
     title: "One Flyer, Every Channel",
     desc: "Every flyer also comes with a matching Instagram post, a text-blast blurb, and a Nextdoor post — all written to fit, so one campaign covers everywhere your customers are.",
-    pro: false,
+    tier: "Basic",
   },
   {
     icon: ICONS.save,
     title: "Save Your Info Once",
     desc: "Save your business info once and reuse it to fill out any future form automatically — no more re-uploading the same paperwork every time.",
-    pro: true,
+    tier: "Pro",
   },
   {
     icon: ICONS.print,
     title: "Get It Printed",
     desc: "Request printed copies of any flyer right from your dashboard — tell us the quantity and where to ship it, and we'll take care of the rest.",
-    pro: false,
+    tier: "Basic",
   },
 ]
 
@@ -197,7 +197,7 @@ const STEPS = [
 const FAQS = [
   {
     q: "What's the difference between the plans?",
-    a: "Free Trial gives you 3 flyers to try the AI design engine, no credit card required. Basic is $75/month for 15 flyers total. Pro is $100/month for 25 flyers total plus priority generation, so your flyers finish first.",
+    a: "Free Trial gives you 3 flyers a month to try the AI design engine, no credit card required. Basic is $19/month for 15 flyers plus QR scan/click tracking, Instagram/text/Nextdoor versions of every flyer, and print requests. Pro is $39/month for 25 flyers, everything in Basic, a saved Business Profile that auto-fills any form, and priority generation.",
   },
   {
     q: "Do I need any design experience?",
@@ -436,7 +436,7 @@ export default function Page() {
           </RevealText>
           <Reveal delay={80}>
             <p className="mt-4 text-sm text-muted-foreground max-w-xl">
-              Same AI design engine, now with measurement, reuse, and fulfillment built into every flyer.
+              Same AI design engine, now with measurement, reuse, and fulfillment built into Basic and Pro flyers.
             </p>
           </Reveal>
 
@@ -453,9 +453,7 @@ export default function Page() {
                       >
                         <Icon path={f.icon} />
                       </div>
-                      {f.pro && (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--brand-amber-tint)] text-[var(--brand-amber)]">Pro</span>
-                      )}
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--brand-amber-tint)] text-[var(--brand-amber)]">{f.tier}</span>
                     </div>
                     <h3 className="mt-5 text-lg font-semibold">{f.title}</h3>
                     <p className="mt-2.5 text-sm text-muted-foreground leading-relaxed flex-1">{f.desc}</p>

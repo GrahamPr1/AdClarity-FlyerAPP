@@ -34,7 +34,8 @@ export const FlyerSpecificationSchema = z.object({
   paletteUsed: z.object({ primary: z.string(), secondary: z.string(), accent: z.string() }),
   fontsUsed: z.object({ heading: z.string(), body: z.string() }),
   notes: z.string(),
-  repurposed: RepurposedContentSchema,
+  /** Null when the client's plan doesn't include multi-channel repurposing (see includeRepurposing on FlyerAgentInputSchema) — Trial only, gated for real in the pipeline, not just hidden in the UI. */
+  repurposed: RepurposedContentSchema.nullable(),
 })
 
 export type FlyerSpecification = z.infer<typeof FlyerSpecificationSchema>
@@ -48,9 +49,11 @@ export type FlyerAgentOutput = z.infer<typeof FlyerAgentOutputSchema>
 // The agent's own input shape needs a qrCodeDataUrl per request that the
 // stored/shared FlyerRequestSchema doesn't carry (it's generated fresh by
 // the pipeline right before this call, not part of the Intake Agent's
-// output or anything persisted — see qrTracking.ts).
+// output or anything persisted — see qrTracking.ts). Null when the
+// client's plan doesn't include QR tracking (Trial) — the pipeline simply
+// doesn't generate a tracking code/QR image for those requests at all.
 const FlyerRequestWithQrSchema = FlyerRequestSchema.extend({
-  qrCodeDataUrl: z.string(),
+  qrCodeDataUrl: z.string().nullable(),
 })
 
 export const FlyerAgentInputSchema = z.object({
@@ -64,6 +67,8 @@ export const FlyerAgentInputSchema = z.object({
   photos: z.array(z.object({ url: z.string(), caption: z.string() })),
   flyerRequests: z.array(FlyerRequestWithQrSchema),
   batchSize: z.number().max(10),
+  /** Whole-batch flag — a batch is always one client's own plan. False on Trial; gates the Instagram/text/Nextdoor repurposed content for real, not just in the UI. */
+  includeRepurposing: z.boolean(),
   revise: z
     .object({
       flyerId: z.string(),

@@ -64,6 +64,7 @@ async function main() {
     photos: intake.photos,
     flyerRequests: intake.flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: placeholderQrCodeDataUrl })),
     batchSize: intake.flyerRequests.length,
+    includeRepurposing: true,
   })
   console.log("\n--- Flyer output ---")
   console.log(JSON.stringify(flyers, null, 2))

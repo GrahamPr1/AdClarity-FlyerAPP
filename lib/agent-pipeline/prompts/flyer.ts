@@ -17,11 +17,14 @@ system, and a pleasure to look at.
                                                         // style images the
                                                         // pipeline sourced
                                                         // ahead of time
-  "flyerRequests": (FlyerRequest & { qrCodeDataUrl: string })[], // up to 10 per call —
-                                                        // qrCodeDataUrl is a
-                                                        // real, ready QR code
-                                                        // image (see below)
-  "batchSize": number
+  "flyerRequests": (FlyerRequest & { qrCodeDataUrl: string | null })[], // up to 10 per
+                                                        // call — qrCodeDataUrl is a
+                                                        // real, ready QR code image
+                                                        // (see below) when present,
+                                                        // or null on this client's
+                                                        // plan
+  "batchSize": number,
+  "includeRepurposing": boolean   // whole batch, one client's one plan
 }
 
 ## Design principles (apply to every flyer)
@@ -87,17 +90,19 @@ system, and a pleasure to look at.
    without a solid or gradient scrim behind it.
 9. **One flyer, one job.** Each flyer serves only the single \`purpose\` given to it.
    Keep copy tight — flyers are skimmed, not read.
-10. **Always embed the provided QR code.** Every flyerRequest includes a real,
-    ready \`qrCodeDataUrl\` (an already-resolved image, same as \`photos\` —
-    reference it directly with an \`<img src="{qrCodeDataUrl}">\`, never
-    regenerate or invent your own QR pattern). Place it near the CTA, sized
-    roughly 0.75in-1.5in square (legible when scanned even at that small
-    print size), with a short adjacent label such as "Scan to redeem" or
-    "Scan for details" in the body font. This is how the client measures
-    whether a flyer actually gets a response, so it must be present and
-    genuinely scannable — never shrink it past legibility, place it over a
-    busy photo without a plain background behind it, or bury it in a corner
-    with no label.
+10. **Embed the provided QR code — only when one is given.** When a
+    flyerRequest's \`qrCodeDataUrl\` is a real string (not null), it's an
+    already-resolved image, same as \`photos\` — reference it directly with
+    an \`<img src="{qrCodeDataUrl}">\`, never regenerate or invent your own
+    QR pattern. Place it near the CTA, sized roughly 0.75in-1.5in square
+    (legible when scanned even at that small print size), with a short
+    adjacent label such as "Scan to redeem" or "Scan for details" in the
+    body font — never shrink it past legibility, place it over a busy photo
+    without a plain background behind it, or bury it in a corner with no
+    label. When \`qrCodeDataUrl\` is null for a request (this client's plan
+    doesn't include scan tracking), design that flyer with NO QR code and no
+    "scan to..." language at all — do not invent a placeholder QR or imply
+    a tracking feature that isn't actually there for this client.
 
 ## Output requirements
 
@@ -107,10 +112,16 @@ field must be a complete, valid HTML document with all CSS inline in a
 ready to pipe directly into a headless-browser PDF render step (e.g. Puppeteer
 \`page.pdf()\`) without further editing.
 
-## Repurposed content (required — the \`repurposed\` field on every flyer)
+## Repurposed content (the \`repurposed\` field on every flyer)
 
-A local business needs the same push to show up everywhere its customers
-actually are, not just as one printed page. For every flyer, also produce:
+Only when \`includeRepurposing\` is \`true\` — this is a plan-gated feature,
+not every client has it. When \`includeRepurposing\` is \`false\`, set
+\`repurposed\` to \`null\` for every flyer and skip everything below entirely;
+do not generate any of it "for free" even if it would only take a moment.
+
+When \`includeRepurposing\` is \`true\`: a local business needs the same push
+to show up everywhere its customers actually are, not just as one printed
+page. For every flyer, also produce:
 
 - **instagramHtml** — the SAME headline/offer/CTA and the SAME brandProfile
   colors/fonts, reformatted as a complete standalone HTML document sized
