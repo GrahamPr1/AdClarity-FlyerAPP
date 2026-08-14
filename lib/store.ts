@@ -190,6 +190,21 @@ export async function markFlyersFailed(email: string, ids: string[], reason: str
   })
 }
 
+/**
+ * Removes a flyer from a client's visible deliverables. Deliberately does
+ * NOT touch flyersCreated (a separate Redis key, incremented once at
+ * generation time and never decremented) — a client "hiding" a flyer they
+ * don't like still used up that generation against their plan's lifetime
+ * limit, and shouldn't get it back by deleting the result.
+ */
+export async function deleteFlyerDeliverable(email: string, id: string): Promise<boolean> {
+  const current = await readDeliverables(email)
+  const next = current.flyers.filter((f) => f.id !== id)
+  if (next.length === current.flyers.length) return false
+  await writeDeliverables(email, { ...current, flyers: next })
+  return true
+}
+
 // ---- Pipeline state (for retry) -------------------------------------------
 //
 // The normalized Intake Agent output + flyer requests for a client's most
