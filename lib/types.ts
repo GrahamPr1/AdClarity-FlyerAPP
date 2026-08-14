@@ -170,3 +170,13 @@ export interface FormFillRequest {
   unfilledNotes?: string[]
   createdAt: string
 }
+
+// A client's saved default info source for form-fill — the same shape
+// form-fill already accepts per-request (a file and/or a link), just
+// persisted so it doesn't need to be re-uploaded every time. Pro-only, same
+// as form-fill itself.
+export interface BusinessProfileRecord {
+  savedAt: string
+  link: string | null
+  file: { blobUrl: string; mediaType: string; fileName: string } | null
+}

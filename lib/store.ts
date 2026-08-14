@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId } from "./types"
+import type { BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
@@ -266,6 +266,28 @@ export async function updateFormFillRequest(
   const current = await readFormFills(email)
   const next = current.map((r) => (r.id === id ? { ...r, ...updates } : r))
   await redis.set(formFillsKey(email), next)
+}
+
+// ---- Business profile (Pro-only) -------------------------------------------
+//
+// A saved default info source for form-fill, so a client doesn't have to
+// re-upload the same file/link every time. One per client — saving a new
+// one replaces the old.
+
+function businessProfileKey(email: string) {
+  return `client:${email}:business-profile`
+}
+
+export async function getBusinessProfile(email: string): Promise<BusinessProfileRecord | null> {
+  return (await redis.get<BusinessProfileRecord>(businessProfileKey(email))) ?? null
+}
+
+export async function saveBusinessProfile(email: string, profile: BusinessProfileRecord): Promise<void> {
+  await redis.set(businessProfileKey(email), profile)
+}
+
+export async function deleteBusinessProfile(email: string): Promise<void> {
+  await redis.del(businessProfileKey(email))
 }
 
 // ---- Client records (usage limits) ---------------------------------------
