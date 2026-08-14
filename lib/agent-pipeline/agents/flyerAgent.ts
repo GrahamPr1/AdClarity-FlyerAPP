@@ -9,8 +9,13 @@ import { FlyerAgentOutputSchema, type FlyerAgentInput, type FlyerAgentOutput } f
 // Scale with the batch size, capped well under the model's output ceiling —
 // streaming (see client.ts) removes the old non-streaming request-time
 // limit, so there's room to be generous here.
-const TOKENS_PER_FLYER = 16000
-const MAX_TOKENS_CAP = 64000
+//
+// repurposed.instagramHtml is a second full HTML document per flyer (same
+// design-richness expectations as the print one), roughly doubling real
+// per-flyer output on top of the smaller caption/blurb/post text fields —
+// bumped from the pre-repurposing 16000/64000 accordingly.
+const TOKENS_PER_FLYER = 30000
+const MAX_TOKENS_CAP = 128000
 
 export async function runFlyerAgent(input: FlyerAgentInput): Promise<FlyerAgentOutput> {
   const maxTokens = Math.min(TOKENS_PER_FLYER * Math.max(1, input.flyerRequests.length), MAX_TOKENS_CAP)

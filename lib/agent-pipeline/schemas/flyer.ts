@@ -9,6 +9,18 @@ export const FlyerRequestSchema = z.object({
 
 export type FlyerRequest = z.infer<typeof FlyerRequestSchema>
 
+// Same brand system, same headline/offer/CTA as the print flyer — reformatted
+// per channel rather than independently reimagined, so a client's campaign
+// reads as one coordinated push rather than disconnected pieces.
+export const RepurposedContentSchema = z.object({
+  instagramHtml: z.string(),
+  instagramCaption: z.string(),
+  textBlurb: z.string(),
+  nextdoorPost: z.string(),
+})
+
+export type RepurposedContent = z.infer<typeof RepurposedContentSchema>
+
 export const FlyerSpecificationSchema = z.object({
   id: z.string(),
   purpose: z.string(),
@@ -22,6 +34,7 @@ export const FlyerSpecificationSchema = z.object({
   paletteUsed: z.object({ primary: z.string(), secondary: z.string(), accent: z.string() }),
   fontsUsed: z.object({ heading: z.string(), body: z.string() }),
   notes: z.string(),
+  repurposed: RepurposedContentSchema,
 })
 
 export type FlyerSpecification = z.infer<typeof FlyerSpecificationSchema>

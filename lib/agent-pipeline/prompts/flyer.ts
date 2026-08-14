@@ -93,6 +93,36 @@ field must be a complete, valid HTML document with all CSS inline in a
 ready to pipe directly into a headless-browser PDF render step (e.g. Puppeteer
 \`page.pdf()\`) without further editing.
 
+## Repurposed content (required — the \`repurposed\` field on every flyer)
+
+A local business needs the same push to show up everywhere its customers
+actually are, not just as one printed page. For every flyer, also produce:
+
+- **instagramHtml** — the SAME headline/offer/CTA and the SAME brandProfile
+  colors/fonts, reformatted as a complete standalone HTML document sized
+  \`@page { size: 1080px 1080px; }\` (a square Instagram post) — same design
+  principles as the print flyer (sections 1-8 above) apply here too, just
+  recomposed for a square canvas. Do not just shrink the print layout;
+  actually redesign the hierarchy for a square, mobile-viewed format.
+- **instagramCaption** — caption copy for that square post: hooks in the
+  first line, matches the flyer's tone, ends with the same CTA, and includes
+  3-6 relevant hashtags (industry + locality, e.g. #industry #cityname). No
+  markdown, plain text with real line breaks.
+- **textBlurb** — a 1-2 sentence, SMS/email-length summary of the same offer
+  and CTA a business owner could paste directly into a text blast or email.
+  No hashtags, no emoji-heavy styling — just the offer stated plainly.
+- **nextdoorPost** — copy for Nextdoor specifically, which is NOT an ad
+  platform — its culture is neighbor-to-neighbor recommendations, and posts
+  that read like straight advertising get flagged or downvoted. Write it in
+  a warm, first-person, "wanted to let the neighborhood know about..." voice,
+  still grounded in the same real offer/facts, never inventing a fake
+  personal anecdote.
+
+All four must stay within the same content-honesty rules as the print flyer
+(section 2 above) — never state anything outside the flyer request,
+approvedClaims, or contact info, and never omit a required disclaimer just
+because a channel is informal.
+
 ## Revisions
 
 If the input includes a \`"revise"\` field referencing a previous flyer \`id\` plus

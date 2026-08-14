@@ -123,12 +123,23 @@ export type FlyerStatus = "Pending" | "In Progress" | "Ready" | "Failed"
 export type IntakeStatus = "Submitted" | "Not started"
 export type BillingStatus = "Active" | "Past due" | "Trialing"
 
+// Same brand system, headline, offer, and CTA as the print flyer — just
+// reformatted per channel. Set together with downloadUrl once a flyer is
+// Ready; never partially populated.
+export interface RepurposedFlyerContent {
+  instagramDownloadUrl: string
+  instagramCaption: string
+  textBlurb: string
+  nextdoorPost: string
+}
+
 export interface FlyerDeliverable {
   id: string
   title: string
   status: FlyerStatus
   thumbnailUrl?: string
   downloadUrl?: string
+  repurposed?: RepurposedFlyerContent
   /** Set when status is "Failed" — shown to the client, with a retry option. */
   error?: string
 }
