@@ -31,7 +31,7 @@ function ClientRow({ client, onRetry, onDelete, onPlanChange }: {
         <div>
           <p className="font-medium">{email}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {client.flyersCreated} / {client.flyersLimit} flyers used
+            {client.flyersCreated} / {client.flyersLimit} flyers used · resets {new Date(client.flyersResetAt).toLocaleDateString()}
           </p>
         </div>
         <div className="flex items-center gap-3">

@@ -88,6 +88,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
 
   const client = await getClient(email)
   const planId: PlanId = client?.plan ?? "trial"
+  const periodStart = client?.periodStart ?? Date.now()
 
   return {
     ...stored,
@@ -96,6 +97,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
     planName: getPlan(planId)?.name ?? "Free Trial",
     flyersCreated: client?.flyersCreated ?? 0,
     flyersLimit: PLAN_LIMITS[planId],
+    flyersResetAt: new Date(periodStart + RESET_PERIOD_MS).toISOString(),
   }
 }
 
@@ -113,6 +115,7 @@ export async function getDeliverables(): Promise<Deliverables> {
       planName: "Free Trial",
       flyersCreated: 0,
       flyersLimit: PLAN_LIMITS.trial,
+      flyersResetAt: new Date(Date.now() + RESET_PERIOD_MS).toISOString(),
     }
   }
   return getDeliverablesForEmail(email)
@@ -273,34 +276,63 @@ export async function updateFormFillRequest(
 // concurrent requests from the same client, which matters for a real usage
 // limit.
 
+const RESET_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
+
 function planKey(email: string) {
   return `client:${email}:plan`
 }
 function countKey(email: string) {
   return `client:${email}:flyersCreated`
 }
+function periodStartKey(email: string) {
+  return `client:${email}:periodStart`
+}
+
+/**
+ * Lazily rolls a client into a fresh 30-day period (resetting flyersCreated
+ * to 0) if their current one has expired — checked on read rather than via
+ * a cron, since Redis has no scheduled-job primitive here. Also backfills
+ * periodStart for records created before this existed, treating "unknown
+ * start" as "start now" rather than assuming they're already overdue.
+ */
+async function rollPeriodIfExpired(email: string, flyersCreated: number, periodStart: number | null): Promise<{ flyersCreated: number; periodStart: number }> {
+  const now = Date.now()
+  if (periodStart !== null && now - periodStart < RESET_PERIOD_MS) {
+    return { flyersCreated, periodStart }
+  }
+  await redis.set(countKey(email), 0)
+  await redis.set(periodStartKey(email), now)
+  return { flyersCreated: 0, periodStart: now }
+}
 
 /** Returns null if this email has no record yet — use getOrCreateClient to upsert. */
 export async function getClient(email: string): Promise<ClientRecord | null> {
   const plan = await redis.get<PlanId>(planKey(email))
   if (!plan) return null
-  const flyersCreated = (await redis.get<number>(countKey(email))) ?? 0
-  return { email, plan, flyersCreated }
+  const storedCount = (await redis.get<number>(countKey(email))) ?? 0
+  const storedPeriodStart = await redis.get<number>(periodStartKey(email))
+  const { flyersCreated, periodStart } = await rollPeriodIfExpired(email, storedCount, storedPeriodStart ?? null)
+  return { email, plan, flyersCreated, periodStart }
 }
 
 export async function getOrCreateClient(email: string): Promise<ClientRecord> {
   const existing = await getClient(email)
   if (existing) return existing
+  const periodStart = Date.now()
   await redis.set(planKey(email), "trial")
-  return { email, plan: "trial", flyersCreated: 0 }
+  await redis.set(periodStartKey(email), periodStart)
+  return { email, plan: "trial", flyersCreated: 0, periodStart }
 }
 
 // Real enforcement only ever changes here — never inferred from an
-// IntakeSubmission's planId (see the note on PlanId in lib/types.ts).
+// IntakeSubmission's planId (see the note on PlanId in lib/types.ts). Doesn't
+// touch the usage period — upgrading/downgrading doesn't grant an early reset.
 export async function setClientPlan(email: string, plan: PlanId): Promise<ClientRecord> {
   await redis.set(planKey(email), plan)
-  const flyersCreated = (await redis.get<number>(countKey(email))) ?? 0
-  return { email, plan, flyersCreated }
+  const storedCount = (await redis.get<number>(countKey(email))) ?? 0
+  const storedPeriodStart = await redis.get<number>(periodStartKey(email))
+  const { flyersCreated, periodStart } = await rollPeriodIfExpired(email, storedCount, storedPeriodStart ?? null)
+  return { email, plan, flyersCreated, periodStart }
 }
 
 /** Atomic increment — safe under concurrent requests from the same email. */

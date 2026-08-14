@@ -22,12 +22,11 @@ export type PlanId = "trial" | "basic" | "pro"
 // (lib/plans.ts), so the two can't drift out of sync the way the old
 // marketing numbers did before this existed.
 //
-// NOTE: all three are LIFETIME caps for now, not periodic ones. Basic/Pro
-// are priced as monthly subscriptions, but with no real Stripe billing
-// wired up yet there's no real subscription period to reset against —
-// inventing a self-maintained reset timer with nothing backing it would
-// just be a different kind of dishonest. Swap this to a real
-// current_period_start/end -based reset once Stripe billing exists.
+// These reset every 30 days from each client's own tracked period start
+// (see ClientRecord.periodStart) — a real, enforced rolling window, not
+// just a display label. Anchored to our own clock rather than a Stripe
+// billing period since no real Stripe subscription exists yet; once it
+// does, periodStart can be re-anchored to Stripe's current_period_start.
 export const PLAN_LIMITS: Record<PlanId, number> = {
   trial: 3,
   basic: 15,
@@ -112,8 +111,10 @@ export interface IntakeSubmission {
 export interface ClientRecord {
   email: string
   plan: PlanId
-  /** Lifetime count — never resets (see the note on PLAN_LIMITS above). Incremented before the flyers it counts are generated. */
+  /** Count within the CURRENT 30-day period — resets to 0 when periodStart rolls over (see PLAN_LIMITS). Incremented before the flyers it counts are generated. */
   flyersCreated: number
+  /** Epoch ms when the current 30-day usage period started. */
+  periodStart: number
 }
 
 // ---- Deliverables / dashboard --------------------------------------------
@@ -143,6 +144,8 @@ export interface Deliverables {
   flyersCreated: number
   /** Always a real cap now — no plan is unlimited (see PLAN_LIMITS). */
   flyersLimit: number
+  /** ISO timestamp when flyersCreated next resets to 0. */
+  flyersResetAt: string
 }
 
 // ---- Form Fill (Pro-only) --------------------------------------------------

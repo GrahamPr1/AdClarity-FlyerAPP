@@ -321,10 +321,12 @@ export function DashboardClient() {
               <p className="mt-2 text-lg font-semibold">
                 {data.flyersCreated} / {data.flyersLimit}
               </p>
-              {data.flyersCreated >= data.flyersLimit && (
+              {data.flyersCreated >= data.flyersLimit ? (
                 <a href="/#pricing" className="mt-1.5 inline-block text-xs text-amber-300 hover:text-amber-200 transition-colors">
-                  Limit reached — check out our plans for more →
+                  Limit reached — resets {new Date(data.flyersResetAt).toLocaleDateString()} →
                 </a>
+              ) : (
+                <p className="mt-1.5 text-xs text-muted-foreground">Resets {new Date(data.flyersResetAt).toLocaleDateString()}</p>
               )}
             </div>
           </div>

@@ -3,9 +3,7 @@ import { PLAN_LIMITS } from "./types"
 
 // Real enforcement uses PLAN_LIMITS directly (see lib/types.ts) so this
 // marketing copy can't drift out of sync with what's actually enforced.
-// All three caps are LIFETIME totals, not monthly-resetting ones — see the
-// note on PLAN_LIMITS for why (no real Stripe subscription period exists
-// yet to reset against).
+// All three caps reset every 30 days (see the note on PLAN_LIMITS).
 export const PLANS: Plan[] = [
   {
     id: "trial",
@@ -24,8 +22,8 @@ export const PLANS: Plan[] = [
     tagline: "For businesses that need a steady stream of new materials.",
     monthlyFee: 75,
     description: "All the core design features, with enough flyers for a real marketing push.",
-    features: [`${PLAN_LIMITS.basic} flyers total`, "All core design features"],
-    note: `${PLAN_LIMITS.basic} flyers to use whenever you need them.`,
+    features: [`${PLAN_LIMITS.basic} flyers every month`, "All core design features"],
+    note: `${PLAN_LIMITS.basic} flyers per month, resetting automatically.`,
     outcome: "A steady set of on-brand materials to launch with.",
     stripeMonthlyPriceId: "price_basic_monthly_placeholder",
     ctaLabel: "Get Started",
@@ -37,7 +35,7 @@ export const PLANS: Plan[] = [
     badge: "Most Popular",
     monthlyFee: 100,
     description: "Everything in Basic, with more flyers and priority generation.",
-    features: [`${PLAN_LIMITS.pro} flyers total`, "Priority generation"],
+    features: [`${PLAN_LIMITS.pro} flyers every month`, "Priority generation"],
     note: "Your flyers jump the queue and finish first.",
     outcome: "Never wait on your marketing materials again.",
     mostPopular: true,
