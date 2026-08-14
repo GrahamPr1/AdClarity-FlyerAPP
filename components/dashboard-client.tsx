@@ -30,19 +30,18 @@ export function StatusBadge({ status }: { status: FlyerStatus | string }) {
 
 /* --------------------------- Flyer thumbnail ------------------------------
  * A real preview of the generated flyer, rendered before download — not a
- * generic icon. Flyer page dimensions vary per request (the Intake Agent
- * picks whatever's appropriate), so rather than assume a fixed size, the
- * iframe is given a generous intrinsic viewport and then shrunk as a whole
- * via a CSS transform. That transform is also the "zoomed out" anti-theft
- * measure the client asked for: at this scale the flyer's text isn't
- * legible enough to substitute for the real download, and pointer-events
+ * generic icon. Sized close to a standard letter page (most flyer requests
+ * land near there) and then shrunk hard as a whole via a CSS transform.
+ * That transform is also the "zoomed out" anti-theft measure the client
+ * asked for: at this scale body copy isn't legible enough to substitute for
+ * the real download — only the layout and colors read — and pointer-events
  * plus a full sandbox keep it from being clicked, selected, or copied out of
  * the card. This is a practical deterrent for casual copying, not DRM — a
  * technical user could still inspect the underlying data URL.
  */
-const THUMB_SCALE = 0.22
-const THUMB_IFRAME_WIDTH = 1200
-const THUMB_IFRAME_HEIGHT = 1500
+const THUMB_SCALE = 0.14
+const THUMB_IFRAME_WIDTH = 850
+const THUMB_IFRAME_HEIGHT = 1100
 
 function FlyerThumbnail({ downloadUrl, title }: { downloadUrl: string; title: string }) {
   return (
