@@ -7,6 +7,7 @@ import type {
   Deliverables,
   FlyerDeliverable,
   FlyerStatus,
+  PrintRequest,
   RepurposedFlyerContent,
 } from "@/lib/types"
 import { FormFillSection } from "@/components/form-fill-section"
@@ -17,9 +18,12 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 export function StatusBadge({ status }: { status: FlyerStatus | string }) {
   const map: Record<string, string> = {
     Ready: "bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)] border-[var(--brand-teal)]/40",
+    Fulfilled: "bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)] border-[var(--brand-teal)]/40",
     "In Progress": "bg-amber-400/10 text-amber-300 border-amber-400/30",
     Pending: "bg-white/[0.05] text-muted-foreground border-white/12",
+    Requested: "bg-white/[0.05] text-muted-foreground border-white/12",
     Failed: "bg-red-500/10 text-red-400 border-red-500/30",
+    Cancelled: "bg-red-500/10 text-red-400 border-red-500/30",
   }
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${map[status] ?? map.Pending}`}>
@@ -141,15 +145,103 @@ function RepurposedSection({ repurposed, title }: { repurposed: RepurposedFlyerC
   )
 }
 
+/* ---------------------------- Print order form -----------------------------
+ * Requests printed copies of this flyer — NOT a real order. No print API
+ * call, no charge happens here; it just queues a request the admin sees and
+ * fulfills/invoices manually outside the app (no Stripe billing exists yet
+ * to charge anyone automatically).
+ */
+function PrintOrderSection({ flyerId, onSubmit }: { flyerId: string; onSubmit: (payload: {
+  flyerId: string
+  quantity: number
+  shippingName: string
+  shippingAddress: string
+  notes: string
+}) => Promise<{ ok: boolean; error?: string }> }) {
+  const [open, setOpen] = useState(false)
+  const [quantity, setQuantity] = useState("25")
+  const [shippingName, setShippingName] = useState("")
+  const [shippingAddress, setShippingAddress] = useState("")
+  const [notes, setNotes] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const [submitted, setSubmitted] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError("")
+    const parsedQuantity = parseInt(quantity, 10)
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity < 1) {
+      setError("Enter a valid quantity.")
+      return
+    }
+    if (!shippingName.trim() || !shippingAddress.trim()) {
+      setError("Provide a name and shipping address.")
+      return
+    }
+    setSubmitting(true)
+    const result = await onSubmit({ flyerId, quantity: parsedQuantity, shippingName: shippingName.trim(), shippingAddress: shippingAddress.trim(), notes: notes.trim() })
+    setSubmitting(false)
+    if (!result.ok) {
+      setError(result.error ?? "Could not submit your request — please try again.")
+      return
+    }
+    setSubmitted(true)
+    setOpen(false)
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/10">
+      <button onClick={() => setOpen((v) => !v)}
+        className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+        {open ? "Cancel print request ▲" : "Order printed copies ▼"}
+      </button>
+      {submitted && !open && <p className="mt-2 text-xs text-[var(--brand-teal-bright)]">Request submitted — we&apos;ll follow up to confirm and arrange payment.</p>}
+      {open && (
+        <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-2.5">
+          <div>
+            <label className="block text-xs font-medium mb-1">Quantity</label>
+            <input type="number" min={1} max={500} value={quantity} onChange={(e) => setQuantity(e.target.value)}
+              className="w-24 rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">Name</label>
+            <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)}
+              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">Shipping address</label>
+            <textarea rows={2} value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)}
+              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">Notes (optional)</label>
+            <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)}
+              placeholder="Paper stock, deadline, anything else"
+              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
+          </div>
+          {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
+          <button type="submit" disabled={submitting}
+            className="self-start mt-1 px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white text-xs font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+            {submitting ? "Submitting…" : "Submit request"}
+          </button>
+        </form>
+      )}
+    </div>
+  )
+}
+
 /* ------------------------------ Flyer card ------------------------------- */
 export function FlyerCard({
   flyer,
   onRetry,
   onDelete,
+  onOrderPrint,
 }: {
   flyer: FlyerDeliverable
   onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
   onDelete?: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
+  onOrderPrint?: (payload: { flyerId: string; quantity: number; shippingName: string; shippingAddress: string; notes: string }) => Promise<{ ok: boolean; error?: string }>
 }) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
@@ -261,6 +353,11 @@ export function FlyerCard({
           <RepurposedSection repurposed={flyer.repurposed} title={flyer.title} />
         </div>
       )}
+      {ready && onOrderPrint && (
+        <div className="px-4 pb-4">
+          <PrintOrderSection flyerId={flyer.id} onSubmit={onOrderPrint} />
+        </div>
+      )}
     </div>
   )
 }
@@ -362,6 +459,32 @@ export function DashboardClient() {
     return { ok: true }
   }
 
+  async function handleOrderPrint(payload: { flyerId: string; quantity: number; shippingName: string; shippingAddress: string; notes: string }): Promise<{ ok: boolean; error?: string }> {
+    let res: Response
+    try {
+      res = await fetch("/api/print-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    } catch {
+      return { ok: false, error: "Couldn't reach the server — check your connection and try again." }
+    }
+
+    if (res.status === 401) {
+      router.push("/login")
+      return { ok: false, error: "Your session expired — signing you back in." }
+    }
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}) as { error?: string })
+      return { ok: false, error: data.error ?? "Could not submit your request — please try again." }
+    }
+
+    mutate()
+    return { ok: true }
+  }
+
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" })
     router.push("/login")
@@ -435,9 +558,26 @@ export function DashboardClient() {
           </div>
           <div className="mt-5 grid grid-cols-2 md:grid-cols-3 gap-4">
             {data.flyers.map((f) => (
-              <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete} />
+              <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete} onOrderPrint={handleOrderPrint} />
             ))}
           </div>
+
+          {data.printRequests.length > 0 && (
+            <>
+              <h2 className="mt-12 text-lg font-semibold">Print Requests</h2>
+              <div className="mt-5 flex flex-col gap-3">
+                {data.printRequests.map((r) => (
+                  <div key={r.id} className="rounded-xl border border-white/10 bg-card p-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{r.quantity}× {r.flyerTitle}</p>
+                      <p className="mt-1 text-xs text-muted-foreground truncate">Ship to {r.shippingName} — {r.shippingAddress}</p>
+                    </div>
+                    <StatusBadge status={r.status} />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {data.planId === "pro" && <FormFillSection />}
         </>
