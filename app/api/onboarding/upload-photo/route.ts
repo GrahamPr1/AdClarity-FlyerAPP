@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { put } from "@vercel/blob"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
+import { getSiteUrl } from "@/lib/site-url"
 
 const SUPPORTED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"])
 const MAX_FILE_BYTES = 10 * 1024 * 1024
@@ -57,5 +58,11 @@ export async function POST(request: NextRequest) {
     addRandomSuffix: false,
   })
 
-  return NextResponse.json({ ok: true, url: `/api/photos/${pathname}` })
+  // Must be absolute: the flyer's downloadUrl is a data: URI (see toDataUrl
+  // in pipeline.ts), which has no real origin to resolve a relative path
+  // against — a relative "/api/photos/..." src silently fails to load
+  // inside it. Same reasoning as the QR code's redeem URL (see
+  // lib/site-url.ts) — pinned to the real deployed domain, not
+  // request-relative.
+  return NextResponse.json({ ok: true, url: `${getSiteUrl()}/api/photos/${pathname}` })
 }
