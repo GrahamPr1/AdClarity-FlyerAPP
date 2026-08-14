@@ -10,11 +10,12 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const PLAN_OPTIONS: PlanId[] = ["trial", "basic", "pro"]
 
-function ClientRow({ client, onRetry, onDelete, onPlanChange }: {
+function ClientRow({ client, onRetry, onDelete, onPlanChange, onUpdatePrintStatus }: {
   client: Deliverables
   onRetry: (email: string, flyerId: string) => Promise<{ ok: boolean; error?: string }>
   onDelete: (email: string, flyerId: string) => Promise<{ ok: boolean; error?: string }>
   onPlanChange: (email: string, plan: PlanId) => Promise<void>
+  onUpdatePrintStatus: (email: string, requestId: string, status: "Fulfilled" | "Cancelled") => Promise<void>
 }) {
   const [changingPlan, setChangingPlan] = useState(false)
   const email = client.email ?? "(unknown)"
@@ -49,6 +50,35 @@ function ClientRow({ client, onRetry, onDelete, onPlanChange }: {
         <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-4">
           {client.flyers.map((f) => (
             <FlyerCard key={f.id} flyer={f} onRetry={(flyerId) => onRetry(email, flyerId)} onDelete={(flyerId) => onDelete(email, flyerId)} />
+          ))}
+        </div>
+      )}
+
+      {client.printRequests.length > 0 && (
+        <div className="mt-5 flex flex-col gap-2.5">
+          <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Print requests</p>
+          {client.printRequests.map((r) => (
+            <div key={r.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm">{r.quantity}× {r.flyerTitle}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{r.shippingName} — {r.shippingAddress}{r.notes ? ` · ${r.notes}` : ""}</p>
+              </div>
+              <div className="shrink-0 flex items-center gap-2">
+                <StatusBadge status={r.status} />
+                {r.status === "Requested" && (
+                  <>
+                    <button onClick={() => onUpdatePrintStatus(email, r.id, "Fulfilled")}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] transition-colors">
+                      Mark Fulfilled
+                    </button>
+                    <button onClick={() => onUpdatePrintStatus(email, r.id, "Cancelled")}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] transition-colors">
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -115,6 +145,15 @@ export function AdminDashboard() {
     return { ok: true }
   }
 
+  async function handleUpdatePrintStatus(email: string, requestId: string, status: "Fulfilled" | "Cancelled") {
+    await fetch("/api/print-requests/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, requestId, status }),
+    })
+    mutate()
+  }
+
   async function handlePlanChange(email: string, plan: PlanId) {
     await fetch("/api/admin/set-plan", {
       method: "POST",
@@ -152,7 +191,7 @@ export function AdminDashboard() {
       ) : (
         <div className="mt-8 flex flex-col gap-5">
           {data.clients.map((c) => (
-            <ClientRow key={c.email} client={c} onRetry={handleRetry} onDelete={handleDelete} onPlanChange={handlePlanChange} />
+            <ClientRow key={c.email} client={c} onRetry={handleRetry} onDelete={handleDelete} onPlanChange={handlePlanChange} onUpdatePrintStatus={handleUpdatePrintStatus} />
           ))}
         </div>
       )}

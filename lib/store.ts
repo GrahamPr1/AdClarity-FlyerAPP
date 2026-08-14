@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId, RepurposedFlyerContent, TrackingRecord, TrackingStats } from "./types"
+import type { BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
@@ -90,6 +90,8 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
   const planId: PlanId = client?.plan ?? "trial"
   const periodStart = client?.periodStart ?? Date.now()
 
+  const printRequests = await getPrintRequestsForEmail(email)
+
   return {
     ...stored,
     email,
@@ -98,6 +100,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
     flyersCreated: client?.flyersCreated ?? 0,
     flyersLimit: PLAN_LIMITS[planId],
     flyersResetAt: new Date(periodStart + RESET_PERIOD_MS).toISOString(),
+    printRequests,
   }
 }
 
@@ -116,6 +119,7 @@ export async function getDeliverables(): Promise<Deliverables> {
       flyersCreated: 0,
       flyersLimit: PLAN_LIMITS.trial,
       flyersResetAt: new Date(Date.now() + RESET_PERIOD_MS).toISOString(),
+      printRequests: [],
     }
   }
   return getDeliverablesForEmail(email)
@@ -237,6 +241,38 @@ export async function savePipelineState(email: string, intake: NormalizedIntake,
 
 export async function getPipelineState(email: string): Promise<StoredPipelineState | null> {
   return (await redis.get<StoredPipelineState>(pipelineStateKey(email))) ?? null
+}
+
+// ---- Print requests ---------------------------------------------------------
+//
+// Same accumulate-don't-replace pattern as flyers/form-fills. Not a real
+// order — see the note on PrintRequest in lib/types.ts.
+
+function printRequestsKey(email: string) {
+  return `print-requests:${email}`
+}
+
+async function readPrintRequests(email: string): Promise<PrintRequest[]> {
+  return (await redis.get<PrintRequest[]>(printRequestsKey(email))) ?? []
+}
+
+export async function getPrintRequestsForEmail(email: string): Promise<PrintRequest[]> {
+  return readPrintRequests(email)
+}
+
+export async function seedPrintRequest(email: string, request: PrintRequest): Promise<void> {
+  const current = await readPrintRequests(email)
+  await redis.set(printRequestsKey(email), [...current, request])
+}
+
+/** Admin-only status change — see /api/print-requests/status. */
+export async function updatePrintRequestStatus(email: string, id: string, status: PrintRequest["status"]): Promise<boolean> {
+  const current = await readPrintRequests(email)
+  const request = current.find((r) => r.id === id)
+  if (!request) return false
+  request.status = status
+  await redis.set(printRequestsKey(email), current)
+  return true
 }
 
 // ---- Form Fill requests (Pro-only) -----------------------------------------

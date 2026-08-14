@@ -188,6 +188,30 @@ export interface Deliverables {
   flyersLimit: number
   /** ISO timestamp when flyersCreated next resets to 0. */
   flyersResetAt: string
+  printRequests: PrintRequest[]
+}
+
+// ---- Print fulfillment ------------------------------------------------------
+//
+// A client requests printed copies of one of their own Ready flyers —
+// quantity + shipping address. Deliberately NOT a real order: there's no
+// Stripe billing yet, so nothing here calls a print API or charges anyone.
+// It's a queue the admin sees and fulfills/invoices manually outside the
+// app. Available to every plan, not just Pro — it costs nothing until the
+// admin decides to act on it, so gating it by tier has no real basis.
+
+export type PrintRequestStatus = "Requested" | "Fulfilled" | "Cancelled"
+
+export interface PrintRequest {
+  id: string
+  flyerId: string
+  flyerTitle: string
+  quantity: number
+  shippingName: string
+  shippingAddress: string
+  notes: string | null
+  status: PrintRequestStatus
+  createdAt: string
 }
 
 // ---- Form Fill (Pro-only) --------------------------------------------------
