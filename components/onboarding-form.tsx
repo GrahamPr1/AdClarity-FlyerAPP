@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import type { BrandStyle, IntakeSubmission, PlanId, ServiceItem } from "@/lib/types"
 import { getPlan } from "@/lib/plans"
@@ -8,6 +8,7 @@ import { getPlan } from "@/lib/plans"
 const STEPS = ["Business", "Services", "Brand", "Contact", "Deliverables"] as const
 
 const STYLE_OPTIONS: BrandStyle[] = ["modern", "classic", "playful", "minimal"]
+const MAX_FLYER_PHOTOS = 5
 
 function fieldBase() {
   return "w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
@@ -33,6 +34,22 @@ export function OnboardingForm({ email }: { email: string }) {
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoUploadError, setPhotoUploadError] = useState("")
+
+  // The AI-photo opt-in is Pro-only — real enforcement lives server-side in
+  // the pipeline (see getPlanFeatures in lib/agent-pipeline/pipeline.ts);
+  // this fetch is only so the checkbox reflects reality instead of offering
+  // something that would silently no-op. `planId` from the query string
+  // (used above for onboarding's own display copy) is cosmetic only, never
+  // real enforcement — see the note on PlanId in lib/types.ts.
+  const [realPlanId, setRealPlanId] = useState<PlanId | null>(null)
+  useEffect(() => {
+    fetch("/api/deliverables")
+      .then((r) => r.json())
+      .then((d) => setRealPlanId(d.planId ?? null))
+      .catch(() => {})
+  }, [])
 
   // contact.email is fixed to the authenticated session's email — signing
   // in now happens BEFORE onboarding (see app/onboarding/page.tsx), so
@@ -50,6 +67,8 @@ export function OnboardingForm({ email }: { email: string }) {
     targetAudience: "",
     contact: { email, phone: "", address: "", website: "", socialHandles: "" },
     existingMaterialsFileName: undefined,
+    flyerPhotoUrls: [],
+    wantsAiPhotos: false,
     flyerNotes: "",
     websitePreferences: "",
   })
@@ -72,6 +91,37 @@ export function OnboardingForm({ email }: { email: string }) {
       ...f,
       services: f.services.length > 1 ? f.services.filter((s) => s.id !== id) : f.services,
     }))
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = "" // allow re-selecting the same file later
+    if (!file) return
+
+    if ((form.flyerPhotoUrls?.length ?? 0) >= MAX_FLYER_PHOTOS) {
+      setPhotoUploadError(`You can upload up to ${MAX_FLYER_PHOTOS} photos.`)
+      return
+    }
+
+    setUploadingPhoto(true)
+    setPhotoUploadError("")
+    const body = new FormData()
+    body.append("file", file)
+
+    try {
+      const res = await fetch("/api/onboarding/upload-photo", { method: "POST", body })
+      const data = await res.json().catch(() => ({}) as { url?: string; error?: string })
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed — please try again.")
+      set("flyerPhotoUrls", [...(form.flyerPhotoUrls ?? []), data.url])
+    } catch (err) {
+      setPhotoUploadError(err instanceof Error ? err.message : "Upload failed — please try again.")
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  function removePhoto(url: string) {
+    set("flyerPhotoUrls", (form.flyerPhotoUrls ?? []).filter((u) => u !== url))
   }
 
   const isLast = step === STEPS.length - 1
@@ -261,6 +311,49 @@ export function OnboardingForm({ email }: { email: string }) {
         {/* STEP 5 — Deliverables */}
         {step === 4 && (
           <div className="flex flex-col gap-5">
+            <div>
+              <Label htmlFor="flyerPhotos">Photos for your flyers (optional, up to {MAX_FLYER_PHOTOS})</Label>
+              <input id="flyerPhotos" type="file" accept="image/*"
+                onChange={handlePhotoUpload}
+                disabled={uploadingPhoto || (form.flyerPhotoUrls?.length ?? 0) >= MAX_FLYER_PHOTOS}
+                className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--brand-teal-tint)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--brand-teal-bright)] hover:file:bg-[var(--brand-teal)]/20 disabled:opacity-60" />
+              <p className="mt-1.5 text-xs text-muted-foreground">A real photo of your own beats a generic one — we&apos;ll use these directly in your flyers where they fit.</p>
+              {uploadingPhoto && <p className="mt-1.5 text-xs text-muted-foreground">Uploading…</p>}
+              {photoUploadError && <p role="alert" className="mt-1.5 text-xs text-red-400">{photoUploadError}</p>}
+              {(form.flyerPhotoUrls?.length ?? 0) > 0 && (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {form.flyerPhotoUrls!.map((url) => (
+                    <div key={url} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="Uploaded flyer photo" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => removePhoto(url)}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs leading-none flex items-center justify-center hover:bg-black/80"
+                        aria-label="Remove photo">
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {(form.flyerPhotoUrls?.length ?? 0) === 0 && (
+              <div>
+                <label className="flex items-center gap-2.5 text-sm cursor-pointer">
+                  <input type="checkbox" checked={form.wantsAiPhotos ?? false}
+                    disabled={realPlanId !== "pro"}
+                    onChange={(e) => set("wantsAiPhotos", e.target.checked)}
+                    className="w-4 h-4 accent-[var(--brand-teal-bright)] disabled:opacity-50" />
+                  Let AI generate photos for flyers that don&apos;t have one of your own
+                </label>
+                {realPlanId !== null && realPlanId !== "pro" && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    <a href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">Upgrade to Pro</a> to unlock AI-generated photos.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <Label htmlFor="existing">Existing marketing materials to reference (optional)</Label>
               <input id="existing" type="file"

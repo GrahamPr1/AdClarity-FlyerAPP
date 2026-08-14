@@ -8,24 +8,22 @@
 // API reference (platform.higgsfield.ai) confirmed from docs.higgsfield.ai:
 //   POST   https://platform.higgsfield.ai/{model_id}
 //   Header Authorization: Key {HF_API_KEY}:{HF_API_SECRET}
-//   Body   { prompt, aspect_ratio, resolution }
+//   Body   { prompt, aspect_ratio }
 //   ->     { status: "queued"|"in_progress"|"completed"|"failed"|"nsfw",
 //            request_id, status_url, cancel_url, images?: [{url}] }
 //   GET    https://platform.higgsfield.ai/requests/{request_id}/status
 //
-// Model: nano_banana_2 at 1K resolution — Higgsfield's own CLI uses this as
-// its canonical low-cost example, and third-party pricing writeups place it
-// at the cheapest end of their image lineup. NOTE: the exact credit cost per
-// image is NOT reliably confirmed — public docs don't publish a pricing
-// table, and secondhand blog figures disagree with each other by 10-20x.
-// This module logs whatever cost field the API response actually contains;
-// if it contains none, that's logged explicitly rather than guessed. Get an
-// authoritative number via `higgsfield generate cost nano_banana_2 --prompt
-// "..."` (once `higgsfield auth login` is done) or the Higgsfield dashboard.
+// Model: z_image — verified via the real `higgsfield` CLI (authenticated
+// account, not guesswork): `higgsfield generate cost z_image --prompt "..."`
+// reports 0.15 credits, vs. 1 credit for nano_banana_2_lite and 2 credits
+// for nano_banana_pro (the model this code used to target under the name
+// "nano_banana_2", which isn't a real job_type — it silently resolved to
+// the expensive Pro tier). z_image has no `resolution` param at all (fixed
+// output size), confirmed via `higgsfield model get z_image`. A real test
+// generation produced a genuinely usable, on-brief image at this price.
 
 const API_BASE = "https://platform.higgsfield.ai"
-const MODEL_ID = "nano_banana_2"
-const RESOLUTION = "1K" // cheapest tier — matches the "least credits" ask
+const MODEL_ID = "z_image" // cheapest verified image model — ~13x cheaper than the Pro tier this used to hit by mistake
 const POLL_INTERVAL_MS = 1500
 const MAX_WAIT_MS = 30_000
 
@@ -60,7 +58,7 @@ function extractCredits(job: HiggsfieldJobResponse): number | null {
 function logCost(context: string, job: HiggsfieldJobResponse) {
   const credits = extractCredits(job)
   if (credits !== null) {
-    console.log(`[higgsfield] ${context}: ${credits} credits used (model=${MODEL_ID}, resolution=${RESOLUTION})`)
+    console.log(`[higgsfield] ${context}: ${credits} credits used (model=${MODEL_ID})`)
   } else {
     console.log(
       `[higgsfield] ${context}: completed, but response reported no credits/cost field — check the Higgsfield dashboard or 'higgsfield generate cost ${MODEL_ID} --prompt "..."' for the authoritative figure.`,
@@ -91,7 +89,6 @@ export async function generateImage(opts: { prompt: string; context: string }): 
       body: JSON.stringify({
         prompt: opts.prompt,
         aspect_ratio: "4:3",
-        resolution: RESOLUTION,
       }),
     })
 

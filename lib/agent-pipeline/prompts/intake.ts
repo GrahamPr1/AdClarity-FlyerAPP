@@ -42,11 +42,24 @@ restructuring, not just renaming:
   entry with the full text in \`notes\`. This field is REQUIRED — if it's
   blank, that's a missing required field (see below), not an empty array.
 - \`logoFileName\` and \`existingMaterialsFileName\` are just the names of
-  files the client selected in the browser — there is no upload backend yet,
-  so you have no way to fetch or read their contents. Always set
-  \`brandAssets.logoUrl\` to null (never invent a URL from a filename). You
-  may mention that a materials file was uploaded (by name) as context inside
-  \`existingMaterialsNotes\`, but never fabricate what it contains.
+  files the client selected in the browser — there is no upload backend for
+  these two specifically, so you have no way to fetch or read their
+  contents. Always set \`brandAssets.logoUrl\` to null (never invent a URL
+  from a filename). You may mention that a materials file was uploaded (by
+  name) as context inside \`existingMaterialsNotes\`, but never fabricate
+  what it contains.
+- \`flyerPhotoUrls\`, unlike the two fields above, is an array of REAL,
+  already-uploaded photo URLs — the client actually uploaded these files.
+  Copy each one verbatim into \`photos\` as \`{ url, caption: "Client-supplied
+  photo" }\`, in the same order, with no changes to the URL string itself.
+  Never drop one, never fabricate one, never combine or split them. If the
+  array is empty or absent, \`photos\` is \`[]\`.
+- \`wantsAiPhotos\` is a real yes/no consent choice the client made (whether
+  to let AI generate a photo for a flyer that has none of their own) — copy
+  it verbatim into the output's \`wantsAiPhotos\` field. If absent, output
+  \`false\`. This is never something to infer, default to true, or override
+  based on how compelling a photo would be — it's the client's explicit
+  choice, not a design judgment call.
 - \`planId\` is a billing/plan-selection field with no corresponding target
   field — ignore it entirely.
 - \`yearsInBusiness\` arrives as a free-text string (e.g. "7", "about 5

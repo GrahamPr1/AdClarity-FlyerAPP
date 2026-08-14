@@ -8,15 +8,18 @@ import { createFlyerTrackingCode, backfillTrackingContent } from "./qrTracking"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
 import type { FlyerRequest } from "./schemas/flyer"
 
-// QR tracking and multi-channel repurposing are Basic+/Pro features — real,
-// server-side gating, not just hidden in the UI. Trial gets flyer
-// generation only. Checked against the CLIENT's real enforcement plan
-// (never the marketing-page selection — see the note on PlanId in
-// lib/types.ts), same source of truth as the usage-limit check in
-// /api/intake.
-async function hasExtraFeatures(email: string): Promise<boolean> {
+// QR tracking, multi-channel repurposing, and AI-generated photos are all
+// real, server-side-gated features — never just hidden in the UI. Checked
+// against the CLIENT's real enforcement plan (never the marketing-page
+// selection — see the note on PlanId in lib/types.ts), same source of
+// truth as the usage-limit check in /api/intake. Fetched once per
+// batch/retry so both checks reflect the same plan snapshot.
+async function getPlanFeatures(email: string): Promise<{ includeExtras: boolean; allowAiPhotos: boolean }> {
   const client = await getClient(email)
-  return client?.plan !== "trial"
+  return {
+    includeExtras: client?.plan !== "trial", // Basic+/Pro: QR tracking, repurposing
+    allowAiPhotos: client?.plan === "pro", // Pro only — also requires the client's own opt-in (see buildPhotoPool)
+  }
 }
 
 export const MAX_FLYERS_PER_BATCH = 10
@@ -69,24 +72,41 @@ function toDataUrl(html: string): string {
   return `data:text/html;charset=utf-8;base64,${base64}`
 }
 
+// Packs in real, specific business context (not just industry) so the
+// generated image reads as belonging to THIS business's actual site and
+// service rather than a generic stock photo — the flyer's own purpose/notes,
+// the real services offered, and who it's for.
+function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerRequest): string {
+  const services = intake.services.slice(0, 3).join(", ")
+  const noteContext = request.notes ? ` — ${request.notes}` : ""
+  return (
+    `${intake.industry} business, ${request.purpose}${noteContext}, ` +
+    `offering ${services}, for an audience of ${intake.targetAudience}, ` +
+    `professional environment, warm natural lighting, no people, no text, no logos, documentary style`
+  )
+}
+
 /**
  * Fills the photo gap the old {{AI_PHOTO:...}} tokens left broken: if the
  * client supplied zero photos of their own, generate one real image per
- * flyer request via Higgsfield (least-credits approach — exactly one
- * attempt per flyer, no retries, skipped entirely if no client photos are
- * missing or Higgsfield isn't configured). Failures are per-image and never
- * throw — the Flyer Agent's existing CSS-only design already handles a
- * flyer with no matching photo gracefully, so a partial (or total) miss
- * here just means fewer real photos in the pool, not a broken flyer.
+ * flyer request via Higgsfield — but ONLY when allowAiGeneration is true
+ * (Pro plan AND the client's own explicit opt-in, see intake.wantsAiPhotos
+ * — never automatic). Least-credits approach — exactly one attempt per
+ * flyer, no retries, skipped entirely if Higgsfield isn't configured.
+ * Failures are per-image and never throw — the Flyer Agent's existing
+ * CSS-only design already handles a flyer with no matching photo
+ * gracefully, so a partial (or total) miss here just means fewer real
+ * photos in the pool, not a broken flyer.
  */
-async function buildPhotoPool(intake: NormalizedIntake, flyerRequests: FlyerRequest[]) {
+async function buildPhotoPool(intake: NormalizedIntake, flyerRequests: FlyerRequest[], allowAiGeneration: boolean) {
   if (intake.photos.length > 0) return intake.photos
+  if (!allowAiGeneration) return []
 
   const results = await Promise.allSettled(
     flyerRequests.map((request) =>
       generateImage({
         context: `flyer "${request.purpose}"`,
-        prompt: `${intake.industry}, ${request.purpose}, professional environment, warm natural lighting, no people, no text, no logos, documentary style`,
+        prompt: buildAiPhotoPrompt(intake, request),
       }),
     ),
   )
@@ -116,8 +136,8 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
 
 async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[]): Promise<void> {
   const brandProfile = await runBrandAgent(intake)
-  const photos = await buildPhotoPool(intake, flyerRequests)
-  const includeExtras = await hasExtraFeatures(email)
+  const { includeExtras, allowAiPhotos } = await getPlanFeatures(email)
+  const photos = await buildPhotoPool(intake, flyerRequests, allowAiPhotos && intake.wantsAiPhotos)
 
   // One tracking code + QR image per flyer, generated before the agent call
   // — it needs a real, ready image to embed, the same way it needs real
@@ -196,8 +216,8 @@ export async function continuePipelineFromIntake(email: string, intake: Normaliz
 
 async function runSingleFlyerRetry(email: string, intake: NormalizedIntake, flyerRequest: FlyerRequest): Promise<void> {
   const brandProfile = await runBrandAgent(intake)
-  const photos = await buildPhotoPool(intake, [flyerRequest])
-  const includeExtras = await hasExtraFeatures(email)
+  const { includeExtras, allowAiPhotos } = await getPlanFeatures(email)
+  const photos = await buildPhotoPool(intake, [flyerRequest], allowAiPhotos && intake.wantsAiPhotos)
 
   // A retry gets its own fresh tracking code (Basic+/Pro only) — the old
   // one, if this flyer had already generated once, is simply abandoned
