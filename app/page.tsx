@@ -46,6 +46,10 @@ const ICONS = {
   sparkles: <><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z" /><path d="M19 13l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z" /></>,
   download: <><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></>,
+  qr: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 21v-4h4" /><path d="M21 14v3" /><path d="M17 17h.01" /></>,
+  save: <path d="M19 21 12 16 5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z" />,
+  share: <><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 10.6 15.4 6.4" /><path d="M8.6 13.4 15.4 17.6" /></>,
+  print: <><path d="M6 9V3h12v6" /><rect x="4" y="9" width="16" height="8" rx="1" /><path d="M6 17v4h12v-4" /></>,
 }
 
 /* Rotating accent palette for icon tiles — adds color variety across sections */
@@ -53,7 +57,11 @@ const ACCENTS = [
   { fg: "var(--brand-teal-bright)", bg: "var(--brand-teal-tint)" },
   { fg: "var(--brand-amber)", bg: "var(--brand-amber-tint)" },
   { fg: "var(--brand-sky)", bg: "rgba(142,203,245,0.12)" },
+  { fg: "var(--brand-ice)", bg: "var(--brand-ice-tint)" },
 ]
+
+/* Shared card-lift treatment — a bit more tactile/inviting than a plain border-color swap */
+const CARD_HOVER = "transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/20"
 
 /* ----------------------------- Small helpers ----------------------------- */
 function Tag({ children }: { children: React.ReactNode }) {
@@ -99,7 +107,7 @@ function HeroVisual() {
                 </div>
               </div>
               <div className="h-14 rounded-lg bg-white/[0.06] flex items-center justify-center gap-2 px-3">
-                {["var(--brand-teal-bright)", "var(--brand-amber)", "var(--brand-sky)"].map((c) => (
+                {["var(--brand-teal-bright)", "var(--brand-amber)", "var(--brand-sky)", "var(--brand-ice)"].map((c) => (
                   <span key={c} className="w-6 h-6 rounded-full" style={{ background: c }} />
                 ))}
                 <span className="text-xs text-muted-foreground ml-1">brand-matched</span>
@@ -132,6 +140,33 @@ function HeroVisual() {
 }
 
 /* --------------------------------- Data ---------------------------------- */
+const NEW_FEATURES = [
+  {
+    icon: ICONS.qr,
+    title: "Know What's Working",
+    desc: "Every flyer includes a built-in QR code that tracks real scans and clicks — so you can see if a flyer actually got a response, not just that it looks good.",
+    pro: false,
+  },
+  {
+    icon: ICONS.share,
+    title: "One Flyer, Every Channel",
+    desc: "Every flyer also comes with a matching Instagram post, a text-blast blurb, and a Nextdoor post — all written to fit, so one campaign covers everywhere your customers are.",
+    pro: false,
+  },
+  {
+    icon: ICONS.save,
+    title: "Save Your Info Once",
+    desc: "Save your business info once and reuse it to fill out any future form automatically — no more re-uploading the same paperwork every time.",
+    pro: true,
+  },
+  {
+    icon: ICONS.print,
+    title: "Get It Printed",
+    desc: "Request printed copies of any flyer right from your dashboard — tell us the quantity and where to ship it, and we'll take care of the rest.",
+    pro: false,
+  },
+]
+
 const WHY_ONEFLYER = [
   {
     icon: ICONS.sparkles,
@@ -378,6 +413,60 @@ export default function Page() {
         </div>
       </section>
 
+      {/* ── WHAT'S NEW ───────────────────────────────────────────────────── */}
+      <section id="new" className="relative px-6 md:px-12 lg:px-20 py-24 border-t border-white/[0.06] scroll-mt-24 overflow-hidden">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+          <div
+            className="absolute top-0 right-0 w-[34rem] h-[34rem] rounded-full blur-[130px] opacity-30"
+            style={{ background: "radial-gradient(circle, var(--brand-ice), transparent 65%)" }}
+          />
+        </div>
+        <div className="max-w-6xl mx-auto">
+          <Reveal>
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[var(--brand-ice)]/30 bg-[var(--brand-ice-tint)] text-[11px] tracking-widest uppercase text-[var(--brand-ice)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-ice)]" />
+              Just Added
+            </span>
+          </Reveal>
+          <RevealText
+            as="h2"
+            className="mt-6 text-3xl md:text-4xl font-semibold tracking-tight leading-tight max-w-2xl text-balance"
+          >
+            Every flyer just got a lot more useful.
+          </RevealText>
+          <Reveal delay={80}>
+            <p className="mt-4 text-sm text-muted-foreground max-w-xl">
+              Same AI design engine, now with measurement, reuse, and fulfillment built into every flyer.
+            </p>
+          </Reveal>
+
+          <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {NEW_FEATURES.map((f, i) => {
+              const accent = ACCENTS[i % ACCENTS.length]
+              return (
+                <Reveal key={f.title} delay={i * 90}>
+                  <div className={`h-full rounded-2xl border border-white/10 bg-card p-7 flex flex-col hover:border-white/20 ${CARD_HOVER}`}>
+                    <div className="flex items-center justify-between">
+                      <div
+                        className="w-11 h-11 rounded-xl flex items-center justify-center"
+                        style={{ background: accent.bg, color: accent.fg }}
+                      >
+                        <Icon path={f.icon} />
+                      </div>
+                      {f.pro && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--brand-amber-tint)] text-[var(--brand-amber)]">Pro</span>
+                      )}
+                    </div>
+                    <h3 className="mt-5 text-lg font-semibold">{f.title}</h3>
+                    <p className="mt-2.5 text-sm text-muted-foreground leading-relaxed flex-1">{f.desc}</p>
+                  </div>
+                </Reveal>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* ── WHY ONEFLYER ─────────────────────────────────────────────────── */}
       <section className="px-6 md:px-12 lg:px-20 py-24 border-t border-white/[0.06]">
         <div className="max-w-6xl mx-auto">
@@ -401,7 +490,7 @@ export default function Page() {
               const accent = ACCENTS[i % ACCENTS.length]
               return (
                 <Reveal key={a.title} delay={i * 90}>
-                  <div className="h-full rounded-2xl border border-white/10 bg-card p-7 flex flex-col transition-colors hover:border-white/20">
+                  <div className={`h-full rounded-2xl border border-white/10 bg-card p-7 flex flex-col hover:border-white/20 ${CARD_HOVER}`}>
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center"
                       style={{ background: accent.bg, color: accent.fg }}
@@ -477,7 +566,7 @@ export default function Page() {
               const accent = ACCENTS[i % ACCENTS.length]
               return (
                 <Reveal key={s.n} delay={i * 100}>
-                  <div className="h-full rounded-2xl border border-white/10 bg-card p-8 transition-colors hover:border-white/20">
+                  <div className={`h-full rounded-2xl border border-white/10 bg-card p-8 hover:border-white/20 ${CARD_HOVER}`}>
                     <div className="flex items-center justify-between">
                       <div
                         className="w-11 h-11 rounded-xl flex items-center justify-center"
