@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId } from "./types"
+import type { BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId, RepurposedFlyerContent } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
@@ -157,6 +157,7 @@ export async function updateDeliverable(
     status?: string
     thumbnailUrl?: string
     downloadUrl?: string
+    repurposed?: RepurposedFlyerContent
   },
 ): Promise<FlyerDeliverable | null> {
   if (payload.type !== "flyer") return null
@@ -169,6 +170,7 @@ export async function updateDeliverable(
   }
   if (payload.thumbnailUrl) flyer.thumbnailUrl = payload.thumbnailUrl
   if (payload.downloadUrl) flyer.downloadUrl = payload.downloadUrl
+  if (payload.repurposed) flyer.repurposed = payload.repurposed
   await writeDeliverables(email, current)
   return flyer
 }

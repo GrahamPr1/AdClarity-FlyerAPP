@@ -14,7 +14,11 @@ export const MAX_FLYERS_PER_BATCH = 10
 // hangs instead of rejecting promptly, this ceiling forces a Failed state
 // instead of a silent stall. Overridable via env var so tests don't have to
 // wait out the real ceiling.
-const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS) || 2 * 60 * 1000
+//
+// Bumped from 2 to 4 minutes when repurposed per-channel content (a second
+// full HTML document plus captions per flyer) roughly doubled real
+// generation output — stays comfortably under Vercel's 300s function limit.
+const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS) || 4 * 60 * 1000
 
 class PipelineTimeoutError extends Error {}
 
@@ -116,6 +120,12 @@ async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: 
       id: flyer.id,
       status: "Ready",
       downloadUrl: toDataUrl(flyer.html),
+      repurposed: {
+        instagramDownloadUrl: toDataUrl(flyer.repurposed.instagramHtml),
+        instagramCaption: flyer.repurposed.instagramCaption,
+        textBlurb: flyer.repurposed.textBlurb,
+        nextdoorPost: flyer.repurposed.nextdoorPost,
+      },
     })
   }
 }
@@ -174,6 +184,12 @@ async function runSingleFlyerRetry(email: string, intake: NormalizedIntake, flye
     id: flyer.id,
     status: "Ready",
     downloadUrl: toDataUrl(flyer.html),
+    repurposed: {
+      instagramDownloadUrl: toDataUrl(flyer.repurposed.instagramHtml),
+      instagramCaption: flyer.repurposed.instagramCaption,
+      textBlurb: flyer.repurposed.textBlurb,
+      nextdoorPost: flyer.repurposed.nextdoorPost,
+    },
   })
 }
 

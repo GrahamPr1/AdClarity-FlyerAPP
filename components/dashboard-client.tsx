@@ -7,6 +7,7 @@ import type {
   Deliverables,
   FlyerDeliverable,
   FlyerStatus,
+  RepurposedFlyerContent,
 } from "@/lib/types"
 import { FormFillSection } from "@/components/form-fill-section"
 
@@ -43,11 +44,23 @@ const THUMB_SCALE = 0.14
 const THUMB_IFRAME_WIDTH = 850
 const THUMB_IFRAME_HEIGHT = 1100
 
-function FlyerThumbnail({ downloadUrl, title }: { downloadUrl: string; title: string }) {
+function FlyerThumbnail({
+  downloadUrl,
+  title,
+  iframeWidth = THUMB_IFRAME_WIDTH,
+  iframeHeight = THUMB_IFRAME_HEIGHT,
+  scale = THUMB_SCALE,
+}: {
+  downloadUrl: string
+  title: string
+  iframeWidth?: number
+  iframeHeight?: number
+  scale?: number
+}) {
   return (
     <div
       className="overflow-hidden rounded-md bg-white shadow-inner"
-      style={{ width: THUMB_IFRAME_WIDTH * THUMB_SCALE, height: THUMB_IFRAME_HEIGHT * THUMB_SCALE }}
+      style={{ width: iframeWidth * scale, height: iframeHeight * scale }}
     >
       <iframe
         src={downloadUrl}
@@ -56,14 +69,74 @@ function FlyerThumbnail({ downloadUrl, title }: { downloadUrl: string; title: st
         sandbox=""
         aria-hidden="true"
         style={{
-          width: THUMB_IFRAME_WIDTH,
-          height: THUMB_IFRAME_HEIGHT,
+          width: iframeWidth,
+          height: iframeHeight,
           border: "none",
-          transform: `scale(${THUMB_SCALE})`,
+          transform: `scale(${scale})`,
           transformOrigin: "top left",
           pointerEvents: "none",
         }}
       />
+    </div>
+  )
+}
+
+/* --------------------------- Repurposed content ---------------------------
+ * Same headline/offer/CTA as the print flyer, reformatted per channel —
+ * an Instagram-ready square post plus copy-paste text for a text blast and
+ * a Nextdoor post. Collapsed by default so it doesn't crowd the card for
+ * anyone who only wants the print flyer.
+ */
+function CopyableText({ label, text }: { label: string; text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <button onClick={handleCopy}
+          className="text-xs font-medium text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      <p className="mt-1 text-sm whitespace-pre-wrap rounded-lg bg-white/[0.03] border border-white/10 p-3 leading-relaxed">{text}</p>
+    </div>
+  )
+}
+
+function RepurposedSection({ repurposed, title }: { repurposed: RepurposedFlyerContent; title: string }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/10">
+      <button onClick={() => setOpen((v) => !v)}
+        className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+        {open ? "Hide other formats ▲" : "Show other formats (Instagram, text, Nextdoor) ▼"}
+      </button>
+      {open && (
+        <div className="mt-3 flex flex-col gap-4">
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Instagram post</p>
+              <a href={repurposed.instagramDownloadUrl}
+                download={`${title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-instagram.html`}
+                className="text-xs font-medium text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+                Download
+              </a>
+            </div>
+            <FlyerThumbnail downloadUrl={repurposed.instagramDownloadUrl} title={`${title} Instagram`} iframeWidth={1080} iframeHeight={1080} scale={0.14} />
+          </div>
+          <CopyableText label="Instagram caption" text={repurposed.instagramCaption} />
+          <CopyableText label="Text blast blurb" text={repurposed.textBlurb} />
+          <CopyableText label="Nextdoor post" text={repurposed.nextdoorPost} />
+        </div>
+      )}
     </div>
   )
 }
@@ -167,6 +240,11 @@ export function FlyerCard({
           )}
         </div>
       </div>
+      {ready && flyer.repurposed && (
+        <div className="px-4 pb-4">
+          <RepurposedSection repurposed={flyer.repurposed} title={flyer.title} />
+        </div>
+      )}
     </div>
   )
 }
