@@ -42,6 +42,8 @@
   --brand-amber: #9aa5b1;         /* neutral grey secondary accent — value/highlights */
   --brand-amber-tint: rgba(154,165,177,0.12);
   --brand-sky: #8ecbf5;           /* very light sky blue, tertiary variety accent */
+  --brand-ice: #d3ecfc;           /* palest icy blue — lightest step in the same family, for a fresher/more inviting accent */
+  --brand-ice-tint: rgba(211,236,252,0.16);
   --accent-cta: #5eb8f0;
   --accent-cta-hover: #3a7ca8;
 
