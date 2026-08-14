@@ -151,8 +151,8 @@ export async function markFlyersInProgress(email: string, ids: string[]): Promis
   })
 }
 
-// Update a flyer deliverable's status/fields — used by both the
-// /api/agent-callback webhook and the in-process agent pipeline.
+// Update a flyer deliverable's status/fields — called directly by the
+// in-process agent pipeline as each stage completes.
 export async function updateDeliverable(
   email: string,
   payload: {

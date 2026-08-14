@@ -197,7 +197,7 @@ const STEPS = [
 const FAQS = [
   {
     q: "What's the difference between the plans?",
-    a: "Free Trial gives you 3 flyers a month to try the AI design engine, no credit card required. Basic is $19/month for 15 flyers plus QR scan/click tracking, Instagram/text/Nextdoor versions of every flyer, and print requests. Pro is $39/month for 25 flyers, everything in Basic, a saved Business Profile that auto-fills any form, and priority generation.",
+    a: "Free Trial gives you 3 flyers a month to try the AI design engine, no credit card required. Basic is $19/month for 15 flyers plus QR scan/click tracking, Instagram/text/Nextdoor versions of every flyer, and print requests. Pro is $39/month for 25 flyers, everything in Basic, plus a saved Business Profile that auto-fills any form.",
   },
   {
     q: "Do I need any design experience?",

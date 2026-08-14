@@ -144,8 +144,8 @@ export async function POST(request: NextRequest) {
   // freezing/reclaiming it right after the response is sent (which would
   // silently kill generation mid-run with no error and no state update —
   // exactly what left flyers stuck "In Progress" forever before this).
-  // Progress is reported via the same update contract the
-  // /api/agent-callback webhook exposes (see lib/store.ts).
+  // Progress is reported via lib/store.ts's updateDeliverable, called
+  // directly by the in-process pipeline.
   // -------------------------------------------------------------------------
   waitUntil(
     continuePipelineFromIntake(email, intake, flyerRequests).catch((err) => {
