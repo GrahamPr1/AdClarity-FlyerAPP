@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId, RepurposedFlyerContent } from "./types"
+import type { BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId, RepurposedFlyerContent, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
@@ -158,6 +158,7 @@ export async function updateDeliverable(
     thumbnailUrl?: string
     downloadUrl?: string
     repurposed?: RepurposedFlyerContent
+    trackingCode?: string
   },
 ): Promise<FlyerDeliverable | null> {
   if (payload.type !== "flyer") return null
@@ -171,6 +172,7 @@ export async function updateDeliverable(
   if (payload.thumbnailUrl) flyer.thumbnailUrl = payload.thumbnailUrl
   if (payload.downloadUrl) flyer.downloadUrl = payload.downloadUrl
   if (payload.repurposed) flyer.repurposed = payload.repurposed
+  if (payload.trackingCode) flyer.trackingCode = payload.trackingCode
   await writeDeliverables(email, current)
   return flyer
 }
@@ -420,4 +422,51 @@ export async function verifyAndConsumeClientAccessCode(email: string, code: stri
 
   await redis.del(key)
   return true
+}
+
+// ---- QR tracking ------------------------------------------------------------
+
+function trackingRecordKey(code: string) {
+  return `tracking:${code}:record`
+}
+function trackingScansKey(code: string) {
+  return `tracking:${code}:scans`
+}
+function trackingClicksKey(code: string) {
+  return `tracking:${code}:clicks`
+}
+
+export async function createTrackingRecord(code: string, record: TrackingRecord): Promise<void> {
+  await redis.set(trackingRecordKey(code), record)
+}
+
+export async function getTrackingRecord(code: string): Promise<TrackingRecord | null> {
+  return (await redis.get<TrackingRecord>(trackingRecordKey(code))) ?? null
+}
+
+/** Backfills the content fields once the Flyer Agent responds — the record is created before the agent call (see the note on TrackingRecord in lib/types.ts), so this only ever fills in previously-null fields. */
+export async function updateTrackingRecordContent(
+  code: string,
+  content: Pick<TrackingRecord, "headline" | "offer" | "cta" | "disclaimer">,
+): Promise<void> {
+  const existing = await getTrackingRecord(code)
+  if (!existing) return
+  await redis.set(trackingRecordKey(code), { ...existing, ...content })
+}
+
+/** Atomic — safe under concurrent scans of the same code. */
+export async function incrementTrackingScan(code: string): Promise<number> {
+  return await redis.incr(trackingScansKey(code))
+}
+
+export async function incrementTrackingClick(code: string): Promise<number> {
+  return await redis.incr(trackingClicksKey(code))
+}
+
+export async function getTrackingStats(code: string): Promise<TrackingStats> {
+  const [scans, clicks] = await Promise.all([
+    redis.get<number>(trackingScansKey(code)),
+    redis.get<number>(trackingClicksKey(code)),
+  ])
+  return { scans: scans ?? 0, clicks: clicks ?? 0 }
 }

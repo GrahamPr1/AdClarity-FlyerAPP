@@ -140,8 +140,39 @@ export interface FlyerDeliverable {
   thumbnailUrl?: string
   downloadUrl?: string
   repurposed?: RepurposedFlyerContent
+  /** Short code embedded as a QR code on the flyer itself — used to fetch this flyer's scan/click stats (GET /api/tracking/[code]) and to render its public redeem page (/r/[code]). */
+  trackingCode?: string
   /** Set when status is "Failed" — shown to the client, with a retry option. */
   error?: string
+}
+
+// ---- QR tracking ------------------------------------------------------------
+//
+// Every flyer gets a unique short code, embedded as a QR image ON the flyer
+// itself (both print and Instagram variants), pointing at a hosted
+// /r/[code] redeem page — not the business's own website, since a) not
+// every client has one and b) a self-hosted page is the only way to
+// actually count a scan. Two counters, not one: "scans" (the redeem page
+// loading) and "clicks" (someone tapping the actual CTA on that page) —
+// scans alone can't distinguish "glanced at it" from "took the action."
+
+export interface TrackingRecord {
+  email: string
+  flyerId: string
+  businessName: string
+  /** Populated once the Flyer Agent responds — null in the brief window between QR generation (before the agent call) and the flyer being marked Ready. */
+  headline: string | null
+  offer: string | null
+  cta: string | null
+  disclaimer: string | null
+  phone: string
+  website: string | null
+  createdAt: string
+}
+
+export interface TrackingStats {
+  scans: number
+  clicks: number
 }
 
 export interface Deliverables {

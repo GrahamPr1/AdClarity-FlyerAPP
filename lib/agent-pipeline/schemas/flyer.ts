@@ -45,6 +45,14 @@ export const FlyerAgentOutputSchema = z.object({
 
 export type FlyerAgentOutput = z.infer<typeof FlyerAgentOutputSchema>
 
+// The agent's own input shape needs a qrCodeDataUrl per request that the
+// stored/shared FlyerRequestSchema doesn't carry (it's generated fresh by
+// the pipeline right before this call, not part of the Intake Agent's
+// output or anything persisted — see qrTracking.ts).
+const FlyerRequestWithQrSchema = FlyerRequestSchema.extend({
+  qrCodeDataUrl: z.string(),
+})
+
 export const FlyerAgentInputSchema = z.object({
   brandProfile: z.any(), // BrandProfile — validated upstream by the Brand Agent
   contact: z.object({
@@ -54,7 +62,7 @@ export const FlyerAgentInputSchema = z.object({
     social: z.array(socialHandleEntrySchema()).nullable(),
   }),
   photos: z.array(z.object({ url: z.string(), caption: z.string() })),
-  flyerRequests: z.array(FlyerRequestSchema),
+  flyerRequests: z.array(FlyerRequestWithQrSchema),
   batchSize: z.number().max(10),
   revise: z
     .object({

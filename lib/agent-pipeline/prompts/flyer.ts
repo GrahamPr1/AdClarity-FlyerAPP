@@ -17,7 +17,10 @@ system, and a pleasure to look at.
                                                         // style images the
                                                         // pipeline sourced
                                                         // ahead of time
-  "flyerRequests": FlyerRequest[],                     // up to 10 per call
+  "flyerRequests": (FlyerRequest & { qrCodeDataUrl: string })[], // up to 10 per call —
+                                                        // qrCodeDataUrl is a
+                                                        // real, ready QR code
+                                                        // image (see below)
   "batchSize": number
 }
 
@@ -84,6 +87,17 @@ system, and a pleasure to look at.
    without a solid or gradient scrim behind it.
 9. **One flyer, one job.** Each flyer serves only the single \`purpose\` given to it.
    Keep copy tight — flyers are skimmed, not read.
+10. **Always embed the provided QR code.** Every flyerRequest includes a real,
+    ready \`qrCodeDataUrl\` (an already-resolved image, same as \`photos\` —
+    reference it directly with an \`<img src="{qrCodeDataUrl}">\`, never
+    regenerate or invent your own QR pattern). Place it near the CTA, sized
+    roughly 0.75in-1.5in square (legible when scanned even at that small
+    print size), with a short adjacent label such as "Scan to redeem" or
+    "Scan for details" in the body font. This is how the client measures
+    whether a flyer actually gets a response, so it must be present and
+    genuinely scannable — never shrink it past legibility, place it over a
+    busy photo without a plain background behind it, or bury it in a corner
+    with no label.
 
 ## Output requirements
 
@@ -103,7 +117,9 @@ actually are, not just as one printed page. For every flyer, also produce:
   \`@page { size: 1080px 1080px; }\` (a square Instagram post) — same design
   principles as the print flyer (sections 1-8 above) apply here too, just
   recomposed for a square canvas. Do not just shrink the print layout;
-  actually redesign the hierarchy for a square, mobile-viewed format.
+  actually redesign the hierarchy for a square, mobile-viewed format. Also
+  embed the same \`qrCodeDataUrl\` per section 10 above — the client tracks
+  responses across every channel from the same flyer, not just print.
 - **instagramCaption** — caption copy for that square post: hooks in the
   first line, matches the flyer's tone, ends with the same CTA, and includes
   3-6 relevant hashtags (industry + locality, e.g. #industry #cityname). No

@@ -57,11 +57,12 @@ async function main() {
   console.log("\n--- Brand output ---")
   console.log(JSON.stringify(brandProfile, null, 2))
 
+  const placeholderQrCodeDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
   const flyers = await runFlyerAgent({
     brandProfile,
     contact: intake.contact,
     photos: intake.photos,
-    flyerRequests: intake.flyerRequests,
+    flyerRequests: intake.flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: placeholderQrCodeDataUrl })),
     batchSize: intake.flyerRequests.length,
   })
   console.log("\n--- Flyer output ---")

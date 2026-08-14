@@ -4,6 +4,7 @@ import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
 import { generateImage } from "./higgsfield"
+import { createFlyerTrackingCode, backfillTrackingContent } from "./qrTracking"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
 import type { FlyerRequest } from "./schemas/flyer"
 
@@ -106,15 +107,29 @@ async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: 
   const brandProfile = await runBrandAgent(intake)
   const photos = await buildPhotoPool(intake, flyerRequests)
 
+  // One tracking code + QR image per flyer, generated before the agent call
+  // — it needs a real, ready image to embed, the same way it needs real
+  // photo URLs (see buildPhotoPool). The code -> flyerId mapping lets the
+  // backfill step below match each agent response back to its own record.
+  const trackingByFlyerId = new Map(
+    await Promise.all(
+      flyerRequests.map(async (r) => [r.id, await createFlyerTrackingCode(email, r.id, intake)] as const),
+    ),
+  )
+  const flyerRequestsWithQr = flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: trackingByFlyerId.get(r.id)!.qrDataUrl }))
+
   const flyerResult = await runFlyerAgent({
     brandProfile,
     contact: intake.contact,
     photos,
-    flyerRequests,
+    flyerRequests: flyerRequestsWithQr,
     batchSize: flyerRequests.length,
   })
 
   for (const flyer of flyerResult.flyers) {
+    const tracking = trackingByFlyerId.get(flyer.id)
+    if (tracking) await backfillTrackingContent(tracking.code, flyer)
+
     await updateDeliverable(email, {
       type: "flyer",
       id: flyer.id,
@@ -126,6 +141,7 @@ async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: 
         textBlurb: flyer.repurposed.textBlurb,
         nextdoorPost: flyer.repurposed.nextdoorPost,
       },
+      trackingCode: tracking?.code,
     })
   }
 }
@@ -168,16 +184,24 @@ async function runSingleFlyerRetry(email: string, intake: NormalizedIntake, flye
   const brandProfile = await runBrandAgent(intake)
   const photos = await buildPhotoPool(intake, [flyerRequest])
 
+  // A retry gets its own fresh tracking code — the old one (if this flyer
+  // had already generated once) is simply abandoned along with its stats,
+  // since a regenerated flyer's content may no longer match what a scan of
+  // the old QR would have promised.
+  const tracking = await createFlyerTrackingCode(email, flyerRequest.id, intake)
+
   const flyerResult = await runFlyerAgent({
     brandProfile,
     contact: intake.contact,
     photos,
-    flyerRequests: [flyerRequest],
+    flyerRequests: [{ ...flyerRequest, qrCodeDataUrl: tracking.qrDataUrl }],
     batchSize: 1,
   })
 
   const flyer = flyerResult.flyers[0]
   if (!flyer) throw new Error("Flyer Agent returned no result")
+
+  await backfillTrackingContent(tracking.code, flyer)
 
   await updateDeliverable(email, {
     type: "flyer",
@@ -190,6 +214,7 @@ async function runSingleFlyerRetry(email: string, intake: NormalizedIntake, flye
       textBlurb: flyer.repurposed.textBlurb,
       nextdoorPost: flyer.repurposed.nextdoorPost,
     },
+    trackingCode: tracking.code,
   })
 }
 
