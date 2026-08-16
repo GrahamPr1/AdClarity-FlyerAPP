@@ -279,3 +279,28 @@ export interface BusinessProfileRecord {
   link: string | null
   file: { blobUrl: string; mediaType: string; fileName: string } | null
 }
+
+// ---- AI generation cost log -------------------------------------------------
+//
+// One row per real Claude API call in the Intake/Brand/Flyer pipeline — NOT
+// one row per flyer. A single Flyer Agent call can produce several flyers
+// in one batch, so flyerId is null whenever an entry doesn't map to exactly
+// one flyer (a batch of more than one, or the Intake/Brand stages, which
+// each run once per submission before any flyer id exists yet). email is
+// this app's real per-account identity (see ClientRecord) — there's no
+// separate "business" entity distinct from the account itself, so there's
+// no businessId field here.
+
+export type GenerationAgentType = "intake" | "brand" | "flyer"
+
+export interface GenerationLogEntry {
+  id: string
+  email: string
+  flyerId: string | null
+  agentType: GenerationAgentType
+  model: string
+  inputTokens: number
+  outputTokens: number
+  estimatedCostUsd: number
+  createdAt: string
+}

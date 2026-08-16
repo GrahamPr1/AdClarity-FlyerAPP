@@ -54,11 +54,11 @@ const missingRequiredFields: IntakeSubmission = {
 
 async function main() {
   console.log("--- Case 1: real onboarding-form shape, complete ---")
-  const complete = await runIntakeAgent(realFormSubmission)
+  const complete = await runIntakeAgent(realFormSubmission, "hello@brightsidedental.example")
   console.log(JSON.stringify(complete, null, 2))
 
   console.log("\n--- Case 2: missing required fields ---")
-  const missing = await runIntakeAgent(missingRequiredFields)
+  const missing = await runIntakeAgent(missingRequiredFields, "quickfix@example.com")
   console.log(JSON.stringify(missing, null, 2))
 }
 

@@ -49,7 +49,7 @@ const brightsideFlyerInput: FlyerAgentInput = {
 
 async function main() {
   console.log("--- Case 1: single flyer from a brand-locked profile ---")
-  const result = await runFlyerAgent(brightsideFlyerInput)
+  const result = await runFlyerAgent(brightsideFlyerInput, "hello@brightsidedental.example")
   console.log(JSON.stringify(result, null, 2))
 }
 

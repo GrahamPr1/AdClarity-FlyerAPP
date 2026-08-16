@@ -26,12 +26,17 @@ import { FlyerAgentOutputSchema, type FlyerAgentInput, type FlyerAgentOutput } f
 const TOKENS_PER_FLYER = 60000
 const MAX_TOKENS_CAP = 128000
 
-export async function runFlyerAgent(input: FlyerAgentInput): Promise<FlyerAgentOutput> {
+export async function runFlyerAgent(input: FlyerAgentInput, email: string): Promise<FlyerAgentOutput> {
   const maxTokens = Math.min(TOKENS_PER_FLYER * Math.max(1, input.flyerRequests.length), MAX_TOKENS_CAP)
+  // One call can produce several flyers in a batch — only attribute this
+  // log entry to a single flyerId when there's exactly one to attribute it
+  // to (see GenerationLogEntry.flyerId in lib/types.ts).
+  const flyerId = input.flyerRequests.length === 1 ? input.flyerRequests[0].id : null
   return runJsonAgent({
     systemPrompt: FLYER_AGENT_SYSTEM_PROMPT,
     userInput: input,
     schema: FlyerAgentOutputSchema,
     maxTokens,
+    logContext: { email, agentType: "flyer", flyerId },
   })
 }

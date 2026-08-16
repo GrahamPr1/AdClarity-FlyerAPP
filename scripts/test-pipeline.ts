@@ -37,7 +37,8 @@ async function main() {
   console.log("--- Full pipeline: real onboarding-form shape -> Intake -> Brand -> Flyer ---")
 
   const { planId, submittedAt, ...rawPayload } = realFormSubmission
-  const intakeResult = await runIntakeAgent(rawPayload)
+  const email = realFormSubmission.contact.email
+  const intakeResult = await runIntakeAgent(rawPayload, email)
 
   if (intakeResult.status === "needs_clarification") {
     console.log(
@@ -54,7 +55,7 @@ async function main() {
   console.log("\n--- Intake output ---")
   console.log(JSON.stringify(intakeResult, null, 2))
 
-  const brandProfile = await runBrandAgent(intake)
+  const brandProfile = await runBrandAgent(intake, email)
   console.log("\n--- Brand output ---")
   console.log(JSON.stringify(brandProfile, null, 2))
 
@@ -66,7 +67,7 @@ async function main() {
     flyerRequests: intake.flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: placeholderQrCodeDataUrl })),
     batchSize: intake.flyerRequests.length,
     includeRepurposing: true,
-  })
+  }, email)
   console.log("\n--- Flyer output ---")
   console.log(JSON.stringify(flyers, null, 2))
 }

@@ -55,11 +55,11 @@ const intakeWithoutColors: NormalizedIntake = {
 
 async function main() {
   console.log("--- Case 1: client-provided colors ---")
-  const withColors = await runBrandAgent(intakeWithExistingColors)
+  const withColors = await runBrandAgent(intakeWithExistingColors, "hello@brightsidedental.example")
   console.log(JSON.stringify(withColors, null, 2))
 
   console.log("\n--- Case 2: no colors supplied (agent must propose) ---")
-  const withoutColors = await runBrandAgent(intakeWithoutColors)
+  const withoutColors = await runBrandAgent(intakeWithoutColors, "quickfix@example.com")
   console.log(JSON.stringify(withoutColors, null, 2))
 }
 

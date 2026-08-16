@@ -1,6 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod"
 import type { ZodType } from "zod"
+import type { GenerationAgentType } from "@/lib/types"
+import { recordGenerationLogEntry } from "@/lib/store"
+import { estimateCostUsd } from "./pricing"
 
 const MODEL = process.env.ADCLARITY_MODEL ?? "claude-sonnet-5"
 
@@ -30,11 +33,19 @@ export class AgentTruncatedError extends Error {
   }
 }
 
+export interface GenerationLogContext {
+  email: string
+  agentType: GenerationAgentType
+  /** Null when this call doesn't map to exactly one flyer — the Intake/Brand stages (no flyer id exists yet) or a Flyer Agent batch of more than one. */
+  flyerId?: string | null
+}
+
 async function runStream<T extends ZodType>(opts: {
   systemPrompt: string
   content: Anthropic.Messages.MessageParam["content"]
   schema: T
   maxTokens?: number
+  logContext?: GenerationLogContext
 }): Promise<import("zod").infer<T>> {
   const anthropic = getClient()
 
@@ -49,6 +60,25 @@ async function runStream<T extends ZodType>(opts: {
   })
 
   const message = await stream.finalMessage()
+
+  // Logged before the refusal/truncation/null checks below, which throw —
+  // a refused or truncated response still consumed real input/output
+  // tokens and cost real money, so it still needs a row. Never blocks or
+  // fails the actual agent call on a logging error: cost tracking is
+  // secondary to the product working.
+  if (opts.logContext) {
+    const { email, agentType, flyerId } = opts.logContext
+    recordGenerationLogEntry({
+      email,
+      agentType,
+      flyerId: flyerId ?? null,
+      model: MODEL,
+      inputTokens: message.usage.input_tokens,
+      outputTokens: message.usage.output_tokens,
+      estimatedCostUsd: estimateCostUsd(MODEL, message.usage.input_tokens, message.usage.output_tokens),
+      createdAt: new Date().toISOString(),
+    }).catch((err) => console.error("[generation-log] Failed to record usage:", err instanceof Error ? err.message : err))
+  }
 
   if (message.stop_reason === "refusal") {
     throw new AgentRefusalError("Model refused the request; output does not match schema.")
@@ -83,12 +113,14 @@ export async function runJsonAgent<T extends ZodType>(opts: {
   userInput: unknown
   schema: T
   maxTokens?: number
+  logContext: GenerationLogContext
 }): Promise<import("zod").infer<T>> {
   return runStream({
     systemPrompt: opts.systemPrompt,
     content: JSON.stringify(opts.userInput, null, 2),
     schema: opts.schema,
     maxTokens: opts.maxTokens,
+    logContext: opts.logContext,
   })
 }
 

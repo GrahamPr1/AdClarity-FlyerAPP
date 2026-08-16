@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BusinessCategory, BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, TrackingRecord, TrackingStats } from "./types"
+import type { BusinessCategory, BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
@@ -562,4 +562,45 @@ export async function getTrackingStats(code: string): Promise<TrackingStats> {
     redis.get<number>(trackingClicksKey(code)),
   ])
   return { scans: scans ?? 0, clicks: clicks ?? 0 }
+}
+
+// ---- AI generation cost log -------------------------------------------------
+//
+// One row per real Claude API call in the Intake/Brand/Flyer pipeline (see
+// GenerationLogEntry in lib/types.ts and estimateCostUsd in
+// lib/agent-pipeline/pricing.ts) — not one row per flyer, so admin cost
+// views can break spend down by pipeline stage. Stored as a sorted set
+// scored by createdAt (epoch ms), not a plain list, so time-window queries
+// ("this week", "last 90 days") are a single ZRANGE-by-score rather than a
+// full scan-and-filter — every later admin cost/revenue view depends on
+// this being cheap. Mirrored into a per-email sorted set too, so the
+// admin's per-user drill-down doesn't need to scan the entire global log.
+
+const GENERATION_LOG_KEY = "generation-log"
+
+function generationLogByEmailKey(email: string) {
+  return `generation-log:${email}`
+}
+
+export async function recordGenerationLogEntry(entry: Omit<GenerationLogEntry, "id">): Promise<void> {
+  const full: GenerationLogEntry = { ...entry, id: crypto.randomUUID() }
+  const score = new Date(full.createdAt).getTime()
+  // The client (de)serializes the member value itself (same as redis.get/set
+  // elsewhere in this file) — passing an already-JSON.stringify'd string as
+  // member double-encodes it, and reading it back double-decodes into a
+  // string that isn't valid JSON.
+  await Promise.all([
+    redis.zadd<GenerationLogEntry>(GENERATION_LOG_KEY, { score, member: full }),
+    redis.zadd<GenerationLogEntry>(generationLogByEmailKey(entry.email), { score, member: full }),
+  ])
+}
+
+/** All log entries with createdAt in [since, until] (epoch ms), oldest first — the global log, for admin-wide cost views. */
+export async function getGenerationLog(since: number, until: number = Date.now()): Promise<GenerationLogEntry[]> {
+  return await redis.zrange<GenerationLogEntry[]>(GENERATION_LOG_KEY, since, until, { byScore: true })
+}
+
+/** One client's full generation history, oldest first — the admin per-user drill-down. */
+export async function getGenerationLogForEmail(email: string): Promise<GenerationLogEntry[]> {
+  return await redis.zrange<GenerationLogEntry[]>(generationLogByEmailKey(email), 0, -1)
 }

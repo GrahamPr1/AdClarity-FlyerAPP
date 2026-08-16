@@ -154,11 +154,11 @@ async function buildPhotoPool(intake: NormalizedIntake, flyerRequests: FlyerRequ
  */
 export async function runIntakeStage(submission: IntakeSubmission): Promise<IntakeAgentOutput> {
   const rawPayload = buildRawIntakePayload(submission)
-  return runIntakeAgent(rawPayload)
+  return runIntakeAgent(rawPayload, submission.contact.email.trim().toLowerCase())
 }
 
 async function runBatch(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[]): Promise<void> {
-  const brandProfile = await runBrandAgent(intake)
+  const brandProfile = await runBrandAgent(intake, email)
   stageMark(runId, t0, "brand done")
   const { includeExtras, allowAiPhotos } = await getPlanFeatures(email)
   const photos = await buildPhotoPool(intake, flyerRequests, allowAiPhotos && intake.wantsAiPhotos)
@@ -184,7 +184,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     flyerRequests: flyerRequestsWithQr,
     batchSize: flyerRequests.length,
     includeRepurposing: includeExtras,
-  })
+  }, email)
   stageMark(runId, t0, "flyer agent done")
 
   for (const flyer of flyerResult.flyers) {
@@ -245,7 +245,7 @@ export async function continuePipelineFromIntake(email: string, intake: Normaliz
 }
 
 async function runSingleFlyerRetry(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequest: FlyerRequest): Promise<void> {
-  const brandProfile = await runBrandAgent(intake)
+  const brandProfile = await runBrandAgent(intake, email)
   stageMark(runId, t0, "brand done")
   const { includeExtras, allowAiPhotos } = await getPlanFeatures(email)
   const photos = await buildPhotoPool(intake, [flyerRequest], allowAiPhotos && intake.wantsAiPhotos)
@@ -265,7 +265,7 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
     flyerRequests: [{ ...flyerRequest, qrCodeDataUrl: tracking?.qrDataUrl ?? null }],
     batchSize: 1,
     includeRepurposing: includeExtras,
-  })
+  }, email)
   stageMark(runId, t0, "flyer agent done")
 
   const flyer = flyerResult.flyers[0]
