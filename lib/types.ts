@@ -145,6 +145,10 @@ export interface ClientRecord {
   isRealEstate: boolean
   /** Grants access to /admin/* (see app/admin/layout.tsx) on top of this client's own normal dashboard — distinct from ADMIN_SUB (the single site-owner password login, which always has /admin access too and is untouched by this flag). Only ever set via POST /api/admin/set-admin, itself gated to the ADMIN_SUB session — an isAdmin account can't grant admin to anyone else. Defaults to false. */
   isAdmin: boolean
+  /** The business name from this client's most recent onboarding submission — null if they've never onboarded. Set directly by /api/intake, same treatment as businessCategory: never touched by the AI pipeline, just carried through from the raw submission. This is the closest thing this app has to a client-facing "name" (there's no separate person-name field anywhere — onboarding only ever asks for the business). */
+  businessName: string | null
+  /** Real signup timestamp (ISO) — the first time this email ever got a real password credential (signup, or claiming a pre-password-era account via the reset-password flow). Deliberately NOT periodStart, which rolls forward every 30 days as the usage window resets and so can't answer "when did this account first exist". Null for an account that was created via getOrCreateClient (e.g. by submitting onboarding) but has never actually signed up with a password. */
+  createdAt: string | null
 }
 
 // ---- Deliverables / dashboard --------------------------------------------
@@ -305,4 +309,43 @@ export interface GenerationLogEntry {
   outputTokens: number
   estimatedCostUsd: number
   createdAt: string
+}
+
+// ---- Admin dashboard (/admin) ------------------------------------------------
+//
+// There's no real "canceled" status yet — no Stripe subscription exists to
+// cancel (see the admin spec's own phase 4, gated on Stripe being
+// connected) — so status is only ever "trial" or "active" for now, never
+// fabricated as "canceled".
+
+export type AdminUserStatus = "trial" | "active"
+
+export interface AdminUserRow {
+  email: string
+  /** From this client's most recent onboarding submission — see ClientRecord.businessName. Null if they've never onboarded. */
+  businessName: string | null
+  plan: PlanId
+  businessCategory: BusinessCategory
+  /** ISO signup timestamp — see ClientRecord.createdAt. Null in the (should be rare) case a real user record predates this field entirely. */
+  createdAt: string | null
+  flyersCreated: number
+  flyersLimit: number
+  status: AdminUserStatus
+  isAdmin: boolean
+}
+
+export interface AdminUsersOverview {
+  totalUsers: number
+  newSignupsThisWeek: number
+  newSignupsThisMonth: number
+  /** Daily signup counts for the last 30 days, oldest first — the users-page trend chart. */
+  signupTrend: { date: string; count: number }[]
+  byPlan: Record<PlanId, number>
+  byCategory: Record<BusinessCategory, number>
+  users: AdminUserRow[]
+}
+
+export interface AdminUserDetail extends AdminUserRow {
+  generationLog: GenerationLogEntry[]
+  totalEstimatedCostUsd: number
 }

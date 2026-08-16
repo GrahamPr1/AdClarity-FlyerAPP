@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSessionToken, hashPassword, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/auth"
-import { setClientPasswordHash, verifyAndConsumePasswordResetToken } from "@/lib/store"
+import { setClientPasswordHash, verifyAndConsumePasswordResetToken, recordClientCreatedAtIfUnset } from "@/lib/store"
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -32,6 +32,11 @@ export async function POST(request: NextRequest) {
   }
 
   await setClientPasswordHash(email, await hashPassword(password))
+  // Covers the "claiming a pre-password-era account" case too — this is
+  // the first time this email has ever had a real credential if it never
+  // signed up through /api/auth/signup (recordClientCreatedAtIfUnset is a
+  // no-op if a real signup already set this).
+  await recordClientCreatedAtIfUnset(email)
 
   const sessionToken = await createSessionToken(email)
   const res = NextResponse.json({ ok: true })

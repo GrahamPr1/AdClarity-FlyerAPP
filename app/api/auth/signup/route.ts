@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSessionToken, hashPassword, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/auth"
-import { getClientPasswordHash, setClientPasswordHash } from "@/lib/store"
+import { getClientPasswordHash, setClientPasswordHash, recordClientCreatedAtIfUnset } from "@/lib/store"
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
   }
 
   await setClientPasswordHash(email, await hashPassword(password))
+  await recordClientCreatedAtIfUnset(email)
 
   const token = await createSessionToken(email)
   const res = NextResponse.json({ ok: true })

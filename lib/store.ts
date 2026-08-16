@@ -362,6 +362,12 @@ function businessCategoryKey(email: string) {
 function isAdminKey(email: string) {
   return `client:${email}:isAdmin`
 }
+function businessNameKey(email: string) {
+  return `client:${email}:businessName`
+}
+function createdAtKey(email: string) {
+  return `client:${email}:createdAt`
+}
 
 function deriveIsRealEstate(category: BusinessCategory): boolean {
   return category === "Real Estate / Wholesaling"
@@ -370,6 +376,41 @@ function deriveIsRealEstate(category: BusinessCategory): boolean {
 /** True only once a category has been explicitly set (signup's Category step, or the dashboard's one-time banner) — distinct from getClient's businessCategory, which always returns a real value ("Other" by default) so callers never have to null-check it. */
 export async function hasExplicitBusinessCategory(email: string): Promise<boolean> {
   return (await redis.get<BusinessCategory>(businessCategoryKey(email))) !== null
+}
+
+// Fields that live on every ClientRecord but aren't part of the real
+// plan/usage enforcement core (plan, flyersCreated, periodStart) — fetched
+// together via one helper so getClient/getOrCreateClient/setClientPlan
+// don't each hand-roll the same four-key Promise.all.
+async function getClientExtras(email: string): Promise<Pick<ClientRecord, "businessCategory" | "isRealEstate" | "isAdmin" | "businessName" | "createdAt">> {
+  const [businessCategory, isAdmin, businessName, createdAt] = await Promise.all([
+    redis.get<BusinessCategory>(businessCategoryKey(email)),
+    redis.get<boolean>(isAdminKey(email)),
+    redis.get<string>(businessNameKey(email)),
+    redis.get<string>(createdAtKey(email)),
+  ])
+  return {
+    businessCategory: businessCategory ?? "Other",
+    isRealEstate: deriveIsRealEstate(businessCategory ?? "Other"),
+    isAdmin: isAdmin ?? false,
+    businessName: businessName ?? null,
+    createdAt: createdAt ?? null,
+  }
+}
+
+/** Records the real signup timestamp — the FIRST time this email ever gets a real password credential (a fresh signup, or claiming a pre-password-era account via reset-password). Never overwritten on later calls, so a password reset doesn't reset "signup date". */
+export async function recordClientCreatedAtIfUnset(email: string): Promise<void> {
+  const existing = await redis.get<string>(createdAtKey(email))
+  if (existing) return
+  await redis.set(createdAtKey(email), new Date().toISOString())
+}
+
+// Set directly from the raw onboarding submission by /api/intake — same
+// treatment as businessCategory, never touched by the AI pipeline. There's
+// no per-submission history kept, only the most recent name, same as
+// businessCategory.
+export async function setClientBusinessName(email: string, businessName: string): Promise<void> {
+  await redis.set(businessNameKey(email), businessName)
 }
 
 /**
@@ -396,24 +437,8 @@ export async function getClient(email: string): Promise<ClientRecord | null> {
   const storedCount = (await redis.get<number>(countKey(email))) ?? 0
   const storedPeriodStart = await redis.get<number>(periodStartKey(email))
   const { flyersCreated, periodStart } = await rollPeriodIfExpired(email, storedCount, storedPeriodStart ?? null)
-  // Defaults to "Other" for accounts created before this field existed —
-  // never null, so every caller (including feature #2-#6's isRealEstate
-  // checks) gets a real value without having to null-check. Whether this
-  // was ever explicitly set is a separate question (see
-  // hasExplicitBusinessCategory), used only to drive the dashboard banner.
-  const [businessCategory, isAdmin] = await Promise.all([
-    redis.get<BusinessCategory>(businessCategoryKey(email)),
-    redis.get<boolean>(isAdminKey(email)),
-  ])
-  return {
-    email,
-    plan,
-    flyersCreated,
-    periodStart,
-    businessCategory: businessCategory ?? "Other",
-    isRealEstate: deriveIsRealEstate(businessCategory ?? "Other"),
-    isAdmin: isAdmin ?? false,
-  }
+  const extras = await getClientExtras(email)
+  return { email, plan, flyersCreated, periodStart, ...extras }
 }
 
 export async function getOrCreateClient(email: string): Promise<ClientRecord> {
@@ -422,7 +447,7 @@ export async function getOrCreateClient(email: string): Promise<ClientRecord> {
   const periodStart = Date.now()
   await redis.set(planKey(email), "trial")
   await redis.set(periodStartKey(email), periodStart)
-  return { email, plan: "trial", flyersCreated: 0, periodStart, businessCategory: "Other", isRealEstate: false, isAdmin: false }
+  return { email, plan: "trial", flyersCreated: 0, periodStart, businessCategory: "Other", isRealEstate: false, isAdmin: false, businessName: null, createdAt: null }
 }
 
 // Real enforcement only ever changes here — never inferred from an
@@ -433,19 +458,8 @@ export async function setClientPlan(email: string, plan: PlanId): Promise<Client
   const storedCount = (await redis.get<number>(countKey(email))) ?? 0
   const storedPeriodStart = await redis.get<number>(periodStartKey(email))
   const { flyersCreated, periodStart } = await rollPeriodIfExpired(email, storedCount, storedPeriodStart ?? null)
-  const [businessCategory, isAdmin] = await Promise.all([
-    redis.get<BusinessCategory>(businessCategoryKey(email)),
-    redis.get<boolean>(isAdminKey(email)),
-  ])
-  return {
-    email,
-    plan,
-    flyersCreated,
-    periodStart,
-    businessCategory: businessCategory ?? "Other",
-    isRealEstate: deriveIsRealEstate(businessCategory ?? "Other"),
-    isAdmin: isAdmin ?? false,
-  }
+  const extras = await getClientExtras(email)
+  return { email, plan, flyersCreated, periodStart, ...extras }
 }
 
 // Set at signup (see IntakeSubmission.businessCategory, written by
@@ -487,6 +501,28 @@ export async function listClientsWithDeliverables(): Promise<Deliverables[]> {
   } while (cursor !== "0")
 
   return Promise.all(emails.map((email) => getDeliverablesForEmail(email)))
+}
+
+/**
+ * Every email that has ever set a real password — the true definition of
+ * "a user" now that login requires one (see /api/auth/signup and
+ * /api/auth/reset-password). Deliberately NOT the client:*:plan scan
+ * listClientsWithDeliverables uses above: a freshly signed-up account has
+ * a password but no ClientRecord yet (getOrCreateClient only runs when
+ * something — onboarding, an admin action — actually needs one), so that
+ * scan would silently miss anyone who's signed up but not yet onboarded.
+ */
+export async function listAllUserEmails(): Promise<string[]> {
+  let cursor = "0"
+  const emails: string[] = []
+  do {
+    const [next, keys] = await redis.scan(cursor, { match: "client:*:passwordHash", count: 100 })
+    cursor = next
+    for (const key of keys) {
+      emails.push(key.slice("client:".length, key.length - ":passwordHash".length))
+    }
+  } while (cursor !== "0")
+  return emails
 }
 
 // ---- Client passwords -------------------------------------------------------

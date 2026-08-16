@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { waitUntil } from "@vercel/functions"
 import type { IntakeSubmission } from "@/lib/types"
 import { PLAN_LIMITS, BUSINESS_CATEGORIES } from "@/lib/types"
-import { saveIntake, getOrCreateClient, incrementFlyersCreated, setClientBusinessCategory } from "@/lib/store"
+import { saveIntake, getOrCreateClient, incrementFlyersCreated, setClientBusinessCategory, setClientBusinessName } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { continuePipelineFromIntake, runIntakeStage, MAX_FLYERS_PER_BATCH } from "@/lib/agent-pipeline/pipeline"
@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
   // overwrites the last, since it's meant to reflect their current answer,
   // not a first-write-wins fact.
   await setClientBusinessCategory(email, body.businessCategory)
+  await setClientBusinessName(email, body.businessName)
 
   if (client.flyersCreated >= limit) {
     return NextResponse.json(
