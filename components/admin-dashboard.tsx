@@ -1,14 +1,43 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
-import type { Deliverables, PlanId } from "@/lib/types"
+import type { BusinessCategory, Deliverables, PlanId } from "@/lib/types"
+import { BUSINESS_CATEGORIES } from "@/lib/types"
 import { StatusBadge, FlyerCard } from "@/components/dashboard-client"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const PLAN_OPTIONS: PlanId[] = ["trial", "basic", "pro"]
+const CATEGORY_FILTER_OPTIONS = ["All", ...BUSINESS_CATEGORIES] as const
+
+// Counts every client once by their real businessCategory (always a real
+// value — see ClientRecord.businessCategory in lib/types.ts, never null) so
+// every category in BUSINESS_CATEGORIES gets a row even at zero, rather
+// than only showing categories that happen to have at least one client.
+function categoryCounts(clients: Deliverables[]): Record<BusinessCategory, number> {
+  const counts = Object.fromEntries(BUSINESS_CATEGORIES.map((c) => [c, 0])) as Record<BusinessCategory, number>
+  for (const client of clients) counts[client.businessCategory]++
+  return counts
+}
+
+function CategorySummary({ clients }: { clients: Deliverables[] }) {
+  const counts = useMemo(() => categoryCounts(clients), [clients])
+  return (
+    <div className="mt-8 rounded-2xl border border-white/10 bg-card p-6">
+      <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Clients by business category</p>
+      <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {BUSINESS_CATEGORIES.map((category) => (
+          <div key={category} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-2.5">
+            <span className="text-sm">{category}</span>
+            <span className="text-sm font-semibold text-[var(--brand-teal-bright)]">{counts[category]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function ClientRow({ client, onRetry, onDelete, onPlanChange, onUpdatePrintStatus }: {
   client: Deliverables
@@ -30,7 +59,10 @@ function ClientRow({ client, onRetry, onDelete, onPlanChange, onUpdatePrintStatu
     <div className="rounded-2xl border border-white/10 bg-card p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="font-medium">{email}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-medium">{email}</p>
+            <span className="text-xs px-2 py-0.5 rounded-full border border-white/12 text-muted-foreground">{client.businessCategory}</span>
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {client.flyersCreated} / {client.flyersLimit} flyers used · resets {new Date(client.flyersResetAt).toLocaleDateString()}
           </p>
@@ -88,9 +120,15 @@ function ClientRow({ client, onRetry, onDelete, onPlanChange, onUpdatePrintStatu
 
 export function AdminDashboard() {
   const router = useRouter()
+  const [categoryFilter, setCategoryFilter] = useState<(typeof CATEGORY_FILTER_OPTIONS)[number]>("All")
   const { data, isLoading, mutate } = useSWR<{ clients: Deliverables[] }>("/api/admin/clients", fetcher, {
     refreshInterval: 5000,
   })
+
+  const filteredClients = useMemo(() => {
+    if (!data) return []
+    return categoryFilter === "All" ? data.clients : data.clients.filter((c) => c.businessCategory === categoryFilter)
+  }, [data, categoryFilter])
 
   async function handleRetry(email: string, flyerId: string): Promise<{ ok: boolean; error?: string }> {
     let res: Response
@@ -189,11 +227,30 @@ export function AdminDashboard() {
       ) : data.clients.length === 0 ? (
         <p className="mt-8 text-muted-foreground">No clients yet.</p>
       ) : (
-        <div className="mt-8 flex flex-col gap-5">
-          {data.clients.map((c) => (
-            <ClientRow key={c.email} client={c} onRetry={handleRetry} onDelete={handleDelete} onPlanChange={handlePlanChange} onUpdatePrintStatus={handleUpdatePrintStatus} />
-          ))}
-        </div>
+        <>
+          <CategorySummary clients={data.clients} />
+
+          <div className="mt-8 flex items-center gap-3">
+            <label htmlFor="categoryFilter" className="text-sm text-muted-foreground">Filter by category</label>
+            <select id="categoryFilter" value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value as (typeof CATEGORY_FILTER_OPTIONS)[number])}
+              className="rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm">
+              {CATEGORY_FILTER_OPTIONS.map((c) => (
+                <option key={c} value={c} className="bg-card">{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-5">
+            {filteredClients.length === 0 ? (
+              <p className="text-muted-foreground">No clients in this category.</p>
+            ) : (
+              filteredClients.map((c) => (
+                <ClientRow key={c.email} client={c} onRetry={handleRetry} onDelete={handleDelete} onPlanChange={handlePlanChange} onUpdatePrintStatus={handleUpdatePrintStatus} />
+              ))
+            )}
+          </div>
+        </>
       )}
     </div>
   )

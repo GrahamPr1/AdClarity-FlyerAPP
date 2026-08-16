@@ -62,6 +62,9 @@ restructuring, not just renaming:
   choice, not a design judgment call.
 - \`planId\` is a billing/plan-selection field with no corresponding target
   field — ignore it entirely.
+- \`businessCategory\` is a segmentation tag (e.g. "Real Estate /
+  Wholesaling", "Dental") with no corresponding target field — ignore it
+  entirely, same as \`planId\`.
 - \`yearsInBusiness\` arrives as a free-text string (e.g. "7", "about 5
   years") — parse it to a number where reasonably unambiguous, or null if it
   truly can't be determined.

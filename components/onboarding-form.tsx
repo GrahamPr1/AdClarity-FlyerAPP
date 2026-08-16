@@ -2,13 +2,22 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import type { BrandStyle, IntakeSubmission, PlanId, ServiceItem } from "@/lib/types"
+import type { BrandStyle, BusinessCategory, IntakeSubmission, PlanId, ServiceItem } from "@/lib/types"
+import { BUSINESS_CATEGORIES } from "@/lib/types"
 import { getPlan } from "@/lib/plans"
 
-const STEPS = ["Business", "Services", "Brand", "Contact", "Deliverables"] as const
+const STEPS = ["Category", "Business", "Services", "Brand", "Contact", "Deliverables"] as const
 
 const STYLE_OPTIONS: BrandStyle[] = ["modern", "classic", "playful", "minimal"]
 const MAX_FLYER_PHOTOS = 5
+
+// The rest of IntakeSubmission's required fields start empty too (e.g.
+// businessName: ""), but those are plain strings — an empty string isn't a
+// valid BusinessCategory, so the form's own local state widens just this
+// one field to allow "unselected" while it's being filled out. Narrowed
+// back to a real BusinessCategory before it's ever sent to /api/intake —
+// see canProceed below, which blocks past step 0 until it's set.
+type OnboardingFormState = Omit<IntakeSubmission, "businessCategory"> & { businessCategory: BusinessCategory | "" }
 
 function fieldBase() {
   return "w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
@@ -54,8 +63,9 @@ export function OnboardingForm({ email }: { email: string }) {
   // contact.email is fixed to the authenticated session's email — signing
   // in now happens BEFORE onboarding (see app/onboarding/page.tsx), so
   // this is never a free-text field someone could type any address into.
-  const [form, setForm] = useState<IntakeSubmission>({
+  const [form, setForm] = useState<OnboardingFormState>({
     planId,
+    businessCategory: "",
     businessName: "",
     industry: "",
     yearsInBusiness: "",
@@ -73,7 +83,7 @@ export function OnboardingForm({ email }: { email: string }) {
     websitePreferences: "",
   })
 
-  function set<K extends keyof IntakeSubmission>(key: K, value: IntakeSubmission[K]) {
+  function set<K extends keyof OnboardingFormState>(key: K, value: OnboardingFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }))
   }
   function setContact<K extends keyof IntakeSubmission["contact"]>(key: K, value: string) {
@@ -125,13 +135,19 @@ export function OnboardingForm({ email }: { email: string }) {
   }
 
   const isLast = step === STEPS.length - 1
+  // Category is step 0 and required before advancing — every later step is
+  // reachable only once it's set, so nothing past step 0 needs its own
+  // guard (including Submit, which can't be reached without passing it).
+  const canProceed = step !== 0 || form.businessCategory !== ""
 
   async function handleSubmit() {
     setSubmitting(true)
     setError(null)
-    // Clean empty service rows before submitting.
+    // Clean empty service rows before submitting. businessCategory is
+    // guaranteed set here — canProceed blocks past step 0 until it is.
     const cleaned: IntakeSubmission = {
       ...form,
+      businessCategory: form.businessCategory as BusinessCategory,
       services: form.services.filter((s) => s.name.trim()) as ServiceItem[],
     }
     try {
@@ -187,8 +203,35 @@ export function OnboardingForm({ email }: { email: string }) {
       </p>
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-card p-6 md:p-8">
-        {/* STEP 1 — Business */}
+        {/* STEP 1 — Category */}
         {step === 0 && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <Label>What type of business are you?</Label>
+              <p className="text-sm text-muted-foreground">This helps us tailor templates and features to your business.</p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {BUSINESS_CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => set("businessCategory", category)}
+                  aria-pressed={form.businessCategory === category}
+                  className={`text-left rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
+                    form.businessCategory === category
+                      ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)]"
+                      : "border-white/12 bg-white/[0.04] text-foreground/80 hover:border-white/25"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2 — Business */}
+        {step === 1 && (
           <div className="flex flex-col gap-5">
             <div>
               <Label htmlFor="businessName">Business name</Label>
@@ -208,8 +251,8 @@ export function OnboardingForm({ email }: { email: string }) {
           </div>
         )}
 
-        {/* STEP 2 — Services */}
-        {step === 1 && (
+        {/* STEP 3 — Services */}
+        {step === 2 && (
           <div className="flex flex-col gap-4">
             <Label>Services offered</Label>
             <div className="flex flex-col gap-3">
@@ -233,8 +276,8 @@ export function OnboardingForm({ email }: { email: string }) {
           </div>
         )}
 
-        {/* STEP 3 — Brand */}
-        {step === 2 && (
+        {/* STEP 4 — Brand */}
+        {step === 3 && (
           <div className="flex flex-col gap-5">
             <div>
               <Label htmlFor="logo">Logo upload</Label>
@@ -267,8 +310,8 @@ export function OnboardingForm({ email }: { email: string }) {
           </div>
         )}
 
-        {/* STEP 4 — Contact + audience */}
-        {step === 3 && (
+        {/* STEP 5 — Contact + audience */}
+        {step === 4 && (
           <div className="flex flex-col gap-5">
             <div>
               <Label htmlFor="audience">Target audience / ideal customer</Label>
@@ -308,8 +351,8 @@ export function OnboardingForm({ email }: { email: string }) {
           </div>
         )}
 
-        {/* STEP 5 — Deliverables */}
-        {step === 4 && (
+        {/* STEP 6 — Deliverables */}
+        {step === 5 && (
           <div className="flex flex-col gap-5">
             <div>
               <Label htmlFor="flyerPhotos">Photos for your flyers (optional, up to {MAX_FLYER_PHOTOS})</Label>
@@ -403,7 +446,8 @@ export function OnboardingForm({ email }: { email: string }) {
             <button
               type="button"
               onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-              className="px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors"
+              disabled={!canProceed}
+              className="px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-40 transition-colors"
             >
               Continue
             </button>

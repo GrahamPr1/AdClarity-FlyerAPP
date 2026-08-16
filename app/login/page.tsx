@@ -58,45 +58,57 @@ function AdminLoginForm() {
   )
 }
 
-function ClientLoginForm({ next }: { next: string }) {
-  const [email, setEmail] = useState("")
-  const [error, setError] = useState("")
-  const [working, setWorking] = useState(false)
-  const router = useRouter()
+type ClientMode = "login" | "signup" | "forgot"
 
-  // One step, not two — get-code-then-manually-re-enter-it never bought
-  // any real security (the code is already fully visible on this same
-  // screen; requiring it to be typed into a second field doesn't prove
-  // anything more), and the extra click was genuinely confusing: after
-  // the code appeared, nothing looked like it had happened until you
-  // noticed a second button had replaced the first one.
-  async function handleContinue(e: React.FormEvent) {
+function EmailField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label htmlFor="email" className="block text-sm font-medium mb-1.5">Email</label>
+      <input id="email" type="email" required autoFocus value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+        placeholder="you@business.com" />
+    </div>
+  )
+}
+
+function ClientLoginForm({ next }: { next: string }) {
+  const router = useRouter()
+  const [mode, setMode] = useState<ClientMode>("login")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [error, setError] = useState("")
+  const [notice, setNotice] = useState("")
+  const [working, setWorking] = useState(false)
+
+  function switchMode(newMode: ClientMode) {
+    setMode(newMode)
+    setError("")
+    setNotice("")
+    setPassword("")
+    setConfirmPassword("")
+  }
+
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setWorking(true)
     setError("")
 
-    const accessRes = await fetch("/api/auth/client-access", {
+    const res = await fetch("/api/auth/client-login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, password }),
     })
-    const accessData = await accessRes.json().catch(() => ({}) as { error?: string; code?: string })
+    const data = await res.json().catch(() => ({}) as { error?: string; message?: string })
 
-    if (!accessRes.ok || !accessData.code) {
+    if (!res.ok) {
       setWorking(false)
-      setError(accessData.error ?? "Something went wrong")
-      return
-    }
-
-    const loginRes = await fetch("/api/auth/client-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code: accessData.code }),
-    })
-
-    if (!loginRes.ok) {
-      setWorking(false)
-      setError("Couldn't sign you in — please try again.")
+      // "no_password_set" covers both a genuinely new client and an
+      // account that predates password auth — either way, the fix is the
+      // same emailed link, so point them at it directly rather than
+      // leaving them stuck on a login that can never succeed.
+      setError(data.message ?? (data.error === "no_password_set" ? "No password set for this email yet — use \"Forgot password\" below to set one." : "Something went wrong"))
       return
     }
 
@@ -104,21 +116,133 @@ function ClientLoginForm({ next }: { next: string }) {
     router.refresh()
   }
 
+  async function handleSignup(e: React.FormEvent) {
+    e.preventDefault()
+    setError("")
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.")
+      return
+    }
+    setWorking(true)
+
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    })
+    const data = await res.json().catch(() => ({}) as { error?: string })
+
+    if (!res.ok) {
+      setWorking(false)
+      setError(data.error ?? "Something went wrong")
+      return
+    }
+
+    router.push(next)
+    router.refresh()
+  }
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault()
+    setWorking(true)
+    setError("")
+    setNotice("")
+
+    const res = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    })
+    const data = await res.json().catch(() => ({}) as { error?: string })
+    setWorking(false)
+
+    if (!res.ok) {
+      setError(data.error ?? "Something went wrong")
+      return
+    }
+    setNotice("If that email has an account, a link to set a new password is on its way — check your inbox.")
+  }
+
+  if (mode === "signup") {
+    return (
+      <>
+        <form onSubmit={handleSignup} className="mt-6 flex flex-col gap-4">
+          <EmailField value={email} onChange={setEmail} />
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium mb-1.5">Password</label>
+            <input id="password" type="password" required minLength={8} value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+              placeholder="At least 8 characters" />
+          </div>
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1.5">Confirm password</label>
+            <input id="confirmPassword" type="password" required minLength={8} value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
+          </div>
+          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+          <button type="submit" disabled={working}
+            className="w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+            {working ? "Creating account…" : "Create account"}
+          </button>
+        </form>
+        <button onClick={() => switchMode("login")} type="button"
+          className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Already have an account? Log in
+        </button>
+      </>
+    )
+  }
+
+  if (mode === "forgot") {
+    return (
+      <>
+        <form onSubmit={handleForgot} className="mt-6 flex flex-col gap-4">
+          <EmailField value={email} onChange={setEmail} />
+          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+          {notice && <p className="text-sm text-[var(--brand-teal-bright)]">{notice}</p>}
+          <button type="submit" disabled={working || !email}
+            className="w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+            {working ? "Sending…" : "Email me a reset link"}
+          </button>
+        </form>
+        <button onClick={() => switchMode("login")} type="button"
+          className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
+          ← Back to login
+        </button>
+      </>
+    )
+  }
+
   return (
-    <form onSubmit={handleContinue} className="mt-6 flex flex-col gap-4">
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium mb-1.5">Email</label>
-        <input id="email" type="email" required autoFocus value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
-          placeholder="you@business.com" />
-      </div>
-      {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
-      <button type="submit" disabled={working || !email}
-        className="w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
-        {working ? "Signing you in…" : "Continue"}
+    <>
+      <form onSubmit={handleLogin} className="mt-6 flex flex-col gap-4">
+        <EmailField value={email} onChange={setEmail} />
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label htmlFor="password" className="block text-sm font-medium">Password</label>
+            <button type="button" onClick={() => switchMode("forgot")}
+              className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+              Forgot password?
+            </button>
+          </div>
+          <input id="password" type="password" required value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+            placeholder="••••••••" />
+        </div>
+        {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+        <button type="submit" disabled={working || !email || !password}
+          className="w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+          {working ? "Signing you in…" : "Log in"}
+        </button>
+      </form>
+      <button onClick={() => switchMode("signup")} type="button"
+        className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
+        New here? Create an account
       </button>
-    </form>
+    </>
   )
 }
 
@@ -141,7 +265,7 @@ function LoginPageInner() {
         <div className="rounded-2xl border border-white/10 bg-card p-7">
           <h1 className="text-xl font-semibold">{mode === "client" ? "Client Login" : "Admin Login"}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {mode === "client" ? "Enter your email to get an access code and view your flyers." : "Sign in with the site admin password."}
+            {mode === "client" ? "Log in with your email and password to see your own flyers." : "Sign in with the site admin password."}
           </p>
 
           {mode === "client" ? <ClientLoginForm next={next} /> : <AdminLoginForm />}

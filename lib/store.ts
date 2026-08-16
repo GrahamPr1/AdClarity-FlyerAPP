@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, TrackingRecord, TrackingStats } from "./types"
+import type { BusinessCategory, BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
@@ -91,6 +91,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
   const periodStart = client?.periodStart ?? Date.now()
 
   const printRequests = await getPrintRequestsForEmail(email)
+  const businessCategoryIsDefaulted = !(await hasExplicitBusinessCategory(email))
 
   return {
     ...stored,
@@ -101,6 +102,9 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
     flyersLimit: PLAN_LIMITS[planId],
     flyersResetAt: new Date(periodStart + RESET_PERIOD_MS).toISOString(),
     printRequests,
+    businessCategory: client?.businessCategory ?? "Other",
+    isRealEstate: client?.isRealEstate ?? false,
+    businessCategoryIsDefaulted,
   }
 }
 
@@ -120,6 +124,9 @@ export async function getDeliverables(): Promise<Deliverables> {
       flyersLimit: PLAN_LIMITS.trial,
       flyersResetAt: new Date(Date.now() + RESET_PERIOD_MS).toISOString(),
       printRequests: [],
+      businessCategory: "Other",
+      isRealEstate: false,
+      businessCategoryIsDefaulted: true,
     }
   }
   return getDeliverablesForEmail(email)
@@ -349,6 +356,18 @@ function countKey(email: string) {
 function periodStartKey(email: string) {
   return `client:${email}:periodStart`
 }
+function businessCategoryKey(email: string) {
+  return `client:${email}:businessCategory`
+}
+
+function deriveIsRealEstate(category: BusinessCategory): boolean {
+  return category === "Real Estate / Wholesaling"
+}
+
+/** True only once a category has been explicitly set (signup's Category step, or the dashboard's one-time banner) — distinct from getClient's businessCategory, which always returns a real value ("Other" by default) so callers never have to null-check it. */
+export async function hasExplicitBusinessCategory(email: string): Promise<boolean> {
+  return (await redis.get<BusinessCategory>(businessCategoryKey(email))) !== null
+}
 
 /**
  * Lazily rolls a client into a fresh 30-day period (resetting flyersCreated
@@ -374,7 +393,13 @@ export async function getClient(email: string): Promise<ClientRecord | null> {
   const storedCount = (await redis.get<number>(countKey(email))) ?? 0
   const storedPeriodStart = await redis.get<number>(periodStartKey(email))
   const { flyersCreated, periodStart } = await rollPeriodIfExpired(email, storedCount, storedPeriodStart ?? null)
-  return { email, plan, flyersCreated, periodStart }
+  // Defaults to "Other" for accounts created before this field existed —
+  // never null, so every caller (including feature #2-#6's isRealEstate
+  // checks) gets a real value without having to null-check. Whether this
+  // was ever explicitly set is a separate question (see
+  // hasExplicitBusinessCategory), used only to drive the dashboard banner.
+  const businessCategory = (await redis.get<BusinessCategory>(businessCategoryKey(email))) ?? "Other"
+  return { email, plan, flyersCreated, periodStart, businessCategory, isRealEstate: deriveIsRealEstate(businessCategory) }
 }
 
 export async function getOrCreateClient(email: string): Promise<ClientRecord> {
@@ -383,7 +408,7 @@ export async function getOrCreateClient(email: string): Promise<ClientRecord> {
   const periodStart = Date.now()
   await redis.set(planKey(email), "trial")
   await redis.set(periodStartKey(email), periodStart)
-  return { email, plan: "trial", flyersCreated: 0, periodStart }
+  return { email, plan: "trial", flyersCreated: 0, periodStart, businessCategory: "Other", isRealEstate: false }
 }
 
 // Real enforcement only ever changes here — never inferred from an
@@ -394,7 +419,18 @@ export async function setClientPlan(email: string, plan: PlanId): Promise<Client
   const storedCount = (await redis.get<number>(countKey(email))) ?? 0
   const storedPeriodStart = await redis.get<number>(periodStartKey(email))
   const { flyersCreated, periodStart } = await rollPeriodIfExpired(email, storedCount, storedPeriodStart ?? null)
-  return { email, plan, flyersCreated, periodStart }
+  const businessCategory = (await redis.get<BusinessCategory>(businessCategoryKey(email))) ?? "Other"
+  return { email, plan, flyersCreated, periodStart, businessCategory, isRealEstate: deriveIsRealEstate(businessCategory) }
+}
+
+// Set at signup (see IntakeSubmission.businessCategory, written by
+// /api/intake) or, for an account that predates this field, once via the
+// dashboard's non-blocking banner (POST /api/business-category — see
+// hasExplicitBusinessCategory for how that banner knows to stop showing).
+export async function setClientBusinessCategory(email: string, category: BusinessCategory): Promise<ClientRecord> {
+  await redis.set(businessCategoryKey(email), category)
+  const client = await getOrCreateClient(email)
+  return { ...client, businessCategory: category, isRealEstate: deriveIsRealEstate(category) }
 }
 
 /** Atomic increment — safe under concurrent requests from the same email. */
@@ -417,43 +453,64 @@ export async function listClientsWithDeliverables(): Promise<Deliverables[]> {
   return Promise.all(emails.map((email) => getDeliverablesForEmail(email)))
 }
 
-// ---- Client self-serve access codes ---------------------------------------
+// ---- Client passwords -------------------------------------------------------
 //
-// There's no email/SMS delivery wired up, so a client can't be sent a
-// magic link — instead they type their email into the login page and the
-// app hands them a short-lived one-time code directly on screen, which they
-// immediately re-enter to sign in. The code is stored as a SHA-256 hash
-// with a short TTL and deleted on first successful use (or expiry) — never
-// stored or logged in plaintext, and never reusable, so knowing an old code
-// doesn't help anyone.
+// Real per-client credential, separate from ClientRecord (plan/category/
+// usage) the same way businessCategory's storage is separate — a client can
+// exist (have deliverables, a plan) with no password yet, if their account
+// predates this system; getClientPasswordHash returning null is exactly how
+// /api/auth/client-login tells "wrong password" apart from "never set one,
+// use forgot-password to set it".
 
-const CLIENT_CODE_TTL_SECONDS = 15 * 60
-const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789" // no 0/O or 1/I — avoids misread codes
-const CODE_LENGTH = 6
-
-function clientCodeKey(email: string) {
-  return `client-code:${email}`
+function passwordHashKey(email: string) {
+  return `client:${email}:passwordHash`
 }
 
-function generateCode(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH))
-  return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("")
+export async function getClientPasswordHash(email: string): Promise<string | null> {
+  return (await redis.get<string>(passwordHashKey(email))) ?? null
 }
 
-/** Generates a fresh one-time access code for this client, stores its hash, and returns the plaintext code to show them once. */
-export async function issueClientAccessCode(email: string): Promise<string> {
-  const code = generateCode()
-  await redis.set(clientCodeKey(email), await sha256Hex(code), { ex: CLIENT_CODE_TTL_SECONDS })
-  return code
+export async function setClientPasswordHash(email: string, passwordHash: string): Promise<void> {
+  await redis.set(passwordHashKey(email), passwordHash)
 }
 
-/** Verifies a submitted code against the stored hash and consumes it (single-use) on success. */
-export async function verifyAndConsumeClientAccessCode(email: string, code: string): Promise<boolean> {
-  const key = clientCodeKey(email)
+// ---- Password reset tokens ---------------------------------------------------
+//
+// Emailed as a link (see lib/email.ts), not typed back in by hand like the
+// old client-access codes were — long and URL-safe rather than short and
+// human-typeable, since nothing about this needs to be read aloud or
+// re-entered manually. Stored as a SHA-256 hash with a short TTL and deleted
+// on first successful use, same reasoning as before: never stored or logged
+// in plaintext, never reusable. Doubles as the "set your first password"
+// mechanism for any client whose account predates this system — there's no
+// separate migration path, since requesting a reset and setting an initial
+// password are the same action from the client's side.
+
+const RESET_TOKEN_TTL_SECONDS = 30 * 60
+
+function resetTokenKey(email: string) {
+  return `password-reset:${email}`
+}
+
+function generateResetToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32))
+  return Buffer.from(bytes).toString("base64url")
+}
+
+/** Generates a fresh reset token, stores its hash, and returns the plaintext token to email once. Overwrites any previous unconsumed token for this email, so only the most recently requested link works. */
+export async function issuePasswordResetToken(email: string): Promise<string> {
+  const token = generateResetToken()
+  await redis.set(resetTokenKey(email), await sha256Hex(token), { ex: RESET_TOKEN_TTL_SECONDS })
+  return token
+}
+
+/** Verifies a submitted token against the stored hash and consumes it (single-use) on success. */
+export async function verifyAndConsumePasswordResetToken(email: string, token: string): Promise<boolean> {
+  const key = resetTokenKey(email)
   const storedHash = await redis.get<string>(key)
   if (!storedHash) return false
 
-  const submittedHash = await sha256Hex(code.trim().toUpperCase())
+  const submittedHash = await sha256Hex(token)
   if (submittedHash !== storedHash) return false
 
   await redis.del(key)

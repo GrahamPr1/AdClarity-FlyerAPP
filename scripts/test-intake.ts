@@ -10,6 +10,7 @@ import type { IntakeSubmission } from "../lib/types"
 // package.
 const realFormSubmission: IntakeSubmission = {
   planId: "pro",
+  businessCategory: "Dental",
   businessName: "Brightside Dental",
   industry: "Dentistry",
   yearsInBusiness: "12",
@@ -37,6 +38,7 @@ const realFormSubmission: IntakeSubmission = {
 
 const missingRequiredFields: IntakeSubmission = {
   planId: "trial",
+  businessCategory: "Contractor",
   businessName: "Quickfix Plumbing",
   industry: "",
   yearsInBusiness: "",

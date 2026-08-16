@@ -72,15 +72,21 @@ function describeFailure(err: unknown): string {
 }
 
 /**
- * Strips billing/plan-selection fields the agents have no use for and passes
- * everything else through in the site's own raw shape — the Intake Agent's
- * prompt is written to normalize exactly this shape (services as
- * {id,name}[], socialHandles/brandColors/flyerNotes as free-text strings,
- * yearsInBusiness as a string, etc). No structural adaptation happens here;
- * that normalization work stays inside the Intake Agent per design.
+ * Strips billing/plan-selection and segmentation fields the agents have no
+ * use for and passes everything else through in the site's own raw shape —
+ * the Intake Agent's prompt is written to normalize exactly this shape
+ * (services as {id,name}[], socialHandles/brandColors/flyerNotes as
+ * free-text strings, yearsInBusiness as a string, etc). No structural
+ * adaptation happens here; that normalization work stays inside the Intake
+ * Agent per design.
+ *
+ * businessCategory gets the same treatment as planId: it's written directly
+ * to the client's ClientRecord by /api/intake (see setClientBusinessCategory
+ * in lib/store.ts) before the pipeline ever runs — a real segmentation tag,
+ * not something for the agent to normalize or have an opinion on.
  */
 function buildRawIntakePayload(submission: IntakeSubmission) {
-  const { planId, submittedAt, ...rest } = submission
+  const { planId, businessCategory, submittedAt, ...rest } = submission
   return rest
 }
 

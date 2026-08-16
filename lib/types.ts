@@ -73,6 +73,24 @@ export const PLAN_EXPLAINER =
 
 export type BrandStyle = "modern" | "classic" | "playful" | "minimal"
 
+// Real segmentation tag, set once at signup (or once, later, via the
+// dashboard banner for pre-existing accounts — see the note on
+// ClientRecord.businessCategory below). Used to target templates/upsells/
+// trial behavior at specific business types — most immediately, real
+// estate/wholesaling via isRealEstate. A closed set (not free text) so
+// downstream features can switch on it reliably instead of fuzzy-matching
+// strings.
+export const BUSINESS_CATEGORIES = [
+  "Real Estate / Wholesaling",
+  "Dental",
+  "Gym/Fitness",
+  "Contractor",
+  "Restaurant/Cafe",
+  "Other",
+] as const
+
+export type BusinessCategory = (typeof BUSINESS_CATEGORIES)[number]
+
 export interface ServiceItem {
   id: string
   name: string
@@ -80,6 +98,8 @@ export interface ServiceItem {
 
 export interface IntakeSubmission {
   planId: PlanId | null
+  /** Required — the onboarding UI blocks past its Category step until this is set (see components/onboarding-form.tsx). Set directly on the client's ClientRecord by /api/intake, never touched by the agent pipeline (same treatment as planId — see buildRawIntakePayload in lib/agent-pipeline/pipeline.ts). */
+  businessCategory: BusinessCategory
   businessName: string
   industry: string
   yearsInBusiness: string
@@ -119,6 +139,10 @@ export interface ClientRecord {
   flyersCreated: number
   /** Epoch ms when the current 30-day usage period started. */
   periodStart: number
+  /** Set at signup (see IntakeSubmission.businessCategory) or, for accounts that predate this field, via the dashboard's one-time banner (POST /api/business-category). Always a real value — defaults to "Other" when nothing has been explicitly set yet (see getClient in lib/store.ts), never null/undefined, so downstream features can rely on it being present. */
+  businessCategory: BusinessCategory
+  /** Pure derivation of businessCategory === "Real Estate / Wholesaling" — recomputed wherever a ClientRecord is assembled (lib/store.ts) rather than stored separately, so it can never drift out of sync with businessCategory. */
+  isRealEstate: boolean
 }
 
 // ---- Deliverables / dashboard --------------------------------------------
@@ -193,6 +217,11 @@ export interface Deliverables {
   /** ISO timestamp when flyersCreated next resets to 0. */
   flyersResetAt: string
   printRequests: PrintRequest[]
+  /** See ClientRecord.businessCategory — defaults to "Other" until explicitly set. */
+  businessCategory: BusinessCategory
+  isRealEstate: boolean
+  /** True only when this client has never explicitly set a category (an account that predates this field) — drives the dashboard's one-time, non-blocking banner (see DashboardClient). False the moment they've set any category, including explicitly choosing "Other". */
+  businessCategoryIsDefaulted: boolean
 }
 
 // ---- Print fulfillment ------------------------------------------------------

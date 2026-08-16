@@ -4,15 +4,74 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import type {
+  BusinessCategory,
   Deliverables,
   FlyerDeliverable,
   FlyerStatus,
   PrintRequest,
   RepurposedFlyerContent,
 } from "@/lib/types"
+import { BUSINESS_CATEGORIES } from "@/lib/types"
 import { FormFillSection } from "@/components/form-fill-section"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
+// Shown only for accounts that predate the Category onboarding step (see
+// Deliverables.businessCategoryIsDefaulted) — non-blocking by design, per
+// the product ask: a banner they can act on or dismiss, never a modal that
+// gates the rest of the dashboard. Disappears for good the moment they pick
+// something (including explicitly picking "Other"), since setting a real
+// value is what businessCategoryIsDefaulted actually tracks.
+function CategoryBanner({ onSaved }: { onSaved: () => void }) {
+  const [dismissed, setDismissed] = useState(false)
+  const [category, setCategory] = useState<BusinessCategory | "">("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+
+  if (dismissed) return null
+
+  async function handleSave() {
+    if (!category) return
+    setSaving(true)
+    setError("")
+    try {
+      const res = await fetch("/api/business-category", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}) as { error?: string })
+        throw new Error(data.error ?? "Could not save — please try again.")
+      }
+      onSaved()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save — please try again.")
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-4 flex flex-wrap items-center gap-3">
+      <p className="text-sm flex-1 min-w-[16rem]">What type of business are you? This helps us tailor templates to you.</p>
+      <select value={category} onChange={(e) => setCategory(e.target.value as BusinessCategory)}
+        className="rounded-lg bg-white/[0.06] border border-white/12 px-3 py-1.5 text-sm">
+        <option value="" className="bg-card">Select one…</option>
+        {BUSINESS_CATEGORIES.map((c) => (
+          <option key={c} value={c} className="bg-card">{c}</option>
+        ))}
+      </select>
+      <button onClick={handleSave} disabled={!category || saving}
+        className="text-sm font-medium px-4 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+        {saving ? "Saving…" : "Save"}
+      </button>
+      <button onClick={() => setDismissed(true)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+        Not now
+      </button>
+      {error && <p role="alert" className="w-full text-sm text-red-400">{error}</p>}
+    </div>
+  )
+}
 
 /* ----------------------------- Status badge ------------------------------ */
 export function StatusBadge({ status }: { status: FlyerStatus | string }) {
@@ -520,6 +579,8 @@ export function DashboardClient() {
         <p className="mt-8 text-muted-foreground">Loading your deliverables…</p>
       ) : (
         <>
+          {data.businessCategoryIsDefaulted && <CategoryBanner onSaved={mutate} />}
+
           {/* Plan + status summary */}
           <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="rounded-xl border border-white/10 bg-card p-5">

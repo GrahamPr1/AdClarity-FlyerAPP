@@ -7,6 +7,7 @@ import type { IntakeSubmission } from "../lib/types"
 // Same real onboarding-form shape as scripts/test-intake.ts's complete case.
 const realFormSubmission: IntakeSubmission = {
   planId: "pro",
+  businessCategory: "Dental",
   businessName: "Brightside Dental",
   industry: "Dentistry",
   yearsInBusiness: "12",

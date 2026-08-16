@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { waitUntil } from "@vercel/functions"
 import type { IntakeSubmission } from "@/lib/types"
-import { PLAN_LIMITS } from "@/lib/types"
-import { saveIntake, getOrCreateClient, incrementFlyersCreated } from "@/lib/store"
+import { PLAN_LIMITS, BUSINESS_CATEGORIES } from "@/lib/types"
+import { saveIntake, getOrCreateClient, incrementFlyersCreated, setClientBusinessCategory } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { continuePipelineFromIntake, runIntakeStage, MAX_FLYERS_PER_BATCH } from "@/lib/agent-pipeline/pipeline"
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
   // Basic validation of required fields.
   const missing: string[] = []
   if (!body.contact?.email?.trim()) missing.push("email")
+  if (!body.businessCategory) missing.push("businessCategory")
   if (!body.businessName?.trim()) missing.push("businessName")
   if (!body.industry?.trim()) missing.push("industry")
   if (!body.services || body.services.length === 0) missing.push("services")
@@ -43,6 +44,13 @@ export async function POST(request: NextRequest) {
 
   if (missing.length > 0) {
     return NextResponse.json({ error: "Missing required fields", missing }, { status: 422 })
+  }
+
+  // A closed set, not free text — reject anything that isn't one of the
+  // onboarding UI's own options rather than silently storing garbage a
+  // hand-crafted request could send.
+  if (!BUSINESS_CATEGORIES.includes(body.businessCategory)) {
+    return NextResponse.json({ error: `businessCategory must be one of: ${BUSINESS_CATEGORIES.join(", ")}` }, { status: 422 })
   }
 
   const email = body.contact.email.trim().toLowerCase()
@@ -66,6 +74,14 @@ export async function POST(request: NextRequest) {
   let client = await getOrCreateClient(email)
   const planName = getPlan(client.plan)?.name ?? client.plan
   const limit = PLAN_LIMITS[client.plan]
+
+  // Real segmentation tag, written directly to the ClientRecord — never
+  // touched by the agent pipeline (see buildRawIntakePayload in
+  // lib/agent-pipeline/pipeline.ts), same treatment as plan. A client can
+  // resubmit onboarding more than once; each submission's category
+  // overwrites the last, since it's meant to reflect their current answer,
+  // not a first-write-wins fact.
+  await setClientBusinessCategory(email, body.businessCategory)
 
   if (client.flyersCreated >= limit) {
     return NextResponse.json(
