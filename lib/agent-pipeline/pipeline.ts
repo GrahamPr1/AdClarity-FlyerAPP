@@ -30,10 +30,16 @@ export const MAX_FLYERS_PER_BATCH = 10
 // instead of a silent stall. Overridable via env var so tests don't have to
 // wait out the real ceiling.
 //
-// Bumped from 2 to 4 minutes when repurposed per-channel content (a second
-// full HTML document plus captions per flyer) roughly doubled real
-// generation output — stays comfortably under Vercel's 300s function limit.
-const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS) || 4 * 60 * 1000
+// Bumped from 4 to 4.5 minutes after a real production run (Brand + Flyer
+// with repurposing + QR tracking, sequential) genuinely needed more than
+// 240s — a local repro of the same content completed Brand+Flyer alone in
+// ~163s, so the extra QR/tracking overhead plus real model-latency variance
+// in prod pushed it past the old ceiling 3 times in a row. Both API routes
+// that call into this (see maxDuration in app/api/intake/route.ts and
+// app/api/deliverables/retry/route.ts) explicitly claim 300s from the
+// platform, so this stays with a real ~30s margin under that, rather than
+// implicitly depending on Vercel's current default.
+const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS) || 270 * 1000
 
 class PipelineTimeoutError extends Error {}
 

@@ -7,6 +7,13 @@ import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { continuePipelineFromIntake, runIntakeStage, MAX_FLYERS_PER_BATCH } from "@/lib/agent-pipeline/pipeline"
 
+// The pipeline continues running after the response via waitUntil() below —
+// explicitly claim the full 300s Vercel now defaults to on Fluid Compute,
+// rather than depending on that default implicitly, since the pipeline's own
+// internal ceiling (PIPELINE_TIMEOUT_MS, see lib/agent-pipeline/pipeline.ts)
+// is set just under this and needs the platform to actually allow it.
+export const maxDuration = 300
+
 // POST /api/intake
 // Accepts the onboarding IntakeSubmission, validates required fields,
 // enforces the client's plan flyer limit (see PLAN_LIMITS), and hands off

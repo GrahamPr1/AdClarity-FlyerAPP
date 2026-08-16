@@ -4,6 +4,10 @@ import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getPipelineState } from "@/lib/store"
 import { retryFlyer } from "@/lib/agent-pipeline/pipeline"
 
+// Same reasoning as app/api/intake/route.ts's maxDuration — this route also
+// keeps the function alive past the response via waitUntil() below.
+export const maxDuration = 300
+
 // POST /api/deliverables/retry
 // Regenerates one Failed (or stuck) flyer. A client session always retries
 // their OWN flyer (their session email, never a client-supplied one — a
