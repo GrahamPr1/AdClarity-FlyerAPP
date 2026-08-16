@@ -29,8 +29,8 @@ export type PlanId = "trial" | "basic" | "pro"
 // does, periodStart can be re-anchored to Stripe's current_period_start.
 export const PLAN_LIMITS: Record<PlanId, number> = {
   trial: 3,
-  basic: 15,
-  pro: 25,
+  basic: 25,
+  pro: 50,
 }
 
 export interface Plan {
