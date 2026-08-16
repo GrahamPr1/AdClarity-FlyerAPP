@@ -44,6 +44,16 @@ const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS) || 285 * 100
 
 class PipelineTimeoutError extends Error {}
 
+// Every run that's hit PIPELINE_TIMEOUT_MS so far has hit it at EXACTLY the
+// configured ceiling, never naturally finishing a bit early or a bit late —
+// that pattern doesn't fit "the model is just being slow" (which would show
+// real completion-time variance), so this logs a timestamp after each real
+// stage boundary to reveal which specific stage a genuinely stuck run never
+// gets past, rather than guessing again at another timeout number.
+function stageMark(runId: string, t0: number, label: string) {
+  console.log(`[agent-pipeline] ${runId}: ${label} at +${Math.round((Date.now() - t0) / 1000)}s`)
+}
+
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout>
   const timeout = new Promise<never>((_, reject) => {
@@ -141,10 +151,12 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
   return runIntakeAgent(rawPayload)
 }
 
-async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[]): Promise<void> {
+async function runBatch(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[]): Promise<void> {
   const brandProfile = await runBrandAgent(intake)
+  stageMark(runId, t0, "brand done")
   const { includeExtras, allowAiPhotos } = await getPlanFeatures(email)
   const photos = await buildPhotoPool(intake, flyerRequests, allowAiPhotos && intake.wantsAiPhotos)
+  stageMark(runId, t0, "photo pool ready")
 
   // One tracking code + QR image per flyer, generated before the agent call
   // — it needs a real, ready image to embed, the same way it needs real
@@ -156,6 +168,7 @@ async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: 
       ? await Promise.all(flyerRequests.map(async (r) => [r.id, await createFlyerTrackingCode(email, r.id, intake)] as const))
       : [],
   )
+  stageMark(runId, t0, "tracking codes ready")
   const flyerRequestsWithQr = flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: trackingByFlyerId.get(r.id)?.qrDataUrl ?? null }))
 
   const flyerResult = await runFlyerAgent({
@@ -166,6 +179,7 @@ async function runBatch(email: string, intake: NormalizedIntake, flyerRequests: 
     batchSize: flyerRequests.length,
     includeRepurposing: includeExtras,
   })
+  stageMark(runId, t0, "flyer agent done")
 
   for (const flyer of flyerResult.flyers) {
     const tracking = trackingByFlyerId.get(flyer.id)
@@ -208,12 +222,15 @@ export async function continuePipelineFromIntake(email: string, intake: Normaliz
   await savePipelineState(email, intake, flyerRequests)
 
   const ids = flyerRequests.map((r) => r.id)
+  const runId = ids.join(",")
+  const t0 = Date.now()
 
   try {
     await seedFlyerDeliverables(email, flyerRequests.map((r) => ({ id: r.id, purpose: r.purpose })))
     await markFlyersInProgress(email, ids)
+    stageMark(runId, t0, "seeded, marked in-progress")
 
-    await withTimeout(runBatch(email, intake, flyerRequests), PIPELINE_TIMEOUT_MS)
+    await withTimeout(runBatch(runId, t0, email, intake, flyerRequests), PIPELINE_TIMEOUT_MS)
   } catch (err) {
     const reason = describeFailure(err)
     console.error("[agent-pipeline] Pipeline failed:", reason)
@@ -221,16 +238,19 @@ export async function continuePipelineFromIntake(email: string, intake: Normaliz
   }
 }
 
-async function runSingleFlyerRetry(email: string, intake: NormalizedIntake, flyerRequest: FlyerRequest): Promise<void> {
+async function runSingleFlyerRetry(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequest: FlyerRequest): Promise<void> {
   const brandProfile = await runBrandAgent(intake)
+  stageMark(runId, t0, "brand done")
   const { includeExtras, allowAiPhotos } = await getPlanFeatures(email)
   const photos = await buildPhotoPool(intake, [flyerRequest], allowAiPhotos && intake.wantsAiPhotos)
+  stageMark(runId, t0, "photo pool ready")
 
   // A retry gets its own fresh tracking code (Basic+/Pro only) — the old
   // one, if this flyer had already generated once, is simply abandoned
   // along with its stats, since a regenerated flyer's content may no
   // longer match what a scan of the old QR would have promised.
   const tracking = includeExtras ? await createFlyerTrackingCode(email, flyerRequest.id, intake) : null
+  stageMark(runId, t0, "tracking code ready")
 
   const flyerResult = await runFlyerAgent({
     brandProfile,
@@ -240,6 +260,7 @@ async function runSingleFlyerRetry(email: string, intake: NormalizedIntake, flye
     batchSize: 1,
     includeRepurposing: includeExtras,
   })
+  stageMark(runId, t0, "flyer agent done")
 
   const flyer = flyerResult.flyers[0]
   if (!flyer) throw new Error("Flyer Agent returned no result")
@@ -274,8 +295,12 @@ async function runSingleFlyerRetry(email: string, intake: NormalizedIntake, flye
 export async function retryFlyer(email: string, intake: NormalizedIntake, flyerRequest: FlyerRequest): Promise<void> {
   await updateDeliverable(email, { type: "flyer", id: flyerRequest.id, status: "In Progress" })
 
+  const runId = flyerRequest.id
+  const t0 = Date.now()
+  stageMark(runId, t0, "marked in-progress")
+
   try {
-    await withTimeout(runSingleFlyerRetry(email, intake, flyerRequest), PIPELINE_TIMEOUT_MS)
+    await withTimeout(runSingleFlyerRetry(runId, t0, email, intake, flyerRequest), PIPELINE_TIMEOUT_MS)
   } catch (err) {
     const reason = describeFailure(err)
     console.error("[agent-pipeline] Retry failed:", reason)
