@@ -10,9 +10,14 @@ export default function AdminPage() {
       <p className="mt-2 text-sm text-muted-foreground">
         The combined overview lands here once cost and revenue views exist. For now:
       </p>
-      <Link href="/admin/users" className="mt-4 inline-block text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
-        View Users →
-      </Link>
+      <div className="mt-4 flex gap-4">
+        <Link href="/admin/users" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+          View Users →
+        </Link>
+        <Link href="/admin/costs" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+          View AI Costs →
+        </Link>
+      </div>
     </div>
   )
 }

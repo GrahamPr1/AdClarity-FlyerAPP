@@ -349,3 +349,37 @@ export interface AdminUserDetail extends AdminUserRow {
   generationLog: GenerationLogEntry[]
   totalEstimatedCostUsd: number
 }
+
+// ---- Admin cost tracking (/admin/costs) --------------------------------------
+//
+// "This month" here means the same rolling 30-day window PLAN_LIMITS itself
+// resets on (see RESET_PERIOD_MS in lib/store.ts) — this app has no fixed
+// calendar-month billing period, so treating cost windows as calendar
+// months would be a fake precision the rest of the app doesn't have either.
+
+export interface AdminCostUserRow {
+  email: string
+  businessName: string | null
+  plan: PlanId
+  monthlyCostUsd: number
+  /** This user's plan tier's average per-user cost this month — the denominator behind isOutlier, computed across every user on the plan, not just the ones shown here. */
+  planAverageCostUsd: number
+  /** True when monthlyCostUsd > 3x planAverageCostUsd. */
+  isOutlier: boolean
+}
+
+export interface AdminCostsOverview {
+  totalCostTodayUsd: number
+  totalCostThisWeekUsd: number
+  totalCostThisMonthUsd: number
+  /** Daily cost buckets, last 30 days, oldest first — the trend chart. */
+  costTrend: { date: string; cost: number }[]
+  /** Average cost of one Flyer Agent API call over the last 30 days — not exactly "per flyer produced" when one call covers a multi-flyer batch (see GenerationLogEntry.flyerId), but that's the overwhelmingly common case. */
+  averageCostPerFlyerGenerationUsd: number
+  /** Total cost by pipeline stage, last 30 days. */
+  costByAgentType: Record<GenerationAgentType, number>
+  /** Every plan tier's average per-user cost this month. */
+  planAverageCostUsd: Record<PlanId, number>
+  /** Top 20 highest-cost users this month, sorted descending — the outlier/abuse-detection view. */
+  topCostUsers: AdminCostUserRow[]
+}
