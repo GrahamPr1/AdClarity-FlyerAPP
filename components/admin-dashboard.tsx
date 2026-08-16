@@ -214,9 +214,14 @@ export function AdminDashboard() {
           <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-teal-bright)]" />
           OneFlyer Admin
         </a>
-        <button onClick={handleSignOut} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-          Sign out
-        </button>
+        <div className="flex items-center gap-4">
+          <a href="/admin" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+            Admin Portal
+          </a>
+          <button onClick={handleSignOut} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Sign out
+          </button>
+        </div>
       </div>
 
       <h1 className="mt-8 text-2xl md:text-3xl font-semibold tracking-tight">All Clients</h1>

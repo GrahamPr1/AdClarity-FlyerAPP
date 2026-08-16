@@ -228,6 +228,8 @@ export interface Deliverables {
   isRealEstate: boolean
   /** True only when this client has never explicitly set a category (an account that predates this field) — drives the dashboard's one-time, non-blocking banner (see DashboardClient). False the moment they've set any category, including explicitly choosing "Other". */
   businessCategoryIsDefaulted: boolean
+  /** See ClientRecord.isAdmin — lets DashboardClient show a link to /admin for an account that has it, since otherwise there's no way to discover /admin exists after a normal client login. */
+  isAdmin: boolean
 }
 
 // ---- Print fulfillment ------------------------------------------------------

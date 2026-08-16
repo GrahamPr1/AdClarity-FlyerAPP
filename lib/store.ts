@@ -105,6 +105,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
     businessCategory: client?.businessCategory ?? "Other",
     isRealEstate: client?.isRealEstate ?? false,
     businessCategoryIsDefaulted,
+    isAdmin: client?.isAdmin ?? false,
   }
 }
 
@@ -127,6 +128,7 @@ export async function getDeliverables(): Promise<Deliverables> {
       businessCategory: "Other",
       isRealEstate: false,
       businessCategoryIsDefaulted: true,
+      isAdmin: false,
     }
   }
   return getDeliverablesForEmail(email)
