@@ -21,5 +21,10 @@ export const config = {
   // /onboarding now requires signing in first too — a client answers
   // questions and submits as their own authenticated email, not a
   // free-text field anyone could type any address into.
-  matcher: ["/dashboard/:path*", "/onboarding/:path*"],
+  //
+  // /admin/* requires a valid session at minimum (checked here) — the
+  // finer-grained "is this session actually an admin" check happens in
+  // app/admin/layout.tsx, since that needs a Redis lookup middleware
+  // doesn't do for the other two routes.
+  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/admin/:path*"],
 }

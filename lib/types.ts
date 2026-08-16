@@ -143,6 +143,8 @@ export interface ClientRecord {
   businessCategory: BusinessCategory
   /** Pure derivation of businessCategory === "Real Estate / Wholesaling" — recomputed wherever a ClientRecord is assembled (lib/store.ts) rather than stored separately, so it can never drift out of sync with businessCategory. */
   isRealEstate: boolean
+  /** Grants access to /admin/* (see app/admin/layout.tsx) on top of this client's own normal dashboard — distinct from ADMIN_SUB (the single site-owner password login, which always has /admin access too and is untouched by this flag). Only ever set via POST /api/admin/set-admin, itself gated to the ADMIN_SUB session — an isAdmin account can't grant admin to anyone else. Defaults to false. */
+  isAdmin: boolean
 }
 
 // ---- Deliverables / dashboard --------------------------------------------

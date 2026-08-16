@@ -359,6 +359,9 @@ function periodStartKey(email: string) {
 function businessCategoryKey(email: string) {
   return `client:${email}:businessCategory`
 }
+function isAdminKey(email: string) {
+  return `client:${email}:isAdmin`
+}
 
 function deriveIsRealEstate(category: BusinessCategory): boolean {
   return category === "Real Estate / Wholesaling"
@@ -398,8 +401,19 @@ export async function getClient(email: string): Promise<ClientRecord | null> {
   // checks) gets a real value without having to null-check. Whether this
   // was ever explicitly set is a separate question (see
   // hasExplicitBusinessCategory), used only to drive the dashboard banner.
-  const businessCategory = (await redis.get<BusinessCategory>(businessCategoryKey(email))) ?? "Other"
-  return { email, plan, flyersCreated, periodStart, businessCategory, isRealEstate: deriveIsRealEstate(businessCategory) }
+  const [businessCategory, isAdmin] = await Promise.all([
+    redis.get<BusinessCategory>(businessCategoryKey(email)),
+    redis.get<boolean>(isAdminKey(email)),
+  ])
+  return {
+    email,
+    plan,
+    flyersCreated,
+    periodStart,
+    businessCategory: businessCategory ?? "Other",
+    isRealEstate: deriveIsRealEstate(businessCategory ?? "Other"),
+    isAdmin: isAdmin ?? false,
+  }
 }
 
 export async function getOrCreateClient(email: string): Promise<ClientRecord> {
@@ -408,7 +422,7 @@ export async function getOrCreateClient(email: string): Promise<ClientRecord> {
   const periodStart = Date.now()
   await redis.set(planKey(email), "trial")
   await redis.set(periodStartKey(email), periodStart)
-  return { email, plan: "trial", flyersCreated: 0, periodStart, businessCategory: "Other", isRealEstate: false }
+  return { email, plan: "trial", flyersCreated: 0, periodStart, businessCategory: "Other", isRealEstate: false, isAdmin: false }
 }
 
 // Real enforcement only ever changes here — never inferred from an
@@ -419,8 +433,19 @@ export async function setClientPlan(email: string, plan: PlanId): Promise<Client
   const storedCount = (await redis.get<number>(countKey(email))) ?? 0
   const storedPeriodStart = await redis.get<number>(periodStartKey(email))
   const { flyersCreated, periodStart } = await rollPeriodIfExpired(email, storedCount, storedPeriodStart ?? null)
-  const businessCategory = (await redis.get<BusinessCategory>(businessCategoryKey(email))) ?? "Other"
-  return { email, plan, flyersCreated, periodStart, businessCategory, isRealEstate: deriveIsRealEstate(businessCategory) }
+  const [businessCategory, isAdmin] = await Promise.all([
+    redis.get<BusinessCategory>(businessCategoryKey(email)),
+    redis.get<boolean>(isAdminKey(email)),
+  ])
+  return {
+    email,
+    plan,
+    flyersCreated,
+    periodStart,
+    businessCategory: businessCategory ?? "Other",
+    isRealEstate: deriveIsRealEstate(businessCategory ?? "Other"),
+    isAdmin: isAdmin ?? false,
+  }
 }
 
 // Set at signup (see IntakeSubmission.businessCategory, written by
@@ -431,6 +456,17 @@ export async function setClientBusinessCategory(email: string, category: Busines
   await redis.set(businessCategoryKey(email), category)
   const client = await getOrCreateClient(email)
   return { ...client, businessCategory: category, isRealEstate: deriveIsRealEstate(category) }
+}
+
+// Grants/revokes access to /admin/* (see app/admin/layout.tsx) for a real
+// client account, on top of the always-admin ADMIN_SUB site-owner login.
+// Only ever called from POST /api/admin/set-admin, itself gated to the
+// ADMIN_SUB session — deliberately not self-service, so an isAdmin account
+// can't grant admin to further accounts on its own.
+export async function setClientIsAdmin(email: string, isAdmin: boolean): Promise<ClientRecord> {
+  await redis.set(isAdminKey(email), isAdmin)
+  const client = await getOrCreateClient(email)
+  return { ...client, isAdmin }
 }
 
 /** Atomic increment — safe under concurrent requests from the same email. */
