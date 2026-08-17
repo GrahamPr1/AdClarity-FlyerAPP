@@ -6,6 +6,9 @@
 // outside of v0). Keep them stable so the pipeline can match up cleanly.
 // ---------------------------------------------------------------------------
 
+import type { BrandProfile } from "./agent-pipeline/schemas/brand"
+import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
+
 // The three real tiers — used BOTH for the marketing pricing page a visitor
 // picks from AND as the real enforcement flag on a client's persisted
 // record (see ClientRecord below). Picking a tier on the marketing page
@@ -288,6 +291,33 @@ export interface BusinessProfileRecord {
   file: { blobUrl: string; mediaType: string; fileName: string } | null
 }
 
+// ---- Saved brand profile (Quick Prompt) -------------------------------------
+//
+// Distinct from BusinessProfileRecord above (form-fill's saved info source —
+// a raw file/link, not brand data) despite the similar name in this app's
+// own product spec — this is a real gap that had to be filled: the guided
+// flow already collects colors/logo/voice/contact every submission, but
+// none of it was ever persisted per-client before Quick Prompt needed to
+// reuse it. Stores the REAL Brand Agent output (see BrandProfile in
+// lib/agent-pipeline/schemas/brand.ts) rather than a separate parallel
+// schema, so "the same one used by Guided Setup" is literally true, not
+// just similar. Refreshed automatically after every successful guided
+// generation; for Quick Prompt, only ever written once, on explicit opt-in
+// (see POST /api/brand-profile/save) — an AI-inferred brand from a single
+// vague prompt is a much weaker signal than a client who filled out the
+// real form, so it doesn't get to overwrite silently.
+//
+// contact is carried separately from brandProfile: BrandProfile (the Brand
+// Agent's own output) has no phone/address/website/social fields at all —
+// that lives on the ORIGINAL intake instead — so a Quick Prompt submission
+// reusing a saved brand still needs somewhere to get real contact info
+// from without asking for it again every time.
+export interface SavedBrandProfile {
+  savedAt: string
+  brandProfile: BrandProfile
+  contact: NormalizedIntake["contact"]
+}
+
 // ---- AI generation cost log -------------------------------------------------
 //
 // One row per real Claude API call in the Intake/Brand/Flyer pipeline — NOT
@@ -299,7 +329,13 @@ export interface BusinessProfileRecord {
 // separate "business" entity distinct from the account itself, so there's
 // no businessId field here.
 
-export type GenerationAgentType = "intake" | "brand" | "flyer"
+// "quick_prompt" is the lightweight parser that replaces the Intake Agent
+// on the Quick Prompt path (see lib/agent-pipeline/agents/quickPromptAgent.ts)
+// — a distinct stage so admin cost views can see quick-prompt usage
+// separately from guided usage, even though the SAME "brand"/"flyer" stages
+// run downstream either way (see PIPELINE_TIMEOUT_MS's caller in
+// lib/agent-pipeline/pipeline.ts — those two agents are never changed).
+export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt"
 
 export interface GenerationLogEntry {
   id: string
@@ -385,3 +421,18 @@ export interface AdminCostsOverview {
   /** Top 20 highest-cost users this month, sorted descending — the outlier/abuse-detection view. */
   topCostUsers: AdminCostUserRow[]
 }
+
+// ---- Quick Prompt (on-demand flyer generation) -------------------------------
+//
+// Skips the guided multi-step intake entirely — one free-text prompt plus a
+// format (and optional style override) goes through a lightweight parser
+// (see lib/agent-pipeline/agents/quickPromptAgent.ts) instead of the full
+// Intake Agent, then into the SAME Brand/Flyer agents the guided flow uses,
+// unmodified. Available on Basic/Pro only (not Trial — see the plan check
+// in POST /api/quick-prompt), and counts against the same monthly flyer cap.
+
+export const QUICK_PROMPT_FORMATS = ["Flyer", "One-Pager", "Proposal", "Door Hanger", "Social Post"] as const
+export type QuickPromptFormat = (typeof QUICK_PROMPT_FORMATS)[number]
+
+export const QUICK_PROMPT_STYLES = ["Bold", "Elegant", "Playful", "Corporate", "Minimal"] as const
+export type QuickPromptStyle = (typeof QUICK_PROMPT_STYLES)[number]

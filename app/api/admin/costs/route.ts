@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   const flyerEntries = log.filter((e) => e.agentType === "flyer")
   const averageCostPerFlyerGenerationUsd = flyerEntries.length > 0 ? flyerEntries.reduce((sum, e) => sum + e.estimatedCostUsd, 0) / flyerEntries.length : 0
 
-  const costByAgentType = { intake: 0, brand: 0, flyer: 0 } as Record<GenerationAgentType, number>
+  const costByAgentType = { intake: 0, brand: 0, flyer: 0, quick_prompt: 0 } as Record<GenerationAgentType, number>
   for (const e of log) costByAgentType[e.agentType] += e.estimatedCostUsd
 
   // Per-user cost this month — every user counts toward their plan's

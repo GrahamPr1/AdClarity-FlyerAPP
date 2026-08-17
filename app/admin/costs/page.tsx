@@ -9,7 +9,7 @@ import type { AdminCostsOverview, GenerationAgentType, PlanId } from "@/lib/type
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const PLAN_LABELS: Record<PlanId, string> = { trial: "Free Trial", basic: "Basic", pro: "Pro" }
-const AGENT_LABELS: Record<GenerationAgentType, string> = { intake: "Intake", brand: "Brand", flyer: "Flyer" }
+const AGENT_LABELS: Record<GenerationAgentType, string> = { intake: "Intake", brand: "Brand", flyer: "Flyer", quick_prompt: "Quick Prompt" }
 const PLAN_FILTER_OPTIONS = ["All", "trial", "basic", "pro"] as const
 
 function fmt(cost: number): string {

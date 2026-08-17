@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { OnboardingForm } from "@/components/onboarding-form"
+import { CreateFlyerFlow } from "@/components/create-flyer-flow"
 
 export const metadata = {
   title: "Onboarding — OneFlyer",
@@ -28,7 +28,7 @@ export default async function OnboardingPage() {
           OneFlyer
         </div>
         <Suspense fallback={<div className="text-muted-foreground">Loading…</div>}>
-          <OnboardingForm email={session.sub} />
+          <CreateFlyerFlow email={session.sub} />
         </Suspense>
       </div>
     </main>

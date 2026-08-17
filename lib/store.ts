@@ -1,10 +1,11 @@
 import { Redis } from "@upstash/redis"
-import type { BusinessCategory, BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, TrackingRecord, TrackingStats } from "./types"
+import type { BusinessCategory, BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
 import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
 import type { FlyerRequest } from "./agent-pipeline/schemas/flyer"
+import type { BrandProfile } from "./agent-pipeline/schemas/brand"
 
 // ---------------------------------------------------------------------------
 // Persistent storage via Upstash Redis (@upstash/redis). Replaces the old
@@ -339,6 +340,50 @@ export async function deleteBusinessProfile(email: string): Promise<void> {
   await redis.del(businessProfileKey(email))
 }
 
+// ---- Saved brand profile (Quick Prompt) -------------------------------------
+//
+// See SavedBrandProfile in lib/types.ts for why this is distinct from
+// BusinessProfileRecord above despite the similar name. Refreshed after
+// every successful guided-flow Brand Agent run (see updateSavedBrandProfileFromGuidedRun
+// in lib/agent-pipeline/pipeline.ts); on the Quick Prompt path it's only
+// ever written once, on explicit opt-in.
+
+function brandProfileKey(email: string) {
+  return `client:${email}:brand-profile`
+}
+
+export async function getSavedBrandProfile(email: string): Promise<SavedBrandProfile | null> {
+  return (await redis.get<SavedBrandProfile>(brandProfileKey(email))) ?? null
+}
+
+export async function saveBrandProfile(email: string, brandProfile: BrandProfile, contact: NormalizedIntake["contact"]): Promise<void> {
+  const record: SavedBrandProfile = { savedAt: new Date().toISOString(), brandProfile, contact }
+  await redis.set(brandProfileKey(email), record)
+}
+
+// Scratch storage for a Quick Prompt generation's inferred brand — written
+// only on the Quick Prompt path (never guided, which auto-saves the real
+// thing above instead), keyed by flyerId rather than email so it doesn't
+// collide with whatever the client's ACTUAL saved brand is. Two uses: the
+// "save this as your brand?" one-time offer (POST /api/brand-profile/save-from-generation)
+// and natural-language refinement's need for the same brandProfile/contact
+// a follow-up edit should stay consistent with. 24h TTL — long enough for
+// either to matter, not permanent since it's disposable if never accepted.
+const PENDING_BRAND_PROFILE_TTL_SECONDS = 24 * 60 * 60
+
+function pendingBrandProfileKey(flyerId: string) {
+  return `quick-prompt-pending-brand:${flyerId}`
+}
+
+export async function savePendingBrandProfile(flyerId: string, brandProfile: BrandProfile, contact: NormalizedIntake["contact"]): Promise<void> {
+  const record: SavedBrandProfile = { savedAt: new Date().toISOString(), brandProfile, contact }
+  await redis.set(pendingBrandProfileKey(flyerId), record, { ex: PENDING_BRAND_PROFILE_TTL_SECONDS })
+}
+
+export async function getPendingBrandProfile(flyerId: string): Promise<SavedBrandProfile | null> {
+  return (await redis.get<SavedBrandProfile>(pendingBrandProfileKey(flyerId))) ?? null
+}
+
 // ---- Client records (usage limits) ---------------------------------------
 //
 // plan and flyersCreated are stored as separate keys (not one JSON blob) so
@@ -589,6 +634,45 @@ export async function verifyAndConsumePasswordResetToken(email: string, token: s
 
   await redis.del(key)
   return true
+}
+
+// ---- Quick Prompt regenerate / refinement allowances -------------------------
+//
+// Two separate counters per flyerId, both server-side (never trust a
+// client-reported count) — "Try Again" (a full re-roll) and natural-
+// language refinement are distinct actions with distinct free allowances
+// per the spec, so they get distinct keys rather than sharing one counter.
+
+const REGENERATE_FREE_LIMIT = 2
+const REGENERATE_WINDOW_SECONDS = 10 * 60
+const REFINEMENT_FREE_LIMIT = 3
+const REFINEMENT_WINDOW_SECONDS = 60 * 60
+
+function regenerateCountKey(flyerId: string) {
+  return `quick-prompt-regen:${flyerId}`
+}
+function refinementCountKey(flyerId: string) {
+  return `quick-prompt-refine:${flyerId}`
+}
+
+/**
+ * Atomically increments this flyer's regenerate count and reports whether
+ * THIS attempt is still within the free allowance — the TTL starts
+ * counting from the first regenerate call (not the original generation),
+ * so a client who comes back well after 10 minutes gets a fresh free
+ * allowance rather than being permanently capped at 2 for that flyer.
+ */
+export async function incrementAndCheckRegenerateAllowance(flyerId: string): Promise<{ isFree: boolean; countSoFar: number }> {
+  const count = await redis.incr(regenerateCountKey(flyerId))
+  if (count === 1) await redis.expire(regenerateCountKey(flyerId), REGENERATE_WINDOW_SECONDS)
+  return { isFree: count <= REGENERATE_FREE_LIMIT, countSoFar: count }
+}
+
+/** Same shape as the regenerate allowance, for natural-language refinement (see POST /api/quick-prompt/refine). */
+export async function incrementAndCheckRefinementAllowance(flyerId: string): Promise<{ isFree: boolean; countSoFar: number }> {
+  const count = await redis.incr(refinementCountKey(flyerId))
+  if (count === 1) await redis.expire(refinementCountKey(flyerId), REFINEMENT_WINDOW_SECONDS)
+  return { isFree: count <= REFINEMENT_FREE_LIMIT, countSoFar: count }
 }
 
 // ---- QR tracking ------------------------------------------------------------

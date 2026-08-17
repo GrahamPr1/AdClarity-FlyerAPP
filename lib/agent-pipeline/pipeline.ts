@@ -1,5 +1,5 @@
 import type { IntakeSubmission } from "@/lib/types"
-import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient } from "@/lib/store"
+import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile } from "@/lib/store"
 import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
@@ -157,9 +157,23 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
   return runIntakeAgent(rawPayload, submission.contact.email.trim().toLowerCase())
 }
 
-async function runBatch(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[]): Promise<void> {
+async function runBatch(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[], autoSaveBrandProfile: boolean): Promise<void> {
   const brandProfile = await runBrandAgent(intake, email)
   stageMark(runId, t0, "brand done")
+  // Guided-flow submissions refresh the client's saved brand automatically
+  // — they explicitly provided this info, so it's a strong signal. Quick
+  // Prompt's inferred brand is a weaker signal (see SavedBrandProfile in
+  // lib/types.ts) and never overwrites silently; continuePipelineFromIntake's
+  // caller controls this via autoSaveBrandProfile.
+  if (autoSaveBrandProfile) {
+    await saveBrandProfile(email, brandProfile, intake.contact).catch((e) => console.error("[agent-pipeline] Failed to save brand profile:", e))
+  } else if (flyerRequests[0]) {
+    // Quick Prompt path — scratch-saved per flyerId (not the client's real
+    // saved brand) for the "save this as your brand?" opt-in and
+    // refinement's need for the same brand context. See
+    // savePendingBrandProfile in lib/store.ts.
+    await savePendingBrandProfile(flyerRequests[0].id, brandProfile, intake.contact).catch((e) => console.error("[agent-pipeline] Failed to save pending brand profile:", e))
+  }
   const { includeExtras, allowAiPhotos } = await getPlanFeatures(email)
   const photos = await buildPhotoPool(intake, flyerRequests, allowAiPhotos && intake.wantsAiPhotos)
   stageMark(runId, t0, "photo pool ready")
@@ -222,7 +236,12 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
  * irrelevant to brand/flyer design), so deliverable storage, which is now
  * keyed per-client by email, needs it passed through separately.
  */
-export async function continuePipelineFromIntake(email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[]): Promise<void> {
+export async function continuePipelineFromIntake(
+  email: string,
+  intake: NormalizedIntake,
+  flyerRequests: FlyerRequest[],
+  autoSaveBrandProfile: boolean = true,
+): Promise<void> {
   // Saved before generation starts (not after) so a retry has something to
   // work with even if this very attempt is what fails.
   await savePipelineState(email, intake, flyerRequests)
@@ -236,7 +255,7 @@ export async function continuePipelineFromIntake(email: string, intake: Normaliz
     await markFlyersInProgress(email, ids)
     stageMark(runId, t0, "seeded, marked in-progress")
 
-    await withTimeout(runBatch(runId, t0, email, intake, flyerRequests), PIPELINE_TIMEOUT_MS)
+    await withTimeout(runBatch(runId, t0, email, intake, flyerRequests, autoSaveBrandProfile), PIPELINE_TIMEOUT_MS)
   } catch (err) {
     const reason = describeFailure(err)
     console.error("[agent-pipeline] Pipeline failed:", reason)
@@ -313,3 +332,86 @@ export async function retryFlyer(email: string, intake: NormalizedIntake, flyerR
     await markFlyerFailed(email, flyerRequest.id, reason).catch((e) => console.error("[agent-pipeline] Failed to record retry failure:", e))
   }
 }
+
+function fromDataUrl(dataUrl: string): string {
+  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1)
+  return Buffer.from(base64, "base64").toString("utf-8")
+}
+
+/**
+ * Natural-language refinement (see POST /api/quick-prompt/refine) — a
+ * targeted revision, not a from-scratch regeneration: the Flyer Agent
+ * receives the CURRENT flyer's actual HTML plus the specific instruction,
+ * asked to change only what was requested and leave everything else as-is.
+ * The Flyer Agent itself is never modified for this — only what feeds it,
+ * same principle as the whole Quick Prompt path (see runQuickPromptAgent).
+ *
+ * Reuses the flyer's EXISTING tracking code rather than issuing a new one
+ * (unlike a full retry) — a small edit is still fundamentally the same
+ * flyer, so its scan/click history should carry forward, not restart.
+ */
+export async function refineFlyer(
+  email: string,
+  brandProfile: Parameters<typeof runFlyerAgent>[0]["brandProfile"],
+  contact: NormalizedIntake["contact"],
+  flyerRequest: FlyerRequest,
+  currentHtml: string,
+  instruction: string,
+  existingTrackingCode: string | undefined,
+  includeRepurposing: boolean,
+): Promise<void> {
+  await updateDeliverable(email, { type: "flyer", id: flyerRequest.id, status: "In Progress" })
+  const runId = flyerRequest.id
+  const t0 = Date.now()
+
+  try {
+    const flyerResult = await withTimeout(
+      runFlyerAgent(
+        {
+          brandProfile,
+          contact,
+          photos: [],
+          flyerRequests: [
+            {
+              ...flyerRequest,
+              notes: `This flyer already exists — here is its current HTML in full:\n\n${currentHtml}\n\nApply ONLY this specific change and leave everything else exactly as it is: ${instruction}`,
+              qrCodeDataUrl: null,
+            },
+          ],
+          batchSize: 1,
+          includeRepurposing,
+        },
+        email,
+      ),
+      PIPELINE_TIMEOUT_MS,
+    )
+    stageMark(runId, t0, "refinement done")
+
+    const flyer = flyerResult.flyers[0]
+    if (!flyer) throw new Error("Flyer Agent returned no result")
+
+    if (existingTrackingCode) await backfillTrackingContent(existingTrackingCode, flyer)
+
+    await updateDeliverable(email, {
+      type: "flyer",
+      id: flyer.id,
+      status: "Ready",
+      downloadUrl: toDataUrl(flyer.html),
+      ...(flyer.repurposed && {
+        repurposed: {
+          instagramDownloadUrl: toDataUrl(flyer.repurposed.instagramHtml),
+          instagramCaption: flyer.repurposed.instagramCaption,
+          textBlurb: flyer.repurposed.textBlurb,
+          nextdoorPost: flyer.repurposed.nextdoorPost,
+        },
+      }),
+      trackingCode: existingTrackingCode,
+    })
+  } catch (err) {
+    const reason = describeFailure(err)
+    console.error("[agent-pipeline] Refinement failed:", reason)
+    await markFlyerFailed(email, flyerRequest.id, reason).catch((e) => console.error("[agent-pipeline] Failed to record refinement failure:", e))
+  }
+}
+
+export { fromDataUrl }
