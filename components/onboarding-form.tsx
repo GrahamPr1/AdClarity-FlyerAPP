@@ -37,13 +37,13 @@ const nextId = () => `svc-${++idCounter}-${Date.now()}`
 export function OnboardingForm({
   email,
   initialData,
-  scraped,
+  prefillNotice,
 }: {
   email: string
-  /** Pre-fill from a successful website scrape (see components/guided-setup-flow.tsx) — merged into the default blank state below. Any field it doesn't provide stays blank and required, exactly as today. */
+  /** Pre-fill from a website scrape or a saved Business Profile (see components/guided-setup-flow.tsx) — merged into the default blank state below. Any field it doesn't provide stays blank and required, exactly as today. */
   initialData?: Partial<Omit<IntakeSubmission, "businessCategory">> & { businessCategory?: BusinessCategory }
-  /** True when initialData came from a website scrape — shows the review banner (section 4 of the auto-fill spec) so pre-filled data is never silently submitted without the client seeing it first. */
-  scraped?: boolean
+  /** Set (to a source-specific message) whenever initialData came from something other than a blank form — shows a review banner with this exact text (section 4 of the auto-fill spec) so pre-filled data is never silently submitted without the client seeing it first, and reveals the "contact person" field. */
+  prefillNotice?: string
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -198,9 +198,9 @@ export function OnboardingForm({
         )}
       </p>
 
-      {scraped && (
+      {prefillNotice && (
         <div className="mt-4 rounded-xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-4 text-sm">
-          We pulled this from your website — please review and correct anything that's outdated or wrong.
+          {prefillNotice}
         </div>
       )}
 
@@ -344,7 +344,7 @@ export function OnboardingForm({
             </div>
             <p className="text-sm font-medium">Contact info to display on materials</p>
             <div className="grid sm:grid-cols-2 gap-4">
-              {scraped && (
+              {prefillNotice && (
                 <div className="sm:col-span-2">
                   <Label htmlFor="contactName">Contact person</Label>
                   <input id="contactName" className={fieldBase()} value={form.contact.contactName ?? ""}

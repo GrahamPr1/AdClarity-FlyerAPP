@@ -13,6 +13,7 @@ import type {
 } from "@/lib/types"
 import { BUSINESS_CATEGORIES } from "@/lib/types"
 import { FormFillSection } from "@/components/form-fill-section"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -601,7 +602,7 @@ export function DashboardClient() {
       <h1 className="mt-8 text-2xl md:text-3xl font-semibold tracking-tight">Your Dashboard</h1>
 
       {isLoading || !data ? (
-        <p className="mt-8 text-muted-foreground">Loading your deliverables…</p>
+        <LoadingSpinner message="Loading your deliverables…" />
       ) : (
         <>
           {data.businessCategoryIsDefaulted && <CategoryBanner onSaved={mutate} />}
@@ -645,20 +646,39 @@ export function DashboardClient() {
           </div>
 
           {/* Flyers & Pages */}
-          <div className="mt-12 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Flyers & Pages</h2>
-            <button onClick={() => setShowUpsell(true)}
-              className="text-sm font-medium px-4 py-2 rounded-lg border border-white/12 hover:bg-white/[0.05] transition-colors">
-              Request more collateral
-            </button>
-          </div>
-          <div className="mt-5 grid grid-cols-2 md:grid-cols-3 gap-4">
-            {data.flyers.map((f) => (
-              <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete}
-                onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
-                showUpgradeHint={data.planId === "trial"} />
-            ))}
-          </div>
+          {data.flyers.length === 0 ? (
+            <div className="mt-12 rounded-2xl border border-white/10 bg-card p-10 text-center">
+              <h2 className="text-xl font-semibold">Let&apos;s make your first flyer</h2>
+              <p className="mt-2 text-sm text-muted-foreground">Takes about 2 minutes — we&apos;ll walk you through it.</p>
+              <a href="/onboarding"
+                className="mt-6 inline-block px-6 py-3 rounded-xl bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors">
+                Create your first flyer
+              </a>
+            </div>
+          ) : (
+            <>
+              <div className="mt-12 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Flyers & Pages</h2>
+                <div className="flex items-center gap-2">
+                  <a href="/onboarding"
+                    className="text-sm font-medium px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
+                    New Flyer
+                  </a>
+                  <button onClick={() => setShowUpsell(true)}
+                    className="text-sm font-medium px-4 py-2 rounded-lg border border-white/12 hover:bg-white/[0.05] transition-colors">
+                    Request more collateral
+                  </button>
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 md:grid-cols-3 gap-4">
+                {data.flyers.map((f) => (
+                  <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete}
+                    onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
+                    showUpgradeHint={data.planId === "trial"} />
+                ))}
+              </div>
+            </>
+          )}
 
           {data.printRequests.length > 0 && (
             <>

@@ -1,14 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { OnboardingForm } from "./onboarding-form"
-import type { IntakeSubmission, ServiceItem } from "@/lib/types"
+import { LoadingSpinner } from "./loading-spinner"
+import type { IntakeSubmission, ServiceItem, SavedBrandProfile } from "@/lib/types"
 
 function fieldBase() {
   return "w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
 }
 
-type Stage = "ask" | "scrapeForm" | "scraping" | "scraped" | "fallback" | "manual"
+type Stage = "checkingProfile" | "ask" | "scrapeForm" | "scraping" | "prefilled" | "fallback" | "manual"
 
 interface ScrapedNormalizedIntake {
   businessName: string
@@ -24,6 +25,9 @@ interface ScrapedNormalizedIntake {
 
 let idCounter = 0
 const nextId = () => `scraped-svc-${++idCounter}-${Date.now()}`
+
+const SCRAPE_PREFILL_NOTICE = "We pulled this from your website — please review and correct anything that's outdated or wrong."
+const SAVED_PROFILE_PREFILL_NOTICE = "We pulled this from your saved business profile — please review and correct anything that's outdated or wrong, or add anything new."
 
 // Converts the Scrape Agent's NormalizedIntake-shaped output (see
 // lib/agent-pipeline/schemas/scrape.ts) into OnboardingForm's own raw-form
@@ -51,14 +55,69 @@ function toFormInitialData(intake: ScrapedNormalizedIntake): Partial<Omit<Intake
   }
 }
 
+// Converts a saved Business Profile (see SavedBrandProfile in lib/types.ts
+// — the Brand Agent's own output, refreshed after every guided submission)
+// into the same raw-form shape. A real, honest gap: BrandProfile only ever
+// captures brand/voice/visual identity, never industry, services, or years
+// in business — those live solely in each submission's own intake, not
+// anywhere persisted in aggregate. Left blank and required here exactly as
+// they would be on a from-scratch visit, rather than guessed from brand
+// copy.
+function toFormInitialDataFromSavedProfile(saved: SavedBrandProfile): Partial<Omit<IntakeSubmission, "businessCategory">> {
+  return {
+    businessName: saved.brandProfile.businessName,
+    voiceTone: saved.brandProfile.brandVoice.join(", "),
+    targetAudience: saved.brandProfile.targetAudience.join(", "),
+    brandColors: saved.brandProfile.colors.map((c) => c.hex).join(", "),
+    contact: {
+      email: "", // overwritten by OnboardingForm's own fixed session email
+      phone: saved.contact.phone,
+      address: saved.contact.address,
+      website: saved.contact.website ?? "",
+      socialHandles: (saved.contact.social ?? []).map((s) => `${s.platform}: ${s.handle}`).join(", "),
+      contactName: saved.contact.contactName ?? undefined,
+    },
+  }
+}
+
 export function GuidedSetupFlow({ email }: { email: string }) {
-  const [stage, setStage] = useState<Stage>("ask")
+  const [stage, setStage] = useState<Stage>("checkingProfile")
   const [url, setUrl] = useState("")
   const [fullName, setFullName] = useState("")
   const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
   const [fallbackMessage, setFallbackMessage] = useState("")
+  const [prefillNotice, setPrefillNotice] = useState(SCRAPE_PREFILL_NOTICE)
   const [initialData, setInitialData] = useState<Partial<Omit<IntakeSubmission, "businessCategory">> & { businessCategory?: IntakeSubmission["businessCategory"] } | undefined>(undefined)
+
+  // Skip straight to a pre-filled form for a returning user with a saved
+  // profile — re-asking "Do you have a website?" from scratch every time
+  // they revisit Guided Setup (e.g. to update their info) is exactly the
+  // re-typing friction this flow already exists to avoid. They can still
+  // re-scan their site from here if they want a refresh (see the
+  // "prefilled" stage below). Trial/first-time users with no saved profile
+  // fall through to the normal "ask" stage unchanged.
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/brand-profile")
+      .then((r) => r.json())
+      .then((d: { profile?: SavedBrandProfile | null }) => {
+        if (cancelled) return
+        if (d.profile) {
+          setInitialData(toFormInitialDataFromSavedProfile(d.profile))
+          setPrefillNotice(SAVED_PROFILE_PREFILL_NOTICE)
+          setStage("prefilled")
+        } else {
+          setStage("ask")
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setStage("ask")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function handleScrapeSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -88,11 +147,28 @@ export function GuidedSetupFlow({ email }: { email: string }) {
 
     const converted = toFormInitialData(data.normalizedIntake)
     setInitialData({ ...converted, businessCategory: data.businessCategoryGuess ?? undefined, contact: { ...converted.contact!, phone: phone || converted.contact!.phone } })
-    setStage("scraped")
+    setPrefillNotice(SCRAPE_PREFILL_NOTICE)
+    setStage("prefilled")
   }
 
-  if (stage === "scraped") {
-    return <OnboardingForm email={email} initialData={initialData} scraped />
+  if (stage === "checkingProfile") {
+    return <LoadingSpinner message="Loading…" />
+  }
+
+  if (stage === "prefilled") {
+    return (
+      <div>
+        {prefillNotice === SAVED_PROFILE_PREFILL_NOTICE && (
+          <div className="flex justify-end">
+            <button type="button" onClick={() => setStage("scrapeForm")}
+              className="text-xs text-muted-foreground hover:text-foreground underline transition-colors">
+              Re-scan my website instead
+            </button>
+          </div>
+        )}
+        <OnboardingForm email={email} initialData={initialData} prefillNotice={prefillNotice} />
+      </div>
+    )
   }
   if (stage === "fallback") {
     return (
@@ -107,12 +183,7 @@ export function GuidedSetupFlow({ email }: { email: string }) {
   }
 
   if (stage === "scraping") {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-8 h-8 rounded-full border-2 border-white/15 border-t-[var(--brand-teal-bright)] animate-spin" />
-        <p className="mt-4 text-sm text-muted-foreground">Reading your website… this takes about 15–20 seconds.</p>
-      </div>
-    )
+    return <LoadingSpinner message="Reading your website… this takes about 15–20 seconds." />
   }
 
   if (stage === "scrapeForm") {

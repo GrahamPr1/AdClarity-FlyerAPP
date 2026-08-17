@@ -6,6 +6,7 @@ import type { BusinessCategory, QuickPromptFormat, QuickPromptStyle } from "@/li
 import { QUICK_PROMPT_FORMATS, QUICK_PROMPT_STYLES } from "@/lib/types"
 import { QUICK_PROMPT_STARTERS } from "@/lib/quick-prompt-starters"
 import { FlyerCard } from "./dashboard-client"
+import { LoadingSpinner } from "./loading-spinner"
 import type { Deliverables } from "@/lib/types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -322,7 +323,7 @@ function QuickPromptResultView({ flyerId, hasSavedBrand, onBack }: { flyerId: st
 
       <div className="mt-6 max-w-sm">
         {!flyer ? (
-          <p className="text-muted-foreground">Loading…</p>
+          <LoadingSpinner message="Designing your flyer… this usually takes less than a minute." />
         ) : (
           <FlyerCard flyer={flyer} onRetry={handleRetry} />
         )}
