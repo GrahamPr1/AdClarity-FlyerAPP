@@ -7,7 +7,7 @@ import type { AdminUserDetail, GenerationAgentType } from "@/lib/types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-const AGENT_LABELS: Record<GenerationAgentType, string> = { intake: "Intake", brand: "Brand", flyer: "Flyer", quick_prompt: "Quick Prompt" }
+const AGENT_LABELS: Record<GenerationAgentType, string> = { intake: "Intake", brand: "Brand", flyer: "Flyer", quick_prompt: "Quick Prompt", scrape: "Website Scrape" }
 
 export default function AdminUserDetailPage() {
   const params = useParams<{ email: string }>()

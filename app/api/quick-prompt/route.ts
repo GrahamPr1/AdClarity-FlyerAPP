@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
         address: body.address?.trim() || "",
         website: null,
         social: null,
+        contactName: null,
       }
   if (!contact.phone || !contact.address) {
     return NextResponse.json({ error: "Missing required fields: phone, address (or use your saved brand)" }, { status: 422 })

@@ -34,7 +34,17 @@ function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: str
 let idCounter = 0
 const nextId = () => `svc-${++idCounter}-${Date.now()}`
 
-export function OnboardingForm({ email }: { email: string }) {
+export function OnboardingForm({
+  email,
+  initialData,
+  scraped,
+}: {
+  email: string
+  /** Pre-fill from a successful website scrape (see components/guided-setup-flow.tsx) — merged into the default blank state below. Any field it doesn't provide stays blank and required, exactly as today. */
+  initialData?: Partial<Omit<IntakeSubmission, "businessCategory">> & { businessCategory?: BusinessCategory }
+  /** True when initialData came from a website scrape — shows the review banner (section 4 of the auto-fill spec) so pre-filled data is never silently submitted without the client seeing it first. */
+  scraped?: boolean
+}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const planId = (searchParams.get("plan") as PlanId | null) ?? null
@@ -65,21 +75,28 @@ export function OnboardingForm({ email }: { email: string }) {
   // this is never a free-text field someone could type any address into.
   const [form, setForm] = useState<OnboardingFormState>({
     planId,
-    businessCategory: "",
-    businessName: "",
-    industry: "",
-    yearsInBusiness: "",
-    services: [{ id: nextId(), name: "" }],
-    logoFileName: undefined,
-    brandColors: "",
-    preferredStyle: "modern",
-    voiceTone: "",
-    targetAudience: "",
-    contact: { email, phone: "", address: "", website: "", socialHandles: "" },
+    businessCategory: initialData?.businessCategory ?? "",
+    businessName: initialData?.businessName ?? "",
+    industry: initialData?.industry ?? "",
+    yearsInBusiness: initialData?.yearsInBusiness ?? "",
+    services: initialData?.services?.length ? initialData.services : [{ id: nextId(), name: "" }],
+    logoFileName: initialData?.logoFileName,
+    brandColors: initialData?.brandColors ?? "",
+    preferredStyle: initialData?.preferredStyle ?? "modern",
+    voiceTone: initialData?.voiceTone ?? "",
+    targetAudience: initialData?.targetAudience ?? "",
+    contact: {
+      email,
+      phone: initialData?.contact?.phone ?? "",
+      address: initialData?.contact?.address ?? "",
+      website: initialData?.contact?.website ?? "",
+      socialHandles: initialData?.contact?.socialHandles ?? "",
+      contactName: initialData?.contact?.contactName,
+    },
     existingMaterialsFileName: undefined,
     flyerPhotoUrls: [],
     wantsAiPhotos: false,
-    flyerNotes: "",
+    flyerNotes: initialData?.flyerNotes ?? "",
     websitePreferences: "",
   })
 
@@ -180,6 +197,12 @@ export function OnboardingForm({ email }: { email: string }) {
           "Tell us about your business so we can start your build."
         )}
       </p>
+
+      {scraped && (
+        <div className="mt-4 rounded-xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-4 text-sm">
+          We pulled this from your website — please review and correct anything that's outdated or wrong.
+        </div>
+      )}
 
       {/* Stepper */}
       <div className="mt-8 flex items-center gap-2">
@@ -321,6 +344,13 @@ export function OnboardingForm({ email }: { email: string }) {
             </div>
             <p className="text-sm font-medium">Contact info to display on materials</p>
             <div className="grid sm:grid-cols-2 gap-4">
+              {scraped && (
+                <div className="sm:col-span-2">
+                  <Label htmlFor="contactName">Contact person</Label>
+                  <input id="contactName" className={fieldBase()} value={form.contact.contactName ?? ""}
+                    onChange={(e) => setContact("contactName", e.target.value)} placeholder="Who should we reach out to?" />
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <Label htmlFor="email">Email</Label>
                 <input id="email" type="email" readOnly value={form.contact.email}

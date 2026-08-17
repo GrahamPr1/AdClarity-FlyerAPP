@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { OnboardingForm } from "./onboarding-form"
+import { GuidedSetupFlow } from "./guided-setup-flow"
 import { QuickPromptForm } from "./quick-prompt-form"
 import type { PlanId } from "@/lib/types"
 
@@ -39,7 +39,7 @@ export function CreateFlyerFlow({ email }: { email: string }) {
       .catch(() => {})
   }, [])
 
-  if (path === "guided") return <OnboardingForm email={email} />
+  if (path === "guided") return <GuidedSetupFlow email={email} />
   if (path === "quick") return <QuickPromptForm email={email} hasSavedBrand={hasSavedBrand} onBack={() => setPath("choose")} />
 
   // Quick Prompt is a paid-plan feature (Basic/Pro), same as the spec's

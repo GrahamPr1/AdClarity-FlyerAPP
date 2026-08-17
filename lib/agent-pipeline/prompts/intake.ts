@@ -13,6 +13,9 @@ restructuring, not just renaming:
 - \`services\` arrives as an array of \`{ id, name }\` objects (the id is an
   internal React key, not business data) — extract only each \`name\` into a
   plain array of strings; discard the id entirely.
+- \`contact.contactName\`, if present, is the name of the person to contact
+  — not the business itself — copy it verbatim into \`contact.contactName\`.
+  If absent or blank, \`contact.contactName\` is null. Never invent one.
 - \`contact.socialHandles\` arrives as ONE free-text string (e.g.
   "@brightsmiledental", "IG: @x, FB: facebook.com/x", or blank) — split it
   into \`{ platform, handle }\` pairs. Recognize explicit platform cues

@@ -16,6 +16,8 @@ export const NormalizedIntakeSchema = z.object({
     address: z.string().min(1),
     website: z.string().nullable(),
     social: z.array(socialHandleEntrySchema()).nullable(),
+    /** The person to contact, not the business itself — collected upfront on the website-scrape Path A form (see components/guided-setup-flow.tsx); never asked for on the manual guided flow, so null there. */
+    contactName: z.string().nullable(),
   }),
   brandAssets: z.object({
     logoUrl: z.string().nullable(),

@@ -13,6 +13,7 @@ const intakeWithExistingColors: NormalizedIntake = {
     address: "410 Oak St, Springfield",
     website: null,
     social: [{ platform: "instagram", handle: "@brightsidedental" }],
+    contactName: null,
   },
   brandAssets: {
     logoUrl: null,
@@ -44,6 +45,7 @@ const intakeWithoutColors: NormalizedIntake = {
     address: "112 5th Ave, Springfield",
     website: null,
     social: null,
+    contactName: null,
   },
   brandAssets: {
     logoUrl: null,

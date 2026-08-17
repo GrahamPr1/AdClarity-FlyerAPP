@@ -118,6 +118,8 @@ export interface IntakeSubmission {
     address: string
     website: string
     socialHandles: string
+    /** The person to contact, not the business — only ever collected on the website-scrape Path A form (see components/guided-setup-flow.tsx). Optional: the manual guided flow never asks for it. */
+    contactName?: string
   }
   existingMaterialsFileName?: string
   /** Real Blob URLs — unlike logoFileName/existingMaterialsFileName, these are actually uploaded (see /api/onboarding/upload-photo), not just filenames. */
@@ -335,7 +337,11 @@ export interface SavedBrandProfile {
 // separately from guided usage, even though the SAME "brand"/"flyer" stages
 // run downstream either way (see PIPELINE_TIMEOUT_MS's caller in
 // lib/agent-pipeline/pipeline.ts — those two agents are never changed).
-export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt"
+// "scrape" is the extraction call that turns crawled website text into the
+// same shape the Intake Agent produces (see lib/agent-pipeline/agents/scrapeAgent.ts)
+// on the website-auto-fill onboarding path — the actual crawling itself is
+// pure code with no Claude call, so nothing logs for that part.
+export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt" | "scrape"
 
 export interface GenerationLogEntry {
   id: string
