@@ -122,7 +122,7 @@ function FlyerThumbnail({
 }) {
   return (
     <div
-      className="overflow-hidden rounded-md bg-white shadow-inner"
+      className="relative overflow-hidden rounded-md bg-white shadow-inner"
       style={{ width: iframeWidth * scale, height: iframeHeight * scale }}
     >
       <iframe
@@ -140,6 +140,24 @@ function FlyerThumbnail({
           pointerEvents: "none",
         }}
       />
+      {/* Sits above the inert preview iframe (pointerEvents none, sandboxed)
+          so this is the one clickable thing on the thumbnail — opens the
+          real flyer full-size in a new tab for anyone who just wants to
+          look, not download. */}
+      <a
+        href={downloadUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`Open ${title} in a new tab`}
+        aria-label={`Open ${title} in a new tab`}
+        className="absolute top-1.5 right-1.5 flex items-center justify-center w-6 h-6 rounded-md bg-black/55 text-white hover:bg-black/75 transition-colors"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <path d="M15 3h6v6" />
+          <path d="M10 14 21 3" />
+        </svg>
+      </a>
     </div>
   )
 }

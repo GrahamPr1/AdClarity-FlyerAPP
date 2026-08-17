@@ -90,8 +90,24 @@ function buildRawIntakePayload(submission: IntakeSubmission) {
   return rest
 }
 
+// The Flyer Agent's prompt only constrains print pagination (@page, for the
+// eventual PDF render step) — nothing tells the model to keep the page
+// scrollable on screen, and a pixel-perfect single-page design commonly
+// comes back with its own html/body height/overflow rules that clip
+// anything taller than the viewport. Appended last (not prepended) so these
+// !important rules win the cascade over whatever the model's own <style>
+// block set, regardless of source order.
+const SCROLL_SAFETY_CSS =
+  "<style>html,body{height:auto !important;min-height:100% !important;overflow-x:auto !important;overflow-y:auto !important;}</style>"
+
+function ensureScrollable(html: string): string {
+  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${SCROLL_SAFETY_CSS}</head>`)
+  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${SCROLL_SAFETY_CSS}</body>`)
+  return html + SCROLL_SAFETY_CSS
+}
+
 function toDataUrl(html: string): string {
-  const base64 = Buffer.from(html, "utf-8").toString("base64")
+  const base64 = Buffer.from(ensureScrollable(html), "utf-8").toString("base64")
   return `data:text/html;charset=utf-8;base64,${base64}`
 }
 
