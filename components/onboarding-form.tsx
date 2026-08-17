@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import type { BrandStyle, BusinessCategory, IntakeSubmission, PlanId, ServiceItem } from "@/lib/types"
 import { BUSINESS_CATEGORIES } from "@/lib/types"
 import { getPlan } from "@/lib/plans"
+import { trackEvent } from "@/lib/analytics"
 
 const STEPS = ["Category", "Business", "Services", "Brand", "Contact", "Deliverables"] as const
 
@@ -157,9 +158,24 @@ export function OnboardingForm({
   // guard (including Submit, which can't be reached without passing it).
   const canProceed = step !== 0 || form.businessCategory !== ""
 
+  // Maps /api/intake's required-field names to the human label and the step
+  // that field lives on, so a validation failure can say what's missing AND
+  // send them to it. Previously the raw `missing` array was discarded and the
+  // user got "Missing required fields" on the last step, with no indication
+  // which of ~20 inputs across 6 steps was the problem.
+  const FIELD_INFO: Record<string, { label: string; step: number }> = {
+    businessCategory: { label: "Business category", step: 0 },
+    businessName: { label: "Business name", step: 1 },
+    industry: { label: "Industry", step: 1 },
+    services: { label: "At least one service", step: 2 },
+    targetAudience: { label: "Target audience", step: 4 },
+    email: { label: "Email", step: 4 },
+  }
+
   async function handleSubmit() {
     setSubmitting(true)
     setError(null)
+    trackEvent("campaign_creation_started", { method: "guided" })
     // Clean empty service rows before submitting. businessCategory is
     // guaranteed set here — canProceed blocks past step 0 until it is.
     const cleaned: IntakeSubmission = {
@@ -167,21 +183,72 @@ export function OnboardingForm({
       businessCategory: form.businessCategory as BusinessCategory,
       services: form.services.filter((s) => s.name.trim()) as ServiceItem[],
     }
+
+    let res: Response
     try {
-      const res = await fetch("/api/intake", {
+      res = await fetch("/api/intake", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(cleaned),
       })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Something went wrong")
-      }
-      router.push("/dashboard?onboarded=1")
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong")
+    } catch {
+      setError("Couldn't reach the server — your answers are still here. Check your connection and press Submit again.")
       setSubmitting(false)
+      return
     }
+
+    if (res.ok) {
+      trackEvent("campaign_created", { method: "guided" })
+      router.push("/dashboard?onboarded=1")
+      return
+    }
+
+    // Every branch below used to surface a raw machine code — a client at
+    // their plan limit literally saw the string "limit_reached".
+    const data = await res.json().catch(() => ({}) as Record<string, unknown>)
+    const code = typeof data.error === "string" ? data.error : ""
+    trackEvent("campaign_failed", { method: "guided", reason: code.slice(0, 40) || String(res.status) })
+
+    if (Array.isArray(data.missing) && data.missing.length > 0) {
+      const fields = (data.missing as string[]).map((f) => FIELD_INFO[f] ?? { label: f, step })
+      const names = fields.map((f) => f.label).join(", ")
+      // Jump back to the earliest step that's actually missing something.
+      const target = Math.min(...fields.map((f) => f.step))
+      setError(`Still needed before we can build your campaign: ${names}. We've taken you back to fill that in.`)
+      setStep(target)
+      setSubmitting(false)
+      return
+    }
+
+    if (code === "limit_reached") {
+      setError(
+        typeof data.message === "string"
+          ? data.message
+          : "You've used all the campaigns included on your current plan. Upgrade at /#pricing to keep creating.",
+      )
+      setSubmitting(false)
+      return
+    }
+
+    if (code === "needs_clarification") {
+      // The agent tells us exactly what it couldn't work out — showing those
+      // questions is far more actionable than the bare code.
+      const questions = Array.isArray(data.clarifyingQuestions) ? (data.clarifyingQuestions as string[]) : []
+      setError(
+        questions.length > 0
+          ? `We need a bit more detail before building this: ${questions.join(" ")} Add that to the "What should your flyers cover?" box and submit again.`
+          : "We couldn't quite tell what this campaign should promote. Add a bit more detail about your offer and submit again.",
+      )
+      setSubmitting(false)
+      return
+    }
+
+    setError(
+      typeof data.message === "string" && data.message
+        ? data.message
+        : "We couldn't build your campaign just now. Your answers are saved — please press Submit again in a moment.",
+    )
+    setSubmitting(false)
   }
 
   return (
@@ -258,7 +325,7 @@ export function OnboardingForm({
           <div className="flex flex-col gap-5">
             <div>
               <Label htmlFor="businessName">Business name</Label>
-              <input id="businessName" className={fieldBase()} value={form.businessName}
+              <input id="businessName" autoComplete="organization" className={fieldBase()} value={form.businessName}
                 onChange={(e) => set("businessName", e.target.value)} placeholder="Bright Smile Dental" />
             </div>
             <div>
@@ -268,7 +335,7 @@ export function OnboardingForm({
             </div>
             <div>
               <Label htmlFor="years">Years in business</Label>
-              <input id="years" className={fieldBase()} value={form.yearsInBusiness}
+              <input id="years" type="number" inputMode="numeric" min={0} max={200} className={fieldBase()} value={form.yearsInBusiness}
                 onChange={(e) => set("yearsInBusiness", e.target.value)} placeholder="e.g. 7" />
             </div>
           </div>
@@ -359,17 +426,17 @@ export function OnboardingForm({
               </div>
               <div>
                 <Label htmlFor="phone">Phone</Label>
-                <input id="phone" className={fieldBase()} value={form.contact.phone}
+                <input id="phone" type="tel" inputMode="tel" autoComplete="tel" className={fieldBase()} value={form.contact.phone}
                   onChange={(e) => setContact("phone", e.target.value)} placeholder="(555) 123-4567" />
               </div>
               <div>
                 <Label htmlFor="website">Website</Label>
-                <input id="website" className={fieldBase()} value={form.contact.website}
+                <input id="website" type="url" inputMode="url" autoComplete="url" className={fieldBase()} value={form.contact.website}
                   onChange={(e) => setContact("website", e.target.value)} placeholder="brightsmile.com" />
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="address">Address</Label>
-                <input id="address" className={fieldBase()} value={form.contact.address}
+                <input id="address" autoComplete="street-address" className={fieldBase()} value={form.contact.address}
                   onChange={(e) => setContact("address", e.target.value)} placeholder="123 Main St, Springfield" />
               </div>
               <div className="sm:col-span-2">

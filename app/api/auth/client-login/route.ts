@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSessionToken, verifyPassword, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/auth"
 import { getClientPasswordHash } from "@/lib/store"
+import { checkRateLimit, clientIp } from "@/lib/rate-limit"
 
 // POST /api/auth/client-login
 // Real email+password sign-in, scoped to a client's own email (see
@@ -18,6 +19,17 @@ export async function POST(request: NextRequest) {
   const password = body.password ?? ""
   if (!email || !password) {
     return NextResponse.json({ error: "Missing required fields: email, password" }, { status: 422 })
+  }
+
+  // Throttled per IP+email so credential stuffing can't grind through a list
+  // for free. Keyed on both so one attacker can't lock a victim out of their
+  // own account by burning the limit on their address from elsewhere.
+  const { allowed, retryAfterSeconds } = await checkRateLimit(`client-login:${clientIp(request.headers)}:${email}`, 10, 600)
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Too many sign-in attempts. Please wait a few minutes and try again." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
+    )
   }
 
   const storedHash = await getClientPasswordHash(email)

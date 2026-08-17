@@ -58,7 +58,14 @@ async function writeDeliverables(email: string, data: StoredDeliverables): Promi
 
 export async function saveIntake(submission: IntakeSubmission): Promise<IntakeSubmission> {
   const saved: IntakeSubmission = { ...submission, submittedAt: new Date().toISOString() }
-  const email = submission.contact.email
+  // Lowercased to match how EVERY other key for this client is written
+  // (signup lowercases, and /api/intake authorizes against the lowercased
+  // form). Using the raw value here meant a submission with "Me@Example.com"
+  // passed the ownership check but then wrote deliverables to a
+  // differently-cased key — orphaning the record so the client's own
+  // dashboard couldn't find it and the admin "latest client" view pointed at
+  // something that didn't exist.
+  const email = submission.contact.email.trim().toLowerCase()
   await redis.set(INTAKE_KEY, saved)
   await redis.set(LATEST_EMAIL_KEY, email)
 
@@ -415,6 +422,16 @@ function businessNameKey(email: string) {
 function createdAtKey(email: string) {
   return `client:${email}:createdAt`
 }
+// Retention counters. Deliberately SEPARATE from countKey above: that one is
+// a usage-window counter that resets to 0 every 30 days (see
+// rollPeriodIfExpired), so it structurally cannot answer "how many campaigns
+// has this account ever made" or "did they come back". These never reset.
+function lifetimeCountKey(email: string) {
+  return `client:${email}:lifetimeFlyersCreated`
+}
+function lastCampaignAtKey(email: string) {
+  return `client:${email}:lastCampaignAt`
+}
 
 function deriveIsRealEstate(category: BusinessCategory): boolean {
   return category === "Real Estate / Wholesaling"
@@ -429,12 +446,21 @@ export async function hasExplicitBusinessCategory(email: string): Promise<boolea
 // plan/usage enforcement core (plan, flyersCreated, periodStart) — fetched
 // together via one helper so getClient/getOrCreateClient/setClientPlan
 // don't each hand-roll the same four-key Promise.all.
-async function getClientExtras(email: string): Promise<Pick<ClientRecord, "businessCategory" | "isRealEstate" | "isAdmin" | "businessName" | "createdAt">> {
-  const [businessCategory, isAdmin, businessName, createdAt] = await Promise.all([
+async function getClientExtras(
+  email: string,
+): Promise<
+  Pick<
+    ClientRecord,
+    "businessCategory" | "isRealEstate" | "isAdmin" | "businessName" | "createdAt" | "lifetimeFlyersCreated" | "lastCampaignAt"
+  >
+> {
+  const [businessCategory, isAdmin, businessName, createdAt, lifetimeFlyersCreated, lastCampaignAt] = await Promise.all([
     redis.get<BusinessCategory>(businessCategoryKey(email)),
     redis.get<boolean>(isAdminKey(email)),
     redis.get<string>(businessNameKey(email)),
     redis.get<string>(createdAtKey(email)),
+    redis.get<number>(lifetimeCountKey(email)),
+    redis.get<string>(lastCampaignAtKey(email)),
   ])
   return {
     businessCategory: businessCategory ?? "Other",
@@ -442,6 +468,11 @@ async function getClientExtras(email: string): Promise<Pick<ClientRecord, "busin
     isAdmin: isAdmin ?? false,
     businessName: businessName ?? null,
     createdAt: createdAt ?? null,
+    // 0/null for accounts that predate these counters — deliberately not
+    // backfilled from flyersCreated, which would be wrong (that number is
+    // this period's usage, not lifetime).
+    lifetimeFlyersCreated: lifetimeFlyersCreated ?? 0,
+    lastCampaignAt: lastCampaignAt ?? null,
   }
 }
 
@@ -494,7 +525,7 @@ export async function getOrCreateClient(email: string): Promise<ClientRecord> {
   const periodStart = Date.now()
   await redis.set(planKey(email), "trial")
   await redis.set(periodStartKey(email), periodStart)
-  return { email, plan: "trial", flyersCreated: 0, periodStart, businessCategory: "Other", isRealEstate: false, isAdmin: false, businessName: null, createdAt: null }
+  return { email, plan: "trial", flyersCreated: 0, periodStart, businessCategory: "Other", isRealEstate: false, isAdmin: false, businessName: null, createdAt: null, lifetimeFlyersCreated: 0, lastCampaignAt: null }
 }
 
 // Real enforcement only ever changes here — never inferred from an
@@ -530,9 +561,23 @@ export async function setClientIsAdmin(email: string, isAdmin: boolean): Promise
   return { ...client, isAdmin }
 }
 
-/** Atomic increment — safe under concurrent requests from the same email. */
+/**
+ * Atomic increment — safe under concurrent requests from the same email.
+ *
+ * Also bumps the two retention counters, which is the whole reason they
+ * exist: the returned/plan-enforcing count resets every 30 days, so on its
+ * own it can't distinguish "made one campaign and never came back" from
+ * "makes three every month". Written alongside rather than in a separate
+ * call so a caller can't accidentally record usage without recording
+ * retention.
+ */
 export async function incrementFlyersCreated(email: string, by: number): Promise<number> {
-  return await redis.incrby(countKey(email), by)
+  const [periodCount] = await Promise.all([
+    redis.incrby(countKey(email), by),
+    redis.incrby(lifetimeCountKey(email), by),
+    redis.set(lastCampaignAtKey(email), new Date().toISOString()),
+  ])
+  return periodCount
 }
 
 /** Every client's full deliverable state — the admin-only "everyone's flyers" roster view. Never used for a client's own session. */

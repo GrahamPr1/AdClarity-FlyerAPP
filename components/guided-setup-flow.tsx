@@ -140,7 +140,16 @@ export function GuidedSetupFlow({ email }: { email: string }) {
     const data = await res.json().catch(() => ({}) as { scraped?: boolean; message?: string; normalizedIntake?: ScrapedNormalizedIntake; businessCategoryGuess?: IntakeSubmission["businessCategory"] | null })
 
     if (!res.ok || !data.scraped || !data.normalizedIntake) {
-      setFallbackMessage("We couldn't automatically read your website — no problem, let's fill this in together.")
+      // The API already distinguishes "that isn't a valid address" from
+      // "we couldn't reach it" from "that site blocks automated reading"
+      // (see FAILURE_MESSAGES in app/api/scrape-website/route.ts). Those were
+      // being discarded in favour of one generic line, so someone who simply
+      // typo'd their domain had no idea that's what happened.
+      setFallbackMessage(
+        data.message
+          ? `${data.message} No problem — let's fill this in together.`
+          : "We couldn't automatically read your website — no problem, let's fill this in together.",
+      )
       setStage("fallback")
       return
     }
@@ -195,15 +204,15 @@ export function GuidedSetupFlow({ email }: { email: string }) {
         <form onSubmit={handleScrapeSubmit} className="mt-6 flex flex-col gap-4 max-w-md">
           <div>
             <label htmlFor="url" className="block text-sm font-medium mb-1.5">Website URL</label>
-            <input id="url" required className={fieldBase()} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="yourbusiness.com" />
+            <input id="url" type="url" inputMode="url" autoComplete="url" required className={fieldBase()} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="yourbusiness.com" />
           </div>
           <div>
             <label htmlFor="fullName" className="block text-sm font-medium mb-1.5">Full name</label>
-            <input id="fullName" required className={fieldBase()} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Smith" />
+            <input id="fullName" autoComplete="name" required className={fieldBase()} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Smith" />
           </div>
           <div>
             <label htmlFor="phone" className="block text-sm font-medium mb-1.5">Phone number</label>
-            <input id="phone" required className={fieldBase()} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 123-4567" />
+            <input id="phone" type="tel" inputMode="tel" autoComplete="tel" required className={fieldBase()} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 123-4567" />
           </div>
           {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
           <button type="submit" disabled={!url.trim() || !fullName.trim() || !phone.trim()}

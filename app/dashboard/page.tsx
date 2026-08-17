@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { cookies } from "next/headers"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { DashboardClient } from "@/components/dashboard-client"
@@ -21,7 +22,15 @@ export default async function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      {isAdmin ? <AdminDashboard /> : <DashboardClient />}
+      {/* DashboardClient reads ?onboarded=1 via useSearchParams, which Next
+          requires to sit inside a Suspense boundary. */}
+      {isAdmin ? (
+        <AdminDashboard />
+      ) : (
+        <Suspense fallback={null}>
+          <DashboardClient />
+        </Suspense>
+      )}
     </main>
   )
 }

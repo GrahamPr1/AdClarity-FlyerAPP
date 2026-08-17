@@ -32,6 +32,9 @@
 
 import { PLAN_LIMITS } from "./types"
 
+/** Where "contact us" actually goes. One constant so the footer, the help links, and the in-app request form can't drift apart. */
+export const SUPPORT_EMAIL = "Gpearl1006@gmail.com"
+
 /* ------------------------------- CTA system ------------------------------- */
 
 // Sends them to onboarding on the free tier. middleware.ts intercepts an

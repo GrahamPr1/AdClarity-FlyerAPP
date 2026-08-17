@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { issuePasswordResetToken } from "@/lib/store"
 import { sendPasswordResetEmail } from "@/lib/email"
 import { getSiteUrl } from "@/lib/site-url"
+import { checkRateLimit, clientIp } from "@/lib/rate-limit"
 
 // POST /api/auth/forgot-password
 // Emails a one-time reset link (see issuePasswordResetToken in lib/store.ts)
@@ -24,6 +25,21 @@ export async function POST(request: NextRequest) {
   const email = body.email?.trim().toLowerCase()
   if (!email) {
     return NextResponse.json({ error: "Missing required field: email" }, { status: 422 })
+  }
+
+  // Unthrottled, this endpoint sends a real email to any address on demand —
+  // an open relay pointed at our own Resend quota, and a way to bomb someone
+  // else's inbox. Limited per IP and per target address; the response shape
+  // is unchanged so it still can't be used to test whether an account exists.
+  const ip = clientIp(request.headers)
+  const [byIp, byEmail] = await Promise.all([
+    checkRateLimit(`forgot-ip:${ip}`, 5, 900),
+    checkRateLimit(`forgot-email:${email}`, 3, 900),
+  ])
+  if (!byIp.allowed || !byEmail.allowed) {
+    // Deliberately the same success-shaped response the happy path returns,
+    // so a rate limit can't be used as an account-existence oracle either.
+    return NextResponse.json({ ok: true })
   }
 
   const token = await issuePasswordResetToken(email)

@@ -164,6 +164,16 @@ export interface ClientRecord {
   businessName: string | null
   /** Real signup timestamp (ISO) — the first time this email ever got a real password credential (signup, or claiming a pre-password-era account via the reset-password flow). Deliberately NOT periodStart, which rolls forward every 30 days as the usage window resets and so can't answer "when did this account first exist". Null for an account that was created via getOrCreateClient (e.g. by submitting onboarding) but has never actually signed up with a password. */
   createdAt: string | null
+  /**
+   * Total campaigns ever created, across all usage periods — never resets.
+   * flyersCreated above CANNOT answer this: it's the current 30-day window's
+   * count and rolls back to 0 (see rollPeriodIfExpired), so the single most
+   * important retention question — "did they come back and make another?" —
+   * is unanswerable without this. 0 for accounts predating this counter.
+   */
+  lifetimeFlyersCreated: number
+  /** ISO timestamp of the most recent campaign creation — the other half of retention (recency, alongside lifetime frequency). Null if they've never created one, or predate this counter. */
+  lastCampaignAt: string | null
 }
 
 // ---- Deliverables / dashboard --------------------------------------------

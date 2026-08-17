@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import type {
   BusinessCategory,
@@ -14,6 +14,8 @@ import type {
 import { BUSINESS_CATEGORIES } from "@/lib/types"
 import { FormFillSection } from "@/components/form-fill-section"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { SUPPORT_EMAIL } from "@/lib/marketing"
+import { trackEvent } from "@/lib/analytics"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -171,11 +173,21 @@ function FlyerThumbnail({
  */
 function CopyableText({ label, text }: { label: string; text: string }) {
   const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    // navigator.clipboard is undefined on insecure origins and can reject if
+    // permission is denied. Unguarded, that threw an unhandled rejection and
+    // the button silently never changed to "Copied!" — leaving someone
+    // repeatedly clicking a button that appears to do nothing.
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setCopyFailed(false)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopyFailed(true)
+    }
   }
 
   return (
@@ -187,6 +199,11 @@ function CopyableText({ label, text }: { label: string; text: string }) {
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
+      {copyFailed && (
+        <p className="mt-1 text-xs text-amber-300">
+          Your browser blocked copying — select the text below and copy it manually.
+        </p>
+      )}
       <p className="mt-1 text-sm whitespace-pre-wrap rounded-lg bg-white/[0.03] border border-white/10 p-3 leading-relaxed">{text}</p>
     </div>
   )
@@ -450,24 +467,80 @@ export function FlyerCard({
   )
 }
 
-/* ------------------------------- Upsell modal ---------------------------- */
+/* ------------------------------- Upsell modal ----------------------------
+ * "Send request" used to be a lie: the textarea wasn't bound to any state
+ * and the button only called onClose(), so a client could type out exactly
+ * what they needed, hit send, watch the modal close, and never hear back —
+ * because nothing was ever sent anywhere.
+ *
+ * There's no collateral-request API (and inventing one plus an admin queue
+ * for it is a bigger change than this pass warrants), so this now composes a
+ * real prefilled email instead. That genuinely delivers the message, and the
+ * copy no longer promises a "build queue" that doesn't exist.
+ */
 function UpsellModal({ onClose }: { onClose: () => void }) {
+  const [details, setDetails] = useState("")
+  const [sent, setSent] = useState(false)
+
+  function handleSend() {
+    const body = encodeURIComponent(
+      `Hi — I'd like to request additional marketing materials.\n\nWhat I need:\n${details.trim() || "(describe here)"}\n`,
+    )
+    const subject = encodeURIComponent("OneFlyer — request for more collateral")
+    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`
+    setSent(true)
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-card p-7" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold">Request more collateral</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60" onClick={onClose} role="presentation">
+      <div
+        className="w-full max-w-md rounded-2xl border border-white/10 bg-card p-7"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="upsell-title"
+      >
+        <h3 id="upsell-title" className="text-lg font-semibold">Request more collateral</h3>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-          Need additional flyers, sheets, or one-pagers? Tell us what you need and we&apos;ll get it into your build queue — larger or specialty campaigns are simply scoped and quoted.
+          Need something beyond your plan — a specialty piece, a bigger batch, a custom
+          format? Describe it and we&apos;ll email you back to scope it.
         </p>
-        <textarea rows={3} placeholder="What should the new pieces cover?"
-          className="mt-4 w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
+        <label htmlFor="collateral-details" className="mt-4 block text-sm font-medium">
+          What do you need?
+        </label>
+        <textarea
+          id="collateral-details"
+          rows={3}
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          placeholder="e.g. 500 door hangers for a spring roof promotion"
+          className="mt-1.5 w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+        />
+        {sent ? (
+          <p className="mt-3 text-sm text-[var(--brand-teal-bright)]">
+            Your email app should have opened with the message ready to send. If it
+            didn&apos;t, email us at{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">{SUPPORT_EMAIL}</a>.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-muted-foreground">
+            This opens your email app with the message drafted — nothing is sent until you
+            hit send there.
+          </p>
+        )}
         <div className="mt-5 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-white/12 text-sm hover:bg-white/[0.05] transition-colors">
-            Cancel
+            {sent ? "Close" : "Cancel"}
           </button>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors">
-            Send request
-          </button>
+          {!sent && (
+            <button
+              onClick={handleSend}
+              disabled={!details.trim()}
+              className="px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
+              Compose email
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -477,7 +550,15 @@ function UpsellModal({ onClose }: { onClose: () => void }) {
 /* ------------------------------- Dashboard ------------------------------- */
 export function DashboardClient() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [showUpsell, setShowUpsell] = useState(false)
+  // /api/intake redirects here with ?onboarded=1 after a successful submit.
+  // Nothing read it before, which produced the worst moment in the product:
+  // seeding happens in a background waitUntil AFTER the response, so the
+  // first poll can legitimately return zero flyers — and the brand-new user
+  // who just finished a six-step form was shown the "Let's make your first
+  // flyer" empty state, as though their submission had vanished.
+  const justOnboarded = searchParams.get("onboarded") === "1"
   // Poll while the agent pipeline still has flyer work in flight (none seeded
   // yet, or any not yet "Ready") so Pending -> In Progress -> Ready shows up
   // without a manual refresh. Stops once all seeded flyers are Ready.
@@ -607,6 +688,30 @@ export function DashboardClient() {
         <>
           {data.businessCategoryIsDefaulted && <CategoryBanner onSaved={mutate} />}
 
+          {/* Plan limit reached. The backend already enforces this hard (see
+              the limit_reached branch in /api/intake) — before this, the only
+              way a client learned they were out was to fill in the entire
+              onboarding form and get rejected at submit. This surfaces the
+              same fact up front, where it can still be acted on.
+              TODO(stripe): point this at Checkout once it exists; the
+              /#pricing link is the honest interim since no self-serve
+              upgrade path is wired up yet. */}
+          {data.flyersCreated >= data.flyersLimit && (
+            <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
+              <p className="min-w-[16rem] flex-1 text-sm">
+                You&apos;ve used all {data.flyersLimit} campaigns on your {data.planName} plan.
+                They reset on {new Date(data.flyersResetAt).toLocaleDateString()}.
+              </p>
+              <a
+                href="/#pricing"
+                onClick={() => trackEvent("upgrade_clicked", { plan: data.planId, location: "dashboard_limit" })}
+                className="rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)]"
+              >
+                Upgrade to keep creating
+              </a>
+            </div>
+          )}
+
           {/* Plan + status summary */}
           <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="rounded-xl border border-white/10 bg-card p-5">
@@ -646,23 +751,53 @@ export function DashboardClient() {
           </div>
 
           {/* Flyers & Pages */}
-          {data.flyers.length === 0 ? (
+          {data.flyers.length === 0 && justOnboarded ? (
+            // Someone who just submitted, whose flyers haven't been seeded
+            // yet. Reassurance, not an empty state — their work is not lost.
+            <div className="mt-12 rounded-2xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-10 text-center">
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-[var(--brand-teal-bright)]" />
+              <h2 className="mt-5 text-xl font-semibold">Building your campaign…</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                We&apos;ve got your details. Your flyer and its matching versions are being
+                designed now — this page updates on its own, so you can leave it open.
+              </p>
+            </div>
+          ) : data.flyers.length === 0 ? (
             <div className="mt-12 rounded-2xl border border-white/10 bg-card p-10 text-center">
-              <h2 className="text-xl font-semibold">Let&apos;s make your first flyer</h2>
+              <h2 className="text-xl font-semibold">Let&apos;s make your first campaign</h2>
               <p className="mt-2 text-sm text-muted-foreground">Takes about 2 minutes — we&apos;ll walk you through it.</p>
               <a href="/onboarding"
                 className="mt-6 inline-block px-6 py-3 rounded-xl bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors">
-                Create your first flyer
+                Create your first campaign
               </a>
             </div>
           ) : (
             <>
+              {/* The achievement moment. Only for someone who arrived
+                  straight from onboarding AND whose campaign has finished —
+                  not on every later dashboard visit, where it would be noise. */}
+              {justOnboarded && data.flyers.some((f) => f.status === "Ready") && (
+                <div className="mt-12 flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-5">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--brand-teal-bright)] text-white">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-semibold">Your campaign is ready</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      Download the flyer, or open it full size to check it over.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="mt-12 flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Flyers & Pages</h2>
                 <div className="flex items-center gap-2">
                   <a href="/onboarding"
                     className="text-sm font-medium px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
-                    New Flyer
+                    New Campaign
                   </a>
                   <button onClick={() => setShowUpsell(true)}
                     className="text-sm font-medium px-4 py-2 rounded-lg border border-white/12 hover:bg-white/[0.05] transition-colors">

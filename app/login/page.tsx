@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { trackEvent } from "@/lib/analytics"
 
 function AdminLoginForm() {
   const [password, setPassword] = useState("")
@@ -102,11 +103,21 @@ function ClientLoginForm({
     setWorking(true)
     setError("")
 
-    const res = await fetch("/api/auth/client-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    })
+    // Wrapped: an unwrapped fetch that rejects (offline, DNS, connection
+    // reset) left `working` true forever, so the button sat on "Signing you
+    // in…" with no error and no way to retry short of reloading.
+    let res: Response
+    try {
+      res = await fetch("/api/auth/client-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+    } catch {
+      setWorking(false)
+      setError("Couldn't reach the server — check your connection and try again.")
+      return
+    }
     const data = await res.json().catch(() => ({}) as { error?: string; message?: string })
 
     if (!res.ok) {
@@ -115,7 +126,14 @@ function ClientLoginForm({
       // account that predates password auth — either way, the fix is the
       // same emailed link, so point them at it directly rather than
       // leaving them stuck on a login that can never succeed.
-      setError(data.message ?? (data.error === "no_password_set" ? "No password set for this email yet — use \"Forgot password\" below to set one." : "Something went wrong"))
+      setError(
+        data.message ??
+          (data.error === "no_password_set"
+            ? 'No password set for this email yet — use "Forgot password" above to set one.'
+            : res.status === 401
+              ? "That email and password don't match. Check them and try again, or use \"Forgot password\"."
+              : "We couldn't sign you in just now. Your account is fine — please try again in a moment."),
+      )
       return
     }
 
@@ -127,24 +145,38 @@ function ClientLoginForm({
     e.preventDefault()
     setError("")
     if (password !== confirmPassword) {
-      setError("Passwords don't match.")
+      setError("Those two passwords don't match — retype them and try again.")
       return
     }
     setWorking(true)
+    trackEvent("signup_started")
 
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    })
+    // Same missing-try/catch bug as handleLogin had: a network failure left
+    // the button stuck on "Creating account…" indefinitely.
+    let res: Response
+    try {
+      res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+    } catch {
+      setWorking(false)
+      setError("Couldn't reach the server — check your connection and try again.")
+      return
+    }
     const data = await res.json().catch(() => ({}) as { error?: string })
 
     if (!res.ok) {
       setWorking(false)
-      setError(data.error ?? "Something went wrong")
+      setError(
+        data.error ??
+          "We couldn't create your account just now. Nothing was charged or saved — please try again in a moment.",
+      )
       return
     }
 
+    trackEvent("signup_completed")
     router.push(next)
     router.refresh()
   }
