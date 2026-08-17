@@ -198,7 +198,7 @@ export function FormFillSection() {
     <div className="mt-12">
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold">Fill a Form</h2>
-        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--brand-amber-tint)] text-[var(--brand-amber)]">Pro</span>
+        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--brand-slate-tint)] text-[var(--brand-slate)]">Pro</span>
       </div>
       <p className="mt-1.5 text-sm text-muted-foreground max-w-2xl">
         Drop in a fillable PDF and a file or link with the information it needs — we&apos;ll fill it out for you.

@@ -55,7 +55,7 @@ const ICONS = {
 /* Rotating accent palette for icon tiles — adds color variety across sections */
 const ACCENTS = [
   { fg: "var(--brand-teal-bright)", bg: "var(--brand-teal-tint)" },
-  { fg: "var(--brand-amber)", bg: "var(--brand-amber-tint)" },
+  { fg: "var(--brand-slate)", bg: "var(--brand-slate-tint)" },
   { fg: "var(--brand-sky)", bg: "rgba(142,203,245,0.12)" },
   { fg: "var(--brand-ice)", bg: "var(--brand-ice-tint)" },
 ]
@@ -107,7 +107,7 @@ function HeroVisual() {
                 </div>
               </div>
               <div className="h-14 rounded-lg bg-white/[0.06] flex items-center justify-center gap-2 px-3">
-                {["var(--brand-teal-bright)", "var(--brand-amber)", "var(--brand-sky)", "var(--brand-ice)"].map((c) => (
+                {["var(--brand-teal-bright)", "var(--brand-slate)", "var(--brand-sky)", "var(--brand-ice)"].map((c) => (
                   <span key={c} className="w-6 h-6 rounded-full" style={{ background: c }} />
                 ))}
                 <span className="text-xs text-muted-foreground ml-1">brand-matched</span>
@@ -391,7 +391,7 @@ export default function Page() {
 
             <Reveal delay={100}>
               <div className="h-full rounded-2xl border border-white/10 bg-card p-8">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "var(--brand-amber-tint)", color: "var(--brand-amber)" }}>
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "var(--brand-slate-tint)", color: "var(--brand-slate)" }}>
                   <Icon path={ICONS.download} />
                 </div>
                 <h3 className="mt-5 text-xl font-semibold">Ready to Print or Share</h3>
@@ -402,7 +402,7 @@ export default function Page() {
                     "Use in-store, by mail, or online",
                   ].map((f) => (
                     <li key={f} className="flex items-start gap-2.5 text-sm text-foreground/85">
-                      <span className="mt-0.5" style={{ color: "var(--brand-amber)" }}><Icon path={ICONS.check} className="w-4 h-4" /></span>
+                      <span className="mt-0.5" style={{ color: "var(--brand-slate)" }}><Icon path={ICONS.check} className="w-4 h-4" /></span>
                       <span className="leading-snug">{f}</span>
                     </li>
                   ))}
@@ -453,7 +453,7 @@ export default function Page() {
                       >
                         <Icon path={f.icon} />
                       </div>
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--brand-amber-tint)] text-[var(--brand-amber)]">{f.tier}</span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--brand-slate-tint)] text-[var(--brand-slate)]">{f.tier}</span>
                     </div>
                     <h3 className="mt-5 text-lg font-semibold">{f.title}</h3>
                     <p className="mt-2.5 text-sm text-muted-foreground leading-relaxed flex-1">{f.desc}</p>

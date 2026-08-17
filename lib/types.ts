@@ -36,6 +36,12 @@ export const PLAN_LIMITS: Record<PlanId, number> = {
   pro: 50,
 }
 
+// Single source of truth for the annual-billing discount shown on the
+// pricing page — the displayed "Save X%" badge and every plan's
+// annualMonthlyFee (see lib/plans.ts) both read this, so changing the
+// discount later never means hunting down multiple hand-typed numbers.
+export const ANNUAL_DISCOUNT_PERCENT = 20
+
 export interface Plan {
   id: PlanId
   name: string
@@ -45,6 +51,8 @@ export interface Plan {
   badge?: string
   /** Recurring monthly fee in whole dollars. 0 for the free trial tier. */
   monthlyFee: number
+  /** Monthly-equivalent price when billed annually — always monthlyFee * (1 - ANNUAL_DISCOUNT_PERCENT / 100), computed once in lib/plans.ts rather than hand-typed per plan, so it can't drift if monthlyFee or the discount changes. 0 for the free trial tier. */
+  annualMonthlyFee: number
   description: string
   features: string[]
   /** A short callout reinforcing what this tier is for */
@@ -54,6 +62,8 @@ export interface Plan {
   mostPopular?: boolean
   /** Placeholder Stripe price ID — wire this to a real price once a Stripe account exists. Unused for the free trial tier. */
   stripeMonthlyPriceId?: string
+  /** Placeholder Stripe price ID for the annual billing interval — same treatment as stripeMonthlyPriceId, wire once Stripe exists. Unused for the free trial tier. */
+  stripeAnnualPriceId?: string
   ctaLabel: string
   /**
    * If set, the CTA renders as a plain link to this href instead of

@@ -39,8 +39,8 @@
   --brand-teal: #3a7ca8;          /* steel blue */
   --brand-teal-bright: #5eb8f0;   /* light blue — pops on dark bg for CTAs */
   --brand-teal-tint: rgba(94,184,240,0.14); /* soft light-blue tint sections */
-  --brand-amber: #9aa5b1;         /* neutral grey secondary accent — value/highlights */
-  --brand-amber-tint: rgba(154,165,177,0.12);
+  --brand-slate: #9aa5b1;         /* neutral grey secondary accent — value/highlights */
+  --brand-slate-tint: rgba(154,165,177,0.12);
   --brand-sky: #8ecbf5;           /* very light sky blue, tertiary variety accent */
   --brand-ice: #d3ecfc;           /* palest icy blue — lightest step in the same family, for a fresher/more inviting accent */
   --brand-ice-tint: rgba(211,236,252,0.16);

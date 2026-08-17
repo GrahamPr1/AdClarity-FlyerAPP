@@ -3,9 +3,11 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import type { Plan, PlanId } from "@/lib/types"
-import { PLAN_GUARANTEE, PLAN_EXPLAINER } from "@/lib/types"
+import { PLAN_GUARANTEE, PLAN_EXPLAINER, PLAN_LIMITS, ANNUAL_DISCOUNT_PERCENT } from "@/lib/types"
 import { PLANS } from "@/lib/plans"
 import { Reveal } from "@/components/reveal"
+
+type Billing = "monthly" | "annual"
 
 function CheckIcon() {
   return (
@@ -26,17 +28,24 @@ function CheckIcon() {
 
 function PlanCard({
   plan,
+  billing,
   onSubscribe,
   loadingId,
   delay,
 }: {
   plan: Plan
+  billing: Billing
   onSubscribe: (id: PlanId) => void
   loadingId: PlanId | null
   delay: number
 }) {
   const highlighted = plan.mostPopular
   const isLoading = loadingId === plan.id
+  const isPaid = plan.monthlyFee > 0
+  const displayedPrice = billing === "annual" ? plan.annualMonthlyFee : plan.monthlyFee
+  // Real numbers, not hardcoded — derives from PLAN_LIMITS (lib/types.ts) so
+  // this never drifts out of sync if pricing or caps change.
+  const perFlyerCost = isPaid ? displayedPrice / PLAN_LIMITS[plan.id] : null
 
   return (
     <Reveal delay={delay} className="flex">
@@ -57,7 +66,7 @@ function PlanCard({
             className={`absolute -top-3 left-8 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
               highlighted
                 ? "bg-[var(--brand-teal-bright)] text-white shadow-lg shadow-[color:var(--brand-teal)]/40"
-                : "bg-[var(--brand-amber)] text-[#12141a]"
+                : "bg-[var(--brand-slate)] text-[#12141a]"
             }`}
           >
             {plan.badge}
@@ -68,12 +77,23 @@ function PlanCard({
         <p className="mt-1.5 text-sm text-[var(--brand-teal-bright)] font-medium leading-snug">{plan.tagline}</p>
         <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{plan.description}</p>
 
-        <div className="mt-6 flex items-baseline gap-2">
+        <div className="mt-6 flex items-baseline gap-2 flex-wrap">
+          {isPaid && billing === "annual" && (
+            <span className="text-lg font-medium text-muted-foreground/60 line-through">${plan.monthlyFee.toLocaleString()}</span>
+          )}
           <span className="text-4xl font-bold tracking-tight">
-            {plan.monthlyFee === 0 ? "Free" : `$${plan.monthlyFee.toLocaleString()}`}
+            {isPaid ? `$${displayedPrice.toLocaleString()}` : "Free"}
           </span>
-          {plan.monthlyFee > 0 && <span className="text-sm text-muted-foreground">/ month</span>}
+          {isPaid && <span className="text-sm text-muted-foreground">/ month</span>}
+          {isPaid && billing === "annual" && (
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)]">
+              Save {ANNUAL_DISCOUNT_PERCENT}%
+            </span>
+          )}
         </div>
+        {perFlyerCost !== null && (
+          <p className="mt-1 text-xs text-muted-foreground">~${perFlyerCost.toFixed(2)} per flyer</p>
+        )}
 
         {plan.ctaHref ? (
           <a
@@ -134,11 +154,15 @@ function PlanCard({
 export function PricingCards() {
   const router = useRouter()
   const [loadingId, setLoadingId] = useState<PlanId | null>(null)
+  const [billing, setBilling] = useState<Billing>("monthly")
 
   // Every tier routes straight to onboarding — no real checkout exists yet
   // (it's being built separately), so nothing here should imply a payment
   // flow happened. Basic/Pro will eventually go through a Stripe Checkout
-  // session first (plan.stripeMonthlyPriceId) before landing here.
+  // session first (plan.stripeMonthlyPriceId / stripeAnnualPriceId) before
+  // landing here — the monthly/annual toggle above is display-only until
+  // then, since real enforcement only ever tracks a plan tier, not a
+  // billing interval (see PlanId in lib/types.ts).
   function handleSubscribe(planId: PlanId) {
     setLoadingId(planId)
     router.push(`/onboarding?plan=${planId}`)
@@ -146,11 +170,29 @@ export function PricingCards() {
 
   return (
     <>
+      <div className="flex justify-center mb-8">
+        <div className="inline-flex items-center rounded-full border border-white/10 bg-card p-1">
+          {(["monthly", "annual"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setBilling(option)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                billing === option ? "bg-[var(--brand-teal-bright)] text-white" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {option === "monthly" ? "Monthly" : `Annual — save ${ANNUAL_DISCOUNT_PERCENT}%`}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
         {PLANS.map((plan, i) => (
           <PlanCard
             key={plan.id}
             plan={plan}
+            billing={billing}
             onSubscribe={handleSubscribe}
             loadingId={loadingId}
             delay={i * 80}
@@ -181,6 +223,15 @@ export function PricingCards() {
             <path d="m9 12 2 2 4-4" />
           </svg>
           {PLAN_GUARANTEE}
+        </p>
+      </Reveal>
+
+      {/* TODO: replace with real testimonials once available (5-10 real
+          customer quotes) — honest, low-key placeholder until then, not a
+          fabricated social-proof claim. */}
+      <Reveal delay={260}>
+        <p className="mt-4 text-center text-xs text-muted-foreground/70">
+          Be one of our first businesses on OneFlyer — help shape what we build next.
         </p>
       </Reveal>
     </>

@@ -1,5 +1,9 @@
 import type { Plan } from "./types"
-import { PLAN_LIMITS } from "./types"
+import { PLAN_LIMITS, ANNUAL_DISCOUNT_PERCENT } from "./types"
+
+// Derived, not hand-typed, per plan below — see ANNUAL_DISCOUNT_PERCENT's
+// own note on why this can't just be a second literal number per plan.
+const annualMonthlyFee = (monthlyFee: number) => Math.round(monthlyFee * (1 - ANNUAL_DISCOUNT_PERCENT / 100))
 
 // Real enforcement uses PLAN_LIMITS directly (see lib/types.ts) so this
 // marketing copy can't drift out of sync with what's actually enforced.
@@ -20,6 +24,7 @@ export const PLANS: Plan[] = [
     name: "Free Trial",
     tagline: "See real, on-brand flyers before you commit to anything.",
     monthlyFee: 0,
+    annualMonthlyFee: 0,
     description: "Try the full AI design engine with a few flyers on us — no credit card required.",
     features: [`${PLAN_LIMITS.trial} flyers free`, "No credit card required"],
     note: "See exactly what you'll get before spending a dime.",
@@ -31,6 +36,7 @@ export const PLANS: Plan[] = [
     name: "Basic",
     tagline: "For businesses that want to know a flyer actually worked.",
     monthlyFee: 19,
+    annualMonthlyFee: annualMonthlyFee(19),
     description: "Everything in Trial, plus scan tracking, multi-channel content, and print requests.",
     features: [
       `${PLAN_LIMITS.basic} flyers every month`,
@@ -38,10 +44,11 @@ export const PLANS: Plan[] = [
       "Instagram, text-blast & Nextdoor versions included",
       "Request printed copies, shipped to you",
     ],
-    note: `${PLAN_LIMITS.basic} flyers per month, resetting automatically.`,
+    note: "No contract — cancel anytime, keep every flyer you've made.",
     outcome: "A steady set of on-brand materials — and proof they're working.",
     stripeMonthlyPriceId: "price_basic_monthly_placeholder",
-    ctaLabel: "Get Started",
+    stripeAnnualPriceId: "price_basic_annual_placeholder",
+    ctaLabel: "Start Creating Flyers",
   },
   {
     id: "pro",
@@ -49,17 +56,19 @@ export const PLANS: Plan[] = [
     tagline: "For businesses that want the most flyers and the least paperwork.",
     badge: "Most Popular",
     monthlyFee: 39,
+    annualMonthlyFee: annualMonthlyFee(39),
     description: "Everything in Basic, plus a saved Business Profile that fills out any form for you.",
     features: [
       `${PLAN_LIMITS.pro} flyers every month`,
       "Everything in Basic",
       "Save your business info once, reuse it on any form",
     ],
-    note: "The most flyers, plus the most automation.",
+    note: "Your business profile saves once, reuses everywhere — no more re-typing the same info.",
     outcome: "Spend less time on repeat paperwork, more time running your business.",
     mostPopular: true,
     stripeMonthlyPriceId: "price_pro_monthly_placeholder",
-    ctaLabel: "Get Started",
+    stripeAnnualPriceId: "price_pro_annual_placeholder",
+    ctaLabel: "Get the Pro Plan",
   },
 ]
 
