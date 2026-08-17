@@ -25,7 +25,7 @@ const SITE_URL = 'https://oneflyer.org'
 
 const TITLE = 'OneFlyer — Turn One Promotion Into a Full Marketing Campaign'
 const DESCRIPTION =
-  'OneFlyer turns one promotion into a professional flyer, Instagram post, text-blast message, Nextdoor post, and trackable QR code — matched to your business and ready in minutes. 3 campaigns free, no credit card.'
+  'Create professional flyers, Instagram posts, text-blast copy, Nextdoor posts, and trackable QR campaigns in minutes. One promotion becomes a full campaign, matched to your business. 3 campaigns free, no credit card.'
 
 export const metadata: Metadata = {
   // Lets relative OG/Twitter image paths and canonical URLs resolve instead
@@ -83,7 +83,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${baloo.variable}`}>
+    // suppressHydrationWarning is required, not incidental: the pre-paint
+    // script in app/page.tsx sets data-intro-seen on <html> before React
+    // hydrates (that's the whole point — it has to beat first paint to avoid
+    // flashing the brand veil at a returning visitor), so the client tree
+    // legitimately has an attribute the server HTML didn't. This only
+    // suppresses the warning for <html>'s own attributes, one level deep —
+    // the same pattern next-themes uses for exactly this reason.
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${baloo.variable}`}>
       <body className="font-sans antialiased bg-background text-foreground">
         {children}
         <Analytics />

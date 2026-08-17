@@ -16,11 +16,15 @@ import {
   CAMPAIGN_ASSETS,
   COMPARISON,
   CTA_REASSURANCE,
+  DEMO_PROMO,
   FAQS,
+  MICRO_TRUST,
+  OBJECTIONS,
   PRIMARY_CTA_HREF,
   PRIMARY_CTA_LABEL,
   SECONDARY_CTA_HREF,
   SECONDARY_CTA_LABEL,
+  TRUST_POINTS,
   USE_CASES,
 } from "@/lib/marketing"
 
@@ -135,14 +139,35 @@ function Tag({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** The one CTA the whole funnel points at. Same label and href everywhere. */
-function PrimaryCta({ className = "" }: { className?: string }) {
+/**
+ * The one CTA the whole funnel points at. Same label and href everywhere.
+ * The arrow nudges right on hover — a small, cheap signal that this button
+ * takes you somewhere rather than submitting something. `group` is on the
+ * anchor so the arrow reacts to a hover anywhere on the button, not just on
+ * the arrow itself.
+ */
+function PrimaryCta({ className = "", label = PRIMARY_CTA_LABEL }: { className?: string; label?: string }) {
   return (
     <a
       href={PRIMARY_CTA_HREF}
-      className={`inline-block rounded-xl bg-[var(--brand-teal-bright)] px-7 py-3.5 text-center text-sm font-semibold text-white shadow-lg shadow-[var(--brand-teal)]/25 transition-colors hover:bg-[var(--brand-teal)] ${className}`}
+      className={`group inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--brand-teal-bright)] px-7 py-3.5 text-center text-sm font-semibold text-white shadow-lg shadow-[var(--brand-teal)]/25 transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-teal)] hover:shadow-xl hover:shadow-[var(--brand-teal)]/35 focus-visible:-translate-y-0.5 ${className}`}
     >
-      {PRIMARY_CTA_LABEL}
+      {label}
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
+        aria-hidden="true"
+      >
+        <path d="M5 12h14" />
+        <path d="m12 5 7 7-7 7" />
+      </svg>
     </a>
   )
 }
@@ -151,51 +176,69 @@ function Reassurance({ className = "" }: { className?: string }) {
   return <p className={`text-xs text-muted-foreground ${className}`}>{CTA_REASSURANCE}</p>
 }
 
+/** Compact hesitation-killer row — see MICRO_TRUST in lib/marketing.ts. */
+function MicroTrustRow({ className = "" }: { className?: string }) {
+  return (
+    <ul className={`flex flex-wrap items-center gap-x-5 gap-y-2 ${className}`}>
+      {MICRO_TRUST.map((t) => (
+        <li key={t} className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--brand-teal-bright)" strokeWidth="3" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          {t}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 /* --------------------------------- Steps --------------------------------- */
 const STEPS = [
   {
     n: "01",
     icon: ICONS.brand,
-    title: "Tell Us About Your Business",
-    desc: "Answer a few short questions — or paste your website and let OneFlyer read your logo, colors, and details for you.",
+    title: "Tell OneFlyer what you're promoting",
+    desc: "Your business and your offer. Answer a few short questions, or paste your website and let OneFlyer read your logo, colors, and details for you.",
   },
   {
     n: "02",
     icon: ICONS.sparkles,
-    title: "Create Your Campaign",
-    desc: "Say what you're promoting. OneFlyer designs the flyer and writes the matching social, text, and neighborhood versions.",
+    title: "OneFlyer builds your campaign",
+    desc: "The flyer gets designed and the matching Instagram, text, and Nextdoor versions get written — with a QR code placed on the flyer.",
   },
   {
     n: "03",
+    icon: ICONS.share,
+    title: "Share it",
+    desc: "Download and print it, post the square version, paste the text into a blast, drop the Nextdoor post in your feed.",
+  },
+  {
+    n: "04",
     icon: ICONS.chart,
-    title: "Share & Track",
-    desc: "Download it, print it, post it, text it. The QR code on the flyer counts scans and clicks so you know it landed.",
+    title: "Track it",
+    desc: "Your dashboard counts how many people opened the QR code's offer page and how many tapped the call-to-action on it.",
+    tier: "Basic",
   },
 ]
 
 /* ------------------------------- Capabilities ----------------------------- */
+/**
+ * Deliberately only the capabilities NOT already covered by an earlier
+ * section. The campaign creation, multi-channel output, QR tracking, and
+ * speed cards that used to live here were restating the hero, What You Get,
+ * the tracking section, and the How It Works headline respectively — eight
+ * cards here made this the third consecutive "convince me" block on the page.
+ */
 const CAPABILITIES = [
-  {
-    icon: ICONS.sparkles,
-    title: "Campaign creation, not templates",
-    desc: "Describe your offer in plain words. Nothing to lay out, drag, or resize — the design and the copy both come back done.",
-  },
   {
     icon: ICONS.brand,
     title: "Brand matching",
     desc: "Your logo, colors, and business details are saved once and reused, so every campaign looks like it came from the same company.",
   },
   {
-    icon: ICONS.share,
-    title: "Built for more than one channel",
-    desc: "The same offer, reworked for print, Instagram, a text blast, and Nextdoor — each written to fit that channel, not copy-pasted.",
-    tier: "Basic",
-  },
-  {
-    icon: ICONS.qr,
-    title: "Trackable QR codes",
-    desc: "Every flyer carries a QR code pointing at its own offer page, so a printed flyer can finally tell you something.",
-    tier: "Basic",
+    icon: ICONS.pen,
+    title: "Change it in plain English",
+    desc: "Not quite right? Ask for a different take, or just say what to change — there's no editor to learn.",
   },
   {
     icon: ICONS.print,
@@ -209,22 +252,32 @@ const CAPABILITIES = [
     desc: "Stop re-typing the same business information. Save it once and reuse it to fill out forms automatically.",
     tier: "Pro",
   },
-  {
-    icon: ICONS.pen,
-    title: "Change it in plain English",
-    desc: "Not quite right? Ask for a different take, or say what to change — no editor to learn.",
-  },
-  {
-    icon: ICONS.bolt,
-    title: "Minutes, not days",
-    desc: "From typing your offer to holding a finished flyer is a single sitting, not a week of back-and-forth with a designer.",
-  },
 ]
 
 /* --------------------------------- Page ---------------------------------- */
 export default function Page() {
   return (
     <div id="top" className="min-h-screen overflow-x-hidden bg-background text-foreground">
+      {/* Runs synchronously during parse, BEFORE the veil below is painted, so
+          a returning visitor never sees a frame of it. Inline and tiny on
+          purpose — anything async (or React state) would paint the veil first
+          and then remove it, which is a visible flash. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html:
+            "try{if(sessionStorage.getItem('of_intro')){document.documentElement.setAttribute('data-intro-seen','1')}else{sessionStorage.setItem('of_intro','1')}}catch(e){}",
+        }}
+      />
+      {/* Brand intro — animates itself away in ~900ms, see .intro-veil in
+          app/globals.css. Decorative, so it's hidden from assistive tech. */}
+      <div className="intro-veil" aria-hidden="true">
+        <div className="intro-veil-glow" />
+        <div className="intro-mark">
+          <span className="intro-mark-dot" />
+          OneFlyer
+        </div>
+      </div>
+
       <script
         type="application/ld+json"
         // Serialized from a plain object literal built above — no user input
@@ -252,17 +305,19 @@ export default function Page() {
               <Tag>Marketing for local business</Tag>
 
               <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-[3.5rem]">
-                Turn One Idea Into an Entire Marketing Campaign
+                Turn One Promotion Into an Entire Marketing Campaign
               </h1>
 
+              {/* Names the exact five things the pipeline produces, in the
+                  order the hero visual shows them — no "and more", which
+                  invites a visitor to imagine channels we don't generate. */}
               <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                Create a professional flyer, social posts, a shareable text message, a
-                trackable QR code, and more — all matched to your business and ready to
-                launch in minutes.
+                Create a professional flyer, an Instagram post, a text message, a Nextdoor
+                post, and a trackable QR code — all from one simple promotion.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <PrimaryCta />
+                <PrimaryCta className="w-full sm:w-auto" />
                 <a
                   href={SECONDARY_CTA_HREF}
                   className="rounded-xl border border-white/15 px-7 py-3.5 text-center text-sm font-medium text-foreground/80 transition-all hover:border-white/25 hover:bg-white/[0.05]"
@@ -273,19 +328,7 @@ export default function Page() {
 
               <Reassurance className="mt-4" />
 
-              <div className="mt-8 flex flex-wrap gap-2.5">
-                {["No design skills needed", "You own every flyer", "Built for local businesses"].map((t) => (
-                  <span
-                    key={t}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[var(--on-white)] shadow-sm"
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--brand-teal)" strokeWidth="3" aria-hidden="true">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    {t}
-                  </span>
-                ))}
-              </div>
+              <MicroTrustRow className="mt-7 border-t border-white/[0.07] pt-6" />
             </div>
 
             <CampaignFlowVisual />
@@ -305,12 +348,12 @@ export default function Page() {
                   as="h2"
                   className="mt-6 text-balance text-2xl font-semibold leading-snug tracking-tight text-[var(--on-white)] md:text-3xl lg:text-4xl"
                 >
-                  Marketing shouldn&apos;t take all day.
+                  Stop recreating the same promotion five different ways.
                 </RevealText>
                 <Reveal delay={120}>
                   <p className="mt-5 text-pretty text-base leading-relaxed text-[var(--on-white-muted)] md:text-lg">
-                    You shouldn&apos;t need a design tool, a chatbot, a QR generator, and a
-                    designer on call just to promote one offer.
+                    You shouldn&apos;t need a designer, a design tool, a chatbot, and a QR
+                    generator just to promote one offer.
                   </p>
                 </Reveal>
               </div>
@@ -380,16 +423,42 @@ export default function Page() {
               as="h2"
               className="mt-6 max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-tight md:text-4xl"
             >
-              One promotion. Everything you need to market it.
+              Create once. Use everywhere.
             </RevealText>
             <Reveal delay={80}>
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                Stop rebuilding the same offer five different ways. One submission produces
-                the whole set — each piece written and designed for where it&apos;s going.
+                One promotion becomes the marketing materials you need to get it in front of
+                customers — each piece written and designed for where it&apos;s going, not
+                copy-pasted between them.
               </p>
             </Reveal>
 
-            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Frames the five pieces as ONE campaign rather than five
+                unrelated feature cards: a promotion goes in at the top, the
+                set comes out, and it ends ready to share. */}
+            <Reveal delay={120}>
+              <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4 text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/60">
+                  Your promotion
+                </p>
+                <p className="mt-1.5 text-lg font-semibold text-[var(--brand-teal-bright)]">
+                  &ldquo;{DEMO_PROMO}&rdquo;
+                </p>
+                <svg
+                  width="14"
+                  height="20"
+                  viewBox="0 0 16 26"
+                  fill="none"
+                  className="mx-auto mt-3 text-white/20"
+                  aria-hidden="true"
+                >
+                  <path d="M8 0v20" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 3" />
+                  <path d="M3 18l5 6 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </Reveal>
+
+            <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {CAMPAIGN_ASSETS.map((a, i) => {
                 const accent = ACCENTS[i % ACCENTS.length]
                 return (
@@ -431,6 +500,16 @@ export default function Page() {
                 </div>
               </Reveal>
             </div>
+
+            {/* Closes the loop opened by the "Your promotion" banner above. */}
+            <Reveal delay={120}>
+              <div className="mt-6 flex items-center justify-center gap-3 rounded-2xl border border-[var(--brand-teal)]/30 bg-[var(--brand-teal-tint)] px-5 py-4">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-teal-bright)" strokeWidth="2.2" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <p className="text-sm font-semibold">Ready to share</p>
+              </div>
+            </Reveal>
           </div>
         </section>
 
@@ -445,16 +524,16 @@ export default function Page() {
                 as="h2"
                 className="mt-6 text-balance text-3xl font-semibold leading-tight tracking-tight md:text-4xl"
               >
-                Three steps, start to finish.
+                From idea to campaign in minutes.
               </RevealText>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {STEPS.map((s, i) => {
                 const accent = ACCENTS[i % ACCENTS.length]
                 return (
                   <Reveal key={s.n} delay={i * 100}>
-                    <div className={`h-full rounded-2xl border border-white/10 bg-card p-8 hover:border-white/20 ${CARD_HOVER}`}>
+                    <div className={`flex h-full flex-col rounded-2xl border border-white/10 bg-card p-7 hover:border-white/20 ${CARD_HOVER}`}>
                       <div className="flex items-center justify-between">
                         <div
                           className="grid h-11 w-11 place-items-center rounded-xl"
@@ -466,8 +545,16 @@ export default function Page() {
                           {s.n}
                         </span>
                       </div>
-                      <h3 className="mt-5 text-lg font-semibold">{s.title}</h3>
-                      <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
+                      <h3 className="mt-5 text-[17px] font-semibold leading-snug">{s.title}</h3>
+                      <p className="mt-2.5 flex-1 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
+                      {/* Label built as one interpolated string: written as
+                          `{s.tier} &amp; Pro` the space after the expression was
+                          dropped and it rendered as "Basic& Pro". */}
+                      {s.tier && (
+                        <span className="mt-4 self-start rounded-full bg-[var(--brand-slate-tint)] px-2 py-0.5 text-[10px] font-medium text-[var(--brand-slate)]">
+                          {`${s.tier} & Pro`}
+                        </span>
+                      )}
                     </div>
                   </Reveal>
                 )
@@ -494,12 +581,13 @@ export default function Page() {
                 as="h2"
                 className="mt-6 max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-tight md:text-4xl"
               >
-                See what OneFlyer can create.
+                See what OneFlyer creates.
               </RevealText>
               <Reveal delay={80}>
                 <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  Put your own business and offer in and watch the set come together. Below is
-                  an example campaign for a fictional roofing company.
+                  Give us a business and an offer. See how one promotion becomes a complete
+                  campaign. It starts on an example for a fictional roofing company — change it
+                  to yours.
                 </p>
               </Reveal>
             </div>
@@ -526,7 +614,7 @@ export default function Page() {
               as="h2"
               className="mt-6 max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-tight md:text-4xl"
             >
-              Built for businesses that need more customers.
+              Built for businesses that need to market fast.
             </RevealText>
             <Reveal delay={80}>
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
@@ -560,7 +648,7 @@ export default function Page() {
                 as="h2"
                 className="mt-6 text-balance text-3xl font-semibold leading-tight tracking-tight md:text-4xl"
               >
-                Know what your marketing is doing.
+                Don&apos;t just send it. Track it.
               </RevealText>
               <Reveal delay={100}>
                 <p className="mt-5 text-base leading-relaxed text-muted-foreground">
@@ -608,7 +696,7 @@ export default function Page() {
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
                     <p className="text-xs uppercase tracking-widest text-muted-foreground/70">CTA clicks</p>
-                    <p className="mt-2 text-3xl font-bold tracking-tight text-[var(--brand-teal-bright)]">38</p>
+                    <p className="mt-2 text-3xl font-bold tracking-tight text-[var(--brand-teal-bright)]">32</p>
                   </div>
                 </div>
 
@@ -623,7 +711,7 @@ export default function Page() {
                 </div>
 
                 <p className="mt-5 border-t border-white/[0.07] pt-4 text-xs text-muted-foreground/60">
-                  Example dashboard with sample numbers — not real customer data.
+                  Example campaign data — sample numbers, not real customer results.
                 </p>
               </div>
             </Reveal>
@@ -719,6 +807,81 @@ export default function Page() {
           </div>
         </section>
 
+        {/* ── OBJECTIONS ─────────────────────────────────────────────────── */}
+        <section className="border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
+          <div className="mx-auto max-w-5xl">
+            <div className="text-center">
+              <Reveal>
+                <Tag>Before you start</Tag>
+              </Reveal>
+              <RevealText
+                as="h2"
+                className="mt-6 text-balance text-3xl font-semibold leading-tight tracking-tight md:text-4xl"
+              >
+                &ldquo;Couldn&apos;t I just do this myself?&rdquo;
+              </RevealText>
+              <Reveal delay={80}>
+                <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
+                  Honestly — yes. Here&apos;s the actual difference.
+                </p>
+              </Reveal>
+            </div>
+
+            <div className="mt-12 grid gap-6 md:grid-cols-2">
+              {OBJECTIONS.map((o, i) => (
+                <Reveal key={o.heading} delay={i * 110}>
+                  <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-card p-8">
+                    <h3 className="text-xl font-semibold leading-snug tracking-tight">{o.heading}</h3>
+                    <p className="mt-4 text-sm leading-relaxed text-foreground/75">{o.lead}</p>
+                    <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">{o.body}</p>
+                    <ul className="mt-6 flex flex-col gap-2.5 border-t border-white/[0.07] pt-5">
+                      {o.points.map((p) => (
+                        <li key={p} className="flex items-start gap-2.5 text-sm text-foreground/85">
+                          <span className="mt-0.5 shrink-0 text-[var(--brand-teal-bright)]">
+                            <Icon path={ICONS.check} className="h-4 w-4" />
+                          </span>
+                          <span className="leading-snug">{p}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── TRUST ──────────────────────────────────────────────────────────
+            Deliberately not social proof — there are no customers to quote
+            yet, and inventing some would be the fastest way to lose the trust
+            this section exists to build. See TRUST_POINTS in lib/marketing.ts.
+        */}
+        <section className="border-t border-white/[0.06] px-6 py-20 md:px-12 lg:px-20">
+          <div className="mx-auto max-w-5xl">
+            <div className="text-center">
+              <RevealText
+                as="h2"
+                className="text-balance text-2xl font-semibold leading-tight tracking-tight md:text-3xl"
+              >
+                Built for local businesses, priced in the open.
+              </RevealText>
+            </div>
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {TRUST_POINTS.map((t, i) => (
+                <Reveal key={t.title} delay={(i % 4) * 70}>
+                  <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-card p-6">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)]">
+                      <Icon path={ICONS.check} className="h-4 w-4" />
+                    </span>
+                    <h3 className="mt-4 text-[15px] font-semibold leading-snug">{t.title}</h3>
+                    <p className="mt-2 flex-1 text-[13px] leading-relaxed text-muted-foreground">{t.body}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ── PRICING ────────────────────────────────────────────────────── */}
         <section id="pricing" className="relative scroll-mt-24 overflow-hidden border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
@@ -749,10 +912,16 @@ export default function Page() {
             <PricingCards />
 
             <Reveal delay={160}>
-              <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-muted-foreground">
-                Not sure which plan fits your business? Reach out anytime — we&apos;re happy to
-                help you pick.
-              </p>
+              <div className="mt-10 flex flex-col items-center gap-3">
+                <p className="text-center text-base font-medium">
+                  Start free. Upgrade when you need more.
+                </p>
+                <MicroTrustRow className="justify-center" />
+                <p className="mx-auto mt-2 max-w-2xl text-center text-sm leading-relaxed text-muted-foreground">
+                  Not sure which plan fits your business? Reach out anytime — we&apos;re happy to
+                  help you pick.
+                </p>
+              </div>
             </Reveal>
           </div>
         </section>

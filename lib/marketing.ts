@@ -47,13 +47,24 @@ export const SECONDARY_CTA_LABEL = "See How It Works"
 export const SECONDARY_CTA_HREF = "#how-it-works"
 
 /** Sits under the primary CTA. Every clause here is literally true today. */
-export const CTA_REASSURANCE = `${PLAN_LIMITS.trial} campaigns free • No credit card required • Ready in minutes`
+export const CTA_REASSURANCE = `${PLAN_LIMITS.trial} campaigns free • No credit card required`
+
+/**
+ * The compact hesitation-killer row under the hero. Deliberately three short
+ * claims that are each verifiable: there is no design step in the product,
+ * generation really is a single sitting, and the trial really takes no card.
+ */
+export const MICRO_TRUST = [
+  "No design experience required",
+  "Create in minutes",
+  "Start free — no card",
+]
 
 /* --------------------------------- Nav ----------------------------------- */
 
 export const NAV_LINKS = [
   { label: "How It Works", href: "#how-it-works" },
-  { label: "What You Get", href: "#what-you-get" },
+  { label: "Features", href: "#what-you-get" },
   { label: "Use Cases", href: "#use-cases" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
@@ -116,6 +127,63 @@ export const COMPARISON: { task: string; oneflyer: string; diy: string }[] = [
   { task: "QR code", oneflyer: "On the flyer, and tracked", diy: "A separate tool" },
   { task: "Your brand details", oneflyer: "Saved and reused", diy: "Re-enter them every time" },
   { task: "Knowing if it worked", oneflyer: "Scans and clicks counted", diy: "Mostly guessing" },
+]
+
+/* ------------------------------- Objections ------------------------------- */
+//
+// The two things a local business owner actually thinks before signing up.
+// Both answers explain a difference in job-to-be-done rather than attacking
+// the alternative — partly because that's more persuasive, and partly because
+// "Canva is worse" isn't true and wouldn't survive contact with a visitor who
+// already likes Canva.
+
+export const OBJECTIONS: { heading: string; lead: string; body: string; points: string[] }[] = [
+  {
+    heading: "Canva makes designs. OneFlyer builds the campaign.",
+    lead: "Canva is genuinely great at designing one graphic at a time.",
+    body: "That's a different job. OneFlyer starts from the promotion itself and produces the pieces you need to actually get it in front of people — the flyer, the square post, the text, the neighborhood post, and a QR code that ties back to you.",
+    points: [
+      "You start with an offer, not a blank canvas",
+      "The copy is written, not just the layout",
+      "Every piece is already consistent with the others",
+    ],
+  },
+  {
+    heading: "ChatGPT writes the words. It doesn't hand you the campaign.",
+    lead: "You can absolutely get good copy out of a chatbot — and then you still have to design the flyer, size a square version, make a QR code somewhere else, and keep your phone number and colors identical across all of it.",
+    body: "OneFlyer is the assembled version: the writing and the designed, on-brand pieces come back together, already consistent, with the QR code placed on the flyer.",
+    points: [
+      "Designed pieces, not just text to paste somewhere",
+      "Your brand details applied automatically",
+      "One place instead of four tabs",
+    ],
+  },
+]
+
+/* --------------------------------- Trust ---------------------------------- */
+//
+// Deliberately NOT social proof. There are no customers to quote, no counts to
+// cite, and no awards — so this section earns trust the only honest way
+// available right now: by being specific about limits and pricing. If real
+// testimonials ever exist, they belong here and these can move or shrink.
+
+export const TRUST_POINTS: { title: string; body: string }[] = [
+  {
+    title: "You saw the real output",
+    body: "The previews on this page are the actual set of pieces a campaign produces — not a mockup of a product roadmap.",
+  },
+  {
+    title: "Clear about what it doesn't do",
+    body: "We list which channels are generated and which plan includes them, rather than leaving you to find the edges after paying.",
+  },
+  {
+    title: "Transparent pricing",
+    body: "Three plans, published limits, no sales call. The free tier is genuinely free and takes no card.",
+  },
+  {
+    title: "Your work stays yours",
+    body: "Every flyer you generate is yours to download, print, and reuse — including if you stop subscribing.",
+  },
 ]
 
 /* ---------------------------------- FAQ ---------------------------------- */

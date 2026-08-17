@@ -252,6 +252,98 @@ html {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ---------------------------------------------------------------------------
+   Brand intro — ~900ms, deliberately CSS-only.
+
+   No JS drives this: the veil is server-rendered and animates itself away, so
+   it needs no hydration, keeps the landing page a server component, and
+   cannot delay the hero (which paints normally underneath). It's
+   position:fixed and pointer-events:none throughout, so it causes no layout
+   shift and never intercepts a click on the CTA behind it.
+   The previous version was a ~2.8s JS-sequenced wipe that held the headline
+   back; this one is a quick brand transition instead.
+   Skipped entirely when already seen this session (see the pre-paint script
+   in app/page.tsx, which sets data-intro-seen before first paint so there's
+   no flash) and when the visitor prefers reduced motion.
+   --------------------------------------------------------------------------- */
+.intro-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: linear-gradient(160deg, #1f232c 0%, #12141a 55%, #090a0d 100%);
+  animation: intro-veil-out 900ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+.intro-veil-glow {
+  position: absolute;
+  width: 60vw;
+  height: 60vw;
+  max-width: 40rem;
+  max-height: 40rem;
+  border-radius: 9999px;
+  filter: blur(100px);
+  background: radial-gradient(circle, rgba(94, 184, 240, 0.3), transparent 65%);
+}
+.intro-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-heading), var(--font-inter), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.75rem, 7vw, 3rem);
+  letter-spacing: -0.02em;
+  color: #eef1f5;
+  animation: intro-mark-in 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.intro-mark-dot {
+  width: 0.42em;
+  height: 0.42em;
+  border-radius: 9999px;
+  background: var(--brand-teal-bright);
+  box-shadow: 0 0 1.4em rgba(94, 184, 240, 0.75);
+}
+
+@keyframes intro-veil-out {
+  0%,
+  52% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@keyframes intro-mark-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+    filter: blur(7px);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+  58% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+
+/* Already seen this session — render nothing at all rather than animating a
+   veil away that the visitor has no reason to see twice. */
+:root[data-intro-seen="1"] .intro-veil {
+  display: none;
+}
+
 /* Staggered campaign-asset reveal — the hero flow visual and the interactive
    demo both use this to make assets land one by one, which is the point of
    the animation: it shows one input becoming several outputs. Delay is set
@@ -280,5 +372,11 @@ html {
   }
   html {
     scroll-behavior: auto;
+  }
+  /* Explicit rather than relying on the instant-animation rule above: a
+     brand veil that flashes over the whole page for even one frame is exactly
+     what someone enabling this setting is asking not to see. */
+  .intro-veil {
+    display: none !important;
   }
 }

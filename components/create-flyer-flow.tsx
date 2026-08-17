@@ -90,8 +90,26 @@ export function CreateFlyerFlow({ email }: { email: string }) {
 
   return (
     <div>
-      <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Create a New Flyer</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Choose how you want to get started.</p>
+      {/* Picks up the thread from the landing page's "Create My First Campaign"
+          CTA rather than dropping them onto a generic form — but only for
+          someone who genuinely hasn't made one yet. /onboarding is also the
+          "generate more flyers" route (see the note above), so a returning
+          client gets the neutral heading instead of being told this is their
+          first campaign. */}
+      {isReturning ? (
+        <>
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Create a New Campaign</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Choose how you want to get started.</p>
+        </>
+      ) : (
+        <>
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Let&apos;s create your first campaign.</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Start with your business and what you want to promote — we&apos;ll turn it into your
+            flyer and the matching versions to share.
+          </p>
+        </>
+      )}
 
       <div className="mt-6 grid sm:grid-cols-2 gap-4">
         {quickIsPrimary ? (

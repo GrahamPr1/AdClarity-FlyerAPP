@@ -14,7 +14,6 @@ import {
   DEMO_PROMO,
   DEMO_TRADE,
   PRIMARY_CTA_HREF,
-  PRIMARY_CTA_LABEL,
   USE_CASES,
 } from "@/lib/marketing"
 
@@ -302,20 +301,36 @@ export function CampaignDemo() {
           </div>
         </div>
 
-        <p className="mt-5 text-center text-sm text-muted-foreground sm:text-left">
-          One offer. Four assets, plus a trackable QR code on the flyer. Minutes instead of hours.
-        </p>
-
-        <div className="mt-6 flex flex-col items-center gap-3 rounded-2xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-5 text-center sm:flex-row sm:justify-between sm:text-left">
-          <p className="text-sm font-medium">
-            This is the shape of it. The real thing is built around your brand, logo, and colors.
+        {/* The demo's payoff line — this is the moment the value is clearest,
+            so the CTA sits directly under it rather than further down the page. */}
+        <div className="mt-7 rounded-2xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-6">
+          <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:justify-between sm:text-left">
+            <div>
+              <p className="text-lg font-semibold tracking-tight">
+                One promotion. Five ready-to-use marketing assets.
+              </p>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                The real thing is built around your brand, logo, and colors.
+              </p>
+            </div>
+            <a
+              href={PRIMARY_CTA_HREF}
+              className="group inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--brand-teal-bright)] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[var(--brand-teal)]/25 transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-teal)]"
+            >
+              Create Mine Free
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </a>
+          </div>
+          {/* The five-asset claim is a Basic/Pro outcome — the free tier gets
+              the flyer. Saying so right next to the number keeps the headline
+              honest instead of letting it read as the trial experience. */}
+          <p className="mt-4 border-t border-[var(--brand-teal)]/20 pt-4 text-xs leading-relaxed text-muted-foreground">
+            Free tier includes the flyer. The Instagram, text, and Nextdoor versions plus QR
+            tracking are on Basic and Pro.
           </p>
-          <a
-            href={PRIMARY_CTA_HREF}
-            className="shrink-0 rounded-xl bg-[var(--brand-teal-bright)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)]"
-          >
-            {PRIMARY_CTA_LABEL}
-          </a>
         </div>
       </div>
     </div>

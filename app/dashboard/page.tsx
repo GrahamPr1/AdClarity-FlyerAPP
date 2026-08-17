@@ -4,7 +4,9 @@ import { DashboardClient } from "@/components/dashboard-client"
 import { AdminDashboard } from "@/components/admin-dashboard"
 
 export const metadata = {
-  title: "Dashboard — OneFlyer",
+  // See the note in app/onboarding/page.tsx — the root layout's title
+  // template already appends " — OneFlyer".
+  title: "Dashboard",
 }
 
 // Which dashboard renders is decided here, server-side, from the real

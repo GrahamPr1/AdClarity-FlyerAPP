@@ -72,9 +72,16 @@ function EmailField({ value, onChange }: { value: string; onChange: (v: string) 
   )
 }
 
-function ClientLoginForm({ next }: { next: string }) {
+function ClientLoginForm({
+  next,
+  mode,
+  onModeChange,
+}: {
+  next: string
+  mode: ClientMode
+  onModeChange: (mode: ClientMode) => void
+}) {
   const router = useRouter()
-  const [mode, setMode] = useState<ClientMode>("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -83,7 +90,7 @@ function ClientLoginForm({ next }: { next: string }) {
   const [working, setWorking] = useState(false)
 
   function switchMode(newMode: ClientMode) {
-    setMode(newMode)
+    onModeChange(newMode)
     setError("")
     setNotice("")
     setPassword("")
@@ -255,6 +262,34 @@ function LoginPageInner() {
   // sense for the site-owner login.
   const next = searchParams.get("next") ?? "/dashboard"
 
+  // Anyone arriving from the landing page's "Create My First Campaign — Free"
+  // CTA is trying to sign UP, not sign in — they've never been here. Starting
+  // them on the login form meant the highest-intent click on the whole site
+  // landed on a password field for an account they don't have, with the real
+  // action hidden behind a small "New here?" link underneath.
+  const wantsToStart = next.startsWith("/onboarding")
+  const [clientMode, setClientMode] = useState<ClientMode>(wantsToStart ? "signup" : "login")
+
+  const heading =
+    mode === "admin"
+      ? "Admin Login"
+      : clientMode === "signup"
+        ? "Create your account"
+        : clientMode === "forgot"
+          ? "Reset your password"
+          : "Client Login"
+
+  const subheading =
+    mode === "admin"
+      ? "Sign in with the site admin password."
+      : clientMode === "signup"
+        ? wantsToStart
+          ? "One quick step, then you're straight into your first campaign. We need an account so your flyers are saved and only you can see them."
+          : "Set up an email and password to save your flyers."
+        : clientMode === "forgot"
+          ? "We'll email you a link to set a new one."
+          : "Log in with your email and password to see your own flyers."
+
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
@@ -263,12 +298,14 @@ function LoginPageInner() {
           OneFlyer
         </div>
         <div className="rounded-2xl border border-white/10 bg-card p-7">
-          <h1 className="text-xl font-semibold">{mode === "client" ? "Client Login" : "Admin Login"}</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {mode === "client" ? "Log in with your email and password to see your own flyers." : "Sign in with the site admin password."}
-          </p>
+          <h1 className="text-xl font-semibold">{heading}</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">{subheading}</p>
 
-          {mode === "client" ? <ClientLoginForm next={next} /> : <AdminLoginForm />}
+          {mode === "client" ? (
+            <ClientLoginForm next={next} mode={clientMode} onModeChange={setClientMode} />
+          ) : (
+            <AdminLoginForm />
+          )}
 
           <button onClick={() => setMode(mode === "client" ? "admin" : "client")} type="button"
             className="mt-5 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">

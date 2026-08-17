@@ -7,7 +7,10 @@ import { getOrCreateClient, setClientPlan } from "@/lib/store"
 import type { PlanId } from "@/lib/types"
 
 export const metadata = {
-  title: "Onboarding — OneFlyer",
+  // Just the page name: the root layout supplies the " — OneFlyer" suffix
+  // via metadata.title.template, so including it here rendered the tab as
+  // "Onboarding — OneFlyer — OneFlyer".
+  title: "Onboarding",
 }
 
 const VALID_PLAN_IDS: PlanId[] = ["trial", "basic", "pro"]
