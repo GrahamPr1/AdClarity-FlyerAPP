@@ -251,3 +251,34 @@ html {
   from { opacity: 0; transform: translateY(100%); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* Staggered campaign-asset reveal — the hero flow visual and the interactive
+   demo both use this to make assets land one by one, which is the point of
+   the animation: it shows one input becoming several outputs. Delay is set
+   per-element inline. */
+@keyframes asset-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.asset-in {
+  opacity: 0;
+  animation: asset-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Accessibility: honor the OS "reduce motion" preference globally rather than
+   per-component, so nothing added later silently opts out of it. Animations
+   still RUN (so `forwards` states like .asset-in's opacity still land) — they
+   just finish instantly instead of moving. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

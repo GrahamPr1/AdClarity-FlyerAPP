@@ -18,32 +18,55 @@ const baloo = Baloo_2({
   variable: "--font-baloo",
 })
 
+// The real production domain. This was previously "oneflyer.co", which the
+// project doesn't own (it's oneflyer.ORG — see `vercel domains ls`), so every
+// Open Graph share pointed at somebody else's domain.
+const SITE_URL = 'https://oneflyer.org'
+
+const TITLE = 'OneFlyer — Turn One Promotion Into a Full Marketing Campaign'
+const DESCRIPTION =
+  'OneFlyer turns one promotion into a professional flyer, Instagram post, text-blast message, Nextdoor post, and trackable QR code — matched to your business and ready in minutes. 3 campaigns free, no credit card.'
+
 export const metadata: Metadata = {
-  title: 'OneFlyer — AI-Designed Flyers for Local Businesses',
-  description:
-    'OneFlyer generates brand-matched, print-ready flyers for your business in minutes. Start with a free trial — no credit card required — then upgrade as you grow.',
+  // Lets relative OG/Twitter image paths and canonical URLs resolve instead
+  // of silently falling back to localhost in previews.
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: TITLE,
+    template: '%s — OneFlyer',
+  },
+  description: DESCRIPTION,
   keywords: [
-    'flyer generator',
-    'AI design',
-    'brand-matched flyers',
+    'flyer maker for small business',
+    'business flyer maker',
+    'marketing flyer generator',
+    'AI flyer generator',
+    'small business marketing tools',
     'local business marketing',
-    'print-ready flyers',
+    'promotional flyer maker',
+    'contractor marketing',
     'OneFlyer',
   ],
   authors: [{ name: 'OneFlyer' }],
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
-    title: 'OneFlyer — AI-Designed Flyers for Local Businesses',
-    description:
-      'Generate brand-matched, print-ready flyers for your business in minutes — start with a free trial, no credit card required.',
+    title: TITLE,
+    description: DESCRIPTION,
     type: 'website',
-    url: 'https://oneflyer.co',
+    url: SITE_URL,
     siteName: 'OneFlyer',
+    locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'OneFlyer — AI-Designed Flyers for Local Businesses',
-    description:
-      'Generate brand-matched, print-ready flyers for your business in minutes — start with a free trial, no credit card required.',
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
   icons: {
     icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],

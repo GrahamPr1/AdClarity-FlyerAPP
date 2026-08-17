@@ -1,14 +1,7 @@
 "use client"
 
 import { useState } from "react"
-
-const NAV_LINKS = [
-  { label: "Services", href: "#services" },
-  { label: "New", href: "#new" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "FAQ", href: "#faq" },
-]
+import { NAV_LINKS, PRIMARY_CTA_HREF, PRIMARY_CTA_LABEL, PRIMARY_CTA_LABEL_SHORT } from "@/lib/marketing"
 
 const NAV_STYLE = {
   backdropFilter: "blur(16px)",
@@ -36,7 +29,7 @@ export function MobileNav() {
           </a>
 
           {/* Desktop links */}
-          <div className="hidden md:flex items-center gap-7">
+          <div className="hidden lg:flex items-center gap-6">
             {NAV_LINKS.map((l) => (
               <a
                 key={l.label}
@@ -51,21 +44,26 @@ export function MobileNav() {
           <div className="flex items-center gap-3">
             <a
               href="/dashboard"
-              className="hidden md:block text-[13px] text-white/55 hover:text-white transition-colors"
+              className="hidden sm:block text-[13px] text-white/55 hover:text-white transition-colors"
             >
-              Client Login
+              Log In
             </a>
+            {/* Stays visible the whole way down the page — this is the one
+                conversion the whole funnel points at. The short label is used
+                below xl, where the full sentence wraps and breaks the bar. */}
             <a
-              href="#pricing"
-              className="text-[13px] px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white font-medium hover:bg-[var(--brand-teal)] transition-all duration-200 hidden md:block"
+              href={PRIMARY_CTA_HREF}
+              className="block text-[12px] sm:text-[13px] px-3 sm:px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white font-semibold hover:bg-[var(--brand-teal)] transition-all duration-200 whitespace-nowrap"
             >
-              Get Started
+              <span className="hidden xl:inline">{PRIMARY_CTA_LABEL}</span>
+              <span className="xl:hidden">{PRIMARY_CTA_LABEL_SHORT}</span>
             </a>
 
-            {/* Burger — mobile only */}
+            {/* Burger — shown wherever the inline links aren't (below lg) */}
             <button
               onClick={() => setOpen((v) => !v)}
-              className="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-[5px] rounded-lg hover:bg-white/10 transition-colors"
+              aria-expanded={open}
+              className="lg:hidden flex flex-col justify-center items-center w-8 h-8 gap-[5px] rounded-lg hover:bg-white/10 transition-colors"
               aria-label={open ? "Close menu" : "Open menu"}
             >
               <span
@@ -84,10 +82,10 @@ export function MobileNav() {
           </div>
         </nav>
 
-        {/* Mobile dropdown */}
+        {/* Collapsed menu — same breakpoint as the burger that opens it */}
         <div
-          className="md:hidden mt-2 overflow-hidden transition-all duration-300 ease-in-out"
-          style={{ maxHeight: open ? "360px" : "0px", opacity: open ? 1 : 0 }}
+          className="lg:hidden mt-2 overflow-hidden transition-all duration-300 ease-in-out"
+          style={{ maxHeight: open ? "420px" : "0px", opacity: open ? 1 : 0 }}
         >
           <div className="rounded-2xl border border-white/10 px-2 py-2 flex flex-col" style={NAV_STYLE}>
             {NAV_LINKS.map((l) => (
@@ -105,15 +103,15 @@ export function MobileNav() {
               onClick={close}
               className="px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
             >
-              Client Login
+              Log In
             </a>
             <div className="mt-1 px-2 pb-1">
               <a
-                href="#pricing"
+                href={PRIMARY_CTA_HREF}
                 onClick={close}
-                className="block text-center w-full text-sm px-4 py-3 rounded-xl bg-[var(--brand-teal-bright)] text-white font-medium hover:bg-[var(--brand-teal)] transition-all duration-200"
+                className="block text-center w-full text-sm px-4 py-3 rounded-xl bg-[var(--brand-teal-bright)] text-white font-semibold hover:bg-[var(--brand-teal)] transition-all duration-200"
               >
-                Get Started
+                {PRIMARY_CTA_LABEL}
               </a>
             </div>
           </div>
