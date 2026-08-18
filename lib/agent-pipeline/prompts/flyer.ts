@@ -9,8 +9,11 @@ system, and a pleasure to look at.
 
 {
   "brandProfile": <BrandProfile object from the Brand Agent>,
-  "contact": { "phone": string, "address": string, "website": string | null,
+  "contact": { "phone": string, "address": string | null, "website": string | null,
                "social": { platform: string, handle: string }[] | null },
+               // address is frequently null — onboarding doesn't ask for one.
+               // Omit the address line entirely when it is; never print a
+               // placeholder, an empty line, or an invented street address.
   "photos": { "url": string, "caption": string }[],   // real URLs — client-
                                                         // supplied, or AI-
                                                         // generated stock-

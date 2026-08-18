@@ -60,11 +60,15 @@ the site's content doesn't clearly support.
   "minimal" from the overall impression of the copy's tone and any
   described visual style; default "modern" if there's truly no signal,
   same as the guided flow's own default.
-- \`contact.phone\` / \`contact.address\`: pull these directly from the
-  Contact page or footer if present. If genuinely not found anywhere in
-  the crawled text, these are REQUIRED fields you cannot leave blank in
-  \`data\` — if missing, this is exactly the "needs_clarification" case
-  below.
+- \`contact.phone\`: pull directly from the Contact page or footer if
+  present. If genuinely not found anywhere in the crawled text, this is a
+  REQUIRED field you cannot leave blank in \`data\` — if missing, this is
+  exactly the "needs_clarification" case below.
+- \`contact.address\`: pull it the same way, but it is OPTIONAL — set it to
+  null when the site doesn't state one. Never treat a missing address as a
+  reason to return "needs_clarification": a flyer with a phone number is
+  usable without a street address, and the onboarding flow no longer asks
+  for one, so blocking on it would dead-end the client.
 - \`contact.website\`: the site's own URL (from the pages you were given).
 - \`contact.social\`: build from \`socialLinks\` — infer the platform from
   the domain (instagram.com -> "instagram", facebook.com -> "facebook",

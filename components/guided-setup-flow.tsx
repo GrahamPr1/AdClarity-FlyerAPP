@@ -17,7 +17,7 @@ interface ScrapedNormalizedIntake {
   yearsInBusiness: number | null
   services: string[]
   targetAudience: string
-  contact: { phone: string; address: string; website: string | null; social: { platform: string; handle: string }[] | null; contactName: string | null }
+  contact: { phone: string; address: string | null; website: string | null; social: { platform: string; handle: string }[] | null; contactName: string | null }
   brandAssets: { logoUrl: string | null; existingColors: string[] | null; existingFontsNote: string | null }
   voiceTonePreference: string
   fontStylePreference: "modern" | "classic" | "playful" | "minimal"
@@ -47,7 +47,7 @@ function toFormInitialData(intake: ScrapedNormalizedIntake): Partial<Omit<Intake
     contact: {
       email: "", // overwritten by OnboardingForm's own fixed session email
       phone: intake.contact.phone,
-      address: intake.contact.address,
+      address: intake.contact.address ?? "",
       website: intake.contact.website ?? "",
       socialHandles: (intake.contact.social ?? []).map((s) => `${s.platform}: ${s.handle}`).join(", "),
       contactName: intake.contact.contactName ?? undefined,
@@ -72,7 +72,7 @@ function toFormInitialDataFromSavedProfile(saved: SavedBrandProfile): Partial<Om
     contact: {
       email: "", // overwritten by OnboardingForm's own fixed session email
       phone: saved.contact.phone,
-      address: saved.contact.address,
+      address: saved.contact.address ?? "",
       website: saved.contact.website ?? "",
       socialHandles: (saved.contact.social ?? []).map((s) => `${s.platform}: ${s.handle}`).join(", "),
       contactName: saved.contact.contactName ?? undefined,

@@ -85,8 +85,13 @@ restructuring, not just renaming:
    services, years in business, or existing brand colors.
 2. **Distinguish required vs. inferable fields.**
    - Required and NEVER defaulted: businessName, industry, services (at least one),
-     contact.phone, contact.address, targetAudience, at least one flyerRequest
+     contact.phone, targetAudience, at least one flyerRequest
      (derived from \`flyerNotes\`).
+   - Optional, null when not provided — NEVER a missing/blocking field:
+     contact.address. The onboarding flow deliberately does not ask for it
+     (a flyer with a phone number works fine without a street address), so
+     treating it as required blocked every new signup. Set it to null rather
+     than asking for it.
    - Inferable with a stated assumption, only if genuinely missing: voiceTonePreference
      (infer a reasonable default from industry, e.g. "professional" for a dental
      practice), fontStylePreference (default to "modern" if unstated), and

@@ -2,14 +2,34 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import type { BrandStyle, BusinessCategory, IntakeSubmission, PlanId, ServiceItem } from "@/lib/types"
+import type { BusinessCategory, CampaignDefaults, IntakeSubmission, PlanId, ServiceItem } from "@/lib/types"
 import { BUSINESS_CATEGORIES } from "@/lib/types"
 import { getPlan } from "@/lib/plans"
 import { trackEvent } from "@/lib/analytics"
 
-const STEPS = ["Category", "Business", "Services", "Brand", "Contact", "Deliverables"] as const
+// Three steps, not the original six.
+//
+// Only five fields are actually required to generate a campaign (see the
+// validation block in app/api/intake/route.ts): businessCategory,
+// businessName, industry, one service, and targetAudience. Those were spread
+// across four of six steps, surrounded by ~15 optional inputs presented
+// identically — and two entire steps ("Brand", "Deliverables") contained no
+// required field at all. A brand-new signup had to page through all of it
+// before seeing a single flyer.
+//
+// The required five now sit in steps 1-2, plus two fields that aren't
+// API-required but that a usable first campaign genuinely needs:
+//   - the promotion itself (flyerNotes) — it's what the flyer is FOR, and
+//     the whole product positioning is "tell us what you're promoting"
+//   - a phone number — it's printed on the flyer as the call-to-action, and
+//     a flyer with no way to contact the business is not worth generating
+//
+// Everything else moved to /profile (see CampaignDefaults in lib/types.ts),
+// collected after the first campaign and merged in automatically from then
+// on. Per-campaign extras (photos, reference material) stay here behind a
+// collapsed disclosure on the last step, so they cost nothing to skip.
+const STEPS = ["Business", "Promotion", "Contact"] as const
 
-const STYLE_OPTIONS: BrandStyle[] = ["modern", "classic", "playful", "minimal"]
 const MAX_FLYER_PHOTOS = 5
 
 // The rest of IntakeSubmission's required fields start empty too (e.g.
@@ -64,10 +84,18 @@ export function OnboardingForm({
   // (used above for onboarding's own display copy) is cosmetic only, never
   // real enforcement — see the note on PlanId in lib/types.ts.
   const [realPlanId, setRealPlanId] = useState<PlanId | null>(null)
+  // Whether this is genuinely their FIRST campaign. /onboarding doubles as the
+  // "create another" route, so the heading has to know — it was telling a
+  // returning client with campaigns already made that this was their first.
+  // Read from the same response as the plan rather than a second request.
+  const [isFirstCampaign, setIsFirstCampaign] = useState(true)
   useEffect(() => {
     fetch("/api/deliverables")
       .then((r) => r.json())
-      .then((d) => setRealPlanId(d.planId ?? null))
+      .then((d) => {
+        setRealPlanId(d.planId ?? null)
+        setIsFirstCampaign((d.flyers?.length ?? 0) === 0)
+      })
       .catch(() => {})
   }, [])
 
@@ -107,6 +135,48 @@ export function OnboardingForm({
   function setContact<K extends keyof IntakeSubmission["contact"]>(key: K, value: string) {
     setForm((f) => ({ ...f, contact: { ...f.contact, [key]: value } }))
   }
+
+  // The other half of moving the optional fields to /profile: once saved,
+  // they have to actually reach the pipeline, since they're no longer typed
+  // here. Merged in as defaults rather than shown — the point of moving them
+  // out was that they don't belong in this flow. Anything explicitly passed
+  // via initialData (a website scrape, a saved brand profile) still wins,
+  // because that's fresher and the user is about to review it on screen.
+  const [defaultsApplied, setDefaultsApplied] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/campaign-defaults")
+      .then((r) => r.json())
+      .then((d: { defaults?: CampaignDefaults | null }) => {
+        if (cancelled || !d.defaults) return
+        const saved = d.defaults
+        setForm((f) => ({
+          ...f,
+          yearsInBusiness: f.yearsInBusiness || saved.yearsInBusiness,
+          brandColors: f.brandColors || saved.brandColors,
+          voiceTone: f.voiceTone || saved.voiceTone,
+          preferredStyle: initialData?.preferredStyle ?? saved.preferredStyle,
+          contact: {
+            ...f.contact,
+            contactName: f.contact.contactName || saved.contactName || undefined,
+            website: f.contact.website || saved.website,
+            address: f.contact.address || saved.address,
+            socialHandles: f.contact.socialHandles || saved.socialHandles,
+          },
+        }))
+        setDefaultsApplied(true)
+      })
+      .catch(() => {
+        // Silent: these are optional defaults. Failing to load them makes the
+        // campaign slightly less tailored, never blocked.
+      })
+    return () => {
+      cancelled = true
+    }
+    // initialData is set once when the form mounts and never mutated.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
 
   function updateService(id: string, name: string) {
     setForm((f) => ({ ...f, services: f.services.map((s) => (s.id === id ? { ...s, name } : s)) }))
@@ -163,13 +233,15 @@ export function OnboardingForm({
   // send them to it. Previously the raw `missing` array was discarded and the
   // user got "Missing required fields" on the last step, with no indication
   // which of ~20 inputs across 6 steps was the problem.
+  // Step numbers must track the STEPS array above — these were all on
+  // different steps before the six-step form was collapsed to three.
   const FIELD_INFO: Record<string, { label: string; step: number }> = {
-    businessCategory: { label: "Business category", step: 0 },
-    businessName: { label: "Business name", step: 1 },
-    industry: { label: "Industry", step: 1 },
-    services: { label: "At least one service", step: 2 },
-    targetAudience: { label: "Target audience", step: 4 },
-    email: { label: "Email", step: 4 },
+    businessCategory: { label: "Business type", step: 0 },
+    businessName: { label: "Business name", step: 0 },
+    industry: { label: "What you do", step: 0 },
+    services: { label: "At least one service", step: 0 },
+    targetAudience: { label: "Who you're trying to reach", step: 1 },
+    email: { label: "Email", step: 2 },
   }
 
   async function handleSubmit() {
@@ -236,7 +308,7 @@ export function OnboardingForm({
       const questions = Array.isArray(data.clarifyingQuestions) ? (data.clarifyingQuestions as string[]) : []
       setError(
         questions.length > 0
-          ? `We need a bit more detail before building this: ${questions.join(" ")} Add that to the "What should your flyers cover?" box and submit again.`
+          ? `We need a bit more detail before building this: ${questions.join(" ")} Add it to "What are you promoting?" on step 2 and submit again.`
           : "We couldn't quite tell what this campaign should promote. Add a bit more detail about your offer and submit again.",
       )
       setSubmitting(false)
@@ -253,15 +325,19 @@ export function OnboardingForm({
 
   return (
     <div>
-      <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Let&apos;s set up your account</h1>
+      <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+        {isFirstCampaign ? "Let's create your first campaign" : "Create a new campaign"}
+      </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        {plan ? (
+        {plan && isFirstCampaign ? (
           <>
-            You&apos;re on the <span className="text-foreground font-medium">{plan.name}</span> plan.
-            Tell us about your business so we can start your build.
+            {/* Explicit {" "} — JSX trims the newline-led whitespace after the
+                span, which rendered as "Free Trialplan." */}
+            You&apos;re on the <span className="text-foreground font-medium">{plan.name}</span>{" "}
+            plan. Three short steps — then we&apos;ll build it.
           </>
         ) : (
-          "Tell us about your business so we can start your build."
+          "Three short steps — tell us about your business and what you're promoting, then we'll build it."
         )}
       </p>
 
@@ -293,12 +369,12 @@ export function OnboardingForm({
       </p>
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-card p-6 md:p-8">
-        {/* STEP 1 — Category */}
+        {/* STEP 1 — Business: every field here is required by /api/intake. */}
         {step === 0 && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             <div>
               <Label>What type of business are you?</Label>
-              <p className="text-sm text-muted-foreground">This helps us tailor templates and features to your business.</p>
+              <p className="text-sm text-muted-foreground">This helps us tailor the design and wording to your industry.</p>
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
               {BUSINESS_CATEGORIES.map((category) => (
@@ -317,204 +393,166 @@ export function OnboardingForm({
                 </button>
               ))}
             </div>
+
+            <div className="border-t border-white/[0.07] pt-5">
+              <Label htmlFor="businessName">Business name</Label>
+              <input id="businessName" autoComplete="organization" className={fieldBase()} value={form.businessName}
+                onChange={(e) => set("businessName", e.target.value)} placeholder="Bluegrass Roofing" />
+            </div>
+            <div>
+              <Label htmlFor="industry">What do you do?</Label>
+              <input id="industry" className={fieldBase()} value={form.industry}
+                onChange={(e) => set("industry", e.target.value)} placeholder="Residential roofing" />
+            </div>
+            <div>
+              <Label htmlFor="service-0">Main services</Label>
+              <div className="flex flex-col gap-3">
+                {form.services.map((s, i) => (
+                  <div key={s.id} className="flex items-center gap-2">
+                    <input id={i === 0 ? "service-0" : undefined} className={fieldBase()} value={s.name}
+                      onChange={(e) => updateService(s.id, e.target.value)}
+                      aria-label={`Service ${i + 1}`}
+                      placeholder={i === 0 ? "Roof replacement" : "Another service"} />
+                    <button type="button" onClick={() => removeService(s.id)}
+                      disabled={form.services.length === 1}
+                      className="shrink-0 w-10 h-10 rounded-lg border border-white/12 text-muted-foreground hover:text-foreground hover:border-white/25 disabled:opacity-40 transition-colors"
+                      aria-label={`Remove service ${i + 1}`}>
+                      −
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={addService}
+                className="mt-3 self-start text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+                + Add another service
+              </button>
+            </div>
           </div>
         )}
 
-        {/* STEP 2 — Business */}
+        {/* STEP 2 — Promotion. flyerNotes isn't API-required, but it's what
+            the campaign is actually FOR, so it leads here rather than sitting
+            on a sixth step most people never reached. */}
         {step === 1 && (
           <div className="flex flex-col gap-5">
             <div>
-              <Label htmlFor="businessName">Business name</Label>
-              <input id="businessName" autoComplete="organization" className={fieldBase()} value={form.businessName}
-                onChange={(e) => set("businessName", e.target.value)} placeholder="Bright Smile Dental" />
-            </div>
-            <div>
-              <Label htmlFor="industry">Industry / category</Label>
-              <input id="industry" className={fieldBase()} value={form.industry}
-                onChange={(e) => set("industry", e.target.value)} placeholder="Dental practice" />
-            </div>
-            <div>
-              <Label htmlFor="years">Years in business</Label>
-              <input id="years" type="number" inputMode="numeric" min={0} max={200} className={fieldBase()} value={form.yearsInBusiness}
-                onChange={(e) => set("yearsInBusiness", e.target.value)} placeholder="e.g. 7" />
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3 — Services */}
-        {step === 2 && (
-          <div className="flex flex-col gap-4">
-            <Label>Services offered</Label>
-            <div className="flex flex-col gap-3">
-              {form.services.map((s) => (
-                <div key={s.id} className="flex items-center gap-2">
-                  <input className={fieldBase()} value={s.name}
-                    onChange={(e) => updateService(s.id, e.target.value)} placeholder="e.g. Teeth whitening" />
-                  <button type="button" onClick={() => removeService(s.id)}
-                    disabled={form.services.length === 1}
-                    className="shrink-0 w-10 h-10 rounded-lg border border-white/12 text-muted-foreground hover:text-foreground hover:border-white/25 disabled:opacity-40 transition-colors"
-                    aria-label="Remove service">
-                    −
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button type="button" onClick={addService}
-              className="self-start text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
-              + Add another service
-            </button>
-          </div>
-        )}
-
-        {/* STEP 4 — Brand */}
-        {step === 3 && (
-          <div className="flex flex-col gap-5">
-            <div>
-              <Label htmlFor="logo">Logo upload</Label>
-              <input id="logo" type="file" accept="image/*"
-                onChange={(e) => set("logoFileName", e.target.files?.[0]?.name)}
-                className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--brand-teal-tint)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--brand-teal-bright)] hover:file:bg-[var(--brand-teal)]/20" />
-              {form.logoFileName && <p className="mt-1.5 text-xs text-muted-foreground">Selected: {form.logoFileName}</p>}
-            </div>
-            <div>
-              <Label htmlFor="colors">Existing brand colors (optional)</Label>
-              <input id="colors" className={fieldBase()} value={form.brandColors}
-                onChange={(e) => set("brandColors", e.target.value)} placeholder="e.g. #0E7C7B, navy, gold" />
-            </div>
-            <div>
-              <Label htmlFor="style">Preferred style</Label>
-              <select id="style" className={fieldBase()} value={form.preferredStyle}
-                onChange={(e) => set("preferredStyle", e.target.value as BrandStyle)}>
-                {STYLE_OPTIONS.map((o) => (
-                  <option key={o} value={o} className="bg-card capitalize">
-                    {o.charAt(0).toUpperCase() + o.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="voice">Voice / tone</Label>
-              <input id="voice" className={fieldBase()} value={form.voiceTone}
-                onChange={(e) => set("voiceTone", e.target.value)} placeholder="e.g. friendly, professional, high-energy" />
-            </div>
-          </div>
-        )}
-
-        {/* STEP 5 — Contact + audience */}
-        {step === 4 && (
-          <div className="flex flex-col gap-5">
-            <div>
-              <Label htmlFor="audience">Target audience / ideal customer</Label>
-              <textarea id="audience" rows={3} className={fieldBase()} value={form.targetAudience}
-                onChange={(e) => set("targetAudience", e.target.value)}
-                placeholder="Describe who you want to reach…" />
-            </div>
-            <p className="text-sm font-medium">Contact info to display on materials</p>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {prefillNotice && (
-                <div className="sm:col-span-2">
-                  <Label htmlFor="contactName">Contact person</Label>
-                  <input id="contactName" className={fieldBase()} value={form.contact.contactName ?? ""}
-                    onChange={(e) => setContact("contactName", e.target.value)} placeholder="Who should we reach out to?" />
-                </div>
-              )}
-              <div className="sm:col-span-2">
-                <Label htmlFor="email">Email</Label>
-                <input id="email" type="email" readOnly value={form.contact.email}
-                  className={`${fieldBase()} opacity-70 cursor-not-allowed`} />
-                <p className="mt-1.5 text-xs text-muted-foreground">This is the email you signed in with — it's what your flyers will be saved under.</p>
-              </div>
-              <div>
-                <Label htmlFor="phone">Phone</Label>
-                <input id="phone" type="tel" inputMode="tel" autoComplete="tel" className={fieldBase()} value={form.contact.phone}
-                  onChange={(e) => setContact("phone", e.target.value)} placeholder="(555) 123-4567" />
-              </div>
-              <div>
-                <Label htmlFor="website">Website</Label>
-                <input id="website" type="url" inputMode="url" autoComplete="url" className={fieldBase()} value={form.contact.website}
-                  onChange={(e) => setContact("website", e.target.value)} placeholder="brightsmile.com" />
-              </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="address">Address</Label>
-                <input id="address" autoComplete="street-address" className={fieldBase()} value={form.contact.address}
-                  onChange={(e) => setContact("address", e.target.value)} placeholder="123 Main St, Springfield" />
-              </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="social">Social handles</Label>
-                <input id="social" className={fieldBase()} value={form.contact.socialHandles}
-                  onChange={(e) => setContact("socialHandles", e.target.value)} placeholder="@brightsmiledental" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 6 — Deliverables */}
-        {step === 5 && (
-          <div className="flex flex-col gap-5">
-            <div>
-              <Label htmlFor="flyerPhotos">Photos for your flyers (optional, up to {MAX_FLYER_PHOTOS})</Label>
-              <input id="flyerPhotos" type="file" accept="image/*"
-                onChange={handlePhotoUpload}
-                disabled={uploadingPhoto || (form.flyerPhotoUrls?.length ?? 0) >= MAX_FLYER_PHOTOS}
-                className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--brand-teal-tint)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--brand-teal-bright)] hover:file:bg-[var(--brand-teal)]/20 disabled:opacity-60" />
-              <p className="mt-1.5 text-xs text-muted-foreground">A real photo of your own beats a generic one — we&apos;ll use these directly in your flyers where they fit.</p>
-              {uploadingPhoto && <p className="mt-1.5 text-xs text-muted-foreground">Uploading…</p>}
-              {photoUploadError && <p role="alert" className="mt-1.5 text-xs text-red-400">{photoUploadError}</p>}
-              {(form.flyerPhotoUrls?.length ?? 0) > 0 && (
-                <div className="mt-3 flex flex-wrap gap-3">
-                  {form.flyerPhotoUrls!.map((url) => (
-                    <div key={url} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="Uploaded flyer photo" className="w-full h-full object-cover" />
-                      <button type="button" onClick={() => removePhoto(url)}
-                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs leading-none flex items-center justify-center hover:bg-black/80"
-                        aria-label="Remove photo">
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {(form.flyerPhotoUrls?.length ?? 0) === 0 && (
-              <div>
-                <label className="flex items-center gap-2.5 text-sm cursor-pointer">
-                  <input type="checkbox" checked={form.wantsAiPhotos ?? false}
-                    disabled={realPlanId !== "pro"}
-                    onChange={(e) => set("wantsAiPhotos", e.target.checked)}
-                    className="w-4 h-4 accent-[var(--brand-teal-bright)] disabled:opacity-50" />
-                  Let AI generate photos for flyers that don&apos;t have one of your own
-                </label>
-                {realPlanId !== null && realPlanId !== "pro" && (
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    <a href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">Upgrade to Pro</a> to unlock AI-generated photos.
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div>
-              <Label htmlFor="existing">Existing marketing materials to reference (optional)</Label>
-              <input id="existing" type="file"
-                onChange={(e) => set("existingMaterialsFileName", e.target.files?.[0]?.name)}
-                className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--brand-teal-tint)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--brand-teal-bright)] hover:file:bg-[var(--brand-teal)]/20" />
-              {form.existingMaterialsFileName && (
-                <p className="mt-1.5 text-xs text-muted-foreground">Selected: {form.existingMaterialsFileName}</p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="flyerNotes">Flyer & collateral notes</Label>
+              <Label htmlFor="flyerNotes">What are you promoting?</Label>
               <textarea id="flyerNotes" rows={3} className={fieldBase()} value={form.flyerNotes}
                 onChange={(e) => set("flyerNotes", e.target.value)}
-                placeholder="What should your flyers, sheets & one-pagers cover? e.g. front desk sheet, new patient packet, referral card" />
+                placeholder="$500 off a new roof this month — free inspection, financing available" />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Your offer in plain words. This becomes the headline on your flyer and the
+                matching social, text, and Nextdoor versions.
+              </p>
             </div>
             <div>
-              <Label htmlFor="sitePrefs">Website / landing page preferences</Label>
-              <textarea id="sitePrefs" rows={3} className={fieldBase()} value={form.websitePreferences}
-                onChange={(e) => set("websitePreferences", e.target.value)}
-                placeholder="Pages needed, must-have sections, examples you like…" />
+              <Label htmlFor="audience">Who are you trying to reach?</Label>
+              <textarea id="audience" rows={3} className={fieldBase()} value={form.targetAudience}
+                onChange={(e) => set("targetAudience", e.target.value)}
+                placeholder="Homeowners in the area with roofs 15+ years old" />
             </div>
+          </div>
+        )}
+
+        {/* STEP 3 — Contact. Phone is here because it's printed on the flyer
+            as the call-to-action. The per-campaign extras below are collapsed
+            so they cost nothing to skip. */}
+        {step === 2 && (
+          <div className="flex flex-col gap-5">
+            <div>
+              <Label htmlFor="phone">Phone number</Label>
+              <input id="phone" type="tel" inputMode="tel" autoComplete="tel" className={fieldBase()} value={form.contact.phone}
+                onChange={(e) => setContact("phone", e.target.value)} placeholder="(555) 123-4567" />
+              <p className="mt-1.5 text-xs text-muted-foreground">Printed on your flyer as the call-to-action.</p>
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <input id="email" type="email" readOnly value={form.contact.email}
+                className={`${fieldBase()} opacity-70 cursor-not-allowed`} />
+              <p className="mt-1.5 text-xs text-muted-foreground">The email you signed in with — your campaigns are saved under it.</p>
+            </div>
+
+            {defaultsApplied && (
+              <p className="rounded-lg border border-[var(--brand-teal)]/30 bg-[var(--brand-teal-tint)] px-3.5 py-2.5 text-xs">
+                Your saved brand details are being applied to this campaign.{" "}
+                <a href="/profile" className="underline">Edit them</a>
+              </p>
+            )}
+
+            <details className="rounded-lg border border-white/10 bg-white/[0.02]">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground/80 hover:text-foreground">
+                Add photos or reference material (optional)
+              </summary>
+              <div className="flex flex-col gap-5 border-t border-white/[0.07] px-4 py-5">
+                <div>
+                  <Label htmlFor="flyerPhotos">Your own photos (up to {MAX_FLYER_PHOTOS})</Label>
+                  <input id="flyerPhotos" type="file" accept="image/*"
+                    onChange={handlePhotoUpload}
+                    disabled={uploadingPhoto || (form.flyerPhotoUrls?.length ?? 0) >= MAX_FLYER_PHOTOS}
+                    className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--brand-teal-tint)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--brand-teal-bright)] hover:file:bg-[var(--brand-teal)]/20 disabled:opacity-60" />
+                  <p className="mt-1.5 text-xs text-muted-foreground">A real photo of your own work beats a generic one.</p>
+                  {uploadingPhoto && <p className="mt-1.5 text-xs text-muted-foreground">Uploading…</p>}
+                  {photoUploadError && <p role="alert" className="mt-1.5 text-xs text-red-400">{photoUploadError}</p>}
+                  {(form.flyerPhotoUrls?.length ?? 0) > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-3">
+                      {form.flyerPhotoUrls!.map((url) => (
+                        <div key={url} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={url} alt="Uploaded flyer photo" className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => removePhoto(url)}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs leading-none flex items-center justify-center hover:bg-black/80"
+                            aria-label="Remove photo">
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {(form.flyerPhotoUrls?.length ?? 0) === 0 && (
+                  <div>
+                    <label className="flex items-center gap-2.5 text-sm cursor-pointer">
+                      <input type="checkbox" checked={form.wantsAiPhotos ?? false}
+                        disabled={realPlanId !== "pro"}
+                        onChange={(e) => set("wantsAiPhotos", e.target.checked)}
+                        className="w-4 h-4 accent-[var(--brand-teal-bright)] disabled:opacity-50" />
+                      Let AI generate photos for flyers that don&apos;t have one of your own
+                    </label>
+                    {realPlanId !== null && realPlanId !== "pro" && (
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        <a href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">Upgrade to Pro</a> to unlock AI-generated photos.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <Label htmlFor="logo">Logo</Label>
+                  <input id="logo" type="file" accept="image/*"
+                    onChange={(e) => set("logoFileName", e.target.files?.[0]?.name)}
+                    className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--brand-teal-tint)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--brand-teal-bright)] hover:file:bg-[var(--brand-teal)]/20" />
+                  {form.logoFileName && <p className="mt-1.5 text-xs text-muted-foreground">Selected: {form.logoFileName}</p>}
+                </div>
+
+                <div>
+                  <Label htmlFor="existing">Existing marketing materials to reference</Label>
+                  <input id="existing" type="file"
+                    onChange={(e) => set("existingMaterialsFileName", e.target.files?.[0]?.name)}
+                    className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--brand-teal-tint)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--brand-teal-bright)] hover:file:bg-[var(--brand-teal)]/20" />
+                  {form.existingMaterialsFileName && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">Selected: {form.existingMaterialsFileName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="sitePrefs">Website / landing page preferences</Label>
+                  <textarea id="sitePrefs" rows={2} className={fieldBase()} value={form.websitePreferences}
+                    onChange={(e) => set("websitePreferences", e.target.value)}
+                    placeholder="Pages needed, must-have sections, examples you like…" />
+                </div>
+              </div>
+            </details>
           </div>
         )}
 

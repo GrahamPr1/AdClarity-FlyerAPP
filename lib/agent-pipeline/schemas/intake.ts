@@ -13,7 +13,12 @@ export const NormalizedIntakeSchema = z.object({
   targetAudience: z.string().min(1),
   contact: z.object({
     phone: z.string().min(1),
-    address: z.string().min(1),
+    /** Nullable since the first-campaign flow stopped asking for it — a flyer
+     *  with a phone number is perfectly usable without a street address, and
+     *  requiring one here blocked every new signup at the Intake Agent (it
+     *  returned needs_clarification asking for an address the shortened
+     *  onboarding no longer collects). Supplied later via /profile. */
+    address: z.string().nullable(),
     website: z.string().nullable(),
     social: z.array(socialHandleEntrySchema()).nullable(),
     /** The person to contact, not the business itself — collected upfront on the website-scrape Path A form (see components/guided-setup-flow.tsx); never asked for on the manual guided flow, so null there. */

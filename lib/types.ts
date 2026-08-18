@@ -141,6 +141,35 @@ export interface IntakeSubmission {
   submittedAt?: string
 }
 
+// ---- Campaign defaults (optional profile) ----------------------------------
+//
+// The reusable half of an intake submission: brand identity and contact
+// details that are the SAME for every campaign this business ever runs.
+//
+// These used to sit inside the onboarding form as steps 4 and 6, which meant
+// a brand-new user had to page through ~15 optional inputs before they could
+// see a single flyer — even though only five fields are actually required to
+// generate one. They're now collected here instead, after the first campaign
+// exists and the product has proven itself, and merged into every subsequent
+// submission as defaults (see OnboardingForm's initial state).
+//
+// Deliberately NOT the same thing as either existing "profile" record:
+//   - BusinessProfileRecord is form-fill's saved info SOURCE (a file/link).
+//   - SavedBrandProfile is the Brand Agent's own OUTPUT, inferred by AI.
+// This one is the client's own raw answers, which is what should win when
+// re-filling a form they'll see and edit.
+export interface CampaignDefaults {
+  savedAt: string
+  yearsInBusiness: string
+  brandColors: string
+  preferredStyle: BrandStyle
+  voiceTone: string
+  contactName: string
+  website: string
+  address: string
+  socialHandles: string
+}
+
 // ---- Client records (usage limits) ---------------------------------------
 
 // Persisted per-email record used for real enforcement of each plan's

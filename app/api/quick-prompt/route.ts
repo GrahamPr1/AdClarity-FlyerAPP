@@ -121,13 +121,21 @@ export async function POST(request: NextRequest) {
     ? savedBrand.contact
     : {
         phone: body.phone?.trim() || "",
-        address: body.address?.trim() || "",
+        // Null, not "", when absent — address is optional everywhere now (see
+        // the note on contact.address in lib/agent-pipeline/schemas/intake.ts).
+        address: body.address?.trim() || null,
         website: null,
         social: null,
         contactName: null,
       }
-  if (!contact.phone || !contact.address) {
-    return NextResponse.json({ error: "Missing required fields: phone, address (or use your saved brand)" }, { status: 422 })
+  // Only the phone is genuinely needed: it's the flyer's call-to-action.
+  // Requiring an address here rejected submissions the rest of the pipeline
+  // is perfectly happy to build.
+  if (!contact.phone) {
+    return NextResponse.json(
+      { error: "missing_phone", message: "Add a phone number so your flyer has a way for customers to reach you." },
+      { status: 422 },
+    )
   }
 
   const businessName = savedBrand?.brandProfile.businessName || body.businessName?.trim() || parsed.businessNameGuess || `${parsed.industry} Business`

@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BusinessCategory, BusinessProfileRecord, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
+import type { BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { sha256Hex } from "./auth"
@@ -419,6 +419,10 @@ function isAdminKey(email: string) {
 function businessNameKey(email: string) {
   return `client:${email}:businessName`
 }
+function campaignDefaultsKey(email: string) {
+  return `client:${email}:campaignDefaults`
+}
+
 function createdAtKey(email: string) {
   return `client:${email}:createdAt`
 }
@@ -487,6 +491,25 @@ export async function recordClientCreatedAtIfUnset(email: string): Promise<void>
 // treatment as businessCategory, never touched by the AI pipeline. There's
 // no per-submission history kept, only the most recent name, same as
 // businessCategory.
+/**
+ * A client's reusable brand/contact answers — see CampaignDefaults in
+ * lib/types.ts. Null until they've completed the optional profile step, which
+ * is exactly why every field the onboarding form pulls from here has to stay
+ * optional at the API level: a first campaign is generated before this exists.
+ */
+export async function getCampaignDefaults(email: string): Promise<CampaignDefaults | null> {
+  return (await redis.get<CampaignDefaults>(campaignDefaultsKey(email))) ?? null
+}
+
+export async function saveCampaignDefaults(
+  email: string,
+  defaults: Omit<CampaignDefaults, "savedAt">,
+): Promise<CampaignDefaults> {
+  const record: CampaignDefaults = { ...defaults, savedAt: new Date().toISOString() }
+  await redis.set(campaignDefaultsKey(email), record)
+  return record
+}
+
 export async function setClientBusinessName(email: string, businessName: string): Promise<void> {
   await redis.set(businessNameKey(email), businessName)
 }

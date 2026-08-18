@@ -467,6 +467,51 @@ export function FlyerCard({
   )
 }
 
+/* ------------------------------ Profile nudge -----------------------------
+ * Where the optional half of the old six-step onboarding now surfaces.
+ *
+ * Those fields (brand colors, voice, style, website, address, socials) were
+ * removed from the first-campaign path because none of them are required to
+ * generate one — they only made a new signup page through ~15 inputs before
+ * seeing any result. They're worth collecting eventually, so they're offered
+ * here instead: after a campaign exists, once the product has proven itself.
+ *
+ * Hidden entirely once saved, and dismissible before that. Deliberately not a
+ * modal and not repeated — it's an offer, not a demand.
+ */
+function ProfileNudge() {
+  const [dismissed, setDismissed] = useState(false)
+  const { data } = useSWR<{ defaults: unknown | null }>("/api/campaign-defaults", fetcher)
+
+  // Render nothing until we know — flashing a "finish your profile" prompt at
+  // someone who already finished it is worse than showing it a moment late.
+  if (!data || data.defaults || dismissed) return null
+
+  return (
+    <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-card p-4">
+      <div className="min-w-[16rem] flex-1">
+        <p className="text-sm font-medium">Want your next campaign more on-brand?</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Add your colors, tone, and contact details once — every future campaign uses them
+          automatically. Takes a minute, entirely optional.
+        </p>
+      </div>
+      <a
+        href="/profile"
+        className="rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)]"
+      >
+        Add brand details
+      </a>
+      <button
+        onClick={() => setDismissed(true)}
+        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        Not now
+      </button>
+    </div>
+  )
+}
+
 /* ------------------------------- Upsell modal ----------------------------
  * "Send request" used to be a lie: the textarea wasn't bound to any state
  * and the button only called onClose(), so a client could type out exactly
@@ -791,6 +836,12 @@ export function DashboardClient() {
                   </div>
                 </div>
               )}
+
+              {/* The optional profile step, offered where it belongs: AFTER a
+                  first campaign exists, rather than as two extra form steps
+                  standing between signup and any visible result. Dismissible,
+                  and hidden once they've saved anything. */}
+              <ProfileNudge />
 
               <div className="mt-12 flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Flyers & Pages</h2>

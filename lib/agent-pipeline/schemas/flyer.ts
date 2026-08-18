@@ -60,7 +60,9 @@ export const FlyerAgentInputSchema = z.object({
   brandProfile: z.any(), // BrandProfile — validated upstream by the Brand Agent
   contact: z.object({
     phone: z.string(),
-    address: z.string(),
+    /** Nullable — see the note on contact.address in schemas/intake.ts. The
+     *  flyer simply omits the address line when there isn't one. */
+    address: z.string().nullable(),
     website: z.string().nullable(),
     social: z.array(socialHandleEntrySchema()).nullable(),
   }),
