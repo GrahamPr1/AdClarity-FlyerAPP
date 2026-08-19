@@ -16,7 +16,6 @@ import {
   CAMPAIGN_ASSETS,
   COMPARISON,
   CTA_REASSURANCE,
-  DEMO_PROMO,
   FAQS,
   MICRO_TRUST,
   OBJECTIONS,
@@ -24,7 +23,6 @@ import {
   PRIMARY_CTA_LABEL,
   SECONDARY_CTA_HREF,
   SECONDARY_CTA_LABEL,
-  TRUST_POINTS,
   USE_CASES,
 } from "@/lib/marketing"
 
@@ -110,14 +108,6 @@ const ICONS = {
   pen: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>,
   chart: <><path d="M3 3v18h18" /><path d="m7 15 4-4 3 3 5-6" /></>,
   bolt: <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />,
-}
-
-const ASSET_ICONS: Record<string, React.ReactNode> = {
-  flyer: ICONS.print,
-  qr: ICONS.qr,
-  instagram: ICONS.share,
-  text: ICONS.chat,
-  nextdoor: ICONS.home,
 }
 
 const ACCENTS = [
@@ -222,38 +212,6 @@ const STEPS = [
 ]
 
 /* ------------------------------- Capabilities ----------------------------- */
-/**
- * Deliberately only the capabilities NOT already covered by an earlier
- * section. The campaign creation, multi-channel output, QR tracking, and
- * speed cards that used to live here were restating the hero, What You Get,
- * the tracking section, and the How It Works headline respectively — eight
- * cards here made this the third consecutive "convince me" block on the page.
- */
-const CAPABILITIES = [
-  {
-    icon: ICONS.brand,
-    title: "Brand matching",
-    desc: "Your logo, colors, and business details are saved once and reused, so every campaign looks like it came from the same company.",
-  },
-  {
-    icon: ICONS.pen,
-    title: "Change it in plain English",
-    desc: "Not quite right? Ask for a different take, or just say what to change — there's no editor to learn.",
-  },
-  {
-    icon: ICONS.print,
-    title: "Print it yourself, or ask us",
-    desc: "Download and print any flyer, or request printed copies shipped to you and we'll follow up to sort out the details.",
-    tier: "Basic",
-  },
-  {
-    icon: ICONS.save,
-    title: "Saved business profile",
-    desc: "Stop re-typing the same business information. Save it once and reuse it to fill out forms automatically.",
-    tier: "Pro",
-  },
-]
-
 /* --------------------------------- Page ---------------------------------- */
 export default function Page() {
   return (
@@ -335,24 +293,32 @@ export default function Page() {
           </div>
         </section>
 
-        {/* ── PROBLEM ────────────────────────────────────────────────────── */}
-        <section className="border-t border-white/[0.06] px-6 py-20 md:px-12 lg:px-20">
+        {/* ── PROBLEM + WHAT YOU GET (merged) ────────────────────────────────
+            These were two separate full-height sections whose headlines said
+            the same thing ("Stop recreating the same promotion five different
+            ways." / "Create once. Use everywhere.") and which BOTH enumerated
+            the five assets — while the hero visual above already shows all
+            five a third time. Merged into one: the comparison below IS the
+            asset list, so the separate six-card grid was ~1050px of repetition
+            standing between the visitor and the pricing. */}
+        <section id="what-you-get" className="scroll-mt-24 border-t border-white/[0.06] px-6 py-16 md:px-12 lg:px-20">
           <div className="mx-auto max-w-6xl">
             <div className="rounded-3xl bg-[var(--surface-white)] px-6 py-14 shadow-2xl shadow-black/40 md:px-14 md:py-16">
               <div className="mx-auto max-w-3xl text-center">
                 <span className="inline-flex items-center gap-2 rounded-full border border-[var(--on-white)]/10 bg-[var(--surface-soft)] px-3 py-1 text-[11px] uppercase tracking-widest text-[var(--brand-teal)]">
                   <span className="h-1.5 w-1.5 rounded-full bg-[var(--brand-teal)]" />
-                  The problem
+                  What you get
                 </span>
                 <RevealText
                   as="h2"
                   className="mt-6 text-balance text-2xl font-semibold leading-snug tracking-tight text-[var(--on-white)] md:text-3xl lg:text-4xl"
                 >
-                  Stop recreating the same promotion five different ways.
+                  Create once. Use everywhere.
                 </RevealText>
                 <Reveal delay={120}>
                   <p className="mt-5 text-pretty text-base leading-relaxed text-[var(--on-white-muted)] md:text-lg">
-                    You shouldn&apos;t need a designer, a design tool, a chatbot, and a QR
+                    Stop recreating the same promotion five different ways. You
+                    shouldn&apos;t need a designer, a design tool, a chatbot, and a QR
                     generator just to promote one offer.
                   </p>
                 </Reveal>
@@ -409,112 +375,23 @@ export default function Page() {
                   </div>
                 </Reveal>
               </div>
-            </div>
-          </div>
-        </section>
 
-        {/* ── WHAT YOU GET ───────────────────────────────────────────────── */}
-        <section id="what-you-get" className="scroll-mt-24 border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
-          <div className="mx-auto max-w-6xl">
-            <Reveal>
-              <Tag>What you get</Tag>
-            </Reveal>
-            <RevealText
-              as="h2"
-              className="mt-6 max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-tight md:text-4xl"
-            >
-              Create once. Use everywhere.
-            </RevealText>
-            <Reveal delay={80}>
-              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                One promotion becomes the marketing materials you need to get it in front of
-                customers — each piece written and designed for where it&apos;s going, not
-                copy-pasted between them.
+              {/* The only content kept from the deleted card grid: which tier
+                  includes what. Nothing else on the page states it. */}
+              <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-[var(--on-white-muted)]">
+                The free tier includes the flyer itself, so you can judge the design quality
+                before paying. QR tracking, the Instagram/text/Nextdoor versions, and print
+                requests start on Basic.{" "}
+                <a href="#pricing" className="font-medium text-[var(--brand-teal)] underline">
+                  Compare plans
+                </a>
               </p>
-            </Reveal>
-
-            {/* Frames the five pieces as ONE campaign rather than five
-                unrelated feature cards: a promotion goes in at the top, the
-                set comes out, and it ends ready to share. */}
-            <Reveal delay={120}>
-              <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4 text-center">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/60">
-                  Your promotion
-                </p>
-                <p className="mt-1.5 text-lg font-semibold text-[var(--brand-teal-bright)]">
-                  &ldquo;{DEMO_PROMO}&rdquo;
-                </p>
-                <svg
-                  width="14"
-                  height="20"
-                  viewBox="0 0 16 26"
-                  fill="none"
-                  className="mx-auto mt-3 text-white/20"
-                  aria-hidden="true"
-                >
-                  <path d="M8 0v20" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 3" />
-                  <path d="M3 18l5 6 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-            </Reveal>
-
-            <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {CAMPAIGN_ASSETS.map((a, i) => {
-                const accent = ACCENTS[i % ACCENTS.length]
-                return (
-                  <Reveal key={a.key} delay={i * 80}>
-                    <div className={`flex h-full flex-col rounded-2xl border border-white/10 bg-card p-7 hover:border-white/20 ${CARD_HOVER}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div
-                          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
-                          style={{ background: accent.bg, color: accent.fg }}
-                        >
-                          <Icon path={ASSET_ICONS[a.key]} />
-                        </div>
-                        {!a.onTrial && (
-                          <span className="rounded-full bg-[var(--brand-slate-tint)] px-2 py-0.5 text-[11px] font-medium text-[var(--brand-slate)]">
-                            Basic &amp; Pro
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="mt-5 text-lg font-semibold">{a.label}</h3>
-                      <p className="mt-2.5 flex-1 text-sm leading-relaxed text-muted-foreground">{a.blurb}</p>
-                    </div>
-                  </Reveal>
-                )
-              })}
-
-              {/* Honest scope note, given the same visual weight as a card so
-                  it isn't buried under the good news. */}
-              <Reveal delay={CAMPAIGN_ASSETS.length * 80}>
-                <div className="flex h-full flex-col justify-center rounded-2xl border border-dashed border-white/12 bg-white/[0.02] p-7">
-                  <p className="text-sm font-medium">What&apos;s included where</p>
-                  <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
-                    The free tier includes the flyer itself, so you can see the design quality
-                    before paying. QR tracking, the Instagram/text/Nextdoor versions, and print
-                    requests start on Basic.
-                  </p>
-                  <a href="#pricing" className="mt-4 text-sm font-medium text-[var(--brand-teal-bright)] transition-colors hover:text-[var(--brand-teal)]">
-                    Compare plans →
-                  </a>
-                </div>
-              </Reveal>
             </div>
-
-            {/* Closes the loop opened by the "Your promotion" banner above. */}
-            <Reveal delay={120}>
-              <div className="mt-6 flex items-center justify-center gap-3 rounded-2xl border border-[var(--brand-teal)]/30 bg-[var(--brand-teal-tint)] px-5 py-4">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-teal-bright)" strokeWidth="2.2" aria-hidden="true">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <p className="text-sm font-semibold">Ready to share</p>
-              </div>
-            </Reveal>
           </div>
         </section>
 
         {/* ── HOW IT WORKS ───────────────────────────────────────────────── */}
-        <section id="how-it-works" className="scroll-mt-24 border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
+        <section id="how-it-works" className="scroll-mt-24 border-t border-white/[0.06] px-6 py-18 md:px-12 lg:px-20">
           <div className="mx-auto max-w-6xl">
             <div className="mb-14 text-center">
               <Reveal>
@@ -571,7 +448,7 @@ export default function Page() {
         </section>
 
         {/* ── SEE IT / INTERACTIVE DEMO ──────────────────────────────────── */}
-        <section id="see-it" className="scroll-mt-24 border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
+        <section id="see-it" className="scroll-mt-24 border-t border-white/[0.06] px-6 py-18 md:px-12 lg:px-20">
           <div className="mx-auto max-w-6xl">
             <div className="mb-12">
               <Reveal>
@@ -598,8 +475,55 @@ export default function Page() {
           </div>
         </section>
 
+        {/* ── PRICING ────────────────────────────────────────────────────── */}
+        <section id="pricing" className="relative scroll-mt-24 overflow-hidden border-t border-white/[0.06] px-6 py-18 md:px-12 lg:px-20">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+            <div
+              className="absolute top-1/2 left-1/2 h-[42rem] w-[42rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-25 blur-[130px]"
+              style={{ background: "radial-gradient(circle, rgba(94,184,240,0.3), transparent 65%)" }}
+            />
+          </div>
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-14 text-center">
+              <Reveal>
+                <Tag>Pricing</Tag>
+              </Reveal>
+              <RevealText
+                as="h2"
+                className="mt-6 text-balance text-3xl font-semibold leading-tight tracking-tight md:text-4xl"
+              >
+                Start free. Upgrade when you&apos;re ready.
+              </RevealText>
+              <Reveal delay={80}>
+                <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
+                  {PLAN_LIMITS.trial} campaigns free with no credit card, so you can judge the
+                  design quality before you decide anything.
+                </p>
+              </Reveal>
+            </div>
+
+            <PricingCards />
+
+            <Reveal delay={160}>
+              <div className="mt-10 flex flex-col items-center gap-3">
+                <p className="text-center text-base font-medium">
+                  Start free. Upgrade when you need more.
+                </p>
+                <MicroTrustRow className="justify-center" />
+                {/* The one line worth keeping from the deleted Trust section —
+                    the rest of it restated the pricing table and the FAQ. */}
+                <p className="mx-auto mt-2 max-w-2xl text-center text-sm leading-relaxed text-muted-foreground">
+                  Every flyer you make is yours to keep and reuse, including if you stop
+                  subscribing. Not sure which plan fits? Reach out anytime — we&apos;re happy to
+                  help you pick.
+                </p>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
         {/* ── USE CASES ──────────────────────────────────────────────────── */}
-        <section id="use-cases" className="relative scroll-mt-24 overflow-hidden border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
+        <section id="use-cases" className="relative scroll-mt-24 overflow-hidden border-t border-white/[0.06] px-6 py-18 md:px-12 lg:px-20">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
             <div
               className="absolute top-0 right-0 h-[34rem] w-[34rem] rounded-full opacity-25 blur-[130px]"
@@ -638,7 +562,7 @@ export default function Page() {
         </section>
 
         {/* ── TRACKING / RESULTS ─────────────────────────────────────────── */}
-        <section className="border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
+        <section className="border-t border-white/[0.06] px-6 py-18 md:px-12 lg:px-20">
           <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2 lg:gap-16">
             <div>
               <Reveal>
@@ -718,8 +642,13 @@ export default function Page() {
           </div>
         </section>
 
-        {/* ── WHY ONEFLYER / COMPARISON ──────────────────────────────────── */}
-        <section className="border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
+        {/* ── WHY ONEFLYER / COMPARISON ────────────────────────────────────
+            The four capability cards that used to sit under this table were
+            removed: brand matching, plain-English edits, printing and the
+            saved profile are each already covered by the merged What You Get
+            section, the tracking section, or the FAQ. The table is the part
+            that earns its space. */}
+        <section className="border-t border-white/[0.06] px-6 py-18 md:px-12 lg:px-20">
           <div className="mx-auto max-w-5xl">
             <div className="text-center">
               <Reveal>
@@ -776,39 +705,11 @@ export default function Page() {
                 ))}
               </div>
             </Reveal>
-
-            {/* Capabilities grid */}
-            <div className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {CAPABILITIES.map((c, i) => {
-                const accent = ACCENTS[i % ACCENTS.length]
-                return (
-                  <Reveal key={c.title} delay={(i % 4) * 80}>
-                    <div className={`flex h-full flex-col rounded-2xl border border-white/10 bg-card p-6 hover:border-white/20 ${CARD_HOVER}`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div
-                          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
-                          style={{ background: accent.bg, color: accent.fg }}
-                        >
-                          <Icon path={c.icon} className="h-5 w-5" />
-                        </div>
-                        {c.tier && (
-                          <span className="rounded-full bg-[var(--brand-slate-tint)] px-2 py-0.5 text-[10px] font-medium text-[var(--brand-slate)]">
-                            {c.tier}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="mt-4 text-[15px] font-semibold leading-snug">{c.title}</h3>
-                      <p className="mt-2 flex-1 text-[13px] leading-relaxed text-muted-foreground">{c.desc}</p>
-                    </div>
-                  </Reveal>
-                )
-              })}
-            </div>
           </div>
         </section>
 
         {/* ── OBJECTIONS ─────────────────────────────────────────────────── */}
-        <section className="border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
+        <section className="border-t border-white/[0.06] px-6 py-18 md:px-12 lg:px-20">
           <div className="mx-auto max-w-5xl">
             <div className="text-center">
               <Reveal>
@@ -851,83 +752,8 @@ export default function Page() {
           </div>
         </section>
 
-        {/* ── TRUST ──────────────────────────────────────────────────────────
-            Deliberately not social proof — there are no customers to quote
-            yet, and inventing some would be the fastest way to lose the trust
-            this section exists to build. See TRUST_POINTS in lib/marketing.ts.
-        */}
-        <section className="border-t border-white/[0.06] px-6 py-20 md:px-12 lg:px-20">
-          <div className="mx-auto max-w-5xl">
-            <div className="text-center">
-              <RevealText
-                as="h2"
-                className="text-balance text-2xl font-semibold leading-tight tracking-tight md:text-3xl"
-              >
-                Built for local businesses, priced in the open.
-              </RevealText>
-            </div>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {TRUST_POINTS.map((t, i) => (
-                <Reveal key={t.title} delay={(i % 4) * 70}>
-                  <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-card p-6">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)]">
-                      <Icon path={ICONS.check} className="h-4 w-4" />
-                    </span>
-                    <h3 className="mt-4 text-[15px] font-semibold leading-snug">{t.title}</h3>
-                    <p className="mt-2 flex-1 text-[13px] leading-relaxed text-muted-foreground">{t.body}</p>
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── PRICING ────────────────────────────────────────────────────── */}
-        <section id="pricing" className="relative scroll-mt-24 overflow-hidden border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-            <div
-              className="absolute top-1/2 left-1/2 h-[42rem] w-[42rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-25 blur-[130px]"
-              style={{ background: "radial-gradient(circle, rgba(94,184,240,0.3), transparent 65%)" }}
-            />
-          </div>
-          <div className="mx-auto max-w-6xl">
-            <div className="mb-14 text-center">
-              <Reveal>
-                <Tag>Pricing</Tag>
-              </Reveal>
-              <RevealText
-                as="h2"
-                className="mt-6 text-balance text-3xl font-semibold leading-tight tracking-tight md:text-4xl"
-              >
-                Start free. Upgrade when you&apos;re ready.
-              </RevealText>
-              <Reveal delay={80}>
-                <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                  {PLAN_LIMITS.trial} campaigns free with no credit card, so you can judge the
-                  design quality before you decide anything.
-                </p>
-              </Reveal>
-            </div>
-
-            <PricingCards />
-
-            <Reveal delay={160}>
-              <div className="mt-10 flex flex-col items-center gap-3">
-                <p className="text-center text-base font-medium">
-                  Start free. Upgrade when you need more.
-                </p>
-                <MicroTrustRow className="justify-center" />
-                <p className="mx-auto mt-2 max-w-2xl text-center text-sm leading-relaxed text-muted-foreground">
-                  Not sure which plan fits your business? Reach out anytime — we&apos;re happy to
-                  help you pick.
-                </p>
-              </div>
-            </Reveal>
-          </div>
-        </section>
-
         {/* ── FAQ ────────────────────────────────────────────────────────── */}
-        <section id="faq" className="scroll-mt-24 border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
+        <section id="faq" className="scroll-mt-24 border-t border-white/[0.06] px-6 py-18 md:px-12 lg:px-20">
           <div className="mx-auto max-w-3xl">
             <div className="mb-10 text-center">
               <Reveal>
@@ -958,7 +784,7 @@ export default function Page() {
         </section>
 
         {/* ── FINAL CTA ──────────────────────────────────────────────────── */}
-        <section className="relative overflow-hidden border-t border-white/[0.06] px-6 py-24 md:px-12 lg:px-20">
+        <section className="relative overflow-hidden border-t border-white/[0.06] px-6 py-18 md:px-12 lg:px-20">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
             <div
               className="absolute top-1/2 left-1/2 h-[40rem] w-[40rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-30 blur-[120px]"
