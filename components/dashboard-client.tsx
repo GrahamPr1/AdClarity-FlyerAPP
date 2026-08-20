@@ -112,12 +112,16 @@ const THUMB_IFRAME_HEIGHT = 1100
 
 function FlyerThumbnail({
   downloadUrl,
+  viewUrl,
   title,
   iframeWidth = THUMB_IFRAME_WIDTH,
   iframeHeight = THUMB_IFRAME_HEIGHT,
   scale = THUMB_SCALE,
 }: {
+  /** data: URL — fine for the sandboxed preview iframe below. */
   downloadUrl: string
+  /** Real same-origin URL for the new-tab link. Browsers block top-level navigation to data: URLs, so this cannot be downloadUrl. */
+  viewUrl: string
   title: string
   iframeWidth?: number
   iframeHeight?: number
@@ -146,9 +150,13 @@ function FlyerThumbnail({
       {/* Sits above the inert preview iframe (pointerEvents none, sandboxed)
           so this is the one clickable thing on the thumbnail — opens the
           real flyer full-size in a new tab for anyone who just wants to
-          look, not download. */}
+          look, not download.
+
+          Points at /api/flyers/[id]/view, NOT at downloadUrl: every major
+          browser blocks top-level navigation to a data: URL, so this button
+          silently did nothing when it pointed at the data URL directly. */}
       <a
-        href={downloadUrl}
+        href={viewUrl}
         target="_blank"
         rel="noopener noreferrer"
         title={`Open ${title} in a new tab`}
@@ -209,7 +217,7 @@ function CopyableText({ label, text }: { label: string; text: string }) {
   )
 }
 
-function RepurposedSection({ repurposed, title }: { repurposed: RepurposedFlyerContent; title: string }) {
+function RepurposedSection({ repurposed, title, viewUrl }: { repurposed: RepurposedFlyerContent; title: string; viewUrl: string }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -229,7 +237,7 @@ function RepurposedSection({ repurposed, title }: { repurposed: RepurposedFlyerC
                 Download
               </a>
             </div>
-            <FlyerThumbnail downloadUrl={repurposed.instagramDownloadUrl} title={`${title} Instagram`} iframeWidth={1080} iframeHeight={1080} scale={0.14} />
+            <FlyerThumbnail downloadUrl={repurposed.instagramDownloadUrl} viewUrl={`${viewUrl}&variant=instagram`} title={`${title} Instagram`} iframeWidth={1080} iframeHeight={1080} scale={0.14} />
           </div>
           <CopyableText label="Instagram caption" text={repurposed.instagramCaption} />
           <CopyableText label="Text blast blurb" text={repurposed.textBlurb} />
@@ -333,6 +341,7 @@ export function FlyerCard({
   onDelete,
   onOrderPrint,
   showUpgradeHint,
+  ownerEmail,
 }: {
   flyer: FlyerDeliverable
   onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
@@ -340,6 +349,8 @@ export function FlyerCard({
   onOrderPrint?: (payload: { flyerId: string; quantity: number; shippingName: string; shippingAddress: string; notes: string }) => Promise<{ ok: boolean; error?: string }>
   /** True when this flyer's client is on Trial — QR tracking, repurposing, and print requests aren't generated/available at all (real, server-side gate), so this shows why instead of silently having nothing. */
   showUpgradeHint?: boolean
+  /** Only set by the admin roster view, which renders other clients' flyers. Threaded into the view URL so admin can open them; ignored for a client's own dashboard. */
+  ownerEmail?: string
 }) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
@@ -388,11 +399,17 @@ export function FlyerCard({
     // reset `deleting`/`confirmingDelete` here.
   }
 
+  // Real same-origin URL for "open in new tab" — a data: URL cannot be used
+  // for top-level navigation (browsers block it). ownerEmail is passed only
+  // by the admin roster, which views other clients' flyers; a client's own
+  // dashboard omits it and the route falls back to their session identity.
+  const viewUrl = `/api/flyers/${flyer.id}/view?v=1${ownerEmail ? `&email=${encodeURIComponent(ownerEmail)}` : ""}`
+
   return (
     <div className="rounded-xl border border-white/10 bg-card overflow-hidden flex flex-col">
       <div className="aspect-[4/3] bg-[var(--brand-navy-deep)] flex items-center justify-center">
         {ready && flyer.downloadUrl ? (
-          <FlyerThumbnail downloadUrl={flyer.downloadUrl} title={flyer.title} />
+          <FlyerThumbnail downloadUrl={flyer.downloadUrl} viewUrl={viewUrl} title={flyer.title} />
         ) : failed ? (
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-red-400/60">
             <circle cx="12" cy="12" r="9" />
@@ -405,10 +422,14 @@ export function FlyerCard({
           </svg>
         )}
       </div>
-      <div className="p-4 flex items-center justify-between gap-2">
+      {/* Stacked, not a single row: the title+stats column and the button
+          group used to sit side by side, and at real card width the
+          "N scanned · N clicked" text ran straight into the Download
+          button. */}
+      <div className="p-4 flex flex-col gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{flyer.title}</p>
-          <div className="mt-1.5 flex items-center gap-2">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <StatusBadge status={flyer.status} />
             {statsData?.stats && (
               <span className="text-xs text-muted-foreground" title="QR scans / CTA clicks">
@@ -420,7 +441,7 @@ export function FlyerCard({
           {retryError && <p className="mt-1.5 text-xs text-amber-300 leading-snug">{retryError}</p>}
           {deleteError && <p className="mt-1.5 text-xs text-amber-300 leading-snug">{deleteError}</p>}
         </div>
-        <div className="shrink-0 flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {ready && flyer.downloadUrl && (
             <a href={flyer.downloadUrl}
               download={`${flyer.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.html`}
@@ -448,7 +469,7 @@ export function FlyerCard({
       </div>
       {ready && flyer.repurposed && (
         <div className="px-4 pb-4">
-          <RepurposedSection repurposed={flyer.repurposed} title={flyer.title} />
+          <RepurposedSection repurposed={flyer.repurposed} title={flyer.title} viewUrl={viewUrl} />
         </div>
       )}
       {ready && onOrderPrint && (

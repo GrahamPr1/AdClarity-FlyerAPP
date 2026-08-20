@@ -3,6 +3,7 @@ import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineSt
 import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
+import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage } from "./higgsfield"
 import { createFlyerTrackingCode, backfillTrackingContent } from "./qrTracking"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
@@ -106,6 +107,26 @@ function ensureScrollable(html: string): string {
   return html + SCROLL_SAFETY_CSS
 }
 
+/**
+ * The QR image is handed to the Flyer Agent as this short token instead of a
+ * real data URL, and swapped for the real one here after generation.
+ *
+ * A 512px QR data URL is ~4,200 characters (~1,200 tokens) of base64, and the
+ * agent was being asked to reproduce it VERBATIM inside its HTML — per flyer,
+ * in both the prompt and the completion. That was the single largest chunk of
+ * generation time (a Pro run spent ~215s on the flyer stage and had been
+ * timing out entirely), and it was also a correctness hazard: one wrong
+ * base64 character produces a silently broken QR code on a flyer that may
+ * already be printed. Emitting a 15-character token instead removes both
+ * problems, and substitution in code is exact by construction.
+ */
+export const QR_PLACEHOLDER = "{{QR_CODE_SRC}}"
+
+function substituteQr(html: string, qrDataUrl: string | null): string {
+  if (!qrDataUrl) return html
+  return html.split(QR_PLACEHOLDER).join(qrDataUrl)
+}
+
 function toDataUrl(html: string): string {
   const base64 = Buffer.from(ensureScrollable(html), "utf-8").toString("base64")
   return `data:text/html;charset=utf-8;base64,${base64}`
@@ -205,18 +226,30 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
       : [],
   )
   stageMark(runId, t0, "tracking codes ready")
-  const flyerRequestsWithQr = flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: trackingByFlyerId.get(r.id)?.qrDataUrl ?? null }))
+  const flyerRequestsWithQr = flyerRequests.map((r) => ({
+    ...r,
+    // The token, not the 4KB data URL — see substituteQr above.
+    qrCodeDataUrl: trackingByFlyerId.get(r.id) ? QR_PLACEHOLDER : null,
+  }))
 
+  // includeRepurposing is now always false here: repurposing runs as its own
+  // call below. Asking for both in one response meant emitting two complete
+  // HTML documents plus three pieces of copy, which reliably blew
+  // PIPELINE_TIMEOUT_MS on Basic/Pro — and because the timeout failed the
+  // whole run, the client lost the FLYER too, not just the extra channels.
   const flyerResult = await runFlyerAgent({
     brandProfile,
     contact: intake.contact,
     photos,
     flyerRequests: flyerRequestsWithQr,
     batchSize: flyerRequests.length,
-    includeRepurposing: includeExtras,
+    includeRepurposing: false,
   }, email)
   stageMark(runId, t0, "flyer agent done")
 
+  // Flyers are marked Ready FIRST, before any repurposing is attempted, so
+  // the thing the client actually asked for is in their hands as early as
+  // possible and can't be lost to a later failure.
   for (const flyer of flyerResult.flyers) {
     const tracking = trackingByFlyerId.get(flyer.id)
     if (tracking) await backfillTrackingContent(tracking.code, flyer)
@@ -225,18 +258,55 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
       type: "flyer",
       id: flyer.id,
       status: "Ready",
-      downloadUrl: toDataUrl(flyer.html),
-      ...(flyer.repurposed && {
-        repurposed: {
-          instagramDownloadUrl: toDataUrl(flyer.repurposed.instagramHtml),
-          instagramCaption: flyer.repurposed.instagramCaption,
-          textBlurb: flyer.repurposed.textBlurb,
-          nextdoorPost: flyer.repurposed.nextdoorPost,
-        },
-      }),
+      downloadUrl: toDataUrl(substituteQr(flyer.html, tracking?.qrDataUrl ?? null)),
       trackingCode: tracking?.code,
     })
   }
+
+  if (!includeExtras) return
+
+  // Second pass: the Instagram/text/Nextdoor versions, one call per flyer,
+  // derived from that flyer's own generated copy so the offer is copied
+  // rather than re-invented (see the consistency rules in the repurpose
+  // prompt). Each is attached as it completes, and a failure here is logged
+  // and swallowed — the flyer is already delivered, so degrading to
+  // "flyer only" beats marking a finished campaign Failed.
+  await Promise.all(
+    flyerResult.flyers.map(async (flyer) => {
+      try {
+        const repurposed = await runRepurposeAgent(
+          {
+            brandProfile,
+            contact: intake.contact,
+            flyer: {
+              purpose: flyer.purpose,
+              headline: flyer.headline,
+              subheadline: flyer.subheadline,
+              offer: flyer.offer,
+              cta: flyer.cta,
+              disclaimer: flyer.disclaimer,
+              paletteUsed: flyer.paletteUsed,
+              fontsUsed: flyer.fontsUsed,
+            },
+          },
+          email,
+        )
+        await updateDeliverable(email, {
+          type: "flyer",
+          id: flyer.id,
+          repurposed: {
+            instagramDownloadUrl: toDataUrl(repurposed.instagramHtml),
+            instagramCaption: repurposed.instagramCaption,
+            textBlurb: repurposed.textBlurb,
+            nextdoorPost: repurposed.nextdoorPost,
+          },
+        })
+      } catch (e) {
+        console.error(`[agent-pipeline] Repurposing failed for flyer ${flyer.id} (flyer itself is delivered):`, e)
+      }
+    }),
+  )
+  stageMark(runId, t0, "repurposing done")
 }
 
 /**
@@ -293,13 +363,15 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
   const tracking = includeExtras ? await createFlyerTrackingCode(email, flyerRequest.id, intake) : null
   stageMark(runId, t0, "tracking code ready")
 
+  // Same two-pass split as runBatch — see the note there on why repurposing
+  // is no longer requested from the Flyer Agent in the same call.
   const flyerResult = await runFlyerAgent({
     brandProfile,
     contact: intake.contact,
     photos,
-    flyerRequests: [{ ...flyerRequest, qrCodeDataUrl: tracking?.qrDataUrl ?? null }],
+    flyerRequests: [{ ...flyerRequest, qrCodeDataUrl: tracking ? QR_PLACEHOLDER : null }],
     batchSize: 1,
-    includeRepurposing: includeExtras,
+    includeRepurposing: false,
   }, email)
   stageMark(runId, t0, "flyer agent done")
 
@@ -312,17 +384,44 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
     type: "flyer",
     id: flyer.id,
     status: "Ready",
-    downloadUrl: toDataUrl(flyer.html),
-    ...(flyer.repurposed && {
-      repurposed: {
-        instagramDownloadUrl: toDataUrl(flyer.repurposed.instagramHtml),
-        instagramCaption: flyer.repurposed.instagramCaption,
-        textBlurb: flyer.repurposed.textBlurb,
-        nextdoorPost: flyer.repurposed.nextdoorPost,
-      },
-    }),
+    downloadUrl: toDataUrl(substituteQr(flyer.html, tracking?.qrDataUrl ?? null)),
     trackingCode: tracking?.code,
   })
+
+  if (!includeExtras) return
+
+  try {
+    const repurposed = await runRepurposeAgent(
+      {
+        brandProfile,
+        contact: intake.contact,
+        flyer: {
+          purpose: flyer.purpose,
+          headline: flyer.headline,
+          subheadline: flyer.subheadline,
+          offer: flyer.offer,
+          cta: flyer.cta,
+          disclaimer: flyer.disclaimer,
+          paletteUsed: flyer.paletteUsed,
+          fontsUsed: flyer.fontsUsed,
+        },
+      },
+      email,
+    )
+    await updateDeliverable(email, {
+      type: "flyer",
+      id: flyer.id,
+      repurposed: {
+        instagramDownloadUrl: toDataUrl(repurposed.instagramHtml),
+        instagramCaption: repurposed.instagramCaption,
+        textBlurb: repurposed.textBlurb,
+        nextdoorPost: repurposed.nextdoorPost,
+      },
+    })
+    stageMark(runId, t0, "repurposing done")
+  } catch (e) {
+    console.error(`[agent-pipeline] Repurposing failed on retry for flyer ${flyer.id} (flyer itself is delivered):`, e)
+  }
 }
 
 /**

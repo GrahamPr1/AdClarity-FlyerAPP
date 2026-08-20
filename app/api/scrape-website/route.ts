@@ -57,7 +57,17 @@ export async function POST(request: NextRequest) {
 
   let extraction: Awaited<ReturnType<typeof runScrapeAgent>>
   try {
-    extraction = await runScrapeAgent({ pages: crawlResult.pages, socialLinks: crawlResult.socialLinks }, email)
+    extraction = await runScrapeAgent(
+      {
+        pages: crawlResult.pages,
+        socialLinks: crawlResult.socialLinks,
+        // The client typed these on the Path A form — give them to the agent
+        // so it never blocks asking for a phone it can't find on the site.
+        providedPhone: body.phone?.trim() ?? "",
+        providedContactName: body.fullName?.trim() ?? "",
+      },
+      email,
+    )
   } catch (err) {
     console.error("[scrape-agent] Extraction call failed:", err instanceof Error ? err.message : err)
     return NextResponse.json({ scraped: false, reason: "agent_error", message: FAILURE_MESSAGES.agent_error })

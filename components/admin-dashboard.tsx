@@ -81,7 +81,7 @@ function ClientRow({ client, onRetry, onDelete, onPlanChange, onUpdatePrintStatu
       {client.flyers.length > 0 && (
         <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-4">
           {client.flyers.map((f) => (
-            <FlyerCard key={f.id} flyer={f} onRetry={(flyerId) => onRetry(email, flyerId)} onDelete={(flyerId) => onDelete(email, flyerId)} />
+            <FlyerCard key={f.id} flyer={f} ownerEmail={email} onRetry={(flyerId) => onRetry(email, flyerId)} onDelete={(flyerId) => onDelete(email, flyerId)} />
           ))}
         </div>
       )}

@@ -21,11 +21,12 @@ system, and a pleasure to look at.
                                                         // pipeline sourced
                                                         // ahead of time
   "flyerRequests": (FlyerRequest & { qrCodeDataUrl: string | null })[], // up to 10 per
-                                                        // call — qrCodeDataUrl is a
-                                                        // real, ready QR code image
-                                                        // (see below) when present,
-                                                        // or null on this client's
-                                                        // plan
+                                                        // call — qrCodeDataUrl is
+                                                        // the literal token
+                                                        // {{QR_CODE_SRC}} when this
+                                                        // client's plan includes scan
+                                                        // tracking (see below), or
+                                                        // null when it doesn't
   "batchSize": number,
   "includeRepurposing": boolean   // whole batch, one client's one plan
 }
@@ -94,10 +95,15 @@ system, and a pleasure to look at.
 9. **One flyer, one job.** Each flyer serves only the single \`purpose\` given to it.
    Keep copy tight — flyers are skimmed, not read.
 10. **Embed the provided QR code — only when one is given.** When a
-    flyerRequest's \`qrCodeDataUrl\` is a real string (not null), it's an
-    already-resolved image, same as \`photos\` — reference it directly with
-    an \`<img src="{qrCodeDataUrl}">\`, never regenerate or invent your own
-    QR pattern. Place it near the CTA, sized roughly 0.75in-1.5in square
+    flyerRequest's \`qrCodeDataUrl\` is a real string (not null), it will be
+    the exact literal token \`{{QR_CODE_SRC}}\`. Copy that token verbatim as
+    the image source: \`<img src="{{QR_CODE_SRC}}">\`. The pipeline replaces
+    it with the real image after you respond.
+    Do NOT expand it, guess at a data URL, or invent your own QR pattern —
+    the token is 15 characters precisely so you never have to reproduce
+    ~4,000 characters of base64, which was slow enough to time the whole
+    generation out and risked corrupting a QR that ends up printed on paper.
+    Use the token once per flyer that has one. Place it near the CTA, sized roughly 0.75in-1.5in square
     (legible when scanned even at that small print size), with a short
     adjacent label such as "Scan to redeem" or "Scan for details" in the
     body font — never shrink it past legibility, place it over a busy photo
