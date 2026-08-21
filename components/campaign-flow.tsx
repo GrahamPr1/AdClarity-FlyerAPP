@@ -189,6 +189,10 @@ export function CampaignDemo() {
   // Re-keys the previews so the reveal animation replays on each submit —
   // otherwise swapping text in place gives no feedback that anything happened.
   const [run, setRun] = useState(0)
+  // Mobile-only: the Instagram/text/Nextdoor previews start collapsed so the
+  // demo doesn't run to 3+ screens on a phone. Irrelevant from sm up, where
+  // the <details> wrapper becomes `contents` and everything is always shown.
+  const [secondaryOpen, setSecondaryOpen] = useState(false)
 
   const content: AssetContent = {
     business: business.trim() || DEMO_BUSINESS,
@@ -287,18 +291,30 @@ export function CampaignDemo() {
             </p>
           </div>
 
-          <div className="asset-in mx-auto w-full max-w-[17rem] sm:mx-0 sm:max-w-none" style={{ animationDelay: "120ms" }}>
-            <InstagramPreview content={shown} />
-          </div>
+          {/* Collapsed on phones only. Stacked, these three previews made the
+              demo 3.4 screens tall on a 375px viewport and pushed pricing far
+              down the page; the flyer alone still proves the point, and
+              anyone who wants the rest is one tap away. From sm up they're
+              always visible (`sm:contents` drops this wrapper from the grid
+              so the children remain direct grid items). */}
+          <details className="group sm:contents" open={secondaryOpen} onToggle={(e) => setSecondaryOpen((e.currentTarget as HTMLDetailsElement).open)}>
+            <summary className="mx-auto mt-1 w-full max-w-[17rem] cursor-pointer list-none rounded-lg border border-white/12 bg-white/[0.03] px-4 py-2.5 text-center text-sm font-medium text-foreground/80 sm:hidden">
+              {secondaryOpen ? "Hide the other formats" : "See the Instagram, text & Nextdoor versions"}
+            </summary>
 
-          <div className="flex flex-col gap-3 sm:col-span-2 xl:col-span-1">
-            <div className="asset-in" style={{ animationDelay: "220ms" }}>
-              <TextPreview content={shown} />
+            <div className="asset-in mx-auto mt-3 w-full max-w-[17rem] sm:mx-0 sm:mt-0 sm:max-w-none" style={{ animationDelay: "120ms" }}>
+              <InstagramPreview content={shown} />
             </div>
-            <div className="asset-in" style={{ animationDelay: "320ms" }}>
-              <NextdoorPreview content={shown} />
+
+            <div className="mt-3 flex flex-col gap-3 sm:mt-0 sm:col-span-2 xl:col-span-1">
+              <div className="asset-in" style={{ animationDelay: "220ms" }}>
+                <TextPreview content={shown} />
+              </div>
+              <div className="asset-in" style={{ animationDelay: "320ms" }}>
+                <NextdoorPreview content={shown} />
+              </div>
             </div>
-          </div>
+          </details>
         </div>
 
         {/* The demo's payoff line — this is the moment the value is clearest,
