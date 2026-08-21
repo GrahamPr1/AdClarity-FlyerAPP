@@ -585,6 +585,13 @@ export async function setClientIsAdmin(email: string, isAdmin: boolean): Promise
 }
 
 /**
+ * Raw increment with NO limit enforcement.
+ *
+ * Every credit-consuming route now uses reserveFlyerQuota instead — this
+ * grants usage without checking the plan ceiling, so reaching for it
+ * reintroduces the over-granting bug. Kept only for callers that have
+ * already reserved, or that deliberately bypass the limit.
+ *
  * Atomic increment — safe under concurrent requests from the same email.
  *
  * Also bumps the two retention counters, which is the whole reason they
@@ -594,6 +601,40 @@ export async function setClientIsAdmin(email: string, isAdmin: boolean): Promise
  * call so a caller can't accidentally record usage without recording
  * retention.
  */
+/**
+ * Atomically claims `count` flyers against the client's plan limit.
+ *
+ * Replaces a genuine check-then-act race. Both /api/intake and
+ * /api/quick-prompt read flyersCreated, compared it to the limit, and only
+ * incremented much later — in intake's case ~20-30s later, because the real
+ * flyer count isn't known until the Intake Agent has run. Two submissions
+ * landing in that window both saw the same stale count, both passed, and both
+ * incremented, so a 3-flyer Trial could produce more than 3.
+ *
+ * INCRBY is atomic, so incrementing FIRST and rolling back on overshoot makes
+ * the reservation itself the point of decision — there's no window left
+ * between deciding and claiming. A rollback can briefly leave the counter
+ * high for a competing reader, which errs toward rejecting rather than
+ * over-granting, and self-corrects immediately.
+ */
+export async function reserveFlyerQuota(
+  email: string,
+  count: number,
+  limit: number,
+): Promise<{ ok: true; flyersCreated: number } | { ok: false; flyersCreated: number; remaining: number }> {
+  const after = await redis.incrby(countKey(email), count)
+  if (after > limit) {
+    const rolledBackTo = await redis.incrby(countKey(email), -count)
+    return { ok: false, flyersCreated: rolledBackTo, remaining: Math.max(0, limit - rolledBackTo) }
+  }
+  // Retention counters only move on a reservation that actually succeeded.
+  await Promise.all([
+    redis.incrby(lifetimeCountKey(email), count),
+    redis.set(lastCampaignAtKey(email), new Date().toISOString()),
+  ])
+  return { ok: true, flyersCreated: after }
+}
+
 export async function incrementFlyersCreated(email: string, by: number): Promise<number> {
   const [periodCount] = await Promise.all([
     redis.incrby(countKey(email), by),

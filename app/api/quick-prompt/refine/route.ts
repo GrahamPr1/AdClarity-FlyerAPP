@@ -8,7 +8,7 @@ import {
   getPendingBrandProfile,
   getSavedBrandProfile,
   getOrCreateClient,
-  incrementFlyersCreated,
+  reserveFlyerQuota,
   incrementAndCheckRefinementAllowance,
 } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
@@ -69,13 +69,15 @@ export async function POST(request: NextRequest) {
   if (!isFree) {
     const planName = getPlan(client.plan)?.name ?? client.plan
     const limit = PLAN_LIMITS[client.plan]
-    if (client.flyersCreated >= limit) {
+    // Atomic claim — same check-then-act race as the other credit-consuming
+    // routes had (see reserveFlyerQuota).
+    const reservation = await reserveFlyerQuota(email, 1, limit)
+    if (!reservation.ok) {
       return NextResponse.json(
-        { error: "limit_reached", message: `You've used all ${limit} flyers on your ${planName} plan — check out our plans at /#pricing for more.`, flyersCreated: client.flyersCreated, limit },
+        { error: "limit_reached", message: `You've used all ${limit} flyers on your ${planName} plan — check out our plans at /#pricing for more.`, flyersCreated: reservation.flyersCreated, limit },
         { status: 402 },
       )
     }
-    await incrementFlyersCreated(email, 1)
   }
 
   const currentHtml = fromDataUrl(flyer.downloadUrl)

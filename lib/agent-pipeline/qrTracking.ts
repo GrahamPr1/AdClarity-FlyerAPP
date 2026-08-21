@@ -46,6 +46,17 @@ export async function createFlyerTrackingCode(
   return { code, qrDataUrl }
 }
 
+/**
+ * Rebuilds the QR image for a code that already exists.
+ *
+ * Deterministic: the image is a pure function of the redeem URL, so a
+ * refinement re-embeds the SAME QR rather than issuing a new code. Issuing a
+ * new one would silently invalidate every already-printed copy of that flyer.
+ */
+export async function qrDataUrlForCode(code: string): Promise<string> {
+  return QRCode.toDataURL(`${getSiteUrl()}/r/${code}`, { margin: 1, width: 512 })
+}
+
 export async function backfillTrackingContent(code: string, flyer: FlyerSpecification): Promise<void> {
   await updateTrackingRecordContent(code, {
     headline: flyer.headline,

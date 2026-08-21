@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { waitUntil } from "@vercel/functions"
 import { PLAN_LIMITS, QUICK_PROMPT_FORMATS, QUICK_PROMPT_STYLES } from "@/lib/types"
 import type { QuickPromptFormat, QuickPromptStyle } from "@/lib/types"
-import { getOrCreateClient, incrementFlyersCreated, getSavedBrandProfile } from "@/lib/store"
+import { getOrCreateClient, reserveFlyerQuota, getSavedBrandProfile } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { continuePipelineFromIntake } from "@/lib/agent-pipeline/pipeline"
@@ -166,15 +166,15 @@ export async function POST(request: NextRequest) {
     batchSize: 1,
   }
 
-  const remaining = limit - client.flyersCreated
-  if (remaining < 1) {
+  // Atomic claim, same reasoning as /api/intake — the count read earlier in
+  // this request is already stale by the time we get here.
+  const reservation = await reserveFlyerQuota(email, 1, limit)
+  if (!reservation.ok) {
     return NextResponse.json(
-      { error: "limit_reached", message: `You've used all ${limit} flyers on your ${planName} plan — check out our plans at /#pricing for more.`, flyersCreated: client.flyersCreated, limit },
+      { error: "limit_reached", message: `You've used all ${limit} flyers on your ${planName} plan — check out our plans at /#pricing for more.`, flyersCreated: reservation.flyersCreated, limit },
       { status: 402 },
     )
   }
-
-  await incrementFlyersCreated(email, 1)
 
   // Quick Prompt's inferred brand never auto-saves — see SavedBrandProfile
   // in lib/types.ts. Reuses the exact same pipeline entry point the guided

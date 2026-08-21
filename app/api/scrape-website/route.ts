@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { crawlWebsite } from "@/lib/agent-pipeline/scraper"
 import { runScrapeAgent } from "@/lib/agent-pipeline/agents/scrapeAgent"
+import { mergeScrapedContact } from "@/lib/agent-pipeline/scrape-merge"
 
 export const maxDuration = 60
 
@@ -77,24 +78,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ scraped: false, reason: "needs_clarification", message: FAILURE_MESSAGES.needs_clarification })
   }
 
-  // Code-extracted brand assets are authoritative over anything the
-  // extraction agent might have guessed for these two fields — it never
-  // sees images or CSS, only page text (see the system prompt).
-  const normalizedIntake = {
-    ...extraction.data,
-    brandAssets: {
-      ...extraction.data.brandAssets,
-      logoUrl: crawlResult.logoUrl,
-      existingColors: crawlResult.colors.length > 0 ? crawlResult.colors : extraction.data.brandAssets.existingColors,
-    },
-    contact: {
-      ...extraction.data.contact,
-      // The user's own upfront input always wins over whatever the site
-      // itself said — they typed it just now, directly, on purpose.
-      phone: body.phone?.trim() || extraction.data.contact.phone,
-      contactName: body.fullName?.trim() || extraction.data.contact.contactName,
-    },
-  }
+  // Precedence rules live in one tested place — see mergeScrapedContact.
+  const normalizedIntake = mergeScrapedContact(
+    extraction.data,
+    { logoUrl: crawlResult.logoUrl, colors: crawlResult.colors },
+    { phone: body.phone, fullName: body.fullName },
+  )
 
   return NextResponse.json({ scraped: true, normalizedIntake, businessCategoryGuess: extraction.businessCategoryGuess })
 }

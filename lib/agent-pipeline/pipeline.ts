@@ -5,9 +5,17 @@ import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage } from "./higgsfield"
-import { createFlyerTrackingCode, backfillTrackingContent } from "./qrTracking"
+import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
 import type { FlyerRequest } from "./schemas/flyer"
+import {
+  QR_PLACEHOLDER,
+  substituteQr,
+  collapseQrToToken,
+  canonicalOfferFrom,
+  assertOfferPreserved,
+  toDataUrl,
+} from "./flyer-html"
 
 // QR tracking, multi-channel repurposing, and AI-generated photos are all
 // real, server-side-gated features — never just hidden in the UI. Checked
@@ -89,47 +97,6 @@ function describeFailure(err: unknown): string {
 function buildRawIntakePayload(submission: IntakeSubmission) {
   const { planId, businessCategory, submittedAt, ...rest } = submission
   return rest
-}
-
-// The Flyer Agent's prompt only constrains print pagination (@page, for the
-// eventual PDF render step) — nothing tells the model to keep the page
-// scrollable on screen, and a pixel-perfect single-page design commonly
-// comes back with its own html/body height/overflow rules that clip
-// anything taller than the viewport. Appended last (not prepended) so these
-// !important rules win the cascade over whatever the model's own <style>
-// block set, regardless of source order.
-const SCROLL_SAFETY_CSS =
-  "<style>html,body{height:auto !important;min-height:100% !important;overflow-x:auto !important;overflow-y:auto !important;}</style>"
-
-function ensureScrollable(html: string): string {
-  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${SCROLL_SAFETY_CSS}</head>`)
-  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${SCROLL_SAFETY_CSS}</body>`)
-  return html + SCROLL_SAFETY_CSS
-}
-
-/**
- * The QR image is handed to the Flyer Agent as this short token instead of a
- * real data URL, and swapped for the real one here after generation.
- *
- * A 512px QR data URL is ~4,200 characters (~1,200 tokens) of base64, and the
- * agent was being asked to reproduce it VERBATIM inside its HTML — per flyer,
- * in both the prompt and the completion. That was the single largest chunk of
- * generation time (a Pro run spent ~215s on the flyer stage and had been
- * timing out entirely), and it was also a correctness hazard: one wrong
- * base64 character produces a silently broken QR code on a flyer that may
- * already be printed. Emitting a 15-character token instead removes both
- * problems, and substitution in code is exact by construction.
- */
-export const QR_PLACEHOLDER = "{{QR_CODE_SRC}}"
-
-function substituteQr(html: string, qrDataUrl: string | null): string {
-  if (!qrDataUrl) return html
-  return html.split(QR_PLACEHOLDER).join(qrDataUrl)
-}
-
-function toDataUrl(html: string): string {
-  const base64 = Buffer.from(ensureScrollable(html), "utf-8").toString("base64")
-  return `data:text/html;charset=utf-8;base64,${base64}`
 }
 
 // Packs in real, specific business context (not just industry) so the
@@ -278,19 +245,11 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
           {
             brandProfile,
             contact: intake.contact,
-            flyer: {
-              purpose: flyer.purpose,
-              headline: flyer.headline,
-              subheadline: flyer.subheadline,
-              offer: flyer.offer,
-              cta: flyer.cta,
-              disclaimer: flyer.disclaimer,
-              paletteUsed: flyer.paletteUsed,
-              fontsUsed: flyer.fontsUsed,
-            },
+            flyer: canonicalOfferFrom(flyer),
           },
           email,
         )
+        assertOfferPreserved(flyer.id, flyer, repurposed)
         await updateDeliverable(email, {
           type: "flyer",
           id: flyer.id,
@@ -395,19 +354,11 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
       {
         brandProfile,
         contact: intake.contact,
-        flyer: {
-          purpose: flyer.purpose,
-          headline: flyer.headline,
-          subheadline: flyer.subheadline,
-          offer: flyer.offer,
-          cta: flyer.cta,
-          disclaimer: flyer.disclaimer,
-          paletteUsed: flyer.paletteUsed,
-          fontsUsed: flyer.fontsUsed,
-        },
+        flyer: canonicalOfferFrom(flyer),
       },
       email,
     )
+    assertOfferPreserved(flyer.id, flyer, repurposed)
     await updateDeliverable(email, {
       type: "flyer",
       id: flyer.id,
@@ -489,12 +440,17 @@ export async function refineFlyer(
           flyerRequests: [
             {
               ...flyerRequest,
-              notes: `This flyer already exists — here is its current HTML in full:\n\n${currentHtml}\n\nApply ONLY this specific change and leave everything else exactly as it is: ${instruction}`,
-              qrCodeDataUrl: null,
+              notes: `This flyer already exists — here is its current HTML in full:\n\n${collapseQrToToken(currentHtml)}\n\nApply ONLY this specific change and leave everything else exactly as it is: ${instruction}`,
+              // The token, so the model preserves it verbatim rather than
+              // reproducing the real QR base64 it would otherwise see inline.
+              qrCodeDataUrl: existingTrackingCode ? QR_PLACEHOLDER : null,
             },
           ],
           batchSize: 1,
-          includeRepurposing,
+          // Split out below, same reason as runBatch: one call producing the
+          // flyer AND a second HTML document AND three copy variants is what
+          // blew the timeout, and a timeout here would lose the refined flyer.
+          includeRepurposing: false,
         },
         email,
       ),
@@ -507,21 +463,41 @@ export async function refineFlyer(
 
     if (existingTrackingCode) await backfillTrackingContent(existingTrackingCode, flyer)
 
+    // Refinement reuses the SAME tracking code, so the same QR image goes
+    // back in — regenerating it would silently invalidate any already-printed
+    // copy of this flyer.
+    const qrDataUrl = existingTrackingCode ? await qrDataUrlForCode(existingTrackingCode) : null
+
     await updateDeliverable(email, {
       type: "flyer",
       id: flyer.id,
       status: "Ready",
-      downloadUrl: toDataUrl(flyer.html),
-      ...(flyer.repurposed && {
-        repurposed: {
-          instagramDownloadUrl: toDataUrl(flyer.repurposed.instagramHtml),
-          instagramCaption: flyer.repurposed.instagramCaption,
-          textBlurb: flyer.repurposed.textBlurb,
-          nextdoorPost: flyer.repurposed.nextdoorPost,
-        },
-      }),
+      downloadUrl: toDataUrl(substituteQr(flyer.html, qrDataUrl)),
       trackingCode: existingTrackingCode,
     })
+
+    if (includeRepurposing) {
+      try {
+        const repurposed = await runRepurposeAgent(
+          { brandProfile, contact, flyer: canonicalOfferFrom(flyer) },
+          email,
+        )
+        assertOfferPreserved(flyer.id, flyer, repurposed)
+        await updateDeliverable(email, {
+          type: "flyer",
+          id: flyer.id,
+          repurposed: {
+            instagramDownloadUrl: toDataUrl(repurposed.instagramHtml),
+            instagramCaption: repurposed.instagramCaption,
+            textBlurb: repurposed.textBlurb,
+            nextdoorPost: repurposed.nextdoorPost,
+          },
+        })
+        stageMark(runId, t0, "repurposing done")
+      } catch (e) {
+        console.error(`[agent-pipeline] Repurposing failed after refinement for ${flyer.id} (refined flyer is delivered):`, e)
+      }
+    }
   } catch (err) {
     const reason = describeFailure(err)
     console.error("[agent-pipeline] Refinement failed:", reason)

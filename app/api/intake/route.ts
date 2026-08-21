@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { waitUntil } from "@vercel/functions"
 import type { IntakeSubmission } from "@/lib/types"
 import { PLAN_LIMITS, BUSINESS_CATEGORIES } from "@/lib/types"
-import { saveIntake, getOrCreateClient, incrementFlyersCreated, setClientBusinessCategory, setClientBusinessName } from "@/lib/store"
+import { saveIntake, getOrCreateClient, reserveFlyerQuota, setClientBusinessCategory, setClientBusinessName } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { continuePipelineFromIntake, runIntakeStage, MAX_FLYERS_PER_BATCH } from "@/lib/agent-pipeline/pipeline"
@@ -135,28 +135,28 @@ export async function POST(request: NextRequest) {
   // client over their plan's limit, so a submission that would start 3
   // flyers can't slip through with only 2 remaining.
   // -------------------------------------------------------------------------
-  const remaining = limit - client.flyersCreated
-  if (flyerCount > remaining) {
+  // Claim the quota atomically rather than comparing against the count read
+  // before the Intake Agent ran (~20-30s ago) and incrementing afterwards —
+  // that gap let two concurrent submissions both pass the same stale check.
+  // reserveFlyerQuota increments first and rolls back if it overshoots, so
+  // the claim IS the decision.
+  const reservation = await reserveFlyerQuota(email, flyerCount, limit)
+  if (!reservation.ok) {
     return NextResponse.json(
       {
         error: "limit_reached",
         message:
-          remaining > 0
-            ? `This submission would create ${flyerCount} flyers, but you only have ${remaining} flyer${remaining === 1 ? "" : "s"} left on your ${planName} plan. Check out our plans at /#pricing for more.`
+          reservation.remaining > 0
+            ? `This submission would create ${flyerCount} flyers, but you only have ${reservation.remaining} flyer${reservation.remaining === 1 ? "" : "s"} left on your ${planName} plan. Check out our plans at /#pricing for more.`
             : `You've used all ${limit} flyers on your ${planName} plan — check out our plans at /#pricing for more.`,
-        flyersCreated: client.flyersCreated,
+        flyersCreated: reservation.flyersCreated,
         limit,
-        remaining,
+        remaining: reservation.remaining,
         requested: flyerCount,
       },
       { status: 402 },
     )
   }
-
-  // Increment BEFORE running Brand/Flyer, not after — so a concurrent
-  // submission from the same client can't slip past a limit that's about to
-  // be reached.
-  await incrementFlyersCreated(email, flyerCount)
 
   // -------------------------------------------------------------------------
   // HANDOFF POINT TO THE AGENT PIPELINE (Brand + Flyer stages).

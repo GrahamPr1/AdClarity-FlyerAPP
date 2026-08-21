@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { waitUntil } from "@vercel/functions"
 import { PLAN_LIMITS } from "@/lib/types"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getPipelineState, getOrCreateClient, incrementFlyersCreated, incrementAndCheckRegenerateAllowance } from "@/lib/store"
+import { getPipelineState, getOrCreateClient, reserveFlyerQuota, incrementAndCheckRegenerateAllowance } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { retryFlyer } from "@/lib/agent-pipeline/pipeline"
 
@@ -47,13 +47,15 @@ export async function POST(request: NextRequest) {
     const client = await getOrCreateClient(email)
     const planName = getPlan(client.plan)?.name ?? client.plan
     const limit = PLAN_LIMITS[client.plan]
-    if (client.flyersCreated >= limit) {
+    // Atomic claim — same check-then-act race as the other credit-consuming
+    // routes had (see reserveFlyerQuota).
+    const reservation = await reserveFlyerQuota(email, 1, limit)
+    if (!reservation.ok) {
       return NextResponse.json(
-        { error: "limit_reached", message: `You've used all ${limit} flyers on your ${planName} plan — check out our plans at /#pricing for more.`, flyersCreated: client.flyersCreated, limit },
+        { error: "limit_reached", message: `You've used all ${limit} flyers on your ${planName} plan — check out our plans at /#pricing for more.`, flyersCreated: reservation.flyersCreated, limit },
         { status: 402 },
       )
     }
-    await incrementFlyersCreated(email, 1)
   }
 
   waitUntil(
