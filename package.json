@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "env:check": "tsx scripts/env-check.ts",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "dev:redis": "node scripts/dev-redis.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
