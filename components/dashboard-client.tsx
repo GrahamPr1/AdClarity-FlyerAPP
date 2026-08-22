@@ -152,8 +152,9 @@ function FlyerThumbnail({
           real flyer full-size in a new tab for anyone who just wants to
           look, not download.
 
-          Points at /api/flyers/[id]/view, NOT at downloadUrl: every major
-          browser blocks top-level navigation to a data: URL, so this button
+          Points at /api/flyers/[id]/view, NOT at downloadUrl: top-level
+          navigation to a data: URL fails in every engine tested (differently
+          in each — see tests/browser/open-in-new-tab.spec.ts), so this button
           silently did nothing when it pointed at the data URL directly. */}
       <a
         href={viewUrl}

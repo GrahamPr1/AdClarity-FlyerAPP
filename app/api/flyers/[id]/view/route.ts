@@ -6,10 +6,13 @@ import { getDeliverablesForEmail } from "@/lib/store"
 //
 // Serves a generated flyer as a real HTML page so it can be opened in a new
 // tab. This exists because the dashboard's "open in new tab" link previously
-// pointed straight at the flyer's `data:text/html;base64,...` URL — and every
-// major browser BLOCKS top-level navigation to a data: URL (Chrome since 60,
-// Firefox and Safari likewise). The link was therefore silently doing nothing
-// when clicked: no new tab, no error, no download.
+// pointed straight at the flyer's `data:text/html;base64,...` URL, which does
+// not work for top-level navigation. Measured across engines
+// (tests/browser/open-in-new-tab.spec.ts): Chromium refuses to open a tab at
+// all (it has blocked data: navigation since v60), WebKit opens a tab that
+// never renders, and Firefox leaves the navigation unsettled. None of them
+// showed the flyer — they merely failed in different ways, so the link was
+// silently doing nothing when clicked.
 //
 // A data: URL is still perfectly fine for the two things it's used for
 // elsewhere — the `download` attribute, and the sandboxed preview iframe — so
