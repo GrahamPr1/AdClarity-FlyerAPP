@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState } from "react"
 import { GuidedSetupFlow } from "./guided-setup-flow"
 import { QuickPromptForm } from "./quick-prompt-form"
@@ -82,7 +83,7 @@ export function CreateFlyerFlow({ email }: { email: string }) {
       </p>
       {planId !== null && !isPaidPlan && (
         <p className="mt-2 text-xs text-[var(--brand-teal-bright)]">
-          <a href="/#pricing" className="hover:text-[var(--brand-teal)] transition-colors">Upgrade to Basic or Pro</a> to unlock Quick Prompt.
+          <Link href="/#pricing" className="hover:text-[var(--brand-teal)] transition-colors">Upgrade to Basic or Pro</Link> to unlock Quick Prompt.
         </p>
       )}
     </button>

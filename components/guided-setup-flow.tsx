@@ -199,8 +199,8 @@ export function GuidedSetupFlow({ email }: { email: string }) {
     return (
       <div>
         <button type="button" onClick={() => setStage("ask")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back</button>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">Let's scan your website</h1>
-        <p className="mt-2 text-sm text-muted-foreground">We'll pull your business details automatically — you'll review everything before it's final.</p>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight">Let&apos;s scan your website</h1>
+        <p className="mt-2 text-sm text-muted-foreground">We&apos;ll pull your business details automatically — you&apos;ll review everything before it&apos;s final.</p>
         <form onSubmit={handleScrapeSubmit} className="mt-6 flex flex-col gap-4 max-w-md">
           <div>
             <label htmlFor="url" className="block text-sm font-medium mb-1.5">Website URL</label>
@@ -233,11 +233,11 @@ export function GuidedSetupFlow({ email }: { email: string }) {
         <button type="button" onClick={() => setStage("scrapeForm")}
           className="text-left rounded-2xl border-2 border-[var(--brand-teal-bright)] bg-card p-6 hover:bg-white/[0.03] transition-colors">
           <p className="text-lg font-semibold">Yes, scan my site</p>
-          <p className="mt-1.5 text-sm text-muted-foreground">We'll pull your business info automatically — you review and confirm it after.</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">We&apos;ll pull your business info automatically — you review and confirm it after.</p>
         </button>
         <button type="button" onClick={() => setStage("manual")}
           className="text-left rounded-2xl border border-white/10 bg-card p-6 hover:bg-white/[0.03] transition-colors">
-          <p className="text-lg font-semibold">No, I'll answer a few questions</p>
+          <p className="text-lg font-semibold">No, I&apos;ll answer a few questions</p>
           <p className="mt-1.5 text-sm text-muted-foreground">A short guided setup — just as thorough, no website needed.</p>
         </button>
       </div>

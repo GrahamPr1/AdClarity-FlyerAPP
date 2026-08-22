@@ -79,7 +79,7 @@ export default function ResetPasswordPage() {
         </div>
         <div className="rounded-2xl border border-white/10 bg-card p-7">
           <h1 className="text-xl font-semibold">Set a new password</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">Choose a password you'll use to log in from now on.</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">Choose a password you&apos;ll use to log in from now on.</p>
           <Suspense fallback={null}>
             <ResetPasswordForm />
           </Suspense>

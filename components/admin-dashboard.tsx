@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
@@ -210,14 +211,14 @@ export function AdminDashboard() {
   return (
     <div className="px-6 md:px-10 lg:px-16 py-10 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2 font-semibold">
+        <Link href="/" className="flex items-center gap-2 font-semibold">
           <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-teal-bright)]" />
           OneFlyer Admin
-        </a>
+        </Link>
         <div className="flex items-center gap-4">
-          <a href="/admin" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+          <Link href="/admin" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
             Admin Portal
-          </a>
+          </Link>
           <button onClick={handleSignOut} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Sign out
           </button>
@@ -225,7 +226,7 @@ export function AdminDashboard() {
       </div>
 
       <h1 className="mt-8 text-2xl md:text-3xl font-semibold tracking-tight">All Clients</h1>
-      <p className="mt-1.5 text-sm text-muted-foreground">Every client's plan, usage, and flyers — this view only ever exists for the admin session.</p>
+      <p className="mt-1.5 text-sm text-muted-foreground">Every client&apos;s plan, usage, and flyers — this view only ever exists for the admin session.</p>
 
       {isLoading || !data ? (
         <p className="mt-8 text-muted-foreground">Loading clients…</p>

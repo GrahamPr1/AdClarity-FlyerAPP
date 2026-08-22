@@ -55,10 +55,8 @@ export function RevealText({
     }
   })
 
-  const totalWords = words.filter(w => w.word !== "\n").length
-
   return (
-    // @ts-ignore — dynamic tag
+    // @ts-expect-error — Tag is a dynamic intrinsic element, not narrowable here
     <Tag ref={ref} className={className} style={{ display: "block", overflow: "hidden" }}>
       {words.map(({ word, index }) => {
         if (word === "\n") return <br key={`br-${index}`} />

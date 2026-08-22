@@ -49,6 +49,32 @@ function sortUsers(users: AdminUserRow[], key: SortKey, dir: 1 | -1): AdminUserR
   })
 }
 
+/**
+ * Hoisted out of the parent component body. Defined inline, this was a new
+ * component identity on every render, so React unmounted and remounted all
+ * six headers whenever any sort state changed — losing focus and defeating
+ * reconciliation. Takes the sort state as props instead of closing over it.
+ */
+function SortHeader({
+  label,
+  sortField,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string
+  sortField: SortKey
+  sortKey: SortKey
+  sortDir: 1 | -1
+  onSort: (key: SortKey) => void
+}) {
+  return (
+    <button onClick={() => onSort(sortField)} className="flex items-center gap-1 hover:text-foreground transition-colors">
+      {label} {sortKey === sortField && (sortDir === 1 ? "↑" : "↓")}
+    </button>
+  )
+}
+
 export default function AdminUsersPage() {
   const { data, isLoading } = useSWR<AdminUsersOverview>("/api/admin/users", fetcher, { refreshInterval: 30000 })
   const [search, setSearch] = useState("")
@@ -73,13 +99,6 @@ export default function AdminUsersPage() {
     }
   }
 
-  function SortHeader({ label, sortField }: { label: string; sortField: SortKey }) {
-    return (
-      <button onClick={() => handleSort(sortField)} className="flex items-center gap-1 hover:text-foreground transition-colors">
-        {label} {sortKey === sortField && (sortDir === 1 ? "↑" : "↓")}
-      </button>
-    )
-  }
 
   return (
     <div className="px-6 md:px-10 lg:px-16 py-10 max-w-6xl mx-auto">
@@ -136,12 +155,12 @@ export default function AdminUsersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-muted-foreground/70">
-                  <th className="px-4 py-3"><SortHeader label="Name / Email" sortField="businessName" /></th>
-                  <th className="px-4 py-3"><SortHeader label="Plan" sortField="plan" /></th>
-                  <th className="px-4 py-3"><SortHeader label="Category" sortField="businessCategory" /></th>
-                  <th className="px-4 py-3"><SortHeader label="Signed up" sortField="createdAt" /></th>
-                  <th className="px-4 py-3"><SortHeader label="Flyers this month" sortField="flyersCreated" /></th>
-                  <th className="px-4 py-3"><SortHeader label="Status" sortField="status" /></th>
+                  <th className="px-4 py-3"><SortHeader label="Name / Email" sortField="businessName" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} /></th>
+                  <th className="px-4 py-3"><SortHeader label="Plan" sortField="plan" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} /></th>
+                  <th className="px-4 py-3"><SortHeader label="Category" sortField="businessCategory" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} /></th>
+                  <th className="px-4 py-3"><SortHeader label="Signed up" sortField="createdAt" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} /></th>
+                  <th className="px-4 py-3"><SortHeader label="Flyers this month" sortField="flyersCreated" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} /></th>
+                  <th className="px-4 py-3"><SortHeader label="Status" sortField="status" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} /></th>
                 </tr>
               </thead>
               <tbody>

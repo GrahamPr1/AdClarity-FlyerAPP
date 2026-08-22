@@ -13,7 +13,8 @@
     "test:pipeline": "tsx scripts/test-pipeline.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "env:check": "tsx scripts/env-check.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
@@ -88,6 +89,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.2.0",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",
     "tsx": "^4.23.11",

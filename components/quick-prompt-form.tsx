@@ -45,7 +45,9 @@ interface QuickPromptResult {
   flyerId: string
 }
 
-export function QuickPromptForm({ email, hasSavedBrand, onBack }: { email: string; hasSavedBrand: boolean; onBack: () => void }) {
+// `email` is part of the caller contract (create-flyer-flow passes it) but
+// the server derives identity from the session, so it is intentionally unused here.
+export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { email: string; hasSavedBrand: boolean; onBack: () => void }) {
   const [prompt, setPrompt] = useState("")
   const [format, setFormat] = useState<QuickPromptFormat>("Flyer")
   const [style, setStyle] = useState<QuickPromptStyle | null>(null)
@@ -152,7 +154,7 @@ export function QuickPromptForm({ email, hasSavedBrand, onBack }: { email: strin
     <div>
       <button type="button" onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back</button>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight">Quick Prompt</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Describe what you need in one sentence — we'll handle the rest.</p>
+      <p className="mt-2 text-sm text-muted-foreground">Describe what you need in one sentence — we&apos;ll handle the rest.</p>
 
       <form onSubmit={handleGenerate} className="mt-6 flex flex-col gap-5">
         <div>

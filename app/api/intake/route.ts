@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   // flyerRequests below — but it cheaply rejects clients who are already at
   // or past their plan's limit without spending anything on Intake.
   // -------------------------------------------------------------------------
-  let client = await getOrCreateClient(email)
+  const client = await getOrCreateClient(email)
   const planName = getPlan(client.plan)?.name ?? client.plan
   const limit = PLAN_LIMITS[client.plan]
 

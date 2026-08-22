@@ -2,6 +2,7 @@ import { Redis } from "@upstash/redis"
 import type { BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
+import { getAppEnvironment } from "./env"
 import { sha256Hex } from "./auth"
 import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
 import type { FlyerRequest } from "./agent-pipeline/schemas/flyer"
@@ -21,6 +22,66 @@ import type { BrandProfile } from "./agent-pipeline/schemas/brand"
 // ---------------------------------------------------------------------------
 
 const redis = Redis.fromEnv()
+
+// ---------------------------------------------------------------------------
+// Environment guardrail.
+//
+// Each Redis instance stores a marker naming the environment it belongs to.
+// Development refuses to talk to an instance that says "production" — which
+// is the actual enforcement behind "local dev must never touch prod data",
+// rather than trusting whoever last edited .env.local.
+//
+// Deliberately NOT enforced in production: a marker mismatch there should be
+// loud but must never take a live deployment down, so it warns instead. The
+// check is lazy and memoised, so it costs one GET per process, not per query.
+// ---------------------------------------------------------------------------
+const ENV_MARKER_KEY = "__oneflyer_environment"
+
+let envCheck: Promise<void> | null = null
+
+export function assertRedisMatchesEnvironment(): Promise<void> {
+  envCheck ??= (async () => {
+    const expected = getAppEnvironment()
+    let actual: string | null = null
+    try {
+      actual = await redis.get<string>(ENV_MARKER_KEY)
+    } catch {
+      return // A transient Redis error is the caller's problem to surface, not this guard's.
+    }
+
+    if (actual === null) {
+      // Unmarked instance — claim it for this environment. First writer wins,
+      // so a brand-new dev database labels itself the first time it's used.
+      await redis.set(ENV_MARKER_KEY, expected).catch(() => {})
+      return
+    }
+    if (actual === expected) return
+
+    const message =
+      `Redis environment mismatch: this process is "${expected}" but the connected ` +
+      `Redis instance is marked "${actual}". Check UPSTASH_REDIS_REST_URL for this environment.`
+
+    if (expected === "development" && actual === "production") {
+      // The exact case that caused live data to be written from a laptop.
+      throw new Error(
+        `${message}\n\nRefusing to run development against the production database. ` +
+          `Point UPSTASH_REDIS_REST_URL at a development instance, or set APP_ENV explicitly if this is intentional.`,
+      )
+    }
+    console.warn(`[env] ${message}`)
+  })()
+  return envCheck
+}
+
+/** Labels the connected instance. Used by scripts/env-check.ts on a fresh database. */
+export async function setRedisEnvironmentMarker(environment: string): Promise<void> {
+  await redis.set(ENV_MARKER_KEY, environment)
+}
+
+/** Reads the marker without asserting — for diagnostics. */
+export async function readRedisEnvironmentMarker(): Promise<string | null> {
+  return (await redis.get<string>(ENV_MARKER_KEY)) ?? null
+}
 
 const INTAKE_KEY = "intake:latest"
 const LATEST_EMAIL_KEY = "latest-email"

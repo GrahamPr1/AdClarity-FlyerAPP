@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
@@ -8,7 +9,6 @@ import type {
   Deliverables,
   FlyerDeliverable,
   FlyerStatus,
-  PrintRequest,
   RepurposedFlyerContent,
 } from "@/lib/types"
 import { BUSINESS_CATEGORIES } from "@/lib/types"
@@ -479,9 +479,9 @@ export function FlyerCard({
       )}
       {ready && showUpgradeHint && (
         <div className="px-4 pb-4 pt-3 border-t border-white/10">
-          <a href="/#pricing" className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+          <Link href="/#pricing" className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
             Upgrade to Basic to unlock scan tracking, Instagram/text/Nextdoor versions, and print requests →
-          </a>
+          </Link>
         </div>
       )}
     </div>
@@ -517,12 +517,11 @@ function ProfileNudge() {
           automatically. Takes a minute, entirely optional.
         </p>
       </div>
-      <a
-        href="/profile"
+      <Link href="/profile"
         className="rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)]"
       >
         Add brand details
-      </a>
+      </Link>
       <button
         onClick={() => setDismissed(true)}
         className="text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -730,15 +729,15 @@ export function DashboardClient() {
     <div className="px-6 md:px-10 lg:px-16 py-10 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2 font-semibold">
+        <Link href="/" className="flex items-center gap-2 font-semibold">
           <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-teal-bright)]" />
           OneFlyer
-        </a>
+        </Link>
         <div className="flex items-center gap-4">
           {data?.isAdmin && (
-            <a href="/admin" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+            <Link href="/admin" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
               Admin Portal
-            </a>
+            </Link>
           )}
           <button onClick={handleSignOut} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Sign out
@@ -768,13 +767,13 @@ export function DashboardClient() {
                 You&apos;ve used all {data.flyersLimit} campaigns on your {data.planName} plan.
                 They reset on {new Date(data.flyersResetAt).toLocaleDateString()}.
               </p>
-              <a
+              <Link
                 href="/#pricing"
                 onClick={() => trackEvent("upgrade_clicked", { plan: data.planId, location: "dashboard_limit" })}
                 className="rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)]"
               >
                 Upgrade to keep creating
-              </a>
+              </Link>
             </div>
           )}
 
@@ -790,9 +789,9 @@ export function DashboardClient() {
               <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Onboarding</p>
               <p className="mt-2 text-lg font-semibold">{data.intakeStatus}</p>
               {data.intakeStatus === "Not started" && (
-                <a href="/onboarding" className="mt-2 inline-block text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
+                <Link href="/onboarding" className="mt-2 inline-block text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
                   Complete onboarding →
-                </a>
+                </Link>
               )}
             </div>
             <div className="rounded-xl border border-white/10 bg-card p-5">
@@ -807,9 +806,9 @@ export function DashboardClient() {
                 {data.flyersCreated} / {data.flyersLimit}
               </p>
               {data.flyersCreated >= data.flyersLimit ? (
-                <a href="/#pricing" className="mt-1.5 inline-block text-xs text-amber-300 hover:text-amber-200 transition-colors">
+                <Link href="/#pricing" className="mt-1.5 inline-block text-xs text-amber-300 hover:text-amber-200 transition-colors">
                   Limit reached — resets {new Date(data.flyersResetAt).toLocaleDateString()} →
-                </a>
+                </Link>
               ) : (
                 <p className="mt-1.5 text-xs text-muted-foreground">Resets {new Date(data.flyersResetAt).toLocaleDateString()}</p>
               )}
@@ -832,10 +831,10 @@ export function DashboardClient() {
             <div className="mt-12 rounded-2xl border border-white/10 bg-card p-10 text-center">
               <h2 className="text-xl font-semibold">Let&apos;s make your first campaign</h2>
               <p className="mt-2 text-sm text-muted-foreground">Takes about 2 minutes — we&apos;ll walk you through it.</p>
-              <a href="/onboarding"
+              <Link href="/onboarding"
                 className="mt-6 inline-block px-6 py-3 rounded-xl bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors">
                 Create your first campaign
-              </a>
+              </Link>
             </div>
           ) : (
             <>
@@ -867,10 +866,10 @@ export function DashboardClient() {
               <div className="mt-12 flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Flyers & Pages</h2>
                 <div className="flex items-center gap-2">
-                  <a href="/onboarding"
+                  <Link href="/onboarding"
                     className="text-sm font-medium px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
                     New Campaign
-                  </a>
+                  </Link>
                   <button onClick={() => setShowUpsell(true)}
                     className="text-sm font-medium px-4 py-2 rounded-lg border border-white/12 hover:bg-white/[0.05] transition-colors">
                     Request more collateral

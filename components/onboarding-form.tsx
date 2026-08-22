@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import type { BusinessCategory, CampaignDefaults, IntakeSubmission, PlanId, ServiceItem } from "@/lib/types"
@@ -475,7 +476,7 @@ export function OnboardingForm({
             {defaultsApplied && (
               <p className="rounded-lg border border-[var(--brand-teal)]/30 bg-[var(--brand-teal-tint)] px-3.5 py-2.5 text-xs">
                 Your saved brand details are being applied to this campaign.{" "}
-                <a href="/profile" className="underline">Edit them</a>
+                <Link href="/profile" className="underline">Edit them</Link>
               </p>
             )}
 
@@ -521,7 +522,7 @@ export function OnboardingForm({
                     </label>
                     {realPlanId !== null && realPlanId !== "pro" && (
                       <p className="mt-1.5 text-xs text-muted-foreground">
-                        <a href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">Upgrade to Pro</a> to unlock AI-generated photos.
+                        <Link href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">Upgrade to Pro</Link> to unlock AI-generated photos.
                       </p>
                     )}
                   </div>
