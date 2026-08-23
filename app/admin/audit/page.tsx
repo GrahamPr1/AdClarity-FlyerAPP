@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import useSWR from "swr"
 import type { AuditReport, ClientAudit, Verdict } from "@/lib/audit-test-data"
@@ -29,11 +30,27 @@ function StatCard({ label, value, tone }: { label: string; value: string | numbe
   )
 }
 
-function Row({ audit }: { audit: ClientAudit }) {
+function Row({
+  audit,
+  selected,
+  onToggle,
+}: {
+  audit: ClientAudit
+  selected: boolean
+  onToggle: (email: string) => void
+}) {
   const style = VERDICT_STYLE[audit.verdict]
   return (
     <div className="rounded-xl border border-white/10 bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 gap-3">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggle(audit.email)}
+            aria-label={`Select ${audit.email} for deletion`}
+            className="mt-1 h-4 w-4 shrink-0 accent-red-400"
+          />
         <div className="min-w-0">
           <p className="font-medium break-all">{audit.email}</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
@@ -48,6 +65,7 @@ function Row({ audit }: { audit: ClientAudit }) {
               ? `created ${new Date(audit.createdAt).toLocaleString()}`
               : "created before signup timestamps were recorded"}
           </p>
+        </div>
         </div>
         <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${style.className}`}>
           {style.label}
@@ -69,10 +87,55 @@ function Row({ audit }: { audit: ClientAudit }) {
   )
 }
 
+interface DeleteResult {
+  dryRun: boolean
+  deleted: string[]
+  wouldDelete: string[]
+  details: { email: string; keyCount: number; trackingCodes: string[] }[]
+  refused: { email: string; reason: string }[]
+}
+
 export default function AuditPage() {
-  const { data, error, isLoading } = useSWR<AuditResponse>("/api/admin/audit", fetcher, {
+  const { data, error, isLoading, mutate } = useSWR<AuditResponse>("/api/admin/audit", fetcher, {
     revalidateOnFocus: false,
   })
+
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [preview, setPreview] = useState<DeleteResult | null>(null)
+  const [done, setDone] = useState<DeleteResult | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
+
+  const toggle = (email: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(email)) next.delete(email)
+      else next.add(email)
+      return next
+    })
+
+  async function call(dryRun: boolean): Promise<DeleteResult | null> {
+    setBusy(true)
+    setFailed(null)
+    try {
+      const res = await fetch("/api/admin/audit", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails: Array.from(selected), dryRun }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setFailed(json.error ?? "Request failed")
+        return null
+      }
+      return json as DeleteResult
+    } catch {
+      setFailed("Request failed")
+      return null
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -148,8 +211,95 @@ export default function AuditPage() {
           ) : (
             <div className="mt-4 flex flex-col gap-3">
               {data.flagged.map((a) => (
-                <Row key={a.email} audit={a} />
+                <Row key={a.email} audit={a} selected={selected.has(a.email)} onToggle={toggle} />
               ))}
+            </div>
+          )}
+
+          {selected.size > 0 && !done && (
+            <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-5">
+              <p className="font-medium text-red-200">
+                {selected.size} account{selected.size === 1 ? "" : "s"} selected for deletion
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                This permanently removes the account and everything attached to it — flyers, brand
+                profile, and QR tracking records. There is no undo. Preview first to see exactly
+                what would go.
+              </p>
+
+              {!preview ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => setPreview(await call(true))}
+                  className="mt-4 rounded-lg border border-white/20 px-4 py-2 text-sm font-medium hover:bg-white/5 disabled:opacity-50 transition-colors"
+                >
+                  {busy ? "Checking…" : "Preview what would be deleted"}
+                </button>
+              ) : (
+                <>
+                  <ul className="mt-4 flex flex-col gap-1.5 text-sm">
+                    {preview.details.map((d) => (
+                      <li key={d.email}>
+                        <span className="font-medium">{d.email}</span>
+                        <span className="text-muted-foreground">
+                          {" — "}{d.keyCount} keys
+                          {d.trackingCodes.length > 0 && `, ${d.trackingCodes.length} QR code(s)`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {preview.refused.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-3 text-sm">
+                      <p className="font-medium text-amber-200">Refused by the server:</p>
+                      <ul className="mt-1.5 flex flex-col gap-1">
+                        {preview.refused.map((r) => (
+                          <li key={r.email} className="text-muted-foreground">
+                            {r.email} — {r.reason}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy || preview.wouldDelete.length === 0}
+                    onClick={async () => {
+                      const result = await call(false)
+                      if (result) {
+                        setDone(result)
+                        setSelected(new Set())
+                        setPreview(null)
+                        mutate()
+                      }
+                    }}
+                    className="mt-4 rounded-lg bg-red-500/90 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50 transition-colors"
+                  >
+                    {busy ? "Deleting…" : `Permanently delete ${preview.wouldDelete.length} account(s)`}
+                  </button>
+                </>
+              )}
+              {failed && <p role="alert" className="mt-3 text-sm text-red-400">{failed}</p>}
+            </div>
+          )}
+
+          {done && (
+            <div className="mt-6 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] p-5">
+              <p className="font-medium text-emerald-200">
+                Deleted {done.deleted.length} account{done.deleted.length === 1 ? "" : "s"}.
+              </p>
+              <ul className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
+                {done.details.map((d) => (
+                  <li key={d.email}>{d.email} — {d.keyCount} keys removed</li>
+                ))}
+              </ul>
+              {done.refused.length > 0 && (
+                <ul className="mt-2 flex flex-col gap-1 text-sm text-amber-200/80">
+                  {done.refused.map((r) => (
+                    <li key={r.email}>{r.email} — {r.reason}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </>

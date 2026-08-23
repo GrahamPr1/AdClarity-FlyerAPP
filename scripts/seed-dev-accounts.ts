@@ -13,7 +13,7 @@
  * shared login would trip that limiter and fail tests for the wrong reason.
  */
 import "./load-env"
-import { setClientPlan, setClientPasswordHash, assertRedisMatchesEnvironment } from "../lib/store"
+import { setClientPlan, setClientPasswordHash, setClientBusinessName, assertRedisMatchesEnvironment } from "../lib/store"
 import { hashPassword } from "../lib/auth"
 import { getAppEnvironment } from "../lib/env"
 
@@ -45,6 +45,25 @@ async function main() {
       created.push(`${email}  (${role.plan})`)
     }
   }
+
+  // The audit/deletion tests need two more fixtures: an admin to call the
+  // endpoint as, and a record that reads as a genuine customer, so the test
+  // can prove the server REFUSES to delete a real one.
+  const { Redis } = await import("@upstash/redis")
+  const redis = Redis.fromEnv()
+
+  const adminEmail = "admin-audit@dev.invalid"
+  await setClientPlan(adminEmail, "pro")
+  await setClientPasswordHash(adminEmail, passwordHash)
+  await setClientBusinessName(adminEmail, "OneFlyer Ops")
+  await redis.set(`client:${adminEmail}:isAdmin`, true)
+  created.push(`${adminEmail}  (pro, ADMIN)`)
+
+  const realEmail = "sarah@millerheatingandair.com"
+  await setClientPlan(realEmail, "basic")
+  await setClientPasswordHash(realEmail, passwordHash)
+  await setClientBusinessName(realEmail, "Miller Heating & Air")
+  created.push(`${realEmail}  (basic, stands in for a real customer)`)
 
   console.log(`Seeded ${created.length} development accounts:`)
   for (const line of created) console.log(`  ${line}`)

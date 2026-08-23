@@ -1029,3 +1029,71 @@ export async function getGenerationLog(since: number, until: number = Date.now()
 export async function getGenerationLogForEmail(email: string): Promise<GenerationLogEntry[]> {
   return await redis.zrange<GenerationLogEntry[]>(generationLogByEmailKey(email), 0, -1)
 }
+
+// ---- Account deletion (admin, irreversible) ---------------------------------
+
+/**
+ * Every key belonging to one account, gathered without deleting anything.
+ *
+ * Separate from the delete itself so a caller can show exactly what is about
+ * to be removed and get a decision on it first. Two namespaces are involved
+ * — `client:<email>:*` and a handful of per-email prefixes — plus any QR
+ * tracking records the account owns, which would otherwise be orphaned and
+ * leave /r/<code> resolving for a business that no longer exists.
+ *
+ * Uses SCAN rather than a hardcoded list of suffixes on purpose: a key
+ * shape added later would silently survive a hardcoded delete and leave the
+ * account half-present.
+ */
+export async function collectAccountKeys(email: string): Promise<{ keys: string[]; trackingCodes: string[] }> {
+  const keys = new Set<string>()
+
+  const scanInto = async (pattern: string) => {
+    let cursor = "0"
+    do {
+      const [next, found] = await redis.scan(cursor, { match: pattern, count: 200 })
+      cursor = next
+      for (const k of found) keys.add(k)
+    } while (cursor !== "0")
+  }
+
+  await scanInto(`client:${email}:*`)
+  for (const prefix of ["deliverables", "formfills", "generation-log", "password-reset", "pipeline-state", "print-requests"]) {
+    await scanInto(`${prefix}:${email}`)
+  }
+
+  // Tracking records are keyed by code, not email, so they have to be matched
+  // on their contents rather than their name.
+  const trackingCodes: string[] = []
+  let cursor = "0"
+  do {
+    const [next, found] = await redis.scan(cursor, { match: "tracking:*:record", count: 200 })
+    cursor = next
+    for (const key of found) {
+      const record = await redis.get<{ email?: string }>(key)
+      if (record?.email?.toLowerCase() === email.toLowerCase()) {
+        const code = key.slice("tracking:".length, key.length - ":record".length)
+        trackingCodes.push(code)
+        keys.add(key)
+        keys.add(`tracking:${code}:scans`)
+        keys.add(`tracking:${code}:clicks`)
+      }
+    }
+  } while (cursor !== "0")
+
+  return { keys: Array.from(keys).sort(), trackingCodes }
+}
+
+/**
+ * Permanently removes one account and everything belonging to it.
+ *
+ * There is no undo and no soft-delete tier behind this. Callers are expected
+ * to have positively identified the account first — see the audit endpoint,
+ * which refuses to delete anything its own heuristics consider a real
+ * customer.
+ */
+export async function deleteAccountCompletely(email: string): Promise<{ deletedKeys: string[] }> {
+  const { keys } = await collectAccountKeys(email)
+  if (keys.length > 0) await redis.del(...keys)
+  return { deletedKeys: keys }
+}
