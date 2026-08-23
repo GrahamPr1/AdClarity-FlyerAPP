@@ -126,6 +126,7 @@ export function OnboardingForm({
     existingMaterialsFileName: undefined,
     flyerPhotoUrls: [],
     wantsAiPhotos: false,
+    wantsQrCode: initialData?.wantsQrCode ?? true,
     flyerNotes: initialData?.flyerNotes ?? "",
     websitePreferences: "",
   })
@@ -451,6 +452,31 @@ export function OnboardingForm({
               <textarea id="audience" rows={3} className={fieldBase()} value={form.targetAudience}
                 onChange={(e) => set("targetAudience", e.target.value)}
                 placeholder="Homeowners in the area with roofs 15+ years old" />
+            </div>
+
+            {/* Asked here rather than buried in the optional extras: it changes
+                what gets printed on the flyer, so it belongs with the offer.
+                Defaults to on — it was always-on before this question existed. */}
+            <div>
+              <Label htmlFor="wantsQrCode">Add a QR code to your flyer?</Label>
+              <label htmlFor="wantsQrCode" className="mt-1.5 flex items-start gap-2.5 text-sm cursor-pointer">
+                <input id="wantsQrCode" type="checkbox"
+                  checked={(form.wantsQrCode ?? true) && realPlanId !== "trial"}
+                  disabled={realPlanId === "trial"}
+                  onChange={(e) => set("wantsQrCode", e.target.checked)}
+                  className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--brand-teal-bright)] disabled:opacity-50" />
+                <span>Print a scannable QR code on the flyer</span>
+              </label>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {realPlanId === "trial" ? (
+                  <>
+                    <Link href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">Upgrade to Basic</Link>
+                    {" "}to add scannable QR codes and see how many people scan them.
+                  </>
+                ) : (
+                  <>Scanning it opens your offer, and you&apos;ll see the scan count on your dashboard.</>
+                )}
+              </p>
             </div>
           </div>
         )}

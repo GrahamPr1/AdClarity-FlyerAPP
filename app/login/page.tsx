@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense, useState } from "react"
+import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { trackEvent } from "@/lib/analytics"
 
@@ -325,9 +326,17 @@ function LoginPageInner() {
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-2 font-semibold mb-8 justify-center">
-          <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-teal-bright)]" />
-          OneFlyer
+        {/* The wordmark is the only way back out of login/signup — without it
+            someone who lands here by mistake has no route to the homepage. */}
+        <div className="flex justify-center mb-8">
+          <Link
+            href="/"
+            aria-label="OneFlyer — back to homepage"
+            className="inline-flex items-center gap-2 font-semibold rounded-md px-2 py-1 -mx-2 transition-colors hover:text-[var(--brand-teal-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-teal-bright)]"
+          >
+            <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-teal-bright)]" />
+            OneFlyer
+          </Link>
         </div>
         <div className="rounded-2xl border border-white/10 bg-card p-7">
           <h1 className="text-xl font-semibold">{heading}</h1>

@@ -6,6 +6,7 @@ import { runFlyerAgent } from "./agents/flyerAgent"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage } from "./higgsfield"
 import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
+import { planIncludesExtras, planAllowsAiPhotos } from "./plan-features"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
 import type { FlyerRequest } from "./schemas/flyer"
 import {
@@ -26,9 +27,14 @@ import {
 async function getPlanFeatures(email: string): Promise<{ includeExtras: boolean; allowAiPhotos: boolean }> {
   const client = await getClient(email)
   return {
-    includeExtras: client?.plan !== "trial", // Basic+/Pro: QR tracking, repurposing
-    allowAiPhotos: client?.plan === "pro", // Pro only — also requires the client's own opt-in (see buildPhotoPool)
+    includeExtras: planIncludesExtras(client?.plan), // Basic+/Pro: QR tracking, repurposing
+    allowAiPhotos: planAllowsAiPhotos(client?.plan), // Pro only — also requires the client's own opt-in (see buildPhotoPool)
   }
+}
+
+/** See qrEnabled — plan gate AND the client's own answer, both required. */
+function wantsQr(includeExtras: boolean, intake: NormalizedIntake): boolean {
+  return includeExtras && intake.wantsQrCode
 }
 
 export const MAX_FLYERS_PER_BATCH = 10
@@ -158,7 +164,17 @@ async function buildPhotoPool(intake: NormalizedIntake, flyerRequests: FlyerRequ
  */
 export async function runIntakeStage(submission: IntakeSubmission): Promise<IntakeAgentOutput> {
   const rawPayload = buildRawIntakePayload(submission)
-  return runIntakeAgent(rawPayload, submission.contact.email.trim().toLowerCase())
+  const result = await runIntakeAgent(rawPayload, submission.contact.email.trim().toLowerCase())
+
+  // The prompt asks the agent to copy wantsQrCode verbatim, but a client's
+  // explicit yes/no shouldn't depend on a model getting a copy instruction
+  // right — overwrite it with the submitted value. Absent means true: every
+  // campaign made before this question existed got a QR code, and silently
+  // dropping it for anyone who doesn't re-answer would be a regression.
+  if (result.data) {
+    result.data.wantsQrCode = submission.wantsQrCode ?? true
+  }
+  return result
 }
 
 async function runBatch(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[], autoSaveBrandProfile: boolean): Promise<void> {
@@ -184,11 +200,12 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
 
   // One tracking code + QR image per flyer, generated before the agent call
   // — it needs a real, ready image to embed, the same way it needs real
-  // photo URLs (see buildPhotoPool). Skipped entirely on Trial: no tracking
-  // record, no QR, nothing to embed. The code -> flyerId mapping lets the
-  // backfill step below match each agent response back to its own record.
+  // photo URLs (see buildPhotoPool). Skipped on Trial (no tracking record, no
+  // QR, nothing to embed) and skipped when the client answered "no" to the QR
+  // question. The code -> flyerId mapping lets the backfill step below match
+  // each agent response back to its own record.
   const trackingByFlyerId = new Map(
-    includeExtras
+    wantsQr(includeExtras, intake)
       ? await Promise.all(flyerRequests.map(async (r) => [r.id, await createFlyerTrackingCode(email, r.id, intake)] as const))
       : [],
   )
@@ -319,7 +336,7 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
   // one, if this flyer had already generated once, is simply abandoned
   // along with its stats, since a regenerated flyer's content may no
   // longer match what a scan of the old QR would have promised.
-  const tracking = includeExtras ? await createFlyerTrackingCode(email, flyerRequest.id, intake) : null
+  const tracking = wantsQr(includeExtras, intake) ? await createFlyerTrackingCode(email, flyerRequest.id, intake) : null
   stageMark(runId, t0, "tracking code ready")
 
   // Same two-pass split as runBatch — see the note there on why repurposing

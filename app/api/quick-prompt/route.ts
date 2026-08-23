@@ -160,6 +160,9 @@ export async function POST(request: NextRequest) {
     fontStylePreference,
     photos: [],
     wantsAiPhotos: false,
+    // Quick Prompt has no QR question — it's the one-line path, deliberately
+    // free of settings — so it keeps the long-standing default.
+    wantsQrCode: true,
     flyerRequests: [{ id: flyerRequestId, purpose: parsed.purpose, notes: `${FORMAT_GUIDANCE[format]}\n\nClient's original request: ${fullPromptText}` }],
     websitePreferences: null,
     existingMaterialsNotes: null,

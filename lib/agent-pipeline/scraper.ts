@@ -54,9 +54,49 @@ async function getRobots(origin: string) {
   }
 }
 
+/**
+ * Pulls the page's readable content.
+ *
+ * Deliberately reaches beyond <body>. A small business's site is frequently
+ * one page whose visible content is a logo and a hero photo, with the actual
+ * facts — trade, city, phone — living in the <title>, the meta description and
+ * image alt text. Reading only body text returned almost nothing for those
+ * sites and the crawl was rejected as "no usable content", which failed
+ * precisely the customers this feature is meant to serve.
+ */
 function extractText($: cheerio.CheerioAPI): string {
   $("script, style, noscript, svg").remove()
-  return $("body").text().replace(/\s+/g, " ").trim().slice(0, 8000)
+
+  const meta = (selector: string) => $(selector).attr("content")?.trim() ?? ""
+  const head = [
+    $("title").text().trim(),
+    meta('meta[name="description"]'),
+    meta('meta[property="og:site_name"]'),
+    meta('meta[property="og:title"]'),
+    meta('meta[property="og:description"]'),
+  ]
+
+  // Cheerio concatenates adjacent block elements with no separator, so an <h1>
+  // followed by a <p> arrives as "Miller Heating & AirCall (555) 123-4567" —
+  // a mangled token the extraction model then has to guess at. Separate them.
+  $("body").find("br, p, div, li, td, th, h1, h2, h3, h4, h5, h6, section, article, header, footer, tr, address").after(" ")
+  const body = $("body").text()
+
+  // Alt text last: useful on image-only pages, but noisy ("", "logo", "image")
+  // often enough that it shouldn't crowd out real copy.
+  const alts: string[] = []
+  $("img[alt]").each((_, el) => {
+    const alt = $(el).attr("alt")?.trim()
+    if (alt && alt.length > 2 && !alts.includes(alt)) alts.push(alt)
+  })
+
+  // Dedupe: og:title usually repeats <title>, and the h1 usually repeats both.
+  const seen = new Set<string>()
+  const parts = [...head, body, ...alts.slice(0, 12)]
+    .map((s) => s.replace(/\s+/g, " ").trim())
+    .filter((s) => s && !seen.has(s) && (seen.add(s), true))
+
+  return parts.join(" ").replace(/\s+/g, " ").trim().slice(0, 8000)
 }
 
 function extractSameDomainLinks($: cheerio.CheerioAPI, pageUrl: string, origin: string): string[] {
@@ -224,7 +264,12 @@ export async function crawlWebsite(rawUrl: string): Promise<CrawlResult | { erro
     const html = await res.text()
     const $ = cheerio.load(html)
     const text = extractText($)
-    if (text.length > 40) pages.push({ url: next.url, text })
+    // The homepage is kept whenever it loaded at all, however terse: for a
+    // one-page site it IS the business, and a name plus a phone number is
+    // already enough to prefill onboarding. The length floor still applies to
+    // sub-pages, where a near-empty page is noise rather than the whole site.
+    const isHomepage = next.url === startUrl.toString()
+    if (isHomepage ? text.length > 0 : text.length > 40) pages.push({ url: next.url, text })
 
     if (next.depth === 0) {
       logoUrl = extractLogoUrl($, next.url)

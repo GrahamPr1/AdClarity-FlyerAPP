@@ -34,6 +34,8 @@ export const NormalizedIntakeSchema = z.object({
   photos: z.array(z.object({ url: z.string(), caption: z.string() })),
   /** Verbatim copy of the raw submission's wantsAiPhotos — a real client consent choice, never inferred (see prompts/intake.ts). Defaults to false when absent. */
   wantsAiPhotos: z.boolean(),
+  /** Verbatim copy of the raw submission's wantsQrCode — the client's own answer to "put a QR code on the flyer?", never inferred. Defaults to TRUE when absent (see the note in lib/types.ts). */
+  wantsQrCode: z.boolean(),
   flyerRequests: z
     .array(
       z.object({

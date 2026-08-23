@@ -24,6 +24,7 @@ const intakeWithExistingColors: NormalizedIntake = {
   fontStylePreference: "modern",
   photos: [{ url: "https://example.com/photo1.jpg", caption: "front desk" }],
   wantsAiPhotos: false,
+  wantsQrCode: true,
   flyerRequests: [
     { id: "f1", purpose: "New patient special", notes: "mention $50 off first cleaning" },
   ],

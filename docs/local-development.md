@@ -112,6 +112,20 @@ npm run lint
 npm run typecheck
 ```
 
+The browser tests sign in, so they need seeded accounts:
+
+```bash
+npm run seed:dev
+```
+
+This creates nine `@dev.invalid` accounts — one per (role × browser engine).
+They're split per engine on purpose: sign-in is rate-limited per account, and
+Playwright runs the three engines in parallel, so a shared login trips that
+limiter and fails tests for the wrong reason.
+
+`seed:dev` refuses to run unless both this process **and** the connected
+database are marked `development`, so it cannot create accounts in production.
+
 ## Moving to a hosted dev database later
 
 If you'd rather have a hosted Upstash instance for development (useful for

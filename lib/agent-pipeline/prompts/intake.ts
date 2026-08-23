@@ -63,6 +63,11 @@ restructuring, not just renaming:
   \`false\`. This is never something to infer, default to true, or override
   based on how compelling a photo would be — it's the client's explicit
   choice, not a design judgment call.
+- \`wantsQrCode\` is the client's yes/no answer to whether a scannable QR code
+  should be printed on the flyer — copy it verbatim into the output's
+  \`wantsQrCode\` field. If absent, output \`true\` (it was the long-standing
+  behaviour before the question was asked). Never infer it from the offer,
+  the industry, or how useful a QR code would be — it is the client's call.
 - \`planId\` is a billing/plan-selection field with no corresponding target
   field — ignore it entirely.
 - \`businessCategory\` is a segmentation tag (e.g. "Real Estate /
