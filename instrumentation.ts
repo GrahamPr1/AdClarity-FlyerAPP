@@ -7,9 +7,14 @@ import { getAppEnvironment } from "./lib/env"
  * Its only job is the environment guardrail: confirm the Redis instance this
  * process is about to use actually belongs to this environment. Placed here
  * rather than in a request path so it costs one GET per process instead of
- * one per request, and so a development server pointed at production fails at
+ * one per request, and so a process pointed at the wrong database fails at
  * boot — loudly, before it can write a single key — instead of quietly
  * corrupting live data.
+ *
+ * Rethrown for development AND preview. Preview used to swallow this, which
+ * meant a preview deployment wired to the production database logged one line
+ * and then served traffic against live customer records. Refusing to boot is
+ * the point: a broken preview is recoverable, mutated production data is not.
  *
  * Production only ever warns (see assertRedisMatchesEnvironment): a marker
  * mismatch must never be able to take a live deployment down.
@@ -22,9 +27,9 @@ export async function register() {
   try {
     await assertRedisMatchesEnvironment()
   } catch (err) {
-    // Rethrow in development so the server refuses to start. In any other
-    // environment this has already been downgraded to a warning upstream.
-    if (getAppEnvironment() === "development") throw err
+    // Anything that isn't production refuses to start. Production logs and
+    // continues, because taking the live site down is the worse failure.
+    if (getAppEnvironment() !== "production") throw err
     console.error("[env]", err instanceof Error ? err.message : err)
   }
 }

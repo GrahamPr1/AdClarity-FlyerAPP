@@ -39,6 +39,36 @@ export function isProduction(): boolean {
   return getAppEnvironment() === "production"
 }
 
+/** What to do when a database's self-declared marker doesn't match this process. */
+export type MarkerVerdict =
+  /** Marker matches — proceed. */
+  | "ok"
+  /** Unmarked database — label it for this environment and proceed. */
+  | "claim"
+  /** Hard stop: refuse to touch this database at all. */
+  | "refuse"
+  /** Mismatch worth shouting about, but not worth halting for. */
+  | "warn"
+
+/**
+ * The environment guardrail's decision, as a pure function so it can be
+ * tested without a Redis connection.
+ *
+ * The rule that matters: anything that is not production REFUSES a database
+ * marked "production". That covers a laptop (the incident that prompted this)
+ * and preview deployments (which previously only warned, so any pull request
+ * ran against live customer data).
+ *
+ * Production itself only ever warns. A marker mismatch is a configuration
+ * error, and taking the live site down over one is worse than the mismatch.
+ */
+export function verdictForMarker(expected: AppEnvironment, actual: string | null): MarkerVerdict {
+  if (actual === null) return "claim"
+  if (actual === expected) return "ok"
+  if (actual === "production" && expected !== "production") return "refuse"
+  return "warn"
+}
+
 /** Variables without which the app cannot function at all. */
 const REQUIRED = ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "SESSION_SECRET"] as const
 

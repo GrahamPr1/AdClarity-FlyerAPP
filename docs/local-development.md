@@ -12,10 +12,20 @@ each Redis instance stores a marker naming the environment it belongs to, and
 a development process refuses to start against one marked `production`.
 
 ```
-LOCAL DEV  ──> redis-server on 127.0.0.1  (marker: development)
-                        ✗  no connection
+LOCAL DEV  ──> redis-server on 127.0.0.1   (marker: development)
+PREVIEW    ──> hosted Upstash, its own DB  (marker: preview)
 PRODUCTION ──> hosted Upstash              (marker: production)
 ```
+
+Each of the three has its own database **and** its own `SESSION_SECRET`, so a
+session forged in one is worthless in the others.
+
+Preview is included deliberately. It used to share the production database,
+and the guard only warned there, so any pull request deployment served real
+customer records and could write to them. Now anything that is not production
+**refuses to boot** against a database marked `production` — see
+`verdictForMarker` in `lib/env.ts` and the cases pinned in
+`tests/env-guard.test.ts`.
 
 ## One-time setup
 

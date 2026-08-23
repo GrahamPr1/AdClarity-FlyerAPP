@@ -2,7 +2,7 @@ import { Redis } from "@upstash/redis"
 import type { BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
-import { getAppEnvironment } from "./env"
+import { getAppEnvironment, verdictForMarker } from "./env"
 import { sha256Hex } from "./auth"
 import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
 import type { FlyerRequest } from "./agent-pipeline/schemas/flyer"
@@ -27,9 +27,15 @@ const redis = Redis.fromEnv()
 // Environment guardrail.
 //
 // Each Redis instance stores a marker naming the environment it belongs to.
-// Development refuses to talk to an instance that says "production" — which
-// is the actual enforcement behind "local dev must never touch prod data",
-// rather than trusting whoever last edited .env.local.
+// NOTHING outside production may talk to an instance that says "production" —
+// that is the actual enforcement behind "only production touches live data",
+// rather than trusting whoever last edited an env var.
+//
+// This covers preview as well as development, and deliberately so: preview
+// deployments ran against the production database while only logging a
+// warning, so any pull request could read and write live customer records.
+// A preview that refuses to boot is a far smaller problem than one that
+// quietly mutates real data.
 //
 // Deliberately NOT enforced in production: a marker mismatch there should be
 // loud but must never take a live deployment down, so it warns instead. The
@@ -49,23 +55,26 @@ export function assertRedisMatchesEnvironment(): Promise<void> {
       return // A transient Redis error is the caller's problem to surface, not this guard's.
     }
 
-    if (actual === null) {
+    // Decision lives in lib/env.ts so it can be unit-tested without Redis.
+    const verdict = verdictForMarker(expected, actual)
+    if (verdict === "ok") return
+
+    if (verdict === "claim") {
       // Unmarked instance — claim it for this environment. First writer wins,
       // so a brand-new dev database labels itself the first time it's used.
       await redis.set(ENV_MARKER_KEY, expected).catch(() => {})
       return
     }
-    if (actual === expected) return
 
     const message =
       `Redis environment mismatch: this process is "${expected}" but the connected ` +
       `Redis instance is marked "${actual}". Check UPSTASH_REDIS_REST_URL for this environment.`
 
-    if (expected === "development" && actual === "production") {
-      // The exact case that caused live data to be written from a laptop.
+    if (verdict === "refuse") {
       throw new Error(
-        `${message}\n\nRefusing to run development against the production database. ` +
-          `Point UPSTASH_REDIS_REST_URL at a development instance, or set APP_ENV explicitly if this is intentional.`,
+        `${message}\n\nRefusing to run ${expected} against the production database. ` +
+          `Point UPSTASH_REDIS_REST_URL for the ${expected} environment at its own instance, ` +
+          `or set APP_ENV explicitly if this is genuinely intentional.`,
       )
     }
     console.warn(`[env] ${message}`)
