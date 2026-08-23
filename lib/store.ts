@@ -45,6 +45,34 @@ const ENV_MARKER_KEY = "__oneflyer_environment"
 
 let envCheck: Promise<void> | null = null
 
+/**
+ * Escalates an environment problem by email, on top of the console log.
+ *
+ * Dynamically imported so the mailer (and the Resend client it constructs) is
+ * only loaded on the rare path that actually needs it, and so lib/store.ts
+ * stays importable in contexts where email isn't configured at all.
+ *
+ * Swallows everything. This runs during server boot, and an alert that can't
+ * be delivered must never become a second, worse outage than the one it was
+ * trying to report.
+ */
+async function notifyEnvironmentProblem(subject: string, lines: string[]): Promise<void> {
+  try {
+    const { sendOperationalAlert } = await import("./email")
+    const result = await sendOperationalAlert(subject, lines)
+    if (result.sent) {
+      console.error(`[env] Alert email sent: ${subject}`)
+    } else {
+      // Worth its own line: otherwise a missing ALERT_EMAIL looks identical
+      // to a delivered alert, and the whole point is not relying on someone
+      // reading logs.
+      console.error(`[env] Alert email NOT sent (${result.reason}): ${subject}`)
+    }
+  } catch (err) {
+    console.error("[env] Alerting itself failed:", err instanceof Error ? err.message : err)
+  }
+}
+
 export function assertRedisMatchesEnvironment(): Promise<void> {
   envCheck ??= (async () => {
     const expected = getAppEnvironment()
@@ -63,6 +91,22 @@ export function assertRedisMatchesEnvironment(): Promise<void> {
       // Unmarked instance — claim it for this environment. First writer wins,
       // so a brand-new dev database labels itself the first time it's used.
       await redis.set(ENV_MARKER_KEY, expected).catch(() => {})
+
+      // In production, though, an unmarked database is alarming rather than
+      // routine: production's database was marked long ago, so an unmarked
+      // one means this deployment is pointed at a DIFFERENT, empty instance
+      // and every customer will see their data as gone. Nothing here can
+      // tell the difference between that and a legitimate first-ever boot,
+      // so it claims either way and escalates for a human to judge.
+      if (expected === "production") {
+        const size = await redis.dbsize().catch(() => -1)
+        await notifyEnvironmentProblem("OneFlyer: production connected to an UNMARKED database", [
+          "Production booted against a Redis instance carrying no environment marker.",
+          `That instance currently holds ${size < 0 ? "an unknown number of" : size} keys.`,
+          "Production's database was marked long ago, so an unmarked one most likely means UPSTASH_REDIS_REST_URL for Production now points somewhere else — customer data would appear to be missing.",
+          "It has been claimed as \"production\" so the guard stops re-firing. Verify the connection string before assuming data loss.",
+        ])
+      }
       return
     }
 
@@ -77,7 +121,21 @@ export function assertRedisMatchesEnvironment(): Promise<void> {
           `or set APP_ENV explicitly if this is genuinely intentional.`,
       )
     }
+
     console.warn(`[env] ${message}`)
+
+    // Production is the one environment that keeps running on a mismatch (see
+    // the note at the top of this block), which is exactly why a log line
+    // isn't enough: nobody is watching production's console, and the site
+    // carries on serving from the wrong database until someone notices.
+    if (expected === "production") {
+      await notifyEnvironmentProblem("OneFlyer: production is using the WRONG database", [
+        message,
+        `Production is serving live traffic against a database marked "${actual}".`,
+        "Reads and writes are going to the wrong instance. Real customer data is not being updated, and whatever is being written does not belong where it is landing.",
+        "Production deliberately does not refuse to boot on this condition — taking the live site down is the worse failure — so it will keep serving until UPSTASH_REDIS_REST_URL for Production is corrected.",
+      ])
+    }
   })()
   return envCheck
 }
@@ -727,6 +785,36 @@ export async function listClientsWithDeliverables(): Promise<Deliverables[]> {
   } while (cursor !== "0")
 
   return Promise.all(emails.map((email) => getDeliverablesForEmail(email)))
+}
+
+/** Every email appearing under any key matching `client:*:<suffix>`. */
+async function scanEmailsBySuffix(suffix: string): Promise<string[]> {
+  let cursor = "0"
+  const emails: string[] = []
+  do {
+    const [next, keys] = await redis.scan(cursor, { match: `client:*:${suffix}`, count: 100 })
+    cursor = next
+    for (const key of keys) {
+      emails.push(key.slice("client:".length, key.length - (suffix.length + 1)))
+    }
+  } while (cursor !== "0")
+  return emails
+}
+
+/**
+ * The UNION of every email this database knows about, by either definition.
+ *
+ * Neither existing scan is complete on its own, and an audit that misses
+ * records is worse than useless: the plan scan misses anyone who signed up
+ * but never onboarded, and the passwordHash scan misses anyone who has a
+ * ClientRecord but never set a password — which is exactly the shape a
+ * record created by automated poking tends to have. Used by the admin audit
+ * endpoint; ordinary product code should keep using the narrower scans,
+ * whose definitions are deliberate.
+ */
+export async function listEveryKnownEmail(): Promise<string[]> {
+  const [byPlan, byPassword] = await Promise.all([scanEmailsBySuffix("plan"), scanEmailsBySuffix("passwordHash")])
+  return Array.from(new Set([...byPlan, ...byPassword]))
 }
 
 /**
