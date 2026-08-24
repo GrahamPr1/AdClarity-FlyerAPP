@@ -3,6 +3,7 @@ import type { BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientR
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { getAppEnvironment, verdictForMarker } from "./env"
+import { escapeRedisGlob } from "./redis-glob"
 import { sha256Hex } from "./auth"
 import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
 import type { FlyerRequest } from "./agent-pipeline/schemas/flyer"
@@ -1032,6 +1033,7 @@ export async function getGenerationLogForEmail(email: string): Promise<Generatio
 
 // ---- Account deletion (admin, irreversible) ---------------------------------
 
+
 /**
  * Every key belonging to one account, gathered without deleting anything.
  *
@@ -1048,18 +1050,24 @@ export async function getGenerationLogForEmail(email: string): Promise<Generatio
 export async function collectAccountKeys(email: string): Promise<{ keys: string[]; trackingCodes: string[] }> {
   const keys = new Set<string>()
 
-  const scanInto = async (pattern: string) => {
+  const scanInto = async (pattern: string, exactPrefix: string) => {
     let cursor = "0"
     do {
       const [next, found] = await redis.scan(cursor, { match: pattern, count: 200 })
       cursor = next
-      for (const k of found) keys.add(k)
+      for (const k of found) {
+        // Belt and braces on top of the escaping: SCAN is a pattern match, and
+        // this is a delete path, so every key is re-checked against a literal
+        // prefix before it can be considered part of this account.
+        if (k.startsWith(exactPrefix)) keys.add(k)
+      }
     } while (cursor !== "0")
   }
 
-  await scanInto(`client:${email}:*`)
+  const safe = escapeRedisGlob(email)
+  await scanInto(`client:${safe}:*`, `client:${email}:`)
   for (const prefix of ["deliverables", "formfills", "generation-log", "password-reset", "pipeline-state", "print-requests"]) {
-    await scanInto(`${prefix}:${email}`)
+    await scanInto(`${prefix}:${safe}`, `${prefix}:${email}`)
   }
 
   // Tracking records are keyed by code, not email, so they have to be matched

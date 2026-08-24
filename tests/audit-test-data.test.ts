@@ -79,6 +79,15 @@ describe("not smearing real customers", () => {
     expect(verdictFor(signalsForClient(quiet))).toBe("suspicious")
   })
 
+  it("does not claim 'never created a flyer' when the period counter says otherwise", () => {
+    // Real production row: "1 flyer this period" alongside "never created a
+    // single flyer". lifetimeFlyersCreated is 0 (not undefined) on records
+    // predating that counter, so ?? never fell back to flyersCreated.
+    const made = real({ flyersCreated: 1, lifetimeFlyersCreated: 0, hasPassword: false })
+    expect(codes(made)).not.toContain("never-generated")
+    expect(verdictFor(signalsForClient(made))).not.toBe("suspicious")
+  })
+
   it("needs two weak signals before saying anything at all", () => {
     const oneWeak = real({ flyersCreated: 0, lifetimeFlyersCreated: 0 })
     expect(verdictFor(signalsForClient(oneWeak))).toBe("looks-real")

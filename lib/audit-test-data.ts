@@ -144,7 +144,13 @@ export function signalsForClient(client: AuditableClient): Signal[] {
   if (!client.hasPassword) {
     signals.push({ code: "no-credential", strength: "weak", detail: "no password was ever set, so the signup was never completed" })
   }
-  if ((client.lifetimeFlyersCreated ?? client.flyersCreated) === 0) {
+  // The MAX of both counters, not `lifetime ?? period`. ?? only falls back on
+  // undefined, and lifetimeFlyersCreated is 0 — not undefined — for every
+  // record predating that counter. So an account showing "1 flyer this period"
+  // was simultaneously being reported as having never created one, and any
+  // real customer who generated flyers before lifetime tracking existed picked
+  // up a false weak signal toward being called test data.
+  if (Math.max(client.lifetimeFlyersCreated ?? 0, client.flyersCreated) === 0) {
     signals.push({ code: "never-generated", strength: "weak", detail: "never created a single flyer" })
   }
 

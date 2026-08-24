@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
+import { adminStateFile } from "./auth-paths"
 
 /**
  * Deleting an account is irreversible, so the property that matters is not
@@ -14,14 +15,6 @@ import { test, expect, type Page } from "@playwright/test"
 
 const BASE = "http://localhost:3000"
 
-async function loginAsAdmin(page: Page) {
-  await page.goto(`${BASE}/login`)
-  await page.getByLabel(/email/i).first().fill("admin-audit@dev.invalid")
-  await page.getByLabel(/password/i).first().fill("DevTest!2345")
-  await page.getByRole("button", { name: /log in|sign in/i }).first().click()
-  await page.waitForURL(/\/(dashboard|admin)/, { timeout: 20000 })
-}
-
 async function attemptDelete(page: Page, emails: string[]) {
   const res = await page.request.fetch(`${BASE}/api/admin/audit`, {
     method: "DELETE",
@@ -33,29 +26,30 @@ async function attemptDelete(page: Page, emails: string[]) {
   return { status: res.status(), body: await res.json() }
 }
 
+test.describe("authenticated as admin", () => {
+  // `provide`, not `use` — a param named `use` trips the react-hooks lint
+  // rule, which reads it as React's use() hook. Playwright does not care.
+  test.use({ storageState: ({}, provide, testInfo) => provide(adminStateFile(testInfo.project.name)) })
+
 test("refuses to delete an account the audit considers real", async ({ page }) => {
-  await loginAsAdmin(page)
   const { body } = await attemptDelete(page, ["sarah@millerheatingandair.com"])
   expect(body.wouldDelete).toEqual([])
   expect(body.refused[0].reason).toMatch(/not currently flagged/i)
 })
 
 test("refuses an address that does not exist", async ({ page }) => {
-  await loginAsAdmin(page)
   const { body } = await attemptDelete(page, ["nobody@nowhere.example"])
   expect(body.wouldDelete).toEqual([])
   expect(body.refused).toHaveLength(1)
 })
 
-test("refuses to delete the signed-in admin", async ({ page }) => {
-  await loginAsAdmin(page)
-  const { body } = await attemptDelete(page, ["admin-audit@dev.invalid"])
+test("refuses to delete the signed-in admin", async ({ page }, testInfo) => {
+  const { body } = await attemptDelete(page, [`admin-audit-${testInfo.project.name}@dev.invalid`])
   expect(body.wouldDelete).toEqual([])
   expect(body.refused[0].reason).toMatch(/signed-in admin/i)
 })
 
 test("allows a genuinely flagged row, and reports what would go", async ({ page }, testInfo) => {
-  await loginAsAdmin(page)
   const target = `qr-basic-${testInfo.project.name}@dev.invalid`
   const { body } = await attemptDelete(page, [target])
   expect(body.wouldDelete).toContain(target)
@@ -63,6 +57,8 @@ test("allows a genuinely flagged row, and reports what would go", async ({ page 
   // Dry run must not have touched anything.
   const after = await attemptDelete(page, [target])
   expect(after.body.wouldDelete).toContain(target)
+})
+
 })
 
 test("rejects a non-admin outright", async ({ request }) => {

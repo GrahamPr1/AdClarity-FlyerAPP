@@ -74,19 +74,50 @@ function parse(buf, i = 0) {
   return null
 }
 
+/**
+ * One persistent connection, with commands queued and answered in order.
+ *
+ * The original opened a fresh TCP connection per command. That is fine for a
+ * page doing a handful of reads, but the admin audit issues one round trip
+ * per tracking record, and under a parallel Playwright run the connect churn
+ * was slow enough to time out logins — test failures caused purely by the
+ * bridge, with nothing wrong in the app.
+ *
+ * Redis answers a single connection's commands strictly in order, so a FIFO
+ * queue of pending resolvers is all the correlation needed.
+ */
+let sock = null
+let buf = Buffer.alloc(0)
+const pending = []
+
+function connect() {
+  sock = net.createConnection({ host: REDIS_HOST, port: REDIS_PORT })
+  sock.setNoDelay(true)
+  sock.on("data", (d) => {
+    buf = Buffer.concat([buf, d])
+    // A single chunk can carry several replies, and a reply can span chunks.
+    for (;;) {
+      const r = parse(buf)
+      if (!r) break
+      buf = buf.subarray(r[1])
+      const next = pending.shift()
+      if (next) next.resolve(r[0])
+    }
+  })
+  const fail = (err) => {
+    sock = null
+    buf = Buffer.alloc(0)
+    while (pending.length) pending.shift().reject(err ?? new Error("redis connection closed"))
+  }
+  sock.on("error", fail)
+  sock.on("close", () => fail())
+}
+
 function sendCommand(args) {
   return new Promise((resolve, reject) => {
-    const sock = net.createConnection({ host: REDIS_HOST, port: REDIS_PORT }, () => sock.write(encode(args)))
-    let buf = Buffer.alloc(0)
-    sock.on("data", (d) => {
-      buf = Buffer.concat([buf, d])
-      const r = parse(buf)
-      if (r) {
-        sock.end()
-        resolve(r[0])
-      }
-    })
-    sock.on("error", reject)
+    if (!sock) connect()
+    pending.push({ resolve, reject })
+    sock.write(encode(args))
   })
 }
 

@@ -34,6 +34,9 @@ async function main() {
   // this process. A misconfigured URL is exactly the failure this catches.
   await assertRedisMatchesEnvironment()
 
+  const { Redis } = await import("@upstash/redis")
+  const redis = Redis.fromEnv()
+
   const passwordHash = await hashPassword(PASSWORD)
   const created: string[] = []
 
@@ -49,21 +52,41 @@ async function main() {
   // The audit/deletion tests need two more fixtures: an admin to call the
   // endpoint as, and a record that reads as a genuine customer, so the test
   // can prove the server REFUSES to delete a real one.
-  const { Redis } = await import("@upstash/redis")
-  const redis = Redis.fromEnv()
+  // Per engine again, for the same reason as above: five audit tests times
+  // three engines signing in as one admin trips the per-account limiter.
+  for (const project of PROJECTS) {
+    const adminEmail = `admin-audit-${project}@dev.invalid`
+    await setClientPlan(adminEmail, "pro")
+    await setClientPasswordHash(adminEmail, passwordHash)
+    await setClientBusinessName(adminEmail, "OneFlyer Ops")
+    await redis.set(`client:${adminEmail}:isAdmin`, true)
+    created.push(`${adminEmail}  (pro, ADMIN)`)
+  }
 
-  const adminEmail = "admin-audit@dev.invalid"
-  await setClientPlan(adminEmail, "pro")
-  await setClientPasswordHash(adminEmail, passwordHash)
-  await setClientBusinessName(adminEmail, "OneFlyer Ops")
-  await redis.set(`client:${adminEmail}:isAdmin`, true)
-  created.push(`${adminEmail}  (pro, ADMIN)`)
-
+  // Stands in for a genuine customer, so the deletion tests can prove the
+  // server REFUSES one. Never logged in as, so no limiter concern.
   const realEmail = "sarah@millerheatingandair.com"
   await setClientPlan(realEmail, "basic")
   await setClientPasswordHash(realEmail, passwordHash)
   await setClientBusinessName(realEmail, "Miller Heating & Air")
   created.push(`${realEmail}  (basic, stands in for a real customer)`)
+
+  // Clear sign-in throttle buckets. Sign-in is rate-limited per account, and
+  // repeated local test runs legitimately exhaust the window — after which
+  // every browser test fails on a login timeout for a reason that has nothing
+  // to do with what it asserts. These are ephemeral counters, never data, and
+  // this only ever runs against the development database.
+  let cursor = "0"
+  let cleared = 0
+  do {
+    const [next, keys] = await redis.scan(cursor, { match: "ratelimit:*", count: 200 })
+    cursor = next
+    if (keys.length > 0) {
+      await redis.del(...keys)
+      cleared += keys.length
+    }
+  } while (cursor !== "0")
+  if (cleared > 0) console.log(`Cleared ${cleared} sign-in throttle bucket(s).\n`)
 
   console.log(`Seeded ${created.length} development accounts:`)
   for (const line of created) console.log(`  ${line}`)
