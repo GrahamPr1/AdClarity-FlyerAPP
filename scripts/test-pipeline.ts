@@ -3,6 +3,7 @@ import { runIntakeAgent } from "../lib/agent-pipeline/agents/intakeAgent"
 import { runBrandAgent } from "../lib/agent-pipeline/agents/brandAgent"
 import { runFlyerAgent } from "../lib/agent-pipeline/agents/flyerAgent"
 import type { IntakeSubmission } from "../lib/types"
+import { assignDesignVariants } from "../lib/agent-pipeline/design-variants"
 
 // Same real onboarding-form shape as scripts/test-intake.ts's complete case.
 const realFormSubmission: IntakeSubmission = {
@@ -64,7 +65,10 @@ async function main() {
     brandProfile,
     contact: intake.contact,
     photos: intake.photos,
-    flyerRequests: intake.flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: placeholderQrCodeDataUrl })),
+    flyerRequests: (() => {
+      const variants = assignDesignVariants(intake.flyerRequests.map((r) => r.id), true)
+      return intake.flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: placeholderQrCodeDataUrl, designVariant: variants.get(r.id)! }))
+    })(),
     batchSize: intake.flyerRequests.length,
     includeRepurposing: true,
   }, email)

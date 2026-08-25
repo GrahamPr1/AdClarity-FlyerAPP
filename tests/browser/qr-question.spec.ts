@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
+import { stateFile } from "./auth-paths"
 
 /**
  * "Add a QR code to your flyer?" must be a visible question while filling in
@@ -15,17 +16,9 @@ const BASE = "http://localhost:3000"
  * working correctly) and failed the tests for reasons unrelated to the QR
  * question. Seeded by the dev-data script, see docs/local-development.md.
  */
-function accountFor(role: "basic" | "trial" | "intake", project: string) {
-  return `qr-${role}-${project}@dev.invalid`
-}
-
-async function reachPromotionStep(page: Page, email: string) {
-  await page.goto(`${BASE}/login`)
-  await page.getByLabel(/email/i).first().fill(email)
-  await page.getByLabel(/password/i).first().fill("DevTest!2345")
-  await page.getByRole("button", { name: /log in|sign in/i }).first().click()
-  await page.waitForURL(/\/dashboard/, { timeout: 20000 })
-
+async function reachPromotionStep(page: Page) {
+  // No sign-in here: the session is restored from auth.setup.ts. Logging in
+  // per test burned the per-account rate-limit budget (see auth-paths.ts).
   await page.goto(`${BASE}/onboarding`)
   await page.getByRole("button", { name: /Guided Setup/i }).click()
   await page.getByRole("button", { name: /No, I'll answer a few questions/i }).click()
@@ -44,8 +37,11 @@ async function reachPromotionStep(page: Page, email: string) {
   await expect(page.getByText(/STEP 2 OF 3/i)).toBeVisible({ timeout: 15000 })
 }
 
-test("Basic plan: QR question is visible, defaults on, and can be declined", async ({ page }, testInfo) => {
-  await reachPromotionStep(page, accountFor("basic", testInfo.project.name))
+test.describe("Basic plan", () => {
+  test.use({ storageState: ({}, provide, testInfo) => provide(stateFile("basic", testInfo.project.name)) })
+
+test("QR question is visible, defaults on, and can be declined", async ({ page }) => {
+  await reachPromotionStep(page)
 
   await expect(page.getByText(/Add a QR code to your flyer\?/i)).toBeVisible()
 
@@ -60,8 +56,13 @@ test("Basic plan: QR question is visible, defaults on, and can be declined", asy
   await expect(box).toBeChecked()
 })
 
-test("Trial plan: question is shown but disabled, with an upgrade path", async ({ page }, testInfo) => {
-  await reachPromotionStep(page, accountFor("trial", testInfo.project.name))
+})
+
+test.describe("Trial plan", () => {
+  test.use({ storageState: ({}, provide, testInfo) => provide(stateFile("trial", testInfo.project.name)) })
+
+test("question is shown but disabled, with an upgrade path", async ({ page }) => {
+  await reachPromotionStep(page)
 
   await expect(page.getByText(/Add a QR code to your flyer\?/i)).toBeVisible()
   const box = page.getByRole("checkbox", { name: /scannable QR code/i })
@@ -70,8 +71,13 @@ test("Trial plan: question is shown but disabled, with an upgrade path", async (
   await expect(page.getByRole("link", { name: /Upgrade to Basic/i })).toBeVisible()
 })
 
-test("the client's QR answer actually reaches /api/intake", async ({ page }, testInfo) => {
-  await reachPromotionStep(page, accountFor("intake", testInfo.project.name))
+})
+
+test.describe("submission payload", () => {
+  test.use({ storageState: ({}, provide, testInfo) => provide(stateFile("intake", testInfo.project.name)) })
+
+test("the client's QR answer actually reaches /api/intake", async ({ page }) => {
+  await reachPromotionStep(page)
 
   // Intercept rather than let it through: the real route starts a paid
   // generation run. What's under test is the payload, not the pipeline.
@@ -94,4 +100,5 @@ test("the client's QR answer actually reaches /api/intake", async ({ page }, tes
   await expect.poll(() => body, { timeout: 20000 }).not.toBeNull()
 
   expect(body!.wantsQrCode, "the declined answer must survive to the API").toBe(false)
+})
 })

@@ -54,6 +54,22 @@ export type FlyerAgentOutput = z.infer<typeof FlyerAgentOutputSchema>
 // doesn't generate a tracking code/QR image for those requests at all.
 const FlyerRequestWithQrSchema = FlyerRequestSchema.extend({
   qrCodeDataUrl: z.string().nullable(),
+  /**
+   * The composition this specific flyer must use, assigned by the pipeline
+   * (see design-variants.ts) rather than chosen by the agent. Decided in code
+   * because a model asked to "vary the layout" cannot see the other flyers in
+   * the batch, let alone ones from previous campaigns, and drifts back to the
+   * same composition. `palette` is non-null only when the brand colours were
+   * agent-invented and may therefore be swapped per flyer; when the client has
+   * real brand colours it is null and brandProfile.colors governs.
+   */
+  designVariant: z.object({
+    layoutName: z.string(),
+    layoutBrief: z.string(),
+    palette: z
+      .object({ name: z.string(), primary: z.string(), secondary: z.string(), accent: z.string() })
+      .nullable(),
+  }),
 })
 
 export const FlyerAgentInputSchema = z.object({

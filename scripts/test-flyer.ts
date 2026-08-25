@@ -2,6 +2,7 @@ import "./load-env"
 import { runFlyerAgent } from "../lib/agent-pipeline/agents/flyerAgent"
 import type { BrandProfile } from "../lib/agent-pipeline/schemas/brand"
 import type { FlyerAgentInput } from "../lib/agent-pipeline/schemas/flyer"
+import { assignDesignVariants } from "../lib/agent-pipeline/design-variants"
 
 const brightsideDentalBrandProfile: BrandProfile = {
   businessName: "Brightside Dental",
@@ -41,7 +42,13 @@ const brightsideFlyerInput: FlyerAgentInput = {
   },
   photos: [{ url: "https://example.com/photo1.jpg", caption: "front desk" }],
   flyerRequests: [
-    { id: "f1", purpose: "New patient special", notes: "mention $50 off first cleaning", qrCodeDataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" },
+    {
+      id: "f1",
+      purpose: "New patient special",
+      notes: "mention $50 off first cleaning",
+      qrCodeDataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+      designVariant: assignDesignVariants(["f1"], true).get("f1")!,
+    },
   ],
   batchSize: 1,
   includeRepurposing: true,

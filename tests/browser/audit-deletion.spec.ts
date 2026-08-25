@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
-import { adminStateFile } from "./auth-paths"
+import { accountFor, stateFile } from "./auth-paths"
 
 /**
  * Deleting an account is irreversible, so the property that matters is not
@@ -29,7 +29,7 @@ async function attemptDelete(page: Page, emails: string[]) {
 test.describe("authenticated as admin", () => {
   // `provide`, not `use` — a param named `use` trips the react-hooks lint
   // rule, which reads it as React's use() hook. Playwright does not care.
-  test.use({ storageState: ({}, provide, testInfo) => provide(adminStateFile(testInfo.project.name)) })
+  test.use({ storageState: ({}, provide, testInfo) => provide(stateFile("admin", testInfo.project.name)) })
 
 test("refuses to delete an account the audit considers real", async ({ page }) => {
   const { body } = await attemptDelete(page, ["sarah@millerheatingandair.com"])
@@ -44,7 +44,7 @@ test("refuses an address that does not exist", async ({ page }) => {
 })
 
 test("refuses to delete the signed-in admin", async ({ page }, testInfo) => {
-  const { body } = await attemptDelete(page, [`admin-audit-${testInfo.project.name}@dev.invalid`])
+  const { body } = await attemptDelete(page, [accountFor("admin", testInfo.project.name)])
   expect(body.wouldDelete).toEqual([])
   expect(body.refused[0].reason).toMatch(/signed-in admin/i)
 })

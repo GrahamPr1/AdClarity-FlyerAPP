@@ -1,4 +1,4 @@
-import type { IntakeSubmission } from "@/lib/types"
+import type { IntakeSubmission, PlanId } from "@/lib/types"
 import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile } from "@/lib/store"
 import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
@@ -6,7 +6,8 @@ import { runFlyerAgent } from "./agents/flyerAgent"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage } from "./higgsfield"
 import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
-import { planIncludesExtras, planAllowsAiPhotos } from "./plan-features"
+import { planIncludesExtras, aiPhotosEnabled } from "./plan-features"
+import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
 import type { FlyerRequest } from "./schemas/flyer"
 import {
@@ -24,11 +25,14 @@ import {
 // selection — see the note on PlanId in lib/types.ts), same source of
 // truth as the usage-limit check in /api/intake. Fetched once per
 // batch/retry so both checks reflect the same plan snapshot.
-async function getPlanFeatures(email: string): Promise<{ includeExtras: boolean; allowAiPhotos: boolean }> {
+async function getPlanFeatures(email: string): Promise<{ plan: PlanId | undefined; includeExtras: boolean }> {
   const client = await getClient(email)
   return {
+    // The real plan travels with the flags so gates needing more than a
+    // boolean (AI photos, which also needs the client's opt-in) can consult
+    // it directly rather than reconstructing it.
+    plan: client?.plan,
     includeExtras: planIncludesExtras(client?.plan), // Basic+/Pro: QR tracking, repurposing
-    allowAiPhotos: planAllowsAiPhotos(client?.plan), // Pro only — also requires the client's own opt-in (see buildPhotoPool)
   }
 }
 
@@ -194,8 +198,8 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     // savePendingBrandProfile in lib/store.ts.
     await savePendingBrandProfile(flyerRequests[0].id, brandProfile, intake.contact).catch((e) => console.error("[agent-pipeline] Failed to save pending brand profile:", e))
   }
-  const { includeExtras, allowAiPhotos } = await getPlanFeatures(email)
-  const photos = await buildPhotoPool(intake, flyerRequests, allowAiPhotos && intake.wantsAiPhotos)
+  const { plan, includeExtras } = await getPlanFeatures(email)
+  const photos = await buildPhotoPool(intake, flyerRequests, aiPhotosEnabled(plan, intake.wantsAiPhotos))
   stageMark(runId, t0, "photo pool ready")
 
   // One tracking code + QR image per flyer, generated before the agent call
@@ -210,10 +214,22 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
       : [],
   )
   stageMark(runId, t0, "tracking codes ready")
+
+  // One distinct composition per flyer, decided here rather than by the agent
+  // (see design-variants.ts). Palette variation is allowed ONLY when the brand
+  // colours were invented for this client — if they gave us real colours, or
+  // we scraped them from their site, every flyer keeps that palette and only
+  // the layout differs.
+  const variants = assignDesignVariants(
+    flyerRequests.map((r) => r.id),
+    brandProfile?.colorSource === "agent_proposed",
+  )
+
   const flyerRequestsWithQr = flyerRequests.map((r) => ({
     ...r,
     // The token, not the 4KB data URL — see substituteQr above.
     qrCodeDataUrl: trackingByFlyerId.get(r.id) ? QR_PLACEHOLDER : null,
+    designVariant: variants.get(r.id)!,
   }))
 
   // includeRepurposing is now always false here: repurposing runs as its own
@@ -328,8 +344,8 @@ export async function continuePipelineFromIntake(
 async function runSingleFlyerRetry(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequest: FlyerRequest): Promise<void> {
   const brandProfile = await runBrandAgent(intake, email)
   stageMark(runId, t0, "brand done")
-  const { includeExtras, allowAiPhotos } = await getPlanFeatures(email)
-  const photos = await buildPhotoPool(intake, [flyerRequest], allowAiPhotos && intake.wantsAiPhotos)
+  const { plan, includeExtras } = await getPlanFeatures(email)
+  const photos = await buildPhotoPool(intake, [flyerRequest], aiPhotosEnabled(plan, intake.wantsAiPhotos))
   stageMark(runId, t0, "photo pool ready")
 
   // A retry gets its own fresh tracking code (Basic+/Pro only) — the old
@@ -345,7 +361,15 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
     brandProfile,
     contact: intake.contact,
     photos,
-    flyerRequests: [{ ...flyerRequest, qrCodeDataUrl: tracking ? QR_PLACEHOLDER : null }],
+    flyerRequests: [
+      {
+        ...flyerRequest,
+        qrCodeDataUrl: tracking ? QR_PLACEHOLDER : null,
+        // Seeded from the flyer id, so a retry lands on the same composition
+        // the client was already shown rather than silently redesigning it.
+        designVariant: assignDesignVariants([flyerRequest.id], brandProfile?.colorSource === "agent_proposed").get(flyerRequest.id)!,
+      },
+    ],
     batchSize: 1,
     includeRepurposing: false,
   }, email)
@@ -461,6 +485,9 @@ export async function refineFlyer(
               // The token, so the model preserves it verbatim rather than
               // reproducing the real QR base64 it would otherwise see inline.
               qrCodeDataUrl: existingTrackingCode ? QR_PLACEHOLDER : null,
+              // Explicitly "keep what's there" — a refinement must not
+              // redesign a flyer the client has already seen.
+              designVariant: PRESERVE_EXISTING_VARIANT,
             },
           ],
           batchSize: 1,

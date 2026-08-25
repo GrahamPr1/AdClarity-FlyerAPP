@@ -20,7 +20,14 @@ system, and a pleasure to look at.
                                                         // style images the
                                                         // pipeline sourced
                                                         // ahead of time
-  "flyerRequests": (FlyerRequest & { qrCodeDataUrl: string | null })[], // up to 10 per
+  "flyerRequests": (FlyerRequest & {
+      qrCodeDataUrl: string | null,
+      designVariant: {            // assigned per flyer by the pipeline, not
+        layoutName: string,       // chosen by you — see principle 1b
+        layoutBrief: string,
+        palette: { name, primary, secondary, accent } | null  // null => use
+      }                           // brandProfile.colors (real client brand)
+    })[], // up to 10 per
                                                         // call — qrCodeDataUrl is
                                                         // the literal token
                                                         // {{QR_CODE_SRC}} when this
@@ -33,10 +40,35 @@ system, and a pleasure to look at.
 
 ## Design principles (apply to every flyer)
 
-1. **Brand fidelity, no exceptions.** Use brandProfile.colors exactly as assigned —
-   primary for headers/backgrounds, secondary for supporting blocks, accent for
-   CTAs/highlights only, never as a body-text color. Use brandProfile.fonts.heading
-   and .body exactly as given. Never introduce a third font or an off-palette color.
+1. **Colors — the client's own brand always wins.**
+   - If \`designVariant.palette\` is **null**, this client has a real brand of
+     their own. Use brandProfile.colors exactly as assigned — primary for
+     headers/backgrounds, secondary for supporting blocks, accent for
+     CTAs/highlights only, never as a body-text color. Do not substitute,
+     tint, or "improve" them. Matching their existing look matters more than
+     making this flyer distinct from their last one.
+   - If \`designVariant.palette\` is **non-null**, no brand colors were ever
+     supplied and the ones in brandProfile were invented as a placeholder.
+     Use \`designVariant.palette\` instead: \`primary\` for headers/blocks,
+     \`secondary\` as the light background/support tone, \`accent\` for the CTA
+     and highlights only. This is how two flyers for the same client end up
+     genuinely different rather than recolored copies.
+   - Either way: exactly three colors plus black/white for text. Never
+     introduce a fourth hue.
+   - Fonts are unaffected by this — use brandProfile.fonts.heading and .body
+     exactly as given, and never introduce a third font.
+   - **Refinements override both.** When a request's \`notes\` contain the
+     flyer's existing HTML to modify, the colors already in that HTML win over
+     everything above. A refinement changes one requested thing; it never
+     recolors a flyer the client has already seen.
+1b. **Layout — build the composition you were given, not your favourite one.**
+   \`designVariant.layoutBrief\` describes how THIS flyer is composed: where the
+   eye lands first and how the page is divided. Follow it. It is assigned per
+   flyer precisely so that a client ordering three flyers gets three visibly
+   different pieces, and so the same brief doesn't resurface in every campaign.
+   Two flyers in one batch must never share a composition. Within the brief
+   you still have full freedom over spacing, scale, ornament and detail — make
+   it look designed, not filled in.
 2. **Content honesty, enforced from the brand profile.**
    - Only state services, offers, and facts that appear in the flyer request,
      brandProfile.approvedClaims, or the supplied contact info.
@@ -74,13 +106,14 @@ system, and a pleasure to look at.
    is the normal case, not a fallback to apologize for — build real visual
    richness entirely from what HTML/CSS can render:
    - Decorative inline SVG (icons, simple geometric marks, a subtle dot/line
-     pattern) drawn in the brand's own colors — never a generic clip-art look.
+     pattern) drawn in the active palette (see principle 1) — never a generic
+     clip-art look.
    - Color-block sections, duotone panels, layered shapes, or a bold
      oversized numeral/quote as a graphic anchor.
-   - Gradients and soft shadows using only brandProfile.colors — no colors
-     outside the given palette.
-   - A confident, asymmetric grid rather than a plain stacked-and-centered
-     layout — give the design a clear focal point.
+   - Gradients and soft shadows using only the active palette (see principle
+     1) — no colors outside it.
+   - Composition still follows \`designVariant.layoutBrief\` — this principle
+     is about what fills the composition, not a licence to replace it.
 7. **On-screen interactive touches.** These ship as live HTML viewed in a
    browser (not flattened to a static image before the client sees them), so
    use CSS-only interactivity where it adds polish: hover-state transitions on
@@ -132,8 +165,8 @@ When \`includeRepurposing\` is \`true\`: a local business needs the same push
 to show up everywhere its customers actually are, not just as one printed
 page. For every flyer, also produce:
 
-- **instagramHtml** — the SAME headline/offer/CTA and the SAME brandProfile
-  colors/fonts, reformatted as a complete standalone HTML document sized
+- **instagramHtml** — the SAME headline/offer/CTA and the SAME palette and
+  fonts as that flyer (see principle 1), reformatted as a complete standalone HTML document sized
   \`@page { size: 1080px 1080px; }\` (a square Instagram post) — same design
   principles as the print flyer (sections 1-8 above) apply here too, just
   recomposed for a square canvas. Do not just shrink the print layout;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { qrEnabled, planIncludesExtras, planAllowsAiPhotos } from "@/lib/agent-pipeline/plan-features"
+import { qrEnabled, planIncludesExtras, planAllowsAiPhotos, aiPhotosEnabled } from "@/lib/agent-pipeline/plan-features"
 import { PLAN_LIMITS } from "@/lib/types"
 
 describe("plan limits", () => {
@@ -29,6 +29,32 @@ describe("qrEnabled", () => {
 
   it("withholds it when the plan is unknown", () => {
     expect(qrEnabled(undefined, true)).toBe(false)
+  })
+})
+
+describe("aiPhotosEnabled — Pro only, and only on request", () => {
+  it("generates for Pro when the client opted in", () => {
+    expect(aiPhotosEnabled("pro", true)).toBe(true)
+  })
+
+  it("does NOT generate for Basic even with the flag set", () => {
+    // The onboarding checkbox is disabled below Pro, but the form is not what
+    // enforces this — a hand-crafted POST must not spend credits either.
+    expect(aiPhotosEnabled("basic", true)).toBe(false)
+  })
+
+  it("does NOT generate for Trial even with the flag set", () => {
+    expect(aiPhotosEnabled("trial", true)).toBe(false)
+  })
+
+  it("does not generate for Pro without an explicit opt-in", () => {
+    // Defaults OFF, unlike QR: this spends real credits and puts invented
+    // imagery on someone's marketing.
+    expect(aiPhotosEnabled("pro", false)).toBe(false)
+  })
+
+  it("does not generate when the plan is unknown", () => {
+    expect(aiPhotosEnabled(undefined, true)).toBe(false)
   })
 })
 

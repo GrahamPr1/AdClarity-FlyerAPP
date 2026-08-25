@@ -14,9 +14,26 @@ export function planIncludesExtras(plan: PlanId | undefined): boolean {
   return plan !== undefined && plan !== "trial"
 }
 
-/** Pro only. Still requires the client's own opt-in on top (intake.wantsAiPhotos). */
+/** Pro only. Still requires the client's own opt-in on top — see aiPhotosEnabled. */
 export function planAllowsAiPhotos(plan: PlanId | undefined): boolean {
   return plan === "pro"
+}
+
+/**
+ * Whether AI photo generation actually runs for this flyer.
+ *
+ * Same two-condition shape as qrEnabled, and for the same reason: the plan
+ * has to include it AND the client has to have asked for it. The plan check
+ * is outermost, so a Trial or Basic account gets nothing even if the
+ * submitted flag says true — the onboarding checkbox is disabled for them,
+ * but the form is not what enforces this.
+ *
+ * Unlike QR codes this defaults to OFF when unanswered: generating imagery
+ * nobody asked for spends real credits and puts invented pictures on a
+ * client's marketing.
+ */
+export function aiPhotosEnabled(plan: PlanId | undefined, wantsAiPhotos: boolean): boolean {
+  return planAllowsAiPhotos(plan) && wantsAiPhotos
 }
 
 /**
