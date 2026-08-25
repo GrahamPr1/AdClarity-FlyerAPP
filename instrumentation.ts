@@ -24,12 +24,20 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return
 
   const { assertRedisMatchesEnvironment } = await import("./lib/store")
-  try {
-    await assertRedisMatchesEnvironment()
-  } catch (err) {
-    // Anything that isn't production refuses to start. Production logs and
-    // continues, because taking the live site down is the worse failure.
-    if (getAppEnvironment() !== "production") throw err
-    console.error("[env]", err instanceof Error ? err.message : err)
+  const { assertBlobMatchesEnvironment } = await import("./lib/blob-env")
+
+  // Both stateful resources, checked the same way. Sequential rather than
+  // concurrent so the Redis failure — the one that guards customer records
+  // rather than uploaded images — is the one reported first when both are
+  // misconfigured at once.
+  for (const check of [assertRedisMatchesEnvironment, assertBlobMatchesEnvironment]) {
+    try {
+      await check()
+    } catch (err) {
+      // Anything that isn't production refuses to start. Production logs and
+      // continues, because taking the live site down is the worse failure.
+      if (getAppEnvironment() !== "production") throw err
+      console.error("[env]", err instanceof Error ? err.message : err)
+    }
   }
 }

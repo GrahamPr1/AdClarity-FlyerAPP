@@ -39,7 +39,22 @@ export function isProduction(): boolean {
   return getAppEnvironment() === "production"
 }
 
-/** What to do when a database's self-declared marker doesn't match this process. */
+/**
+ * Whether a stored resource belongs to production or to everything else.
+ *
+ * Redis has one instance per environment, so its marker names the environment
+ * exactly. Blob is shared between development and preview (one non-production
+ * store, see docs/local-development.md), so its marker can only name the
+ * CLASS. Both feed the same verdict logic below — the rule being enforced is
+ * identical: nothing outside production may touch production's data.
+ */
+export type EnvironmentClass = "production" | "nonproduction"
+
+export function environmentClass(environment: AppEnvironment): EnvironmentClass {
+  return environment === "production" ? "production" : "nonproduction"
+}
+
+/** What to do when a resource's self-declared marker doesn't match this process. */
 export type MarkerVerdict =
   /** Marker matches — proceed. */
   | "ok"
@@ -52,7 +67,11 @@ export type MarkerVerdict =
 
 /**
  * The environment guardrail's decision, as a pure function so it can be
- * tested without a Redis connection.
+ * tested without a Redis or Blob connection.
+ *
+ * Shared by both guarded resources. `expected` is an exact environment name
+ * for Redis and an EnvironmentClass for Blob; either way the comparison and
+ * the refusal rule are the same.
  *
  * The rule that matters: anything that is not production REFUSES a database
  * marked "production". That covers a laptop (the incident that prompted this)
@@ -62,7 +81,7 @@ export type MarkerVerdict =
  * Production itself only ever warns. A marker mismatch is a configuration
  * error, and taking the live site down over one is worse than the mismatch.
  */
-export function verdictForMarker(expected: AppEnvironment, actual: string | null): MarkerVerdict {
+export function verdictForMarker(expected: AppEnvironment | EnvironmentClass, actual: string | null): MarkerVerdict {
   if (actual === null) return "claim"
   if (actual === expected) return "ok"
   if (actual === "production" && expected !== "production") return "refuse"

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { verdictForMarker } from "@/lib/env"
+import { verdictForMarker, environmentClass } from "@/lib/env"
 
 /**
  * The rule this pins: nothing outside production may touch a database marked
@@ -47,5 +47,44 @@ describe("environment guardrail verdicts", () => {
 
   it("treats an unrecognised marker as a non-blocking mismatch", () => {
     expect(verdictForMarker("preview", "staging")).toBe("warn")
+  })
+})
+
+/**
+ * Blob reuses the same verdict logic, but its marker names a CLASS: there is
+ * one shared non-production store for development and preview, so
+ * "nonproduction" is the finest distinction it can honestly make.
+ */
+describe("Blob store guardrail (class-based marker)", () => {
+  it("maps every non-production environment to the same class", () => {
+    expect(environmentClass("development")).toBe("nonproduction")
+    expect(environmentClass("preview")).toBe("nonproduction")
+    expect(environmentClass("production")).toBe("production")
+  })
+
+  it("refuses development AND preview against the production Blob store", () => {
+    // The bug this closes: BLOB_READ_WRITE_TOKEN was one variable scoped to
+    // all three environments, so a laptop wrote customer photos to the live
+    // store.
+    expect(verdictForMarker(environmentClass("development"), "production")).toBe("refuse")
+    expect(verdictForMarker(environmentClass("preview"), "production")).toBe("refuse")
+  })
+
+  it("lets development and preview share one non-production store", () => {
+    expect(verdictForMarker(environmentClass("development"), "nonproduction")).toBe("ok")
+    expect(verdictForMarker(environmentClass("preview"), "nonproduction")).toBe("ok")
+  })
+
+  it("lets production use its own store", () => {
+    expect(verdictForMarker(environmentClass("production"), "production")).toBe("ok")
+  })
+
+  it("never halts production, even pointed at the wrong store", () => {
+    expect(verdictForMarker(environmentClass("production"), "nonproduction")).toBe("warn")
+  })
+
+  it("claims an unmarked store for whichever class reaches it first", () => {
+    expect(verdictForMarker(environmentClass("development"), null)).toBe("claim")
+    expect(verdictForMarker(environmentClass("production"), null)).toBe("claim")
   })
 })

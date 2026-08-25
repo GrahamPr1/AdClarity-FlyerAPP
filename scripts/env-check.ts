@@ -1,6 +1,7 @@
 import "./load-env"
-import { describeEnvironment, assertRequiredEnv } from "../lib/env"
+import { describeEnvironment, assertRequiredEnv, environmentClass } from "../lib/env"
 import { readRedisEnvironmentMarker, setRedisEnvironmentMarker } from "../lib/store"
+import { readBlobEnvironmentMarker, setBlobEnvironmentMarker } from "../lib/blob-env"
 
 /**
  * Answers one question, safely: which environment am I actually connected to?
@@ -55,11 +56,45 @@ async function main() {
     }
   }
 
+  // Blob is guarded the same way, but by CLASS — one non-production store is
+  // shared by development and preview. See lib/blob-env.ts.
+  const expectedBlob = environmentClass(report.environment)
+  let blobMarker: string | null = null
+  let blobReachable = true
+  if (!process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
+    console.log("  blob marker              : (BLOB_READ_WRITE_TOKEN not set)")
+    blobReachable = false
+  } else {
+    try {
+      blobMarker = await readBlobEnvironmentMarker()
+      console.log(`  blob marker              : ${blobMarker ?? "(unmarked)"}`)
+    } catch (e) {
+      blobReachable = false
+      console.log(`  blob marker              : UNREACHABLE (${e instanceof Error ? e.message : "error"})`)
+    }
+    if (blobMarker === null && blobReachable) {
+      if (claim) {
+        await setBlobEnvironmentMarker(expectedBlob)
+        blobMarker = expectedBlob
+        console.log(`  -> claimed the Blob store as "${expectedBlob}"`)
+      } else {
+        console.log(`  -> run with --claim to label it "${expectedBlob}"`)
+      }
+    } else if (blobMarker !== null && claim && blobMarker !== expectedBlob) {
+      console.log(`  -> REFUSING to relabel an existing "${blobMarker}" Blob store. Change the token instead.`)
+    }
+  }
+
   console.log("")
   const isolated = marker !== null && marker === report.environment
-  console.log(`  ISOLATION                : ${isolated ? "OK — connected to this environment's own database" : "CHECK — marker does not match app environment"}`)
+  console.log(`  REDIS ISOLATION          : ${isolated ? "OK — connected to this environment's own database" : "CHECK — marker does not match app environment"}`)
+  const blobIsolated = !blobReachable || (blobMarker !== null && blobMarker === expectedBlob)
+  console.log(`  BLOB ISOLATION           : ${blobIsolated ? "OK — connected to this environment class's own store" : "CHECK — marker does not match app environment"}`)
   if (report.environment === "development" && marker === "production") {
     console.log("  *** DEVELOPMENT IS POINTED AT PRODUCTION REDIS — fix before running the app ***")
+  }
+  if (expectedBlob !== "production" && blobMarker === "production") {
+    console.log("  *** NON-PRODUCTION IS POINTED AT THE PRODUCTION BLOB STORE — fix before running the app ***")
   }
 
   if (report.missingRequired.length) console.log(`  MISSING REQUIRED         : ${report.missingRequired.join(", ")}`)
