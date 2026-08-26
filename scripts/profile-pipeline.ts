@@ -15,6 +15,7 @@ import { crawlWebsite } from "../lib/agent-pipeline/scraper"
 import { assignDesignVariants } from "../lib/agent-pipeline/design-variants"
 import { canonicalOfferFrom } from "../lib/agent-pipeline/flyer-html"
 import type { NormalizedIntake } from "../lib/agent-pipeline/schemas/intake"
+import { formatForAgent } from "../lib/agent-pipeline/formats"
 
 const EMAIL = "profile@dev.invalid"
 
@@ -67,7 +68,7 @@ async function main() {
         brandProfile: brand.value,
         contact: normalized.contact,
         photos: [],
-        flyerRequests: [{ ...normalized.flyerRequests[0], qrCodeDataUrl: null, designVariant: oneVariant.get(normalized.flyerRequests[0].id)! }],
+        flyerRequests: [{ ...normalized.flyerRequests[0], qrCodeDataUrl: null, format: formatForAgent(undefined), designVariant: oneVariant.get(normalized.flyerRequests[0].id)! }],
         batchSize: 1,
         includeRepurposing: false,
       },
@@ -106,7 +107,7 @@ async function main() {
         brandProfile: brand.value,
         contact: normalized.contact,
         photos: [],
-        flyerRequests: requests.map((r) => ({ ...r, qrCodeDataUrl: null, designVariant: variants.get(r.id)! })),
+        flyerRequests: requests.map((r) => ({ ...r, qrCodeDataUrl: null, format: formatForAgent(undefined), designVariant: variants.get(r.id)! })),
         batchSize: 3,
         includeRepurposing: false,
       },
@@ -122,7 +123,7 @@ async function main() {
             brandProfile: brand.value,
             contact: normalized.contact,
             photos: [],
-            flyerRequests: [{ ...r, qrCodeDataUrl: null, designVariant: variants.get(r.id)! }],
+            flyerRequests: [{ ...r, qrCodeDataUrl: null, format: formatForAgent(undefined), designVariant: variants.get(r.id)! }],
             batchSize: 1,
             includeRepurposing: false,
           },

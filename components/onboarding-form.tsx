@@ -7,6 +7,7 @@ import type { BusinessCategory, CampaignDefaults, IntakeSubmission, PlanId, Serv
 import { BUSINESS_CATEGORIES } from "@/lib/types"
 import { getPlan } from "@/lib/plans"
 import { trackEvent } from "@/lib/analytics"
+import { OUTPUT_FORMATS, FORMAT_IDS, DEFAULT_FORMAT } from "@/lib/agent-pipeline/formats"
 
 // Three steps, not the original six.
 //
@@ -127,6 +128,7 @@ export function OnboardingForm({
     flyerPhotoUrls: [],
     wantsAiPhotos: false,
     wantsQrCode: initialData?.wantsQrCode ?? true,
+    formatId: initialData?.formatId ?? DEFAULT_FORMAT,
     flyerNotes: initialData?.flyerNotes ?? "",
     websitePreferences: "",
   })
@@ -452,6 +454,36 @@ export function OnboardingForm({
               <textarea id="audience" rows={3} className={fieldBase()} value={form.targetAudience}
                 onChange={(e) => set("targetAudience", e.target.value)}
                 placeholder="Homeowners in the area with roofs 15+ years old" />
+            </div>
+
+            {/* Format decides the physical canvas and how much text belongs
+                on the piece, so it sits with the offer rather than in styling
+                extras — picking "door hanger" after writing three paragraphs
+                would be the wrong order. */}
+            <div>
+              <Label htmlFor="formatId">What are we making?</Label>
+              <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+                {FORMAT_IDS.map((id) => {
+                  const f = OUTPUT_FORMATS[id]
+                  const active = (form.formatId ?? DEFAULT_FORMAT) === id
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => set("formatId", id)}
+                      aria-pressed={active}
+                      className={`rounded-lg border px-3.5 py-2.5 text-left transition-colors ${
+                        active
+                          ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)]"
+                          : "border-white/12 hover:border-white/25"
+                      }`}
+                    >
+                      <span className="block text-sm font-medium">{f.label}</span>
+                      <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{f.chooseWhen}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Asked here rather than buried in the optional extras: it changes

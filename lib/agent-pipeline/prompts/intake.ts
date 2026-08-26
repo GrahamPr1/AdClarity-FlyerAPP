@@ -68,6 +68,10 @@ restructuring, not just renaming:
   \`wantsQrCode\` field. If absent, output \`true\` (it was the long-standing
   behaviour before the question was asked). Never infer it from the offer,
   the industry, or how useful a QR code would be — it is the client's call.
+- \`formatId\` on a flyer request names the KIND of document (flyer,
+  one-pager, proposal, door-hanger, social-post). If one is present, copy it
+  verbatim. Never invent, translate, or "improve" it — the client picked it,
+  and it decides the physical canvas the piece is built on.
 - \`planId\` is a billing/plan-selection field with no corresponding target
   field — ignore it entirely.
 - \`businessCategory\` is a segmentation tag (e.g. "Real Estate /

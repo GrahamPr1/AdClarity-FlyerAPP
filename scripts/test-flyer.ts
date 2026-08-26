@@ -3,6 +3,7 @@ import { runFlyerAgent } from "../lib/agent-pipeline/agents/flyerAgent"
 import type { BrandProfile } from "../lib/agent-pipeline/schemas/brand"
 import type { FlyerAgentInput } from "../lib/agent-pipeline/schemas/flyer"
 import { assignDesignVariants } from "../lib/agent-pipeline/design-variants"
+import { formatForAgent } from "../lib/agent-pipeline/formats"
 
 const brightsideDentalBrandProfile: BrandProfile = {
   businessName: "Brightside Dental",
@@ -47,6 +48,7 @@ const brightsideFlyerInput: FlyerAgentInput = {
       purpose: "New patient special",
       notes: "mention $50 off first cleaning",
       qrCodeDataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+      format: formatForAgent(undefined),
       designVariant: assignDesignVariants(["f1"], true).get("f1")!,
     },
   ],

@@ -42,6 +42,8 @@ export const NormalizedIntakeSchema = z.object({
         id: z.string(),
         purpose: z.string().min(1),
         notes: z.string().nullable(),
+        /** Which output format this piece is — see FlyerRequestSchema.formatId. Absent means "flyer". */
+        formatId: z.string().optional(),
       }),
     )
     .min(1),

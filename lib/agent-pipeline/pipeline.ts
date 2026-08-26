@@ -8,6 +8,7 @@ import { generateImage } from "./higgsfield"
 import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
 import { planIncludesExtras, aiPhotosEnabled } from "./plan-features"
 import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
+import { getFormat, formatForAgent } from "./formats"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
 import type { FlyerRequest } from "./schemas/flyer"
 import {
@@ -192,6 +193,13 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
   // dropping it for anyone who doesn't re-answer would be a regression.
   if (result.data) {
     result.data.wantsQrCode = submission.wantsQrCode ?? true
+    // The client picked one format for this submission; it applies to every
+    // piece the agent split flyerNotes into. Stamped here rather than trusted
+    // to the model for the same reason as wantsQrCode — an explicit choice
+    // shouldn't depend on a copy instruction being followed, and this one
+    // decides the physical canvas.
+    const formatId = getFormat(submission.formatId).id
+    for (const request of result.data.flyerRequests) request.formatId = formatId
   }
   return result
 }
@@ -237,15 +245,21 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
   // colours were invented for this client — if they gave us real colours, or
   // we scraped them from their site, every flyer keeps that palette and only
   // the layout differs.
+  // Layouts are restricted to what each canvas can carry, so a batch mixing
+  // formats never lands a split-vertical composition on a door hanger. When a
+  // batch shares one format (the normal case) this is just that format's pool.
+  const sharedFormat = getFormat(flyerRequests[0]?.formatId)
   const variants = assignDesignVariants(
     flyerRequests.map((r) => r.id),
     brandProfile?.colorSource === "agent_proposed",
+    sharedFormat.allowedLayouts,
   )
 
   const flyerRequestsWithQr = flyerRequests.map((r) => ({
     ...r,
     // The token, not the 4KB data URL — see substituteQr above.
     qrCodeDataUrl: trackingByFlyerId.get(r.id) ? QR_PLACEHOLDER : null,
+    format: formatForAgent(r.formatId),
     designVariant: variants.get(r.id)!,
   }))
 
@@ -434,7 +448,12 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
         qrCodeDataUrl: tracking ? QR_PLACEHOLDER : null,
         // Seeded from the flyer id, so a retry lands on the same composition
         // the client was already shown rather than silently redesigning it.
-        designVariant: assignDesignVariants([flyerRequest.id], brandProfile?.colorSource === "agent_proposed").get(flyerRequest.id)!,
+        format: formatForAgent(flyerRequest.formatId),
+        designVariant: assignDesignVariants(
+          [flyerRequest.id],
+          brandProfile?.colorSource === "agent_proposed",
+          getFormat(flyerRequest.formatId).allowedLayouts,
+        ).get(flyerRequest.id)!,
       },
     ],
     batchSize: 1,
@@ -553,6 +572,7 @@ export async function refineFlyer(
               // The token, so the model preserves it verbatim rather than
               // reproducing the real QR base64 it would otherwise see inline.
               qrCodeDataUrl: existingTrackingCode ? QR_PLACEHOLDER : null,
+              format: formatForAgent(flyerRequest.formatId),
               // Explicitly "keep what's there" — a refinement must not
               // redesign a flyer the client has already seen.
               designVariant: PRESERVE_EXISTING_VARIANT,

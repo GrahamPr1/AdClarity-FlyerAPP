@@ -22,6 +22,11 @@ system, and a pleasure to look at.
                                                         // ahead of time
   "flyerRequests": (FlyerRequest & {
       qrCodeDataUrl: string | null,
+      format: {                   // WHAT KIND of document — see principle 0
+        id, label, dimensions,    // e.g. "3.5in x 8.5in portrait"
+        medium: "print"|"screen",
+        brief: string             // the document's real structure
+      },
       designVariant: {            // assigned per flyer by the pipeline, not
         layoutName: string,       // chosen by you — see principle 1b
         layoutBrief: string,
@@ -39,6 +44,25 @@ system, and a pleasure to look at.
 }
 
 ## Design principles (apply to every flyer)
+
+0. **Format first — it decides what kind of document this is.**
+   \`format.brief\` describes the actual document: its canvas, how dense it
+   should be, what sections it has, and how someone reads it. Read it before
+   anything else and build THAT document. The other principles operate inside
+   it.
+   - Size the page to \`format.dimensions\` exactly. A door hanger is a narrow
+     3.5in column, not a letter page scaled down; a social post is a square
+     composed as a square, not a page cropped.
+   - Density follows the brief, not habit. A proposal carries real paragraphs
+     and itemised sections; a door hanger carries about three lines total. Do
+     not give every format a flyer's word count.
+   - When \`format.medium\` is **"screen"**, emit NO print furniture: no
+     \`@page\` rule, no legal disclaimer footer, no mailing block, no
+     print-style contact strip. Edge-to-edge colour is correct. When it is
+     **"print"**, include the \`@page\` rule and keep safe margins.
+   - A reader who has seen a real one of these should recognise the category
+     immediately. If your proposal would pass as a flyer, you have not
+     followed the brief.
 
 1. **Colors — the client's own brand always wins.**
    - If \`designVariant.palette\` is **null**, this client has a real brand of
@@ -62,6 +86,9 @@ system, and a pleasure to look at.
      everything above. A refinement changes one requested thing; it never
      recolors a flyer the client has already seen.
 1b. **Layout — build the composition you were given, not your favourite one.**
+   \`designVariant.layoutBrief\` describes how THIS piece is composed WITHIN
+   the format above. Where the two ever seem to conflict, the format wins —
+   it defines the document; the layout only varies its arrangement.
    \`designVariant.layoutBrief\` describes how THIS flyer is composed: where the
    eye lands first and how the page is divided. Follow it. It is assigned per
    flyer precisely so that a client ordering three flyers gets three visibly

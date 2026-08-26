@@ -136,6 +136,8 @@ export interface IntakeSubmission {
   flyerPhotoUrls?: string[]
   /** Explicit opt-in to AI-generated stock photos when a flyer has no client photo to use — Pro-only, real server-side gate (see hasProPhotoGeneration in lib/agent-pipeline/pipeline.ts). Never inferred from silence. */
   wantsAiPhotos?: boolean
+  /** Which kind of document to produce — see lib/agent-pipeline/formats.ts. Absent means "flyer", which is what every campaign predating formats was. */
+  formatId?: string
   /** Whether to print a scannable QR code on the flyer (Basic/Pro — asked directly in onboarding). Unlike wantsAiPhotos this DEFAULTS TO TRUE when absent, because every campaign created before the question existed had one and silently dropping it would change their flyers. The plan gate still applies on top (see getPlanFeatures). */
   wantsQrCode?: boolean
   flyerNotes: string

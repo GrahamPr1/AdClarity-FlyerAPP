@@ -137,10 +137,25 @@ function hash(value: string): number {
 export function assignDesignVariants(
   flyerIds: string[],
   allowPaletteVariation: boolean,
+  /**
+   * Archetype names this canvas can actually carry (see OutputFormat.
+   * allowedLayouts). A "split-vertical" composition is meaningless on a
+   * 3.5in-wide door hanger, so formats restrict the pool rather than
+   * letting an impossible layout be assigned and then quietly ignored.
+   * Omitted means every archetype is fair game.
+   */
+  allowedLayoutNames?: string[],
 ): Map<string, DesignVariant> {
   const assigned = new Map<string, DesignVariant>()
   const usedLayouts = new Set<number>()
   const usedPalettes = new Set<number>()
+
+  const pool = allowedLayoutNames?.length
+    ? LAYOUT_ARCHETYPES.filter((l) => allowedLayoutNames.includes(l.name))
+    : LAYOUT_ARCHETYPES
+  // A format that names only unknown archetypes would otherwise divide by
+  // zero below; fall back rather than fail a generation over a config typo.
+  const layouts = pool.length > 0 ? pool : LAYOUT_ARCHETYPES
 
   const claim = (preferred: number, used: Set<number>, size: number) => {
     for (let step = 0; step < size; step++) {
@@ -158,7 +173,7 @@ export function assignDesignVariants(
 
   for (const id of flyerIds) {
     const seed = hash(id)
-    const layout = LAYOUT_ARCHETYPES[claim(seed % LAYOUT_ARCHETYPES.length, usedLayouts, LAYOUT_ARCHETYPES.length)]
+    const layout = layouts[claim(seed % layouts.length, usedLayouts, layouts.length)]
     // A second, decorrelated draw — otherwise layout and palette move in
     // lockstep and "navy" would always arrive with the same composition.
     const paletteIndex = claim(hash(`${id}:palette`) % MASS_APPEAL_PALETTES.length, usedPalettes, MASS_APPEAL_PALETTES.length)

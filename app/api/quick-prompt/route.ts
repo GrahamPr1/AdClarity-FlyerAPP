@@ -9,6 +9,7 @@ import { continuePipelineFromIntake } from "@/lib/agent-pipeline/pipeline"
 import { runQuickPromptAgent } from "@/lib/agent-pipeline/agents/quickPromptAgent"
 import type { NormalizedIntake } from "@/lib/agent-pipeline/schemas/intake"
 import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
+import { formatIdFromLabel } from "@/lib/agent-pipeline/formats"
 
 export const maxDuration = 300
 
@@ -20,21 +21,11 @@ const STYLE_TO_FONT: Record<QuickPromptStyle, NormalizedIntake["fontStylePrefere
   Minimal: "minimal",
 }
 
-// The Flyer Agent's own prompt has no concept of "format" and is
-// deliberately never changed (see the spec's own "do not change those
-// agents" instruction) — so format is conveyed the only way this path can
-// reach it without a prompt change: as an explicit, directive instruction
-// inside FlyerRequest.notes, which the agent already reads for real
-// context (confirmed by earlier real runs picking up "mention $50 off
-// first cleaning" style detail straight out of notes).
-const FORMAT_GUIDANCE: Record<QuickPromptFormat, string> = {
-  Flyer: "Format requested: a standard single-page print flyer — graphic-forward, brief copy.",
-  "One-Pager": "Format requested: a One-Pager — more written detail than a flyer, organized into a few clear sections, still single-page.",
-  Proposal: "Format requested: a Proposal — text-forward with multiple clearly labeled sections (e.g. overview, scope, pricing/next steps), light on decorative graphics, longer copy than a flyer.",
-  "Door Hanger": "Format requested: a Door Hanger — narrow vertical layout, very brief copy, large legible type, minimal text since it's read in a few seconds.",
-  "Social Post": "Format requested: a Social Post — square-friendly layout, short punchy copy, bold visual focus, no print-specific elements like a mailing disclaimer footer.",
-}
-
+// Format is now a first-class property of the request (formatId), expanded
+// into a real structural brief at call time — see lib/agent-pipeline/
+// formats.ts. It used to be a single sentence smuggled into notes, which
+// produced a flyer with different words about it rather than an actual door
+// hanger or proposal: same canvas, same density, same structure.
 interface QuickPromptRequestBody {
   prompt?: string
   format?: QuickPromptFormat
@@ -172,7 +163,14 @@ export async function POST(request: NextRequest) {
     // Quick Prompt has no QR question — it's the one-line path, deliberately
     // free of settings — so it keeps the long-standing default.
     wantsQrCode: true,
-    flyerRequests: [{ id: flyerRequestId, purpose: parsed.purpose, notes: `${FORMAT_GUIDANCE[format]}\n\nClient's original request: ${fullPromptText}` }],
+    flyerRequests: [
+      {
+        id: flyerRequestId,
+        purpose: parsed.purpose,
+        notes: `Client's original request: ${fullPromptText}`,
+        formatId: formatIdFromLabel(format),
+      },
+    ],
     websitePreferences: null,
     existingMaterialsNotes: null,
     batchSize: 1,

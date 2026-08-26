@@ -5,6 +5,18 @@ export const FlyerRequestSchema = z.object({
   id: z.string(),
   purpose: z.string(),
   notes: z.string().nullable(),
+  /**
+   * Which output format this piece is (see formats.ts). Stored as the id
+   * only — the full brief is expanded at call time, so editing a format's
+   * wording improves every future regeneration rather than being frozen into
+   * saved state.
+   *
+   * Optional because requests persisted before formats existed don't carry
+   * one; absent means "flyer", which is what they were. Persisting it at all
+   * is what lets a RETRY of a door hanger come back as a door hanger rather
+   * than silently reverting to a flyer.
+   */
+  formatId: z.string().optional(),
 })
 
 export type FlyerRequest = z.infer<typeof FlyerRequestSchema>
@@ -76,6 +88,19 @@ const FlyerRequestWithQrSchema = FlyerRequestSchema.extend({
    * agent-invented and may therefore be swapped per flyer; when the client has
    * real brand colours it is null and brandProfile.colors governs.
    */
+  /**
+   * WHAT KIND of document this is — flyer, one-pager, proposal, door hanger
+   * or social post (see formats.ts). Distinct from designVariant, which only
+   * varies the composition within a format. The canvas, density and structure
+   * all come from here.
+   */
+  format: z.object({
+    id: z.string(),
+    label: z.string(),
+    dimensions: z.string(),
+    medium: z.enum(["print", "screen"]),
+    brief: z.string(),
+  }),
   designVariant: z.object({
     layoutName: z.string(),
     layoutBrief: z.string(),
