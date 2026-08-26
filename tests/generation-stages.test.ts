@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { GENERATION_STAGES } from "@/lib/agent-pipeline/pipeline"
+import { FLYER_AGENT_SYSTEM_PROMPT } from "@/lib/agent-pipeline/prompts/flyer"
 
 /**
  * The labels a customer reads during a ~2 minute wait. Pinned because they
@@ -23,5 +24,31 @@ describe("customer-facing generation stages", () => {
   it("speaks to the person waiting", () => {
     expect(GENERATION_STAGES.flyer).toMatch(/your/i)
     expect(GENERATION_STAGES.repurpose).toMatch(/your/i)
+  })
+})
+
+/**
+ * The page must absorb its own content. A fixed-height page silently clips
+ * whatever sits at the bottom when the content runs long — on a proposal that
+ * is the signature line, which makes the document unusable.
+ *
+ * The fix is structural (flex column, anchored footer, no fixed inner
+ * heights), NOT "write less" — capping content to suit the worst case is what
+ * the format briefs deliberately no longer do.
+ */
+describe("page construction rules", () => {
+  it("requires a flex page with an anchored footer", () => {
+    expect(FLYER_AGENT_SYSTEM_PROMPT).toMatch(/flex-direction:column/)
+    expect(FLYER_AGENT_SYSTEM_PROMPT).toMatch(/margin-top:auto/)
+    expect(FLYER_AGENT_SYSTEM_PROMPT).toMatch(/flex:1; min-height:0/)
+  })
+
+  it("forbids fixed heights on text blocks and requires border-box", () => {
+    expect(FLYER_AGENT_SYSTEM_PROMPT).toMatch(/box-sizing: border-box/)
+    expect(FLYER_AGENT_SYSTEM_PROMPT).toMatch(/Never put a fixed .*height.* on an inner block/i)
+  })
+
+  it("explicitly rules out solving overflow by writing less", () => {
+    expect(FLYER_AGENT_SYSTEM_PROMPT).toMatch(/Do NOT solve length by writing less/i)
   })
 })

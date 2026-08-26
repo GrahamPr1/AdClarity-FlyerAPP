@@ -36,11 +36,16 @@ describe("formats are genuinely distinct documents", () => {
     }
   })
 
-  it("the dense formats are warned about page overflow", () => {
-    // A clipped signature line makes a proposal unusable — observed in a real
-    // render before this was added.
-    expect(OUTPUT_FORMATS.proposal.brief).toMatch(/fit inside the single page/i)
-    expect(OUTPUT_FORMATS["one-pager"].brief).toMatch(/fit within the single page/i)
+  it("does NOT solve overflow by telling the model to write less", () => {
+    // A clipped signature line was observed in a real proposal render. The
+    // first fix told the model to trim a section, which caps how thorough a
+    // proposal can be to suit the worst case. Overflow is a layout problem —
+    // it belongs in the page-construction principle (see prompts/flyer.ts),
+    // not in the content brief.
+    for (const id of FORMAT_IDS) {
+      expect(OUTPUT_FORMATS[id].brief, id).not.toMatch(/trim a (block|section)/i)
+      expect(OUTPUT_FORMATS[id].brief, id).not.toMatch(/fewer, tighter sections/i)
+    }
   })
 })
 
@@ -70,6 +75,23 @@ describe("layouts are restricted to canvases that can carry them", () => {
   })
 })
 
+describe("pagination", () => {
+  it("only the proposal may flow to a second page", () => {
+    // A flyer, door hanger or social post is ONE physical piece; a second
+    // sheet is meaningless. A proposal is a document and a long scope of work
+    // legitimately runs longer, exactly as a real quote would.
+    expect(OUTPUT_FORMATS.proposal.paginates).toBe(true)
+    for (const id of FORMAT_IDS.filter((i) => i !== "proposal")) {
+      expect(OUTPUT_FORMATS[id].paginates, id).toBe(false)
+    }
+  })
+
+  it("tells the agent which behaviour applies", () => {
+    expect(formatForAgent("proposal").paginates).toBe(true)
+    expect(formatForAgent("door-hanger").paginates).toBe(false)
+  })
+})
+
 describe("format resolution", () => {
   it("defaults to flyer for anything unknown or absent", () => {
     expect(getFormat(undefined).id).toBe(DEFAULT_FORMAT)
@@ -86,6 +108,6 @@ describe("format resolution", () => {
   })
 
   it("hands the agent only what it needs", () => {
-    expect(Object.keys(formatForAgent("proposal")).sort()).toEqual(["brief", "dimensions", "id", "label", "medium"])
+    expect(Object.keys(formatForAgent("proposal")).sort()).toEqual(["brief", "dimensions", "id", "label", "medium", "paginates"])
   })
 })

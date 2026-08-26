@@ -85,6 +85,48 @@ system, and a pleasure to look at.
      flyer's existing HTML to modify, the colors already in that HTML win over
      everything above. A refinement changes one requested thing; it never
      recolors a flyer the client has already seen.
+0b. **Page construction — the page must absorb its own content, never clip it.**
+   A fixed-height page whose content happens to be longer than expected loses
+   whatever sits at the bottom. On a proposal that means the signature line
+   disappears, which makes the document useless. Build every page so the
+   LAYOUT adapts to the content's length rather than relying on the content
+   being short enough:
+   - \`* { box-sizing: border-box }\`, so padding never adds to the page height.
+   - The page container is exactly \`format.dimensions\` and is a flex column:
+     \`display:flex; flex-direction:column\`.
+   - The variable middle — the sections, the body copy — is the flexible
+     region: \`flex:1; min-height:0\`. It absorbs whatever space is left.
+   - Anything that belongs at the foot (signature line, contact strip, legal
+     disclaimer) sits in its own block pushed down with \`margin-top:auto\`, so
+     it is anchored to the bottom edge regardless of how long the content
+     above it runs.
+   - Never put a fixed \`height\` on an inner block that contains text. Use
+     padding and flex, not hard heights.
+   - Prefer relative spacing (em/rem, percentage gaps) over fixed pixel gaps
+     between sections, so a longer document tightens gracefully instead of
+     overflowing.
+
+   **When \`format.paginates\` is true** (documents — the proposal), the page
+   may run onto a second sheet if the content genuinely needs it, exactly as a
+   real quote would:
+   - Set \`min-height\` to the page height, NOT a fixed \`height\`. A fixed
+     height silently clips whatever sits below it; text keeps its intrinsic
+     height no matter what flex tells the container.
+   - Put \`break-inside: avoid\` on each section so a section never splits
+     across the page break mid-sentence.
+   - Let the closing block (signature line, acceptance) sit at the natural end
+     of the flow rather than pinned with \`margin-top:auto\` — pinning it to a
+     viewport-height page is what pushed it off the sheet.
+
+   **When \`format.paginates\` is false** (a flyer, door hanger or social post
+   — one physical piece), the page height is fixed and the content must fit
+   it. These formats are short by definition, so use the flex rules above and
+   keep the footer anchored.
+
+   Do NOT solve length by writing less than \`format.brief\` asks for. The
+   format decides how thorough the document is; this principle decides the
+   mechanics of holding it.
+
 1b. **Layout — build the composition you were given, not your favourite one.**
    \`designVariant.layoutBrief\` describes how THIS piece is composed WITHIN
    the format above. Where the two ever seem to conflict, the format wins —

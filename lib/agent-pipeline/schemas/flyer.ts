@@ -100,6 +100,7 @@ const FlyerRequestWithQrSchema = FlyerRequestSchema.extend({
     dimensions: z.string(),
     medium: z.enum(["print", "screen"]),
     brief: z.string(),
+    paginates: z.boolean(),
   }),
   designVariant: z.object({
     layoutName: z.string(),
