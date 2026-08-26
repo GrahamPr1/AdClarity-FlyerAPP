@@ -1,5 +1,5 @@
 import type { IntakeSubmission, PlanId } from "@/lib/types"
-import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile } from "@/lib/store"
+import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile, setGenerationStage } from "@/lib/store"
 import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
@@ -69,6 +69,21 @@ class PipelineTimeoutError extends Error {}
 // real completion-time variance), so this logs a timestamp after each real
 // stage boundary to reveal which specific stage a genuinely stuck run never
 // gets past, rather than guessing again at another timeout number.
+/**
+ * Customer-facing names for the pipeline's real stages.
+ *
+ * Deliberately describes what is happening to THEIR campaign rather than
+ * naming our agents — "Designing your flyer", not "Flyer Agent". Kept next to
+ * stageMark so the internal log labels and the customer-visible ones can't
+ * drift apart unnoticed.
+ */
+export const GENERATION_STAGES = {
+  brand: "Working out your brand look",
+  photos: "Preparing your images",
+  flyer: "Designing your flyer",
+  repurpose: "Creating your social and text versions",
+} as const
+
 function stageMark(runId: string, t0: number, label: string) {
   console.log(`[agent-pipeline] ${runId}: ${label} at +${Math.round((Date.now() - t0) / 1000)}s`)
 }
@@ -182,6 +197,7 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
 }
 
 async function runBatch(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[], autoSaveBrandProfile: boolean): Promise<void> {
+  await setGenerationStage(email, GENERATION_STAGES.brand)
   const brandProfile = await runBrandAgent(intake, email)
   stageMark(runId, t0, "brand done")
   // Guided-flow submissions refresh the client's saved brand automatically
@@ -199,6 +215,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     await savePendingBrandProfile(flyerRequests[0].id, brandProfile, intake.contact).catch((e) => console.error("[agent-pipeline] Failed to save pending brand profile:", e))
   }
   const { plan, includeExtras } = await getPlanFeatures(email)
+  if (aiPhotosEnabled(plan, intake.wantsAiPhotos)) await setGenerationStage(email, GENERATION_STAGES.photos)
   const photos = await buildPhotoPool(intake, flyerRequests, aiPhotosEnabled(plan, intake.wantsAiPhotos))
   stageMark(runId, t0, "photo pool ready")
 
@@ -232,20 +249,59 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     designVariant: variants.get(r.id)!,
   }))
 
-  // includeRepurposing is now always false here: repurposing runs as its own
-  // call below. Asking for both in one response meant emitting two complete
-  // HTML documents plus three pieces of copy, which reliably blew
-  // PIPELINE_TIMEOUT_MS on Basic/Pro — and because the timeout failed the
-  // whole run, the client lost the FLYER too, not just the extra channels.
-  const flyerResult = await runFlyerAgent({
-    brandProfile,
-    contact: intake.contact,
-    photos,
-    flyerRequests: flyerRequestsWithQr,
-    batchSize: flyerRequests.length,
-    includeRepurposing: false,
-  }, email)
-  stageMark(runId, t0, "flyer agent done")
+  // ONE CALL PER FLYER, RUN CONCURRENTLY — not one call producing the batch.
+  //
+  // Latency is linear in output tokens (~111 tok/s measured), so a single
+  // call emitting N complete HTML documents has to stream all N serially.
+  // Measured on a batch of 3: one batched call 179.0s vs three concurrent
+  // calls 126.2s — 52.8s (29%) faster for identical output.
+  //
+  // The original reason for batching was letting the model see all the
+  // flyers at once so it could make them different from each other. That
+  // reason is gone: each flyer's composition and palette are now assigned
+  // deterministically in code before the call (see design-variants.ts), so
+  // distinctness no longer depends on shared context.
+  //
+  // Per-flyer isolation is a real gain on top of the speed: one flyer
+  // failing used to lose the whole batch, since a single response either
+  // parsed or didn't. Now a failure is confined to its own flyer and the
+  // rest still deliver.
+  //
+  // includeRepurposing stays false here: repurposing runs as its own call
+  // below. Asking for both in one response meant emitting two complete HTML
+  // documents plus three pieces of copy, which reliably blew
+  // PIPELINE_TIMEOUT_MS on Basic/Pro.
+  await setGenerationStage(email, GENERATION_STAGES.flyer)
+  const settled = await Promise.allSettled(
+    flyerRequestsWithQr.map((request) =>
+      runFlyerAgent({
+        brandProfile,
+        contact: intake.contact,
+        photos,
+        flyerRequests: [request],
+        batchSize: 1,
+        includeRepurposing: false,
+      }, email),
+    ),
+  )
+
+  const flyerResult = { flyers: settled.flatMap((r) => (r.status === "fulfilled" ? r.value.flyers : [])) }
+
+  // Mark the ones that genuinely failed, so they show as Failed and stay
+  // retryable rather than sitting In Progress forever.
+  const failed = settled
+    .map((r, i) => (r.status === "rejected" ? { request: flyerRequestsWithQr[i], reason: r.reason } : null))
+    .filter((x): x is { request: (typeof flyerRequestsWithQr)[number]; reason: unknown } => x !== null)
+  for (const { request, reason } of failed) {
+    console.error(`[agent-pipeline] Flyer ${request.id} failed (others in this batch are unaffected):`, reason)
+    await markFlyerFailed(email, request.id, describeFailure(reason)).catch(() => {})
+  }
+  if (flyerResult.flyers.length === 0) {
+    // Every flyer failed — surface it as a real error rather than silently
+    // "completing" a run that produced nothing.
+    throw settled.find((r) => r.status === "rejected")?.reason ?? new Error("Flyer Agent returned no result")
+  }
+  stageMark(runId, t0, `flyer agents done (${flyerResult.flyers.length} ok, ${failed.length} failed)`)
 
   // Flyers are marked Ready FIRST, before any repurposing is attempted, so
   // the thing the client actually asked for is in their hands as early as
@@ -263,7 +319,12 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     })
   }
 
-  if (!includeExtras) return
+  if (!includeExtras) {
+    await setGenerationStage(email, null)
+    return
+  }
+
+  await setGenerationStage(email, GENERATION_STAGES.repurpose)
 
   // Second pass: the Instagram/text/Nextdoor versions, one call per flyer,
   // derived from that flyer's own generated copy so the offer is copied
@@ -299,6 +360,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     }),
   )
   stageMark(runId, t0, "repurposing done")
+  await setGenerationStage(email, null)
 }
 
 /**
@@ -338,10 +400,14 @@ export async function continuePipelineFromIntake(
     const reason = describeFailure(err)
     console.error("[agent-pipeline] Pipeline failed:", reason)
     await markFlyersFailed(email, ids, reason).catch((e) => console.error("[agent-pipeline] Failed to record failure:", e))
+    // Clear the progress label too — a failed run must not sit showing
+    // "Designing your flyer…" until the TTL expires.
+    await setGenerationStage(email, null)
   }
 }
 
 async function runSingleFlyerRetry(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequest: FlyerRequest): Promise<void> {
+  await setGenerationStage(email, GENERATION_STAGES.brand)
   const brandProfile = await runBrandAgent(intake, email)
   stageMark(runId, t0, "brand done")
   const { plan, includeExtras } = await getPlanFeatures(email)
@@ -357,6 +423,7 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
 
   // Same two-pass split as runBatch — see the note there on why repurposing
   // is no longer requested from the Flyer Agent in the same call.
+  await setGenerationStage(email, GENERATION_STAGES.flyer)
   const flyerResult = await runFlyerAgent({
     brandProfile,
     contact: intake.contact,
@@ -437,6 +504,7 @@ export async function retryFlyer(email: string, intake: NormalizedIntake, flyerR
     const reason = describeFailure(err)
     console.error("[agent-pipeline] Retry failed:", reason)
     await markFlyerFailed(email, flyerRequest.id, reason).catch((e) => console.error("[agent-pipeline] Failed to record retry failure:", e))
+    await setGenerationStage(email, null)
   }
 }
 

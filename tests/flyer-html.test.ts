@@ -93,7 +93,6 @@ function flyer(overrides: Partial<FlyerSpecification> = {}): FlyerSpecification 
     html: "<html></html>",
     paletteUsed: { primary: "#1b3a5c", secondary: "#fff", accent: "#5eb8f0" },
     fontsUsed: { heading: "Inter", body: "Inter" },
-    notes: "",
     repurposed: null,
     ...overrides,
   }

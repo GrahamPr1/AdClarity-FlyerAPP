@@ -228,6 +228,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
   const periodStart = client?.periodStart ?? Date.now()
 
   const printRequests = await getPrintRequestsForEmail(email)
+  const generationStage = await getGenerationStage(email)
   const businessCategoryIsDefaulted = !(await hasExplicitBusinessCategory(email))
 
   return {
@@ -239,6 +240,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
     flyersLimit: PLAN_LIMITS[planId],
     flyersResetAt: new Date(periodStart + RESET_PERIOD_MS).toISOString(),
     pausedAt: client?.pausedAt ?? null,
+    generationStage,
     printRequests,
     businessCategory: client?.businessCategory ?? "Other",
     isRealEstate: client?.isRealEstate ?? false,
@@ -263,6 +265,7 @@ export async function getDeliverables(): Promise<Deliverables> {
       flyersLimit: PLAN_LIMITS.trial,
       flyersResetAt: new Date(Date.now() + RESET_PERIOD_MS).toISOString(),
       pausedAt: null,
+      generationStage: null,
       printRequests: [],
       businessCategory: "Other",
       isRealEstate: false,
@@ -1129,4 +1132,42 @@ export async function deleteAccountCompletely(email: string): Promise<{ deletedK
   const { keys } = await collectAccountKeys(email)
   if (keys.length > 0) await redis.del(...keys)
   return { deletedKeys: keys }
+}
+
+// ---- Generation progress ----------------------------------------------------
+//
+// The pipeline already knew which stage it was in — it just logged it to the
+// server console where no customer could see it, leaving a ~110s wait behind
+// a single unchanging "In Progress" badge. This persists the same milestones
+// so the dashboard can show which step is actually running.
+//
+// TTL'd rather than deleted on completion: if a run dies mid-way (a frozen
+// serverless instance, a hard timeout) a stale "Designing your flyer…" would
+// otherwise stick forever. Expiring slightly beyond the pipeline's own
+// ceiling means the label always resolves itself.
+const GENERATION_STAGE_TTL_SECONDS = 6 * 60
+
+function generationStageKey(email: string) {
+  return `generation-stage:${email}`
+}
+
+/** Records the human-readable stage a client's generation is currently in. Never throws — progress display must not be able to break generation. */
+export async function setGenerationStage(email: string, stage: string | null): Promise<void> {
+  try {
+    if (stage === null) {
+      await redis.del(generationStageKey(email))
+      return
+    }
+    await redis.set(generationStageKey(email), stage, { ex: GENERATION_STAGE_TTL_SECONDS })
+  } catch {
+    // Deliberately swallowed.
+  }
+}
+
+export async function getGenerationStage(email: string): Promise<string | null> {
+  try {
+    return (await redis.get<string>(generationStageKey(email))) ?? null
+  } catch {
+    return null
+  }
 }

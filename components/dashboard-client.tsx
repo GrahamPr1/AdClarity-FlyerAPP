@@ -645,6 +645,10 @@ export function DashboardClient() {
       // actively generating. A retry flips a flyer back to "In Progress"
       // server-side, so the explicit mutate() in handleRetry re-triggers
       // this check immediately rather than waiting on the next poll tick.
+      // A live stage label means work is genuinely in flight — keep polling
+      // even if every seeded flyer already reads Ready (repurposing runs
+      // after that point), otherwise the label freezes mid-run.
+      if (latest.generationStage) return 3000
       const flyersDone = latest.flyers.length > 0 && latest.flyers.every((f) => f.status === "Ready" || f.status === "Failed")
       return flyersDone ? 0 : 3000
     },
@@ -825,6 +829,17 @@ export function DashboardClient() {
             </div>
           </div>
 
+          {/* Whatever brought them here — a retry, a second campaign, a page
+              refresh mid-run — if something is generating, say what. Only
+              when flyers already exist, since the zero-flyer case has its own
+              panel below. */}
+          {data.generationStage && data.flyers.length > 0 && (
+            <div className="mt-8 flex items-center gap-3 rounded-xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] px-4 py-3">
+              <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/15 border-t-[var(--brand-teal-bright)]" />
+              <span className="text-sm font-medium" aria-live="polite">{data.generationStage}…</span>
+            </div>
+          )}
+
           {/* Flyers & Pages */}
           {data.flyers.length === 0 && justOnboarded ? (
             // Someone who just submitted, whose flyers haven't been seeded
@@ -832,6 +847,15 @@ export function DashboardClient() {
             <div className="mt-12 rounded-2xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-10 text-center">
               <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-[var(--brand-teal-bright)]" />
               <h2 className="mt-5 text-xl font-semibold">Building your campaign…</h2>
+              {/* The real stage, not a generic spinner caption. Generation
+                  takes upwards of a minute and used to show one unchanging
+                  line the whole way through; the pipeline already knew which
+                  step it was on (see GENERATION_STAGES) and now says so. */}
+              {data.generationStage && (
+                <p className="mt-3 text-sm font-medium text-[var(--brand-teal-bright)]" aria-live="polite">
+                  {data.generationStage}…
+                </p>
+              )}
               <p className="mt-2 text-sm text-muted-foreground">
                 We&apos;ve got your details. Your flyer and its matching versions are being
                 designed now — this page updates on its own, so you can leave it open.

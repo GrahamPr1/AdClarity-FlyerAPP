@@ -290,6 +290,8 @@ export interface Deliverables {
   flyersResetAt: string
   /** Mirrors ClientRecord.pausedAt so the dashboard and profile can show account state without a second round trip. Null when active. */
   pausedAt: string | null
+  /** Which pipeline step is running right now, in words a customer understands. Null when nothing is generating. */
+  generationStage: string | null
   printRequests: PrintRequest[]
   /** See ClientRecord.businessCategory — defaults to "Other" until explicitly set. */
   businessCategory: BusinessCategory

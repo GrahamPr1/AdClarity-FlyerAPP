@@ -33,7 +33,20 @@ export const FlyerSpecificationSchema = z.object({
   html: z.string(),
   paletteUsed: z.object({ primary: z.string(), secondary: z.string(), accent: z.string() }),
   fontsUsed: z.object({ heading: z.string(), body: z.string() }),
-  notes: z.string(),
+  /*
+   * There is deliberately NO `notes` field here.
+   *
+   * It used to exist: a prose field the model wrote on every flyer, never
+   * persisted onto the deliverable and never rendered anywhere in the UI.
+   * Measured A/B, same prompt and input, only this field removed: output
+   * dropped 4,696 -> 3,458 tokens (26.4%) and wall clock 44.3s -> 32.0s
+   * (28%). Latency is linear in output tokens (~111 tok/s), so a field
+   * nobody reads was costing a quarter of every flyer's generation time.
+   * The flyers came out slightly LARGER without it (4,337 vs 4,189 chars) —
+   * the budget went into the design instead of the commentary.
+   *
+   * Don't reintroduce a free-text field here without a reader for it.
+   */
   /** Null when the client's plan doesn't include multi-channel repurposing (see includeRepurposing on FlyerAgentInputSchema) — Trial only, gated for real in the pipeline, not just hidden in the UI. */
   repurposed: RepurposedContentSchema.nullable(),
 })
