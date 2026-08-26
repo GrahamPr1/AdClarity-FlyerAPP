@@ -238,6 +238,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
     flyersCreated: client?.flyersCreated ?? 0,
     flyersLimit: PLAN_LIMITS[planId],
     flyersResetAt: new Date(periodStart + RESET_PERIOD_MS).toISOString(),
+    pausedAt: client?.pausedAt ?? null,
     printRequests,
     businessCategory: client?.businessCategory ?? "Other",
     isRealEstate: client?.isRealEstate ?? false,
@@ -261,6 +262,7 @@ export async function getDeliverables(): Promise<Deliverables> {
       flyersCreated: 0,
       flyersLimit: PLAN_LIMITS.trial,
       flyersResetAt: new Date(Date.now() + RESET_PERIOD_MS).toISOString(),
+      pausedAt: null,
       printRequests: [],
       businessCategory: "Other",
       isRealEstate: false,
@@ -562,6 +564,10 @@ function createdAtKey(email: string) {
 function lifetimeCountKey(email: string) {
   return `client:${email}:lifetimeFlyersCreated`
 }
+function pausedAtKey(email: string) {
+  return `client:${email}:pausedAt`
+}
+
 function lastCampaignAtKey(email: string) {
   return `client:${email}:lastCampaignAt`
 }
@@ -584,16 +590,17 @@ async function getClientExtras(
 ): Promise<
   Pick<
     ClientRecord,
-    "businessCategory" | "isRealEstate" | "isAdmin" | "businessName" | "createdAt" | "lifetimeFlyersCreated" | "lastCampaignAt"
+    "businessCategory" | "isRealEstate" | "isAdmin" | "businessName" | "createdAt" | "lifetimeFlyersCreated" | "lastCampaignAt" | "pausedAt"
   >
 > {
-  const [businessCategory, isAdmin, businessName, createdAt, lifetimeFlyersCreated, lastCampaignAt] = await Promise.all([
+  const [businessCategory, isAdmin, businessName, createdAt, lifetimeFlyersCreated, lastCampaignAt, pausedAt] = await Promise.all([
     redis.get<BusinessCategory>(businessCategoryKey(email)),
     redis.get<boolean>(isAdminKey(email)),
     redis.get<string>(businessNameKey(email)),
     redis.get<string>(createdAtKey(email)),
     redis.get<number>(lifetimeCountKey(email)),
     redis.get<string>(lastCampaignAtKey(email)),
+    redis.get<string>(pausedAtKey(email)),
   ])
   return {
     businessCategory: businessCategory ?? "Other",
@@ -606,7 +613,25 @@ async function getClientExtras(
     // this period's usage, not lifetime).
     lifetimeFlyersCreated: lifetimeFlyersCreated ?? 0,
     lastCampaignAt: lastCampaignAt ?? null,
+    pausedAt: pausedAt ?? null,
   }
+}
+
+/**
+ * Pauses or resumes an account.
+ *
+ * Writes ONE key and deletes nothing else. That is the whole point: a paused
+ * account keeps its brand profile, its flyers and its QR tracking history, so
+ * resuming restores the client exactly where they left off.
+ */
+export async function setClientPaused(email: string, paused: boolean): Promise<string | null> {
+  if (!paused) {
+    await redis.del(pausedAtKey(email))
+    return null
+  }
+  const at = new Date().toISOString()
+  await redis.set(pausedAtKey(email), at)
+  return at
 }
 
 /** Records the real signup timestamp — the FIRST time this email ever gets a real password credential (a fresh signup, or claiming a pre-password-era account via reset-password). Never overwritten on later calls, so a password reset doesn't reset "signup date". */
@@ -677,7 +702,7 @@ export async function getOrCreateClient(email: string): Promise<ClientRecord> {
   const periodStart = Date.now()
   await redis.set(planKey(email), "trial")
   await redis.set(periodStartKey(email), periodStart)
-  return { email, plan: "trial", flyersCreated: 0, periodStart, businessCategory: "Other", isRealEstate: false, isAdmin: false, businessName: null, createdAt: null, lifetimeFlyersCreated: 0, lastCampaignAt: null }
+  return { email, plan: "trial", flyersCreated: 0, periodStart, businessCategory: "Other", isRealEstate: false, isAdmin: false, businessName: null, createdAt: null, lifetimeFlyersCreated: 0, lastCampaignAt: null, pausedAt: null }
 }
 
 // Real enforcement only ever changes here — never inferred from an

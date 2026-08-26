@@ -6,6 +6,7 @@ import { saveIntake, getOrCreateClient, reserveFlyerQuota, setClientBusinessCate
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { continuePipelineFromIntake, runIntakeStage, MAX_FLYERS_PER_BATCH } from "@/lib/agent-pipeline/pipeline"
+import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
 
 // The pipeline continues running after the response via waitUntil() below —
 // explicitly claim the full 300s Vercel now defaults to on Fluid Compute,
@@ -72,6 +73,14 @@ export async function POST(request: NextRequest) {
   // or past their plan's limit without spending anything on Intake.
   // -------------------------------------------------------------------------
   const client = await getOrCreateClient(email)
+
+  // A paused account can still read everything it has; it just can't spend
+  // more. Enforced here, server-side — the profile UI hides the button but
+  // the button is not what stops it.
+  const pauseCheck = canCreateCampaign(client)
+  if (!pauseCheck.allowed) {
+    return NextResponse.json({ error: "account_paused", message: pauseCheck.reason }, { status: 403 })
+  }
   const planName = getPlan(client.plan)?.name ?? client.plan
   const limit = PLAN_LIMITS[client.plan]
 

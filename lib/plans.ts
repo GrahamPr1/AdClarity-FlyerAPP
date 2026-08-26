@@ -42,7 +42,7 @@ export const PLANS: Plan[] = [
       `${PLAN_LIMITS.basic} flyers every month`,
       "QR scan & click tracking on every flyer",
       "Instagram, text-blast & Nextdoor versions included",
-      "Request printed copies, shipped to you",
+      "Request printed copies, shipped to you (quoted per order)",
     ],
     note: "No contract — cancel anytime, keep every flyer you've made.",
     outcome: "A steady set of on-brand materials — and proof they're working.",

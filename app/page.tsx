@@ -816,7 +816,7 @@ export default function Page() {
 
       {/* ── FOOTER ───────────────────────────────────────────────────────── */}
       <footer className="border-t border-white/[0.06] px-6 py-14 md:px-12 lg:px-20">
-        <div className="mx-auto grid max-w-6xl gap-10 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-6xl gap-10 sm:grid-cols-2 lg:grid-cols-5">
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2 font-semibold">
               <span className="inline-block h-2 w-2 rounded-full bg-[var(--brand-teal-bright)]" />
@@ -843,6 +843,13 @@ export default function Page() {
           </div>
 
           <div className="flex flex-col gap-2.5">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground/70">Legal</span>
+            <a href="/privacy" className="text-sm text-foreground/70 transition-colors hover:text-white">Privacy Policy</a>
+            <a href="/terms" className="text-sm text-foreground/70 transition-colors hover:text-white">Terms of Service</a>
+            <a href="/refund-policy" className="text-sm text-foreground/70 transition-colors hover:text-white">Cancellation &amp; Refunds</a>
+          </div>
+
+          <div className="flex flex-col gap-2.5">
             <span className="text-xs uppercase tracking-widest text-muted-foreground/70">Account</span>
             <a href="/dashboard" className="text-sm text-foreground/70 transition-colors hover:text-white">Log In</a>
             <a href={PRIMARY_CTA_HREF} className="text-sm text-[var(--brand-teal-bright)] transition-colors hover:text-[var(--brand-teal)]">
@@ -853,7 +860,11 @@ export default function Page() {
         </div>
 
         <div className="mx-auto mt-12 flex max-w-6xl flex-col gap-2 border-t border-white/[0.06] pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-xs text-muted-foreground/60">© 2026 OneFlyer. All rights reserved.</span>
+          <span className="text-xs text-muted-foreground/60">
+            © 2026 OneFlyer. All rights reserved. ·{" "}
+            <a href="/privacy" className="underline transition-colors hover:text-white">Privacy</a> ·{" "}
+            <a href="/terms" className="underline transition-colors hover:text-white">Terms</a>
+          </span>
           <span className="text-xs text-muted-foreground/60">
             Questions? <a href="mailto:Gpearl1006@gmail.com" className="underline transition-colors hover:text-white">Gpearl1006@gmail.com</a>
           </span>

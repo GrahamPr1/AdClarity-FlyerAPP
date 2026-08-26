@@ -13,6 +13,7 @@ import {
 } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { refineFlyer, fromDataUrl } from "@/lib/agent-pipeline/pipeline"
+import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
 
 export const maxDuration = 300
 
@@ -66,6 +67,14 @@ export async function POST(request: NextRequest) {
   const { isFree, countSoFar } = await incrementAndCheckRefinementAllowance(flyerId)
 
   const client = await getOrCreateClient(email)
+
+  // A paused account can still read everything it has; it just can't spend
+  // more. Enforced here, server-side — the profile UI hides the button but
+  // the button is not what stops it.
+  const pauseCheck = canCreateCampaign(client)
+  if (!pauseCheck.allowed) {
+    return NextResponse.json({ error: "account_paused", message: pauseCheck.reason }, { status: 403 })
+  }
   if (!isFree) {
     const planName = getPlan(client.plan)?.name ?? client.plan
     const limit = PLAN_LIMITS[client.plan]

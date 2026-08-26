@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { CampaignDefaultsForm } from "@/components/campaign-defaults-form"
+import { AccountStatus } from "@/components/account-status"
 
 export const metadata = {
   // The root layout's title template appends " — OneFlyer".
@@ -38,6 +39,7 @@ export default async function ProfilePage() {
         <div className="mt-8">
           <CampaignDefaultsForm />
         </div>
+        <AccountStatus />
       </div>
     </main>
   )

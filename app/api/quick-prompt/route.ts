@@ -8,6 +8,7 @@ import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { continuePipelineFromIntake } from "@/lib/agent-pipeline/pipeline"
 import { runQuickPromptAgent } from "@/lib/agent-pipeline/agents/quickPromptAgent"
 import type { NormalizedIntake } from "@/lib/agent-pipeline/schemas/intake"
+import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
 
 export const maxDuration = 300
 
@@ -76,6 +77,14 @@ export async function POST(request: NextRequest) {
   const attempt = typeof body.attempt === "number" ? body.attempt : 0
 
   const client = await getOrCreateClient(email)
+
+  // A paused account can still read everything it has; it just can't spend
+  // more. Enforced here, server-side — the profile UI hides the button but
+  // the button is not what stops it.
+  const pauseCheck = canCreateCampaign(client)
+  if (!pauseCheck.allowed) {
+    return NextResponse.json({ error: "account_paused", message: pauseCheck.reason }, { status: 403 })
+  }
   if (client.plan === "trial") {
     return NextResponse.json(
       { error: "paid_plan_required", message: "Quick Prompt is available on Basic and Pro plans — check out our plans at /#pricing." },

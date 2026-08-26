@@ -198,6 +198,10 @@ export const TRUST_POINTS: { title: string; body: string }[] = [
 
 export const FAQS: { q: string; a: string }[] = [
   {
+    q: "What file do I actually get?",
+    a: "Each flyer downloads as a self-contained HTML file. Open it in any browser and print it — it is laid out for standard letter paper and prints at full quality with no software to install. The Instagram version downloads the same way as a square design. There is no PDF export yet.",
+  },
+  {
     q: "What is OneFlyer?",
     a: "You tell OneFlyer about your business and what you're promoting. It designs a professional flyer matched to your brand — and on Basic and Pro, it also gives you a matching Instagram post, a text-blast message, a Nextdoor post, and a trackable QR code printed on the flyer. One promotion in, a set of marketing materials out.",
   },
@@ -219,11 +223,15 @@ export const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Can I get the flyers printed?",
-    a: "Two ways. Every flyer downloads as a file you can print yourself. On Basic and Pro you can also request printed copies from your dashboard — you tell us the quantity and where to ship them, and we follow up directly to confirm details and arrange payment. It's a real request we fulfill by hand, not an instant automated print order.",
+    a: "Two ways. Every flyer downloads as an HTML file that opens in any browser and prints at full quality — there is no PDF export yet, and no design software needed. On Basic and Pro you can also request printed copies from your dashboard: you tell us the quantity and where to ship them, and we email you a quote covering price and turnaround before anything is printed or charged. Printing is not included in your subscription and is never charged automatically — it is a real request we fulfil by hand, so pricing depends on quantity, paper and destination.",
   },
   {
     q: "Can I track QR code scans?",
     a: "Yes, on Basic and Pro. Every flyer gets a unique QR code pointing to a hosted offer page, and your dashboard shows two real numbers: how many times that page was opened (scans) and how many people tapped the call-to-action on it (clicks). It doesn't track shares, impressions, or attribute closed jobs.",
+  },
+  {
+    q: "What happens to my QR codes if I cancel or pause?",
+    a: "They keep working. A QR code you've already printed stays pointed at its offer page permanently — cancelling does not switch it off, because a flyer that goes dead in someone's mailbox would be your problem, not ours to create. Scans and clicks keep being counted, and the numbers you've already collected stay in your dashboard. What stops is making NEW campaigns: those need an active plan, or your free-tier allowance.",
   },
   {
     q: "Is there a free trial?",
@@ -231,7 +239,7 @@ export const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Basic and Pro are month-to-month with no contract, and every flyer you've already made stays yours to download and use whether or not you keep subscribing.",
+    a: "Yes. Basic and Pro are month-to-month with no contract, and every flyer you've already made stays yours to download and use whether or not you keep subscribing. If you just need a break rather than an exit, you can pause instead — pausing stops your plan without deleting your account, your brand profile, or your flyer history, so resuming later doesn't mean starting over.",
   },
   {
     q: "Who is OneFlyer for?",

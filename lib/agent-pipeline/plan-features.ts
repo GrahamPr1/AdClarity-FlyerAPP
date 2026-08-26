@@ -52,3 +52,25 @@ export function aiPhotosEnabled(plan: PlanId | undefined, wantsAiPhotos: boolean
 export function qrEnabled(plan: PlanId | undefined, wantsQrCode: boolean): boolean {
   return planIncludesExtras(plan) && wantsQrCode
 }
+
+/**
+ * Whether a client may start a NEW campaign right now.
+ *
+ * Pausing is deliberately a creation gate and nothing else. A paused client
+ * keeps their dashboard, every flyer they've already generated, their brand
+ * profile and their QR tracking — printed flyers in the world keep working,
+ * because switching those off would punish the customer for taking a break.
+ * The only thing that stops is spending more.
+ */
+export function canCreateCampaign(client: { pausedAt: string | null } | null | undefined): {
+  allowed: boolean
+  reason?: string
+} {
+  if (client?.pausedAt) {
+    return {
+      allowed: false,
+      reason: "Your account is paused. Resume it from your profile to create new campaigns — nothing has been deleted.",
+    }
+  }
+  return { allowed: true }
+}

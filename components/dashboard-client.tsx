@@ -303,6 +303,15 @@ function PrintOrderSection({ flyerId, onSubmit }: { flyerId: string; onSubmit: (
       {submitted && !open && <p className="mt-2 text-xs text-[var(--brand-teal-bright)]">Request submitted — we&apos;ll follow up to confirm and arrange payment.</p>}
       {open && (
         <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-2.5">
+          {/* Pricing and turnaround are genuinely per-order (quantity, paper,
+              destination), so the honest thing is to say so here rather than
+              print a number we'd have to caveat. Nothing is charged from this
+              form — see the note in the POST handler. */}
+          <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
+            Printing isn&apos;t included in your plan and nothing is charged here. Tell us the
+            quantity and where to ship, and we&apos;ll email you a quote with the price and
+            turnaround before anything is printed.
+          </p>
           <div>
             <label className="block text-xs font-medium mb-1">Quantity</label>
             <input type="number" min={1} max={500} value={quantity} onChange={(e) => setQuantity(e.target.value)}

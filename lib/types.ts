@@ -205,6 +205,16 @@ export interface ClientRecord {
   lifetimeFlyersCreated: number
   /** ISO timestamp of the most recent campaign creation — the other half of retention (recency, alongside lifetime frequency). Null if they've never created one, or predate this counter. */
   lastCampaignAt: string | null
+  /**
+   * When the client paused their account, or null if active.
+   *
+   * Pausing stops NEW campaign creation and (once Stripe is connected) stops
+   * billing. It deliberately deletes nothing — the brand profile, every flyer
+   * already generated, and all QR tracking history stay exactly as they were,
+   * so resuming is not the same as starting over. It exists so that "I need a
+   * break" has an answer that isn't "cancel and lose everything".
+   */
+  pausedAt: string | null
 }
 
 // ---- Deliverables / dashboard --------------------------------------------
@@ -278,6 +288,8 @@ export interface Deliverables {
   flyersLimit: number
   /** ISO timestamp when flyersCreated next resets to 0. */
   flyersResetAt: string
+  /** Mirrors ClientRecord.pausedAt so the dashboard and profile can show account state without a second round trip. Null when active. */
+  pausedAt: string | null
   printRequests: PrintRequest[]
   /** See ClientRecord.businessCategory — defaults to "Other" until explicitly set. */
   businessCategory: BusinessCategory
