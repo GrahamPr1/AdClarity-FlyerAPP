@@ -310,6 +310,8 @@ export async function updateDeliverable(
     type: "flyer"
     id: string
     status?: string
+    /** Only set by the coloring-page route: the request seeds a provisional title from the subject, and the agent names the finished scene. Flyers title themselves at seed time from the request purpose and never change it. */
+    title?: string
     thumbnailUrl?: string
     downloadUrl?: string
     repurposed?: RepurposedFlyerContent
@@ -324,6 +326,7 @@ export async function updateDeliverable(
     flyer.status = payload.status as FlyerDeliverable["status"]
     if (flyer.status !== "Failed") delete flyer.error // clear a stale error once a retry moves past it
   }
+  if (payload.title) flyer.title = payload.title
   if (payload.thumbnailUrl) flyer.thumbnailUrl = payload.thumbnailUrl
   if (payload.downloadUrl) flyer.downloadUrl = payload.downloadUrl
   if (payload.repurposed) flyer.repurposed = payload.repurposed

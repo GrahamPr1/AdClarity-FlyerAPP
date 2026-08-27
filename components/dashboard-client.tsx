@@ -869,6 +869,13 @@ export function DashboardClient() {
                 className="mt-6 inline-block px-6 py-3 rounded-xl bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors">
                 Create your first campaign
               </Link>
+              <p className="mt-4 text-sm text-muted-foreground">
+                Or make a{" "}
+                <Link href="/coloring-page" className="text-[var(--brand-teal-bright)] hover:underline">
+                  printable coloring page
+                </Link>{" "}
+                instead.
+              </p>
             </div>
           ) : (
             <>

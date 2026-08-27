@@ -408,7 +408,7 @@ export interface SavedBrandProfile {
 // same shape the Intake Agent produces (see lib/agent-pipeline/agents/scrapeAgent.ts)
 // on the website-auto-fill onboarding path — the actual crawling itself is
 // pure code with no Claude call, so nothing logs for that part.
-export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt" | "scrape"
+export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt" | "scrape" | "coloring"
 
 export interface GenerationLogEntry {
   id: string
