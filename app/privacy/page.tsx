@@ -8,7 +8,7 @@ export const metadata = { title: "Privacy Policy" }
 // (lib/email.ts), and the QR redeem page (app/r/[code]).
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="25 August 2026">
+    <LegalPage title="Privacy Policy" updated="27 August 2026">
       <p>
         OneFlyer is run by a small team. This page describes what we actually store and who
         actually sees it — not what a generic template says a company might do.
@@ -42,11 +42,30 @@ export default function PrivacyPage() {
         </li>
       </UL>
 
+      <H2>Analytics</H2>
+      <p>
+        We use Google Analytics to see which pages people visit and where they give up, so we
+        know what to fix. It sets cookies and sends Google your IP address, page URL and general
+        location. We do not send it your email, your business details, or anything you type into
+        the product.
+      </p>
+      <p>
+        If you are in the UK or the EEA, analytics cookies are switched <strong>off</strong> for
+        you by default — we use Google&apos;s consent mode with storage denied for those regions,
+        so you are counted without being individually tracked unless you later opt in. Advertising
+        and personalisation signals are switched off for <em>everyone</em>, everywhere, because
+        this site runs no advertising.
+      </p>
+      <p>
+        We also use Vercel Web Analytics, which is cookieless and does not identify individual
+        visitors.
+      </p>
+
       <H2>What we don&apos;t collect</H2>
       <p>
-        No advertising trackers, no third-party analytics pixels, no selling or renting of your
-        data to anyone, ever. We do not collect payment card details — when billing goes live it
-        will be handled by Stripe, and card numbers will go to Stripe rather than to us.
+        No advertising trackers, no ad retargeting, no selling or renting of your data to anyone,
+        ever. We do not collect payment card details — when billing goes live it will be handled
+        by Stripe, and card numbers will go to Stripe rather than to us.
       </p>
 
       <H2>Who processes it</H2>
@@ -63,6 +82,10 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Resend</strong> — transactional email, such as password resets.
+        </li>
+        <li>
+          <strong>Google Analytics</strong> — which pages get visited and where people drop off.
+          See the Analytics section above for what is and isn&apos;t sent.
         </li>
         <li>
           <strong>Higgsfield</strong> — only if you are on Pro and explicitly opt in to

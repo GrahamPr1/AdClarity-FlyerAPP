@@ -2,6 +2,7 @@ import React from "react"
 import type { Metadata } from 'next'
 import { Inter, Baloo_2 } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { GoogleAnalytics } from '@/components/google-analytics'
 import './globals.css'
 
 const inter = Inter({
@@ -91,6 +92,11 @@ export default function RootLayout({
     // suppresses the warning for <html>'s own attributes, one level deep —
     // the same pattern next-themes uses for exactly this reason.
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${baloo.variable}`}>
+      {/* GA4. Renders nothing unless NEXT_PUBLIC_GA_MEASUREMENT_ID is set, so
+          local and preview traffic can't contaminate production's numbers.
+          In <head> via next/script so the consent defaults land before the
+          first pageview — see components/google-analytics.tsx. */}
+      <GoogleAnalytics />
       <body className="font-sans antialiased bg-background text-foreground">
         {children}
         <Analytics />

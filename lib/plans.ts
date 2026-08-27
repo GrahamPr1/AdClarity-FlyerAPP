@@ -57,14 +57,25 @@ export const PLANS: Plan[] = [
     badge: "Most Popular",
     monthlyFee: 39,
     annualMonthlyFee: annualMonthlyFee(39),
-    description: "Everything in Basic, plus a saved Business Profile that fills out any form for you.",
+    // Pro's differentiators are the ones actually enforced server-side: twice
+    // the monthly allowance, and AI-generated photos (planAllowsAiPhotos in
+    // lib/agent-pipeline/plan-features.ts is Pro-only and gated for real).
+    //
+    // This tier previously sold "a saved Business Profile that fills out any
+    // form for you" in its description, a feature line, the note AND the
+    // outcome — four times over. That profile is not Pro-only: /profile and
+    // /api/campaign-defaults have no plan check, so every tier including
+    // Trial already has it. Meanwhile the one genuinely exclusive feature
+    // wasn't mentioned anywhere. Charging for something everyone gets, while
+    // hiding what they'd actually be paying for, is the wrong way round.
+    description: "Everything in Basic, plus AI-generated photos and double the monthly campaigns.",
     features: [
-      `${PLAN_LIMITS.pro} flyers every month`,
+      `${PLAN_LIMITS.pro} flyers every month — double Basic`,
       "Everything in Basic",
-      "Save your business info once, reuse it on any form",
+      "AI-generated photos for flyers when you have none of your own",
     ],
-    note: "Your business profile saves once, reuses everywhere — no more re-typing the same info.",
-    outcome: "Spend less time on repeat paperwork, more time running your business.",
+    note: "The only tier that can generate its own imagery — for trades without a photo library, that's the difference between a flyer with a picture and one without.",
+    outcome: "Twice the output, and a photo on every flyer even when you don't have one to hand.",
     mostPopular: true,
     stripeMonthlyPriceId: "price_pro_monthly_placeholder",
     stripeAnnualPriceId: "price_pro_annual_placeholder",

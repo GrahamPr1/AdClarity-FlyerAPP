@@ -198,8 +198,8 @@ export const TRUST_POINTS: { title: string; body: string }[] = [
 
 export const FAQS: { q: string; a: string }[] = [
   {
-    q: "What file do I actually get?",
-    a: "Each flyer downloads as a self-contained HTML file. Open it in any browser and print it — it is laid out for standard letter paper and prints at full quality with no software to install. The Instagram version downloads the same way as a square design. There is no PDF export yet.",
+    q: "What file do I actually get, and how do I print it?",
+    a: "Each flyer is a self-contained HTML file. From your dashboard you can hit Print to send it straight to your own printer, or choose \u201cSave as PDF\u201d in the same print dialog if you need a PDF to email or take to a print shop \u2014 no separate export step. It prints at the real size of whatever you made: a flyer or one-pager on letter paper, a door hanger at 3.5 by 8.5 inches, a long proposal across two pages. You can also download the HTML file itself and open it in any browser. There is no direct PDF download button; the print dialog is how you get one.",
   },
   {
     q: "What is OneFlyer?",
@@ -214,6 +214,10 @@ export const FAQS: { q: string; a: string }[] = [
     a: "Minutes. Onboarding is a short form (or a website scan that pre-fills it), and your flyer appears in your dashboard as soon as it's generated. You can watch its status while it builds.",
   },
   {
+    q: "Do I have to re-enter my business details every time?",
+    a: "No. After your first campaign you can save a business profile, and from then on it fills itself in — years in business, brand colours, preferred style, voice and tone, contact name, website, address and social handles all carry across automatically. On a second or third campaign you're left with just the two things that actually change: what you're promoting and who you're promoting it to. That's on every plan, including the free tier.",
+  },
+  {
     q: "Can I use my own logo, colors, and branding?",
     a: "Yes. You can enter your brand colors and details directly, or point OneFlyer at your website and it will pull your logo, colors, and business info automatically for you to review. Your brand is then saved and reused, so later campaigns stay consistent without re-entering anything.",
   },
@@ -223,7 +227,7 @@ export const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Can I get the flyers printed?",
-    a: "Two ways. Every flyer downloads as an HTML file that opens in any browser and prints at full quality — there is no PDF export yet, and no design software needed. On Basic and Pro you can also request printed copies from your dashboard: you tell us the quantity and where to ship them, and we email you a quote covering price and turnaround before anything is printed or charged. Printing is not included in your subscription and is never charged automatically — it is a real request we fulfil by hand, so pricing depends on quantity, paper and destination.",
+    a: "Two ways. Print it yourself straight from your dashboard — the Print button sends it to your printer at its real size, or saves it as a PDF through the same dialog, with no design software needed. On Basic and Pro you can also request printed copies from your dashboard: you tell us the quantity and where to ship them, and we email you a quote covering price and turnaround before anything is printed or charged. Printing is not included in your subscription and is never charged automatically — it is a real request we fulfil by hand, so pricing depends on quantity, paper and destination.",
   },
   {
     q: "Can I track QR code scans?",
