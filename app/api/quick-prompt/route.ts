@@ -10,6 +10,7 @@ import { runQuickPromptAgent } from "@/lib/agent-pipeline/agents/quickPromptAgen
 import type { NormalizedIntake } from "@/lib/agent-pipeline/schemas/intake"
 import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
 import { formatIdFromLabel } from "@/lib/agent-pipeline/formats"
+import { scrapeSiteForIntake } from "@/lib/agent-pipeline/scrape-site"
 
 export const maxDuration = 300
 
@@ -36,6 +37,8 @@ interface QuickPromptRequestBody {
   businessName?: string
   phone?: string
   address?: string
+  /** Optional site to read for personalisation — see the scrape block below. */
+  websiteUrl?: string
 }
 
 // POST /api/quick-prompt
@@ -100,6 +103,33 @@ export async function POST(request: NextRequest) {
   const useSavedBrand = !!body.useSavedBrand
   const savedBrand = useSavedBrand ? await getSavedBrandProfile(email) : null
 
+  // Optional website personalisation.
+  //
+  // Quick Prompt previously had only what the client typed into one box, so
+  // its output was necessarily more generic than the guided flow's — which
+  // has been able to read a website since Path A shipped. This reuses that
+  // exact code path (crawl -> extract -> merge) rather than a second copy.
+  //
+  // Deliberately NON-BLOCKING and best-effort: a site that's unreachable,
+  // robots-blocked, or too thin degrades to the typed prompt alone instead of
+  // failing a generation the client has already spent a credit on. The
+  // reason is returned so the UI can say what happened.
+  //
+  // Costs a crawl (~0.2-15s) plus one extraction call (~20s), so it only runs
+  // when a URL is actually supplied.
+  let scrapedIntake: NormalizedIntake | null = null
+  let scrapeNotice: string | null = null
+  const websiteUrl = body.websiteUrl?.trim()
+  if (websiteUrl && !savedBrand) {
+    const result = await scrapeSiteForIntake(websiteUrl, email, { phone: body.phone })
+    if (result.scraped) {
+      scrapedIntake = result.normalizedIntake
+    } else {
+      scrapeNotice = result.message
+      console.warn(`[quick-prompt] Website personalisation skipped (${result.reason}) for ${websiteUrl}`)
+    }
+  }
+
   // Combines the original prompt with the client's clarification answer
   // (if this is attempt 1+) so the parser sees the full picture in one call
   // rather than needing conversation history.
@@ -119,6 +149,14 @@ export async function POST(request: NextRequest) {
 
   const contact: NormalizedIntake["contact"] = savedBrand
     ? savedBrand.contact
+    : scrapedIntake
+    ? {
+        ...scrapedIntake.contact,
+        // What the client typed still wins over what the site said — they
+        // know which number this campaign should ring.
+        phone: body.phone?.trim() || scrapedIntake.contact.phone,
+        address: body.address?.trim() || scrapedIntake.contact.address,
+      }
     : {
         phone: body.phone?.trim() || "",
         // Null, not "", when absent — address is optional everywhere now (see
@@ -138,7 +176,12 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const businessName = savedBrand?.brandProfile.businessName || body.businessName?.trim() || parsed.businessNameGuess || `${parsed.industry} Business`
+  const businessName =
+    savedBrand?.brandProfile.businessName ||
+    body.businessName?.trim() ||
+    scrapedIntake?.businessName ||
+    parsed.businessNameGuess ||
+    `${parsed.industry} Business`
 
   const voiceTonePreference = styleOverride?.toLowerCase() ?? parsed.styleCues[0]?.toLowerCase() ?? "professional"
   const fontStylePreference: NormalizedIntake["fontStylePreference"] = styleOverride ? STYLE_TO_FONT[styleOverride] : "modern"
@@ -146,15 +189,24 @@ export async function POST(request: NextRequest) {
   const flyerRequestId = crypto.randomUUID()
   const intake: NormalizedIntake = {
     businessName,
-    industry: parsed.industry,
-    yearsInBusiness: null,
-    services: [parsed.purpose],
-    targetAudience: parsed.targetAudience,
+    // The site knows the trade better than a one-line prompt does, but the
+    // prompt is what the client is asking for RIGHT NOW — so the site fills
+    // gaps rather than overriding intent.
+    industry: parsed.industry || scrapedIntake?.industry || "",
+    yearsInBusiness: scrapedIntake?.yearsInBusiness ?? null,
+    // The typed purpose stays first: it's this campaign's offer. The site's
+    // service list follows as supporting context.
+    services: [parsed.purpose, ...(scrapedIntake?.services ?? [])].slice(0, 6),
+    targetAudience: parsed.targetAudience || scrapedIntake?.targetAudience || "",
     contact,
     brandAssets: {
-      logoUrl: null,
-      existingColors: savedBrand ? savedBrand.brandProfile.colors.map((c) => c.hex) : null,
-      existingFontsNote: savedBrand ? `Heading: ${savedBrand.brandProfile.fonts.heading}, Body: ${savedBrand.brandProfile.fonts.body}` : null,
+      logoUrl: scrapedIntake?.brandAssets.logoUrl ?? null,
+      existingColors: savedBrand
+        ? savedBrand.brandProfile.colors.map((c) => c.hex)
+        : scrapedIntake?.brandAssets.existingColors ?? null,
+      existingFontsNote: savedBrand
+        ? `Heading: ${savedBrand.brandProfile.fonts.heading}, Body: ${savedBrand.brandProfile.fonts.body}`
+        : scrapedIntake?.brandAssets.existingFontsNote ?? null,
     },
     voiceTonePreference,
     fontStylePreference,
@@ -196,5 +248,11 @@ export async function POST(request: NextRequest) {
     }),
   )
 
-  return NextResponse.json({ ok: true, flyerId: flyerRequestId }, { status: 201 })
+  // scrapeNotice is non-null only when a website was supplied and couldn't be
+  // read. The generation still ran — the client should know it ran WITHOUT
+  // their site rather than wondering why the result looks generic.
+  return NextResponse.json(
+    { ok: true, flyerId: flyerRequestId, usedWebsite: scrapedIntake !== null, scrapeNotice },
+    { status: 201 },
+  )
 }

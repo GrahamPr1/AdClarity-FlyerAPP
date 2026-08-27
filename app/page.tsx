@@ -25,6 +25,7 @@ import {
   SECONDARY_CTA_LABEL,
   USE_CASES,
 } from "@/lib/marketing"
+import { SampleGallery } from "@/components/sample-gallery"
 
 // Structured data, built from the SAME constants the page renders (PLANS,
 // FAQS) rather than hand-written duplicates — so prices and answers in
@@ -751,6 +752,10 @@ export default function Page() {
             </div>
           </div>
         </section>
+
+        {/* Real sample output, if any has been added. Renders nothing when
+            the list is empty — see lib/samples.ts. */}
+        <SampleGallery />
 
         {/* ── FAQ ────────────────────────────────────────────────────────── */}
         <section id="faq" className="scroll-mt-24 border-t border-white/[0.06] px-6 py-18 md:px-12 lg:px-20">

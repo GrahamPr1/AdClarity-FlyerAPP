@@ -52,6 +52,10 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
   const [format, setFormat] = useState<QuickPromptFormat>("Flyer")
   const [style, setStyle] = useState<QuickPromptStyle | null>(null)
   const [useSavedBrand, setUseSavedBrand] = useState(hasSavedBrand)
+  const [websiteUrl, setWebsiteUrl] = useState("")
+  // Set when a site was supplied but couldn't be read. The flyer still
+  // generated — this explains why it used only what was typed.
+  const [scrapeNotice, setScrapeNotice] = useState<string | null>(null)
   const [businessName, setBusinessName] = useState("")
   const [phone, setPhone] = useState("")
   const [address, setAddress] = useState("")
@@ -85,6 +89,7 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
           format,
           styleOverride: style,
           useSavedBrand,
+          websiteUrl: websiteUrl.trim() || undefined,
           attempt: currentAttempt,
           clarificationAnswer: currentAttempt > 0 ? clarificationAnswer : undefined,
           businessName: needsFallbackFields ? businessName : undefined,
@@ -98,7 +103,9 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
       return
     }
 
-    const data = await res.json().catch(() => ({}) as { error?: string; message?: string; needsClarification?: boolean; question?: string; flyerId?: string })
+    const data = await res.json().catch(
+      () => ({}) as { error?: string; message?: string; needsClarification?: boolean; question?: string; flyerId?: string; scrapeNotice?: string | null },
+    )
 
     if (!res.ok) {
       setSubmitting(false)
@@ -114,6 +121,9 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
     }
 
     setSubmitting(false)
+    // Surfaced on the result view too — the client spent a credit and should
+    // know the flyer was built without the site they pointed us at.
+    setScrapeNotice(data.scrapeNotice ?? null)
     setResult({ flyerId: data.flyerId! })
   }
 
@@ -206,7 +216,30 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
               <input className={fieldBase()} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" />
               <input className={fieldBase()} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address" />
             </div>
+
+            {/* The guided flow has been able to read a website since it
+                shipped; Quick Prompt had only the one text box, which is why
+                its output was necessarily more generic. Optional and
+                best-effort — a site we can't read never blocks the
+                generation. */}
+            <div>
+              <label htmlFor="qp-website" className="block text-sm font-medium mb-1.5">
+                Your website <span className="font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <input id="qp-website" className={fieldBase()} value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="millerheating.com" />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                We&apos;ll read it and match your colours, services and wording — much more
+                personal than what fits in one sentence. Adds around half a minute.
+              </p>
+            </div>
           </div>
+        )}
+
+        {scrapeNotice && (
+          <p className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3.5 py-2.5 text-sm text-amber-200">
+            {scrapeNotice} We built your flyer from what you typed instead.
+          </p>
         )}
 
         {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
