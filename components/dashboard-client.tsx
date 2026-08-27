@@ -16,6 +16,7 @@ import { FormFillSection } from "@/components/form-fill-section"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SUPPORT_EMAIL } from "@/lib/marketing"
 import { trackEvent } from "@/lib/analytics"
+import { PrintButton } from "@/components/print-button"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -459,6 +460,7 @@ export function FlyerCard({
               Download
             </a>
           )}
+          {ready && flyer.downloadUrl && <PrintButton flyerId={flyer.id} title={flyer.title} />}
           {failed && (
             <button onClick={handleRetry} disabled={retrying}
               className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] disabled:opacity-60 transition-colors">

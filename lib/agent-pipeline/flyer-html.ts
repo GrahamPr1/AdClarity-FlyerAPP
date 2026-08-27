@@ -15,13 +15,44 @@ import type { FlyerSpecification } from "./schemas/flyer"
 // anything taller than the viewport. Appended last (not prepended) so these
 // !important rules win the cascade over whatever the model's own <style>
 // block set, regardless of source order.
+// Scoped to @media screen. It used to apply everywhere, which meant
+// `height:auto !important` on html/body was also in force while PRINTING,
+// fighting the fixed page height each format sets — a door hanger has to
+// print at 3.5x8.5in, not reflow to whatever the content wants.
 const SCROLL_SAFETY_CSS =
-  "<style>html,body{height:auto !important;min-height:100% !important;overflow-x:auto !important;overflow-y:auto !important;}</style>"
+  "@media screen{html,body{height:auto !important;min-height:100% !important;overflow-x:auto !important;overflow-y:auto !important;}}"
 
+/**
+ * Browsers strip background colours and images when printing unless told not
+ * to. Every one of these designs is built ON colour — a banner-hero flyer
+ * prints as white paper with floating text without this, which is worse than
+ * not offering printing at all.
+ *
+ * Injected here rather than required from the model for two reasons: a prompt
+ * instruction can be silently missed on any given generation, and this way it
+ * applies retroactively to every flyer already stored (the view route runs it
+ * on read), not only to newly generated ones.
+ *
+ * `!important` because it has to beat whatever the generated CSS says, and
+ * both the standard property and the -webkit- prefix because Safari and older
+ * Chrome only understand the prefixed form.
+ */
+const PRINT_FIDELITY_CSS =
+  "*,*::before,*::after{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}"
+
+const INJECTED_CSS = `<style data-oneflyer="print-and-scroll">${PRINT_FIDELITY_CSS}${SCROLL_SAFETY_CSS}</style>`
+
+/**
+ * Adds the on-screen scroll safety net and print colour fidelity.
+ *
+ * Idempotent — the view route and toDataUrl both call it, and a flyer stored
+ * before this existed gets it on the way out.
+ */
 export function ensureScrollable(html: string): string {
-  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${SCROLL_SAFETY_CSS}</head>`)
-  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${SCROLL_SAFETY_CSS}</body>`)
-  return html + SCROLL_SAFETY_CSS
+  if (html.includes('data-oneflyer="print-and-scroll"')) return html
+  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${INJECTED_CSS}</head>`)
+  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${INJECTED_CSS}</body>`)
+  return html + INJECTED_CSS
 }
 
 /**

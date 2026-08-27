@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getDeliverablesForEmail } from "@/lib/store"
+import { ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
 
 // GET /api/flyers/[id]/view?variant=print|instagram
 //
@@ -58,7 +59,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!base64) {
     return NextResponse.json({ error: "Stored flyer is malformed" }, { status: 500 })
   }
-  const html = Buffer.from(base64, "base64").toString("utf-8")
+  // ensureScrollable also injects print-color-adjust (see flyer-html.ts).
+  // Applied on READ so every flyer already in storage prints with its
+  // backgrounds intact, not just ones generated since.
+  const html = ensureScrollable(Buffer.from(base64, "base64").toString("utf-8"))
 
   return new NextResponse(html, {
     status: 200,
@@ -67,8 +71,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       // Opaque origin + no script execution. Without allow-scripts, generated
       // HTML can't reach cookies, localStorage, or this origin's DOM.
       // allow-popups is omitted deliberately; the flyer has no reason to open
-      // anything, and printing works without it.
-      "Content-Security-Policy": "sandbox allow-same-origin;",
+      // anything.
+      //
+      // allow-modals is present so the DASHBOARD can print this document: the
+      // Print button loads it into a hidden iframe and calls print() on it,
+      // and a sandbox without allow-modals blocks that dialog. It grants the
+      // document itself nothing — modals need script to open, and
+      // allow-scripts is still absent, so the generated HTML remains inert.
+      "Content-Security-Policy": "sandbox allow-same-origin allow-modals;",
       "X-Content-Type-Options": "nosniff",
       // A flyer's content is immutable once Ready, but it's private to one
       // account, so it must never land in a shared/proxy cache.
