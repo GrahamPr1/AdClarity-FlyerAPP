@@ -68,11 +68,12 @@ export const PLANS: Plan[] = [
     // Trial already has it. Meanwhile the one genuinely exclusive feature
     // wasn't mentioned anywhere. Charging for something everyone gets, while
     // hiding what they'd actually be paying for, is the wrong way round.
-    description: "Everything in Basic, plus AI-generated photos and double the monthly campaigns.",
+    description: "Everything in Basic, plus AI-generated photos, coloring pages, and double the monthly campaigns.",
     features: [
       `${PLAN_LIMITS.pro} flyers every month — double Basic`,
       "Everything in Basic",
       "AI-generated photos for flyers when you have none of your own",
+      "Printable coloring pages — black-and-white line art from any description",
     ],
     note: "The only tier that can generate its own imagery — for trades without a photo library, that's the difference between a flyer with a picture and one without.",
     outcome: "Twice the output, and a photo on every flyer even when you don't have one to hand.",

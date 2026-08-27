@@ -8,6 +8,7 @@ import { QUICK_PROMPT_STARTERS } from "@/lib/quick-prompt-starters"
 import { FlyerCard } from "./dashboard-client"
 import { LoadingSpinner } from "./loading-spinner"
 import type { Deliverables } from "@/lib/types"
+import Link from "next/link"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -170,6 +171,22 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
         <div>
           <label className="block text-sm font-medium mb-1.5">Format</label>
           <ChipRow options={QUICK_PROMPT_FORMATS} value={format} onChange={(v) => v && setFormat(v)} />
+          {/* Listed here for discoverability, but it is not a chip: a
+              coloring page isn't generated from a one-line business prompt.
+              It asks what to DRAW — a scene, a character, who's colouring it
+              in — so it links to its own flow rather than pretending this
+              form can produce one. Pro-only; enforced server-side by
+              coloringPagesEnabled, not by this link. */}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Making a{" "}
+            <Link href="/coloring-page" className="text-[var(--brand-teal-bright)] hover:underline">
+              printable coloring page
+            </Link>{" "}
+            instead? It asks a different set of questions.{" "}
+            <span className="rounded-full border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-teal-bright)]">
+              Pro
+            </span>
+          </p>
         </div>
 
         <div>

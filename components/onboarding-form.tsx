@@ -483,6 +483,32 @@ export function OnboardingForm({
                     </button>
                   )
                 })}
+
+                {/* Coloring pages sit in this list because this is where
+                    someone looks for "what can I make", but they are NOT a
+                    sixth format: the questions around it (trade, services,
+                    who you're targeting, your offer) mean nothing for a
+                    drawing, and its agent takes a completely different input.
+                    So this LEAVES the business form rather than pretending to
+                    be one of its options.
+
+                    Shown to everyone, locked below Pro, so people can see
+                    what upgrading buys. The real gate is server-side —
+                    coloringPagesEnabled in plan-features.ts. */}
+                <Link
+                  href="/coloring-page"
+                  className="rounded-lg border border-white/12 px-3.5 py-2.5 text-left transition-colors hover:border-white/25 sm:col-span-2"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    Coloring page
+                    <span className="rounded-full border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-teal-bright)]">
+                      Pro
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
+                    Printable black-and-white line art. Different questions — we&apos;ll take you there.
+                  </span>
+                </Link>
               </div>
             </div>
 

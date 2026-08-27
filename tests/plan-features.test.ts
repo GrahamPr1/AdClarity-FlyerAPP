@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { qrEnabled, planIncludesExtras, planAllowsAiPhotos, aiPhotosEnabled } from "@/lib/agent-pipeline/plan-features"
+import { qrEnabled, planIncludesExtras, planAllowsAiPhotos, aiPhotosEnabled, coloringPagesEnabled } from "@/lib/agent-pipeline/plan-features"
 import { PLAN_LIMITS } from "@/lib/types"
 
 describe("plan limits", () => {
@@ -55,6 +55,31 @@ describe("aiPhotosEnabled — Pro only, and only on request", () => {
 
   it("does not generate when the plan is unknown", () => {
     expect(aiPhotosEnabled(undefined, true)).toBe(false)
+  })
+})
+
+describe("coloringPagesEnabled — Pro only", () => {
+  it("allows Pro", () => {
+    expect(coloringPagesEnabled("pro")).toBe(true)
+  })
+
+  it("refuses Basic and Trial", () => {
+    // The pickers show it locked rather than hiding it, so a Basic client can
+    // see what upgrading buys — which means the server is the only thing
+    // actually stopping them.
+    expect(coloringPagesEnabled("basic")).toBe(false)
+    expect(coloringPagesEnabled("trial")).toBe(false)
+  })
+
+  it("refuses an unknown plan", () => {
+    expect(coloringPagesEnabled(undefined)).toBe(false)
+  })
+
+  it("is a tier gate, not an allowance change", () => {
+    // A coloring page still costs one campaign credit; that was decided
+    // separately and is unchanged. This only answers "which tier".
+    expect(coloringPagesEnabled("pro")).toBe(true)
+    expect(PLAN_LIMITS.pro).toBe(50)
   })
 })
 
