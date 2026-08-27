@@ -843,6 +843,7 @@ export default function Page() {
           <div className="flex flex-col gap-2.5">
             <span className="text-xs uppercase tracking-widest text-muted-foreground/70">Resources</span>
             <a href="/about" className="text-sm text-foreground/70 transition-colors hover:text-white">About</a>
+            <a href="/contact" className="text-sm text-foreground/70 transition-colors hover:text-white">Contact</a>
             <a href="#faq" className="text-sm text-foreground/70 transition-colors hover:text-white">FAQ</a>
             <a href="#see-it" className="text-sm text-foreground/70 transition-colors hover:text-white">See Examples</a>
             <a href="mailto:Gpearl1006@gmail.com" className="text-sm text-foreground/70 transition-colors hover:text-white">Get Help</a>

@@ -907,7 +907,7 @@ export function DashboardClient() {
               <ProfileNudge />
 
               <div className="mt-12 flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">Flyers & Pages</h2>
+                <h2 className="text-lg font-semibold">Flyers &amp; Pages</h2>
                 <div className="flex items-center gap-2">
                   <Link href="/onboarding"
                     className="text-sm font-medium px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
@@ -919,6 +919,18 @@ export function DashboardClient() {
                   </button>
                 </div>
               </div>
+
+              {/* Says what the file actually is, next to where it's acted on.
+                  Deliberately does NOT say "PDF export coming soon" — the
+                  print dialog's Save as PDF is a real, verified path today,
+                  so promising a future feature would be both inaccurate and
+                  a reason for someone to wait instead of using what works. */}
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                Every piece is print-ready HTML. Hit <span className="text-foreground">Print</span> to send it
+                straight to your printer at its real size — or choose <span className="text-foreground">Save as PDF</span>{" "}
+                in the same dialog if you need a file to email or take to a print shop.
+                <span className="text-foreground"> Download</span> saves the HTML itself.
+              </p>
               <div className="mt-5 grid grid-cols-2 md:grid-cols-3 gap-4">
                 {data.flyers.map((f) => (
                   <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete}

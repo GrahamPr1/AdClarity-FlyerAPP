@@ -106,3 +106,47 @@ export async function sendOperationalAlert(
     return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
   }
 }
+
+/**
+ * Delivers a contact-form submission.
+ *
+ * Goes to ALERT_EMAIL — the operator address already used for environment
+ * alerts — rather than a new variable, so there's one place to change where
+ * mail lands. replyTo is the sender's own address so hitting reply in the
+ * inbox answers the person directly rather than the app.
+ *
+ * Returns why it failed rather than throwing: the form needs to tell the
+ * visitor honestly whether their message got through, and "sent" must never
+ * be shown for a message that didn't.
+ */
+export async function sendContactMessage(input: {
+  name: string
+  email: string
+  message: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  if (!ALERT_RECIPIENT) return { sent: false, reason: "ALERT_EMAIL is not configured" }
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+
+  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: ALERT_RECIPIENT,
+      replyTo: input.email,
+      subject: `OneFlyer contact form — ${input.name}`,
+      html: `
+        <div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5">
+          <p><strong>From:</strong> ${escape(input.name)} &lt;${escape(input.email)}&gt;</p>
+          <hr style="margin:12px 0;border:none;border-top:1px solid #ddd">
+          <p style="white-space:pre-wrap">${escape(input.message)}</p>
+        </div>
+      `,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}

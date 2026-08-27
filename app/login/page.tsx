@@ -213,7 +213,19 @@ function ClientLoginForm({
             <input id="password" type="password" required minLength={8} value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
-              placeholder="At least 8 characters" />
+              placeholder="At least 8 characters"
+              aria-describedby="password-requirements" />
+            {/* Stated up front rather than only surfacing as a rejected
+                submit — the rule is trivial, and finding it out by failing is
+                a needless round trip. Live feedback once they start typing. */}
+            <p id="password-requirements"
+              className={`mt-1.5 text-xs ${password.length === 0 ? "text-muted-foreground" : password.length >= 8 ? "text-emerald-400" : "text-amber-300"}`}>
+              {password.length === 0
+                ? "Must be at least 8 characters."
+                : password.length >= 8
+                  ? "Long enough."
+                  : `${8 - password.length} more character${8 - password.length === 1 ? "" : "s"} needed.`}
+            </p>
           </div>
           <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1.5">Confirm password</label>
@@ -278,10 +290,14 @@ function ClientLoginForm({
           {working ? "Signing you in…" : "Log in"}
         </button>
       </form>
-      <button onClick={() => switchMode("signup")} type="button"
-        className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
-        New here? Create an account
-      </button>
+      {/* Goes to /onboarding rather than flipping this form to signup mode:
+          someone with no account wants to start a campaign, and /onboarding
+          bounces them through account creation on the way with `next` set —
+          so they land where they were actually trying to go. */}
+      <a href="/onboarding"
+        className="mt-4 block w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
+        Don&apos;t have an account? Sign up
+      </a>
     </>
   )
 }
