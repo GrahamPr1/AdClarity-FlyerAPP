@@ -858,7 +858,7 @@ export default function Page() {
 
           <div className="flex flex-col gap-2.5">
             <span className="text-xs uppercase tracking-widest text-muted-foreground/70">Account</span>
-            <a href="/dashboard" className="text-sm text-foreground/70 transition-colors hover:text-white">Log In</a>
+            <a href="/login" className="text-sm text-foreground/70 transition-colors hover:text-white">Log In</a>
             <a href={PRIMARY_CTA_HREF} className="text-sm text-[var(--brand-teal-bright)] transition-colors hover:text-[var(--brand-teal)]">
               Start Free
             </a>

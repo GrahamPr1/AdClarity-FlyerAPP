@@ -43,7 +43,7 @@ export function MobileNav() {
 
           <div className="flex items-center gap-3">
             <a
-              href="/dashboard"
+              href="/login"
               className="hidden sm:block text-[13px] text-white/55 hover:text-white transition-colors"
             >
               Log In
@@ -99,7 +99,7 @@ export function MobileNav() {
               </a>
             ))}
             <a
-              href="/dashboard"
+              href="/login"
               onClick={close}
               className="px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
             >
