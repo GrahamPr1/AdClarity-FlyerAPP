@@ -75,18 +75,3 @@ export function canCreateCampaign(client: { pausedAt: string | null } | null | u
   return { allowed: true }
 }
 
-/**
- * Whether this client can create coloring pages.
- *
- * Pro only. It still consumes one campaign credit from the same monthly
- * allowance as a flyer — the tier gate and the allowance are separate
- * questions, and the answer to the second one is unchanged.
- *
- * Enforced server-side rather than by hiding the option: the pickers in
- * onboarding and Quick Prompt show it locked to non-Pro clients so they know
- * it exists, and a hand-crafted POST from a Trial or Basic account must still
- * be refused.
- */
-export function coloringPagesEnabled(plan: PlanId | undefined): boolean {
-  return plan === "pro"
-}

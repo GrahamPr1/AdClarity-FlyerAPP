@@ -68,6 +68,8 @@ test.describe("signed in as a client", () => {
 })
 
 test("legal pages are reachable and have real content", async ({ page }) => {
+  // Three full page navigations in one test.
+  test.slow()
   for (const [path, heading] of [
     ["/privacy", /Privacy Policy/i],
     ["/terms", /Terms of Service/i],

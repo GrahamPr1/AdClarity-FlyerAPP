@@ -22,9 +22,7 @@ const PROJECTS = ["chromium", "firefox", "webkit"] as const
 const ROLES = [
   { slug: "basic", plan: "basic" },
   { slug: "trial", plan: "trial" },
-  // "intake" is the Pro fixture as well as the submission-payload one — the
-  // coloring-page tests need an account that passes coloringPagesEnabled.
-  { slug: "intake", plan: "pro" },
+  { slug: "intake", plan: "basic" },
 ] as const
 
 async function main() {

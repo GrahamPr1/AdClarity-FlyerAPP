@@ -24,7 +24,12 @@ async function saveSession(browser: Browser, role: Role, project: string) {
     await page.getByLabel(/email/i).first().fill(accountFor(role, project))
     await page.getByLabel(/password/i).first().fill("DevTest!2345")
     await page.getByRole("button", { name: /log in|sign in/i }).first().click()
-    await page.waitForURL(/\/(dashboard|admin)/, { timeout: 45000 })
+    // Generous because the FIRST authenticated load compiles the dashboard
+    // tree (recharts and all) in dev, which can take a minute on a cold
+    // .next — and `npm run build` shares that cache, so running the gate
+    // wipes it. Nothing to do with how fast login actually is: production
+    // serves this prebuilt.
+    await page.waitForURL(/\/(dashboard|admin)/, { timeout: 150_000 })
     await expect(page).toHaveURL(/\/(dashboard|admin)/)
     await context.storageState({ path: stateFile(role, project) })
   } finally {
@@ -33,7 +38,7 @@ async function saveSession(browser: Browser, role: Role, project: string) {
 }
 
 setup("authenticate every role", async ({ browser }, testInfo) => {
-  setup.setTimeout(120_000)
+  setup.setTimeout(300_000)
   const project = testInfo.project.name.replace(/^setup-/, "")
   await Promise.all(ROLES.map((role) => saveSession(browser, role, project)))
 })

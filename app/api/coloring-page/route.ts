@@ -4,7 +4,7 @@ import { PLAN_LIMITS } from "@/lib/types"
 import { getOrCreateClient, reserveFlyerQuota, seedFlyerDeliverables, updateDeliverable, markFlyerFailed, setGenerationStage } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { canCreateCampaign, coloringPagesEnabled } from "@/lib/agent-pipeline/plan-features"
+import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
 import { runColoringAgent } from "@/lib/agent-pipeline/agents/coloringAgent"
 import { ColoringPageRequestSchema } from "@/lib/agent-pipeline/schemas/coloring"
 import { toDataUrl } from "@/lib/agent-pipeline/flyer-html"
@@ -19,13 +19,9 @@ export const maxDuration = 300
 // Brand agent, no QR code, no repurposing. The intake questions are about
 // what to DRAW, which have nothing in common with the business-flyer ones.
 //
-// PRO ONLY, and separately it still costs one campaign credit from the same
-// monthly allowance as a flyer. Those are two independent questions and this
-// answers both: the tier gate below, the reserveFlyerQuota claim further on.
-//
-// The pickers in onboarding and Quick Prompt show it to everyone, locked,
-// rather than hiding it — someone on Basic should be able to see what
-// upgrading buys. This check is what actually enforces it.
+// Available on EVERY plan. It costs one campaign credit from the same monthly
+// allowance as a flyer (the reserveFlyerQuota claim below) — the allowance is
+// the limit, not the tier.
 export async function POST(request: NextRequest) {
   const session = await getSessionIdentity(request)
   if (!session || session.sub === ADMIN_SUB) {
@@ -53,13 +49,6 @@ export async function POST(request: NextRequest) {
   const pauseCheck = canCreateCampaign(client)
   if (!pauseCheck.allowed) {
     return NextResponse.json({ error: "account_paused", message: pauseCheck.reason }, { status: 403 })
-  }
-
-  if (!coloringPagesEnabled(client.plan)) {
-    return NextResponse.json(
-      { error: "pro_plan_required", message: "Coloring pages are part of the Pro plan — see /#pricing." },
-      { status: 403 },
-    )
   }
 
   // Same atomic claim every other generating route uses — a coloring page

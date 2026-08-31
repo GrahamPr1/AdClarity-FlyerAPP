@@ -16,6 +16,10 @@ const HOSTILE = [
 ]
 
 test("homepage demo survives hostile input", async ({ page }) => {
+  // Ten full page loads (five inputs across two viewports) with a re-render
+  // between each. Legitimately long, and longer still with three engines
+  // sharing one dev server — not a symptom of anything wrong.
+  test.slow()
   for (const vp of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
     await page.setViewportSize(vp)
     await page.goto(BASE, { waitUntil: "networkidle" })
