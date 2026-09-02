@@ -248,6 +248,30 @@ export interface FlyerDeliverable {
   error?: string
 }
 
+// ---- Early Access waitlist -------------------------------------------------
+//
+// Captures real intent to pay while Stripe isn't connected. Joining NEVER
+// changes a client's plan — see the note on ClientRecord.plan. There is no
+// discount code field on purpose: the annual option reflects the existing
+// ANNUAL_DISCOUNT_PERCENT already priced across the site, and no additional
+// incentive is being offered here.
+export type BillingInterval = "monthly" | "annual"
+
+export interface WaitlistEntry {
+  id: string
+  email: string
+  /** Only ever a paid tier — the free trial needs no waitlist. */
+  desiredPlan: Extract<PlanId, "basic" | "pro">
+  billingInterval: BillingInterval
+  /** The signed-in account that joined, or null for an anonymous visitor. */
+  userId: string | null
+  createdAt: string
+  /** Set once they've been emailed that billing is live. */
+  notifiedAt: string | null
+  /** Set once they actually pay — the conversion half of the cohort data. */
+  convertedAt: string | null
+}
+
 // ---- QR tracking ------------------------------------------------------------
 //
 // Every flyer gets a unique short code, embedded as a QR image ON the flyer
@@ -294,6 +318,8 @@ export interface Deliverables {
   pausedAt: string | null
   /** Which pipeline step is running right now, in words a customer understands. Null when nothing is generating. */
   generationStage: string | null
+  /** Early Access entries this client has joined. Empty for most people. */
+  waitlist: WaitlistEntry[]
   printRequests: PrintRequest[]
   /** See ClientRecord.businessCategory — defaults to "Other" until explicitly set. */
   businessCategory: BusinessCategory

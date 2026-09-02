@@ -23,6 +23,9 @@ export default function AdminPage() {
         <Link href="/admin/audit" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
           Test Data Audit →
         </Link>
+        <Link href="/admin/waitlist" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+          Early Access Waitlist →
+        </Link>
       </div>
     </div>
   )

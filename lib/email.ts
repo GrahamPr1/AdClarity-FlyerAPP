@@ -150,3 +150,26 @@ export async function sendContactMessage(input: {
     return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
   }
 }
+
+/**
+ * Waitlist confirmation.
+ *
+ * Deliberately does NOT send yet — it logs. Sending real mail to people who
+ * signed up for something that doesn't exist yet is a commitment worth making
+ * on purpose rather than as a side effect of building the form.
+ *
+ * The copy already lives in lib/email-templates/waitlist-confirmation.ts, and
+ * Resend is already wired up for password resets and contact messages, so
+ * switching this on is replacing the console.info below with a resend.emails
+ * .send call — not a rebuild.
+ */
+export async function sendWaitlistConfirmation(
+  email: string,
+  desiredPlan: "basic" | "pro",
+  billingInterval: "monthly" | "annual",
+): Promise<{ sent: boolean; reason?: string }> {
+  const { waitlistConfirmation } = await import("./email-templates/waitlist-confirmation")
+  const { subject } = waitlistConfirmation({ email, desiredPlan, billingInterval })
+  console.info(`[waitlist] Would email ${email}: "${subject}" (sending is not enabled yet)`)
+  return { sent: false, reason: "waitlist email sending is not enabled yet" }
+}

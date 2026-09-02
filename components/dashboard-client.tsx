@@ -831,6 +831,21 @@ export function DashboardClient() {
             </div>
           </div>
 
+          {/* They asked to be told when billing opens. Shown so it's clear
+              the request was recorded and that nothing is being charged —
+              STRIPE_REVERT, see REVERT_TO_STRIPE.md. */}
+          {data.waitlist?.length > 0 && (
+            <div className="mt-8 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+              {data.waitlist.map((w) => (
+                <p key={w.id} className="text-sm text-muted-foreground">
+                  You selected{" "}
+                  <span className="font-medium text-foreground capitalize">{w.desiredPlan}</span>{" "}
+                  ({w.billingInterval}) — we&apos;ll email you when checkout is ready.
+                </p>
+              ))}
+            </div>
+          )}
+
           {/* Whatever brought them here — a retry, a second campaign, a page
               refresh mid-run — if something is generating, say what. Only
               when flyers already exist, since the zero-flyer case has its own

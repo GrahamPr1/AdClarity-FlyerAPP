@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
+import type { BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { getAppEnvironment, verdictForMarker } from "./env"
@@ -229,6 +229,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
 
   const printRequests = await getPrintRequestsForEmail(email)
   const generationStage = await getGenerationStage(email)
+  const waitlist = await getWaitlistEntriesForEmail(email)
   const businessCategoryIsDefaulted = !(await hasExplicitBusinessCategory(email))
 
   return {
@@ -241,6 +242,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
     flyersResetAt: new Date(periodStart + RESET_PERIOD_MS).toISOString(),
     pausedAt: client?.pausedAt ?? null,
     generationStage,
+    waitlist,
     printRequests,
     businessCategory: client?.businessCategory ?? "Other",
     isRealEstate: client?.isRealEstate ?? false,
@@ -266,6 +268,7 @@ export async function getDeliverables(): Promise<Deliverables> {
       flyersResetAt: new Date(Date.now() + RESET_PERIOD_MS).toISOString(),
       pausedAt: null,
       generationStage: null,
+      waitlist: [],
       printRequests: [],
       businessCategory: "Other",
       isRealEstate: false,
@@ -1173,4 +1176,99 @@ export async function getGenerationStage(email: string): Promise<string | null> 
   } catch {
     return null
   }
+}
+
+// ---- Early Access waitlist --------------------------------------------------
+//
+// Same storage everything else uses. Each entry is a member of one sorted set
+// scored by createdAt, which is how the generation log is indexed too — that
+// gives newest-first listing for free and keeps the admin view to a single
+// read rather than a scan.
+//
+// A second key per email lets the dashboard answer "what did I join?" without
+// walking the whole list.
+const WAITLIST_KEY = "waitlist:all"
+
+function waitlistByEmailKey(email: string) {
+  return `waitlist:email:${email}`
+}
+
+/** Every entry, newest first. */
+export async function listWaitlistEntries(): Promise<WaitlistEntry[]> {
+  const entries = (await redis.zrange<WaitlistEntry[]>(WAITLIST_KEY, 0, -1)) ?? []
+  return entries.reverse()
+}
+
+/** One person's entries — they may have joined for both Basic and Pro. */
+export async function getWaitlistEntriesForEmail(email: string): Promise<WaitlistEntry[]> {
+  return (await redis.zrange<WaitlistEntry[]>(waitlistByEmailKey(email.trim().toLowerCase()), 0, -1)) ?? []
+}
+
+/**
+ * Adds an entry, or returns the existing one.
+ *
+ * Duplicate is defined as the same email AND plan AND interval — someone
+ * joining Basic-monthly twice is the same intent expressed twice, not two
+ * data points. Joining Basic AND Pro, or monthly AND annual, are genuinely
+ * different signals and each get their own entry.
+ */
+export async function addWaitlistEntry(input: {
+  email: string
+  desiredPlan: WaitlistEntry["desiredPlan"]
+  billingInterval: BillingInterval
+  userId: string | null
+}): Promise<{ entry: WaitlistEntry; alreadyExists: boolean }> {
+  const email = input.email.trim().toLowerCase()
+  const existing = (await getWaitlistEntriesForEmail(email)).find(
+    (e) => e.desiredPlan === input.desiredPlan && e.billingInterval === input.billingInterval,
+  )
+  if (existing) return { entry: existing, alreadyExists: true }
+
+  const entry: WaitlistEntry = {
+    id: crypto.randomUUID(),
+    email,
+    desiredPlan: input.desiredPlan,
+    billingInterval: input.billingInterval,
+    userId: input.userId,
+    createdAt: new Date().toISOString(),
+    notifiedAt: null,
+    convertedAt: null,
+  }
+  const score = Date.parse(entry.createdAt)
+  await Promise.all([
+    redis.zadd<WaitlistEntry>(WAITLIST_KEY, { score, member: entry }),
+    redis.zadd<WaitlistEntry>(waitlistByEmailKey(email), { score, member: entry }),
+  ])
+  return { entry, alreadyExists: false }
+}
+
+/**
+ * Stamps notifiedAt on the given entries.
+ *
+ * Rewrites the member rather than mutating in place: a sorted-set member IS
+ * its value, so the old one has to be removed and the updated one re-added.
+ * Idempotent — an entry already notified keeps its original timestamp, so
+ * running this twice never rewrites history.
+ */
+export async function markWaitlistNotified(ids: string[]): Promise<{ updated: number }> {
+  const wanted = new Set(ids)
+  const all = (await redis.zrange<WaitlistEntry[]>(WAITLIST_KEY, 0, -1)) ?? []
+  const now = new Date().toISOString()
+  let updated = 0
+
+  for (const entry of all) {
+    if (!wanted.has(entry.id) || entry.notifiedAt) continue
+    const next: WaitlistEntry = { ...entry, notifiedAt: now }
+    const score = Date.parse(entry.createdAt)
+    await Promise.all([
+      redis.zrem(WAITLIST_KEY, entry),
+      redis.zrem(waitlistByEmailKey(entry.email), entry),
+    ])
+    await Promise.all([
+      redis.zadd<WaitlistEntry>(WAITLIST_KEY, { score, member: next }),
+      redis.zadd<WaitlistEntry>(waitlistByEmailKey(entry.email), { score, member: next }),
+    ])
+    updated++
+  }
+  return { updated }
 }

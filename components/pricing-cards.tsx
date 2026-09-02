@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { Plan, PlanId } from "@/lib/types"
 import { PLAN_GUARANTEE, PLAN_EXPLAINER, PLAN_LIMITS, ANNUAL_DISCOUNT_PERCENT } from "@/lib/types"
 import { PLANS } from "@/lib/plans"
 import { Reveal } from "@/components/reveal"
+import { WaitlistModal } from "@/components/waitlist-modal"
 
 type Billing = "monthly" | "annual"
 
@@ -30,12 +31,14 @@ function PlanCard({
   plan,
   billing,
   onSubscribe,
+  onJoinWaitlist,
   loadingId,
   delay,
 }: {
   plan: Plan
   billing: Billing
   onSubscribe: (id: PlanId) => void
+  onJoinWaitlist: (id: "basic" | "pro") => void
   loadingId: PlanId | null
   delay: number
 }) {
@@ -94,8 +97,38 @@ function PlanCard({
         {perFlyerCost !== null && (
           <p className="mt-1 text-xs text-muted-foreground">~${perFlyerCost.toFixed(2)} per flyer</p>
         )}
+        {/* Sits under the price rather than in the header, so it can't overlap
+            the "Most Popular" badge on the Pro card. */}
+        {isPaid && (
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+            Billing coming soon
+          </span>
+        )}
 
-        {plan.ctaHref ? (
+        {/*
+         * STRIPE_REVERT — see REVERT_TO_STRIPE.md at the project root.
+         *
+         * Paid tiers open an Early Access modal instead of checkout, because
+         * there is no checkout: Stripe isn't connected and the price IDs are
+         * placeholders. A button labelled "Get the Pro Plan" that silently
+         * drops someone onto a free trial is the kind of thing that erodes
+         * trust before the first invoice.
+         *
+         * The free tier is untouched — it works today, so it still just goes.
+         */}
+        {isPaid ? (
+          <button
+            onClick={() => onJoinWaitlist(plan.id as "basic" | "pro")}
+            className={`mt-6 w-full py-3.5 rounded-xl text-sm font-semibold transition-colors ${
+              highlighted
+                ? "bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
+                : "bg-white/[0.06] text-foreground hover:bg-white/[0.12] border border-white/10"
+            }`}
+          >
+            Join {plan.name} Early Access
+          </button>
+        ) : plan.ctaHref ? (
           <a
             href={plan.ctaHref}
             className={`mt-6 w-full py-3.5 rounded-xl text-sm font-semibold text-center transition-colors ${
@@ -163,13 +196,38 @@ export function PricingCards() {
   // landing here — the monthly/annual toggle above is display-only until
   // then, since real enforcement only ever tracks a plan tier, not a
   // billing interval (see PlanId in lib/types.ts).
+  // Which paid plan's Early Access modal is open, if any.
+  const [waitlistPlan, setWaitlistPlan] = useState<"basic" | "pro" | null>(null)
+  // Pre-fills the modal for a signed-in visitor, and decides which success
+  // copy they see — we only claim "we've started you on the free tier" to
+  // someone who actually has an account.
+  const [signedInEmail, setSignedInEmail] = useState<string | null>(null)
+  useEffect(() => {
+    fetch("/api/deliverables")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setSignedInEmail(d?.email ?? null))
+      .catch(() => {})
+  }, [])
+
   function handleSubscribe(planId: PlanId) {
     setLoadingId(planId)
     router.push(`/onboarding?plan=${planId}`)
   }
 
+  const openPlan = waitlistPlan ? PLANS.find((p) => p.id === waitlistPlan) : null
+
   return (
     <>
+      {openPlan && (
+        <WaitlistModal
+          plan={openPlan.id as "basic" | "pro"}
+          planLabel={openPlan.name}
+          monthlyFee={openPlan.monthlyFee}
+          annualMonthlyFee={openPlan.annualMonthlyFee}
+          signedInEmail={signedInEmail}
+          onClose={() => setWaitlistPlan(null)}
+        />
+      )}
       <div className="flex justify-center mb-8">
         <div className="inline-flex items-center rounded-full border border-white/10 bg-card p-1">
           {(["monthly", "annual"] as const).map((option) => (
@@ -194,6 +252,7 @@ export function PricingCards() {
             plan={plan}
             billing={billing}
             onSubscribe={handleSubscribe}
+            onJoinWaitlist={setWaitlistPlan}
             loadingId={loadingId}
             delay={i * 80}
           />
