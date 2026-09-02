@@ -16,6 +16,7 @@ import {
   CAMPAIGN_ASSETS,
   COMPARISON,
   CTA_REASSURANCE,
+  DATA_ASSURANCE,
   FAQS,
   MICRO_TRUST,
   OBJECTIONS,
@@ -163,8 +164,16 @@ function PrimaryCta({ className = "", label = PRIMARY_CTA_LABEL }: { className?:
   )
 }
 
-function Reassurance({ className = "" }: { className?: string }) {
-  return <p className={`text-xs text-muted-foreground ${className}`}>{CTA_REASSURANCE}</p>
+function Reassurance({ className = "", withData = false }: { className?: string; withData?: boolean }) {
+  return (
+    <p className={`text-xs text-muted-foreground ${className}`}>
+      {CTA_REASSURANCE}
+      {/* Appended to the SAME line rather than added as its own block: the
+          page is already long and this is reassurance, not a section.
+          Opt-in so it shows once, beside the signup CTA. */}
+      {withData && <span className="hidden sm:inline"> • {DATA_ASSURANCE}</span>}
+    </p>
+  )
 }
 
 /** Compact hesitation-killer row — see MICRO_TRUST in lib/marketing.ts. */
@@ -614,14 +623,19 @@ export default function Page() {
                   </span>
                 </div>
 
+                {/* Framed as "the two numbers you'll see", not as results
+                    achieved. The figures were disclaimed as samples in a
+                    footnote, but a big teal 147 reads as a claim regardless of
+                    what the small print says — and we have no customer data to
+                    claim yet. Muted, labelled as a preview, same footprint. */}
                 <div className="mt-6 grid grid-cols-2 gap-4">
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
                     <p className="text-xs uppercase tracking-widest text-muted-foreground/70">QR scans</p>
-                    <p className="mt-2 text-3xl font-bold tracking-tight text-[var(--brand-teal-bright)]">147</p>
+                    <p className="mt-2 text-3xl font-bold tracking-tight text-foreground/35">147</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
                     <p className="text-xs uppercase tracking-widest text-muted-foreground/70">CTA clicks</p>
-                    <p className="mt-2 text-3xl font-bold tracking-tight text-[var(--brand-teal-bright)]">32</p>
+                    <p className="mt-2 text-3xl font-bold tracking-tight text-foreground/35">32</p>
                   </div>
                 </div>
 
@@ -636,7 +650,8 @@ export default function Page() {
                 </div>
 
                 <p className="mt-5 border-t border-white/[0.07] pt-4 text-xs text-muted-foreground/60">
-                  Example campaign data — sample numbers, not real customer results.
+                  This is the dashboard you get — two real counts per flyer. The figures shown are
+                  placeholders; we don&apos;t publish customer results.
                 </p>
               </div>
             </Reveal>
@@ -812,7 +827,7 @@ export default function Page() {
             <Reveal delay={180}>
               <div className="mt-9 flex flex-col items-center gap-3">
                 <PrimaryCta className="px-9 py-4 text-base" />
-                <Reassurance />
+                <Reassurance withData />
               </div>
             </Reveal>
           </div>

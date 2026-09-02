@@ -53,6 +53,13 @@ export const SECONDARY_CTA_HREF = "#how-it-works"
 export const CTA_REASSURANCE = `${PLAN_LIMITS.trial} campaigns free • No credit card required`
 
 /**
+ * Sits with the signup CTA. Every clause is something the Privacy Policy
+ * actually commits to (see app/privacy/page.tsx) — no badge imagery, no
+ * invented certification, nothing that would need a lawyer to defend.
+ */
+export const DATA_ASSURANCE = "We never sell your business details, and you own every flyer you generate."
+
+/**
  * The compact hesitation-killer row under the hero. Deliberately three short
  * claims that are each verifiable: there is no design step in the product,
  * generation really is a single sitting, and the trial really takes no card.

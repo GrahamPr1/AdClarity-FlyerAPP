@@ -212,7 +212,11 @@ export function CampaignDemo() {
           setShown(content)
           setRun((r) => r + 1)
         }}
-        className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-card p-6"
+        // Reads as a small tool rather than a form printed on the page: a
+        // brighter border and tinted fill mark it as the one thing here you
+        // interact with. Purely a treatment on the existing container — no
+        // added markup and no added height.
+        className="flex flex-col gap-4 rounded-2xl border border-[var(--brand-teal)]/35 bg-[var(--brand-teal-tint)] p-6 shadow-lg shadow-[color:var(--brand-teal)]/10"
       >
         <div>
           <label htmlFor="demo-business" className="mb-1.5 block text-sm font-medium">
