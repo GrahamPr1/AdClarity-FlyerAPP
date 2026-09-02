@@ -2,7 +2,7 @@ import { MobileNav } from "@/components/mobile-nav"
 import { RevealText } from "@/components/reveal-text"
 import { Reveal } from "@/components/reveal"
 import { PricingCards } from "@/components/pricing-cards"
-import { CampaignFlowVisual, CampaignDemo } from "@/components/campaign-flow"
+import { CampaignFlowVisual } from "@/components/campaign-flow"
 import { QrMock } from "@/components/asset-previews"
 import {
   Accordion,
@@ -27,6 +27,7 @@ import {
   USE_CASES,
 } from "@/lib/marketing"
 import { SampleGallery } from "@/components/sample-gallery"
+import { CampaignDemoLazy as CampaignDemo } from "@/components/campaign-demo-lazy"
 
 // Structured data, built from the SAME constants the page renders (PLANS,
 // FAQS) rather than hand-written duplicates — so prices and answers in
@@ -142,7 +143,10 @@ function PrimaryCta({ className = "", label = PRIMARY_CTA_LABEL }: { className?:
   return (
     <a
       href={PRIMARY_CTA_HREF}
-      className={`group inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--brand-teal-bright)] px-7 py-3.5 text-center text-sm font-semibold text-white shadow-lg shadow-[var(--brand-teal)]/25 transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-teal)] hover:shadow-xl hover:shadow-[var(--brand-teal)]/35 focus-visible:-translate-y-0.5 ${className}`}
+      // min-h-11 = 44px, WCAG's minimum, on the page's highest-intent
+      // button. A min-height rather than more padding so the bigger
+      // instances (px-9 py-4) are unchanged and nothing reflows.
+      className={`group inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--brand-teal-bright)] px-7 py-3.5 text-center text-sm font-semibold text-white shadow-lg shadow-[var(--brand-teal)]/25 transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-teal)] hover:shadow-xl hover:shadow-[var(--brand-teal)]/35 focus-visible:-translate-y-0.5 ${className}`}
     >
       {label}
       <svg

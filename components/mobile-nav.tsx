@@ -63,7 +63,11 @@ export function MobileNav() {
             <button
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
-              className="lg:hidden flex flex-col justify-center items-center w-8 h-8 gap-[5px] rounded-lg hover:bg-white/10 transition-colors"
+              // 44x44 (w-11 h-11), not 32: WCAG's minimum tap target, and
+              // this is the primary nav control for someone using one thumb
+              // on a job site. The bars inside are unchanged, so it looks the
+              // same — only the hit area grew.
+              className="lg:hidden flex flex-col justify-center items-center w-11 h-11 gap-[5px] rounded-lg hover:bg-white/10 transition-colors"
               aria-label={open ? "Close menu" : "Open menu"}
             >
               <span
