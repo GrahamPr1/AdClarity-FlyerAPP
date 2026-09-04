@@ -6,7 +6,7 @@ import { LoadingSpinner } from "./loading-spinner"
 import type { IntakeSubmission, ServiceItem, SavedBrandProfile } from "@/lib/types"
 
 function fieldBase() {
-  return "w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
+  return "w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
 }
 
 type Stage = "checkingProfile" | "ask" | "scrapeForm" | "scraping" | "prefilled" | "fallback" | "manual"
@@ -182,7 +182,7 @@ export function GuidedSetupFlow({ email }: { email: string }) {
   if (stage === "fallback") {
     return (
       <div>
-        <div className="rounded-xl border border-white/10 bg-card p-4 text-sm text-muted-foreground mb-2">{fallbackMessage}</div>
+        <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground mb-2">{fallbackMessage}</div>
         <OnboardingForm email={email} />
       </div>
     )
@@ -199,7 +199,7 @@ export function GuidedSetupFlow({ email }: { email: string }) {
     return (
       <div>
         <button type="button" onClick={() => setStage("ask")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back</button>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">Let&apos;s scan your website</h1>
+        <h1 className="mt-3 text-2xl tracking-tight">Let&apos;s scan your website</h1>
         <p className="mt-2 text-sm text-muted-foreground">We&apos;ll pull your business details automatically — you&apos;ll review everything before it&apos;s final.</p>
         <form onSubmit={handleScrapeSubmit} className="mt-6 flex flex-col gap-4 max-w-md">
           <div>
@@ -227,16 +227,16 @@ export function GuidedSetupFlow({ email }: { email: string }) {
   // stage === "ask"
   return (
     <div>
-      <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Do you have a website?</h1>
+      <h1 className="text-2xl md:text-3xl tracking-tight">Do you have a website?</h1>
       <p className="mt-2 text-sm text-muted-foreground">We can read it automatically and pre-fill everything below.</p>
       <div className="mt-6 grid sm:grid-cols-2 gap-4">
         <button type="button" onClick={() => setStage("scrapeForm")}
-          className="text-left rounded-2xl border-2 border-[var(--brand-teal-bright)] bg-card p-6 hover:bg-white/[0.03] transition-colors">
+          className="text-left rounded-2xl border-2 border-[var(--brand-teal-bright)] bg-card p-6 hover:bg-[var(--surface-sunken)] transition-colors">
           <p className="text-lg font-semibold">Yes, scan my site</p>
           <p className="mt-1.5 text-sm text-muted-foreground">We&apos;ll pull your business info automatically — you review and confirm it after.</p>
         </button>
         <button type="button" onClick={() => setStage("manual")}
-          className="text-left rounded-2xl border border-white/10 bg-card p-6 hover:bg-white/[0.03] transition-colors">
+          className="text-left rounded-2xl border border-border bg-card p-6 hover:bg-[var(--surface-sunken)] transition-colors">
           <p className="text-lg font-semibold">No, I&apos;ll answer a few questions</p>
           <p className="mt-1.5 text-sm text-muted-foreground">A short guided setup — just as thorough, no website needed.</p>
         </button>

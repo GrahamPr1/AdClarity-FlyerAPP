@@ -30,25 +30,25 @@ export default function AdminUserDetailPage() {
         <>
           <div className="mt-4 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">{data.businessName ?? data.email}</h1>
+              <h1 className="text-2xl tracking-tight">{data.businessName ?? data.email}</h1>
               <p className="text-sm text-muted-foreground">{data.email}{data.isAdmin ? " · admin" : ""}</p>
             </div>
           </div>
 
           <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-white/10 bg-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Plan</p>
               <p className="mt-2 text-lg font-semibold capitalize">{data.plan}</p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Category</p>
               <p className="mt-2 text-lg font-semibold">{data.businessCategory}</p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Flyers this month</p>
               <p className="mt-2 text-lg font-semibold">{data.flyersCreated} / {data.flyersLimit}</p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Signed up</p>
               <p className="mt-2 text-lg font-semibold">{data.createdAt ? new Date(data.createdAt).toLocaleDateString() : "—"}</p>
             </div>
@@ -60,11 +60,11 @@ export default function AdminUserDetailPage() {
             <p className="mt-1 text-xs text-muted-foreground">Summed from {data.generationLog.length} real generation-log rows, not an estimate.</p>
           </div>
 
-          <h2 className="mt-8 text-lg font-semibold">Generation history</h2>
-          <div className="mt-3 overflow-x-auto rounded-xl border border-white/10">
+          <h2 className="mt-8 text-lg">Generation history</h2>
+          <div className="mt-3 overflow-x-auto rounded-xl border border-border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-muted-foreground/70">
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground/70">
                   <th className="px-4 py-3">When</th>
                   <th className="px-4 py-3">Stage</th>
                   <th className="px-4 py-3">Flyer</th>
@@ -75,7 +75,7 @@ export default function AdminUserDetailPage() {
               </thead>
               <tbody>
                 {data.generationLog.slice().reverse().map((entry) => (
-                  <tr key={entry.id} className="border-b border-white/5 last:border-0">
+                  <tr key={entry.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-3 whitespace-nowrap">{new Date(entry.createdAt).toLocaleString()}</td>
                     <td className="px-4 py-3">{AGENT_LABELS[entry.agentType]}</td>
                     <td className="px-4 py-3 text-muted-foreground">{entry.flyerId ?? "—"}</td>

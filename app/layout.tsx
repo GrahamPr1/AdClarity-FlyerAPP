@@ -1,22 +1,28 @@
 import React from "react"
 import type { Metadata } from 'next'
-import { Inter, Baloo_2 } from 'next/font/google'
+import { DM_Sans, DM_Serif_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { GoogleAnalytics } from '@/components/google-analytics'
 import './globals.css'
 
-const inter = Inter({
+// Body copy. 400/500 only — the editorial layout leans on the serif for
+// emphasis rather than on heavy sans weights, so shipping 600/700 as well
+// would be two extra woff2 files nothing renders.
+const dmSans = DM_Sans({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-inter",
+  weight: ["400", "500"],
+  variable: "--font-dm-sans",
+  display: "swap",
 })
 
-// Warm, rounded display font for headings only — see globals.css's
-// h1/h2/h3 rule. Body copy stays on Inter for readability.
-const baloo = Baloo_2({
+// Display serif for headings only — see globals.css's h1/h2/h3 rule.
+// Ships a single 400 weight by design; globals.css sets font-weight:400 on
+// headings so the browser never tries to synthesise a bold from it.
+const dmSerif = DM_Serif_Display({
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-baloo",
+  weight: "400",
+  variable: "--font-dm-serif",
+  display: "swap",
 })
 
 // The real production domain. This was previously "oneflyer.co", which the
@@ -75,7 +81,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport = {
-  themeColor: '#12141a',
+  themeColor: '#fbfaf7',
 }
 
 export default function RootLayout({
@@ -91,7 +97,7 @@ export default function RootLayout({
     // legitimately has an attribute the server HTML didn't. This only
     // suppresses the warning for <html>'s own attributes, one level deep —
     // the same pattern next-themes uses for exactly this reason.
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${baloo.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${dmSans.variable} ${dmSerif.variable}`}>
       {/* GA4. Renders nothing unless NEXT_PUBLIC_GA_MEASUREMENT_ID is set, so
           local and preview traffic can't contaminate production's numbers.
           In <head> via next/script so the consent defaults land before the

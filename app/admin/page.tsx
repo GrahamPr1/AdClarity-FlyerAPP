@@ -7,7 +7,7 @@ export default function AdminPage() {
   return (
     <div className="px-6 md:px-10 lg:px-16 py-10 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">OneFlyer Admin</h1>
+        <h1 className="text-2xl md:text-3xl tracking-tight">OneFlyer Admin</h1>
         <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to dashboard</Link>
       </div>
       <p className="mt-2 text-sm text-muted-foreground">

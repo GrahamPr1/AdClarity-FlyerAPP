@@ -17,6 +17,7 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { SUPPORT_EMAIL } from "@/lib/marketing"
 import { trackEvent } from "@/lib/analytics"
 import { PrintButton } from "@/components/print-button"
+import { Flyer3D } from "@/components/flyer-3d"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -59,7 +60,7 @@ function CategoryBanner({ onSaved }: { onSaved: () => void }) {
     <div className="mt-6 rounded-xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-4 flex flex-wrap items-center gap-3">
       <p className="text-sm flex-1 min-w-[16rem]">What type of business are you? This helps us tailor templates to you.</p>
       <select value={category} onChange={(e) => setCategory(e.target.value as BusinessCategory)}
-        className="rounded-lg bg-white/[0.06] border border-white/12 px-3 py-1.5 text-sm">
+        className="rounded-lg bg-[var(--surface-soft)] border border-border px-3 py-1.5 text-sm">
         <option value="" className="bg-card">Select one…</option>
         {BUSINESS_CATEGORIES.map((c) => (
           <option key={c} value={c} className="bg-card">{c}</option>
@@ -72,7 +73,7 @@ function CategoryBanner({ onSaved }: { onSaved: () => void }) {
       <button onClick={() => setDismissed(true)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
         Not now
       </button>
-      {error && <p role="alert" className="w-full text-sm text-red-400">{error}</p>}
+      {error && <p role="alert" className="w-full text-sm text-red-600">{error}</p>}
     </div>
   )
 }
@@ -82,11 +83,11 @@ export function StatusBadge({ status }: { status: FlyerStatus | string }) {
   const map: Record<string, string> = {
     Ready: "bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)] border-[var(--brand-teal)]/40",
     Fulfilled: "bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)] border-[var(--brand-teal)]/40",
-    "In Progress": "bg-amber-400/10 text-amber-300 border-amber-400/30",
-    Pending: "bg-white/[0.05] text-muted-foreground border-white/12",
-    Requested: "bg-white/[0.05] text-muted-foreground border-white/12",
-    Failed: "bg-red-500/10 text-red-400 border-red-500/30",
-    Cancelled: "bg-red-500/10 text-red-400 border-red-500/30",
+    "In Progress": "bg-amber-400/10 text-amber-700 border-amber-400/30",
+    Pending: "bg-[var(--surface-soft)] text-muted-foreground border-border",
+    Requested: "bg-[var(--surface-soft)] text-muted-foreground border-border",
+    Failed: "bg-red-500/10 text-red-600 border-red-500/30",
+    Cancelled: "bg-red-500/10 text-red-600 border-red-500/30",
   }
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${map[status] ?? map.Pending}`}>
@@ -210,11 +211,11 @@ function CopyableText({ label, text }: { label: string; text: string }) {
         </button>
       </div>
       {copyFailed && (
-        <p className="mt-1 text-xs text-amber-300">
+        <p className="mt-1 text-xs text-amber-700">
           Your browser blocked copying — select the text below and copy it manually.
         </p>
       )}
-      <p className="mt-1 text-sm whitespace-pre-wrap rounded-lg bg-white/[0.03] border border-white/10 p-3 leading-relaxed">{text}</p>
+      <p className="mt-1 text-sm whitespace-pre-wrap rounded-lg bg-[var(--surface-soft)] border border-border p-3 leading-relaxed">{text}</p>
     </div>
   )
 }
@@ -223,7 +224,7 @@ function RepurposedSection({ repurposed, title, viewUrl }: { repurposed: Repurpo
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="mt-3 pt-3 border-t border-white/10">
+    <div className="mt-3 pt-3 border-t border-border">
       <button onClick={() => setOpen((v) => !v)}
         className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
         {open ? "Hide other formats ▲" : "Show other formats (Instagram, text, Nextdoor) ▼"}
@@ -296,7 +297,7 @@ function PrintOrderSection({ flyerId, onSubmit }: { flyerId: string; onSubmit: (
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-white/10">
+    <div className="mt-3 pt-3 border-t border-border">
       <button onClick={() => setOpen((v) => !v)}
         className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
         {open ? "Cancel print request ▲" : "Order printed copies ▼"}
@@ -308,7 +309,7 @@ function PrintOrderSection({ flyerId, onSubmit }: { flyerId: string; onSubmit: (
               destination), so the honest thing is to say so here rather than
               print a number we'd have to caveat. Nothing is charged from this
               form — see the note in the POST handler. */}
-          <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
+          <p className="rounded-lg border border-border bg-[var(--surface-soft)] px-3 py-2 text-xs text-muted-foreground">
             Printing isn&apos;t included in your plan and nothing is charged here. Tell us the
             quantity and where to ship, and we&apos;ll email you a quote with the price and
             turnaround before anything is printed.
@@ -316,25 +317,25 @@ function PrintOrderSection({ flyerId, onSubmit }: { flyerId: string; onSubmit: (
           <div>
             <label className="block text-xs font-medium mb-1">Quantity</label>
             <input type="number" min={1} max={500} value={quantity} onChange={(e) => setQuantity(e.target.value)}
-              className="w-24 rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
+              className="w-24 rounded-lg bg-[var(--surface-soft)] border border-border px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
           </div>
           <div>
             <label className="block text-xs font-medium mb-1">Name</label>
             <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)}
-              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
+              className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
           </div>
           <div>
             <label className="block text-xs font-medium mb-1">Shipping address</label>
             <textarea rows={2} value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)}
-              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
+              className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
           </div>
           <div>
             <label className="block text-xs font-medium mb-1">Notes (optional)</label>
             <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="Paper stock, deadline, anything else"
-              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
+              className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
           </div>
-          {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
+          {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
           <button type="submit" disabled={submitting}
             className="self-start mt-1 px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white text-xs font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
             {submitting ? "Submitting…" : "Submit request"}
@@ -417,17 +418,28 @@ export function FlyerCard({
   const viewUrl = `/api/flyers/${flyer.id}/view?v=1${ownerEmail ? `&email=${encodeURIComponent(ownerEmail)}` : ""}`
 
   return (
-    <div className="rounded-xl border border-white/10 bg-card overflow-hidden flex flex-col">
-      <div className="aspect-[4/3] bg-[var(--brand-navy-deep)] flex items-center justify-center">
+    <div className="group/card rounded-2xl border border-border bg-card overflow-hidden flex flex-col shadow-[var(--shadow-soft)] transition-shadow duration-300 hover:shadow-[var(--shadow-lift)]">
+      {/* The same 3D treatment the homepage hero uses, on every flyer a client
+          creates — tilt follows the pointer, with the specular sweep and the
+          paper edge. Idle drift is deliberately NOT enabled here: it earns its
+          keep on one hero flyer, but a grid of twenty independently drifting
+          cards is noise, and twenty always-running animations is real battery
+          on a phone. Hover/pointer is the engaging part; the wander isn't. */}
+      <div
+        className="flex items-center justify-center px-4 py-7"
+        style={{ background: "linear-gradient(150deg,#f7f4ed 0%,#eef3f7 58%,#e4edf4 100%)" }}
+      >
         {ready && flyer.downloadUrl ? (
-          <FlyerThumbnail downloadUrl={flyer.downloadUrl} viewUrl={viewUrl} title={flyer.title} />
+          <Flyer3D depth={4} maxTilt={9} idle={false}>
+            <FlyerThumbnail downloadUrl={flyer.downloadUrl} viewUrl={viewUrl} title={flyer.title} scale={0.18} />
+          </Flyer3D>
         ) : failed ? (
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-red-400/60">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-red-600/60">
             <circle cx="12" cy="12" r="9" />
             <path d="M12 8v5M12 16h.01" />
           </svg>
         ) : (
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-white/15">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-muted-foreground/35">
             <rect x="4" y="3" width="16" height="18" rx="2" />
             <path d="M8 8h8M8 12h8M8 16h5" />
           </svg>
@@ -448,31 +460,31 @@ export function FlyerCard({
               </span>
             )}
           </div>
-          {failed && flyer.error && <p className="mt-1.5 text-xs text-red-400/80 leading-snug">{flyer.error}</p>}
-          {retryError && <p className="mt-1.5 text-xs text-amber-300 leading-snug">{retryError}</p>}
-          {deleteError && <p className="mt-1.5 text-xs text-amber-300 leading-snug">{deleteError}</p>}
+          {failed && flyer.error && <p className="mt-1.5 text-xs text-red-700/80 leading-snug">{flyer.error}</p>}
+          {retryError && <p className="mt-1.5 text-xs text-amber-700 leading-snug">{retryError}</p>}
+          {deleteError && <p className="mt-1.5 text-xs text-amber-700 leading-snug">{deleteError}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {ready && flyer.downloadUrl && (
             <a href={flyer.downloadUrl}
               download={`${flyer.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.html`}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
+              className="text-xs font-medium px-4 py-1.5 rounded-full bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
               Download
             </a>
           )}
           {ready && flyer.downloadUrl && <PrintButton flyerId={flyer.id} title={flyer.title} />}
           {failed && (
             <button onClick={handleRetry} disabled={retrying}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] disabled:opacity-60 transition-colors">
+              className="text-xs font-medium px-4 py-1.5 rounded-full border border-border hover:bg-[var(--surface-sunken)] disabled:opacity-60 transition-colors">
               {retrying ? "Retrying…" : "Retry"}
             </button>
           )}
           {onDelete && (
             <button onClick={handleDelete} onBlur={() => setConfirmingDelete(false)} disabled={deleting}
-              className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-60 ${
+              className={`text-xs font-medium px-4 py-1.5 rounded-full border transition-colors disabled:opacity-60 ${
                 confirmingDelete
-                  ? "border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                  : "border-white/12 hover:bg-white/[0.05]"
+                  ? "border-red-500/50 bg-red-500/10 text-red-700 hover:bg-red-500/20"
+                  : "border-border hover:bg-[var(--surface-sunken)]"
               }`}>
               {deleting ? "Deleting…" : confirmingDelete ? "Confirm?" : "Delete"}
             </button>
@@ -490,7 +502,7 @@ export function FlyerCard({
         </div>
       )}
       {ready && showUpgradeHint && (
-        <div className="px-4 pb-4 pt-3 border-t border-white/10">
+        <div className="px-4 pb-4 pt-3 border-t border-border">
           <Link href="/#pricing" className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
             Upgrade to Basic to unlock scan tracking, Instagram/text/Nextdoor versions, and print requests →
           </Link>
@@ -521,7 +533,7 @@ function ProfileNudge() {
   if (!data || data.defaults || dismissed) return null
 
   return (
-    <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-card p-4">
+    <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
       <div className="min-w-[16rem] flex-1">
         <p className="text-sm font-medium">Want your next campaign more on-brand?</p>
         <p className="mt-0.5 text-sm text-muted-foreground">
@@ -571,13 +583,13 @@ function UpsellModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60" onClick={onClose} role="presentation">
       <div
-        className="w-full max-w-md rounded-2xl border border-white/10 bg-card p-7"
+        className="w-full max-w-md rounded-2xl border border-border bg-card p-7"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="upsell-title"
       >
-        <h3 id="upsell-title" className="text-lg font-semibold">Request more collateral</h3>
+        <h3 id="upsell-title" className="text-lg">Request more collateral</h3>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
           Need something beyond your plan — a specialty piece, a bigger batch, a custom
           format? Describe it and we&apos;ll email you back to scope it.
@@ -591,7 +603,7 @@ function UpsellModal({ onClose }: { onClose: () => void }) {
           value={details}
           onChange={(e) => setDetails(e.target.value)}
           placeholder="e.g. 500 door hangers for a spring roof promotion"
-          className="mt-1.5 w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+          className="mt-1.5 w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
         />
         {sent ? (
           <p className="mt-3 text-sm text-[var(--brand-teal-bright)]">
@@ -606,7 +618,7 @@ function UpsellModal({ onClose }: { onClose: () => void }) {
           </p>
         )}
         <div className="mt-5 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-white/12 text-sm hover:bg-white/[0.05] transition-colors">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-[var(--surface-sunken)] transition-colors">
             {sent ? "Close" : "Cancel"}
           </button>
           {!sent && (
@@ -745,7 +757,7 @@ export function DashboardClient() {
     <div className="px-6 md:px-10 lg:px-16 py-10 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
+        <Link href="/" className="flex items-center gap-2 text-lg" style={{ fontFamily: "var(--font-heading)" }}>
           <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-teal-bright)]" />
           OneFlyer
         </Link>
@@ -755,13 +767,18 @@ export function DashboardClient() {
               Admin Portal
             </Link>
           )}
-          <button onClick={handleSignOut} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={handleSignOut}
+            className="rounded-full border border-foreground/20 px-4 py-1.5 text-sm text-foreground transition-colors hover:border-[var(--brand-teal-bright)] hover:bg-[var(--brand-teal-bright)] hover:text-white">
             Sign out
           </button>
         </div>
       </div>
 
-      <h1 className="mt-8 text-2xl md:text-3xl font-semibold tracking-tight">Your Dashboard</h1>
+      <h1 className="mt-10 text-4xl tracking-tight md:text-5xl">Your campaigns</h1>
+      <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
+        Every piece you&apos;ve made, ready to download, print or post. Hover a flyer to
+        look it over — click the corner icon to open it full size.
+      </p>
 
       {isLoading || !data ? (
         <LoadingSpinner message="Loading your deliverables…" />
@@ -795,34 +812,50 @@ export function DashboardClient() {
 
           {/* Plan + status summary */}
           <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-white/10 bg-card p-5">
-              <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Current plan</p>
-              <p className="mt-2 text-lg font-semibold">{data.planName}</p>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">Current plan</p>
+              <p className="mt-2 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>{data.planName}</p>
               <div className="mt-2"><StatusBadge status={data.billingStatus === "Active" ? "Ready" : "Pending"} /></div>
               <p className="mt-1.5 text-xs text-muted-foreground">Billing: {data.billingStatus}</p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-card p-5">
-              <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Onboarding</p>
-              <p className="mt-2 text-lg font-semibold">{data.intakeStatus}</p>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">Onboarding</p>
+              <p className="mt-2 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>{data.intakeStatus}</p>
               {data.intakeStatus === "Not started" && (
                 <Link href="/onboarding" className="mt-2 inline-block text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
                   Complete onboarding →
                 </Link>
               )}
             </div>
-            <div className="rounded-xl border border-white/10 bg-card p-5">
-              <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Deliverables ready</p>
-              <p className="mt-2 text-lg font-semibold">
-                {data.flyers.filter((f) => f.status === "Ready").length} / {data.flyers.length} flyers
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">Deliverables ready</p>
+              <p className="mt-2 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
+                {data.flyers.filter((f) => f.status === "Ready").length} / {data.flyers.length}
               </p>
+              <p className="mt-1.5 text-xs text-muted-foreground">flyers finished</p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-card p-5">
-              <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Flyers used</p>
-              <p className="mt-2 text-lg font-semibold">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">Flyers used</p>
+              <p className="mt-2 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
                 {data.flyersCreated} / {data.flyersLimit}
               </p>
+              {/* The number alone made "8 / 25" a reading exercise. Clamped at
+                  100% because the limit is enforced server-side but a stale
+                  client could briefly hold a count above it. */}
+              <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-sunken)]">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, (data.flyersCreated / Math.max(1, data.flyersLimit)) * 100)}%`,
+                    background:
+                      data.flyersCreated >= data.flyersLimit
+                        ? "var(--destructive)"
+                        : "var(--brand-teal-bright)",
+                  }}
+                />
+              </div>
               {data.flyersCreated >= data.flyersLimit ? (
-                <Link href="/#pricing" className="mt-1.5 inline-block text-xs text-amber-300 hover:text-amber-200 transition-colors">
+                <Link href="/#pricing" className="mt-1.5 inline-block text-xs text-amber-700 hover:text-amber-900 transition-colors">
                   Limit reached — resets {new Date(data.flyersResetAt).toLocaleDateString()} →
                 </Link>
               ) : (
@@ -835,7 +868,7 @@ export function DashboardClient() {
               the request was recorded and that nothing is being charged —
               STRIPE_REVERT, see REVERT_TO_STRIPE.md. */}
           {data.waitlist?.length > 0 && (
-            <div className="mt-8 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+            <div className="mt-8 rounded-xl border border-border bg-[var(--surface-soft)] px-4 py-3">
               {data.waitlist.map((w) => (
                 <p key={w.id} className="text-sm text-muted-foreground">
                   You selected{" "}
@@ -852,7 +885,7 @@ export function DashboardClient() {
               panel below. */}
           {data.generationStage && data.flyers.length > 0 && (
             <div className="mt-8 flex items-center gap-3 rounded-xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] px-4 py-3">
-              <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/15 border-t-[var(--brand-teal-bright)]" />
+              <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-border border-t-[var(--brand-teal-bright)]" />
               <span className="text-sm font-medium" aria-live="polite">{data.generationStage}…</span>
             </div>
           )}
@@ -862,8 +895,8 @@ export function DashboardClient() {
             // Someone who just submitted, whose flyers haven't been seeded
             // yet. Reassurance, not an empty state — their work is not lost.
             <div className="mt-12 rounded-2xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-10 text-center">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-[var(--brand-teal-bright)]" />
-              <h2 className="mt-5 text-xl font-semibold">Building your campaign…</h2>
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-border border-t-[var(--brand-teal-bright)]" />
+              <h2 className="mt-5 text-xl">Building your campaign…</h2>
               {/* The real stage, not a generic spinner caption. Generation
                   takes upwards of a minute and used to show one unchanging
                   line the whole way through; the pipeline already knew which
@@ -879,8 +912,8 @@ export function DashboardClient() {
               </p>
             </div>
           ) : data.flyers.length === 0 ? (
-            <div className="mt-12 rounded-2xl border border-white/10 bg-card p-10 text-center">
-              <h2 className="text-xl font-semibold">Let&apos;s make your first campaign</h2>
+            <div className="mt-12 rounded-2xl border border-border bg-card p-10 text-center">
+              <h2 className="text-xl">Let&apos;s make your first campaign</h2>
               <p className="mt-2 text-sm text-muted-foreground">Takes about 2 minutes — we&apos;ll walk you through it.</p>
               <Link href="/onboarding"
                 className="mt-6 inline-block px-6 py-3 rounded-xl bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors">
@@ -922,14 +955,14 @@ export function DashboardClient() {
               <ProfileNudge />
 
               <div className="mt-12 flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">Flyers &amp; Pages</h2>
+                <h2 className="text-2xl">Flyers &amp; Pages</h2>
                 <div className="flex items-center gap-2">
                   <Link href="/onboarding"
-                    className="text-sm font-medium px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
+                    className="text-sm font-medium px-5 py-2 rounded-full bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
                     New Campaign
                   </Link>
                   <button onClick={() => setShowUpsell(true)}
-                    className="text-sm font-medium px-4 py-2 rounded-lg border border-white/12 hover:bg-white/[0.05] transition-colors">
+                    className="text-sm font-medium px-5 py-2 rounded-full border border-foreground/20 hover:border-[var(--brand-teal-bright)] hover:bg-[var(--brand-teal-bright)] hover:text-white transition-colors">
                     Request more collateral
                   </button>
                 </div>
@@ -946,7 +979,7 @@ export function DashboardClient() {
                 in the same dialog if you need a file to email or take to a print shop.
                 <span className="text-foreground"> Download</span> saves the HTML itself.
               </p>
-              <div className="mt-5 grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {data.flyers.map((f) => (
                   <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete}
                     onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
@@ -958,10 +991,10 @@ export function DashboardClient() {
 
           {data.printRequests.length > 0 && (
             <>
-              <h2 className="mt-12 text-lg font-semibold">Print Requests</h2>
+              <h2 className="mt-12 text-2xl">Print Requests</h2>
               <div className="mt-5 flex flex-col gap-3">
                 {data.printRequests.map((r) => (
-                  <div key={r.id} className="rounded-xl border border-white/10 bg-card p-4 flex items-center justify-between gap-3">
+                  <div key={r.id} className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{r.quantity}× {r.flyerTitle}</p>
                       <p className="mt-1 text-xs text-muted-foreground truncate">Ship to {r.shippingName} — {r.shippingAddress}</p>

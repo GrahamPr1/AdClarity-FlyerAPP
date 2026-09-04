@@ -24,11 +24,11 @@ export default function AboutPage() {
           OneFlyer
         </Link>
 
-        <h1 className="mt-8 text-2xl font-semibold tracking-tight md:text-3xl">About OneFlyer</h1>
+        <h1 className="mt-8 text-2xl tracking-tight md:text-3xl">About OneFlyer</h1>
         <p className="mt-2 text-sm text-muted-foreground">Who built it, and why.</p>
 
         {/* Photo slot — add /public/founder.jpg and uncomment when there's a real one.
-        <div className="mt-8 h-28 w-28 overflow-hidden rounded-2xl border border-white/10">
+        <div className="mt-8 h-28 w-28 overflow-hidden rounded-2xl border border-border">
           <Image src="/founder.jpg" alt="" width={112} height={112} className="h-full w-full object-cover" />
         </div>
         */}
@@ -51,8 +51,8 @@ export default function AboutPage() {
           </p>
         </div>
 
-        <div className="mt-10 rounded-2xl border border-white/10 bg-card p-6">
-          <h2 className="text-base font-semibold">Why OneFlyer exists</h2>
+        <div className="mt-10 rounded-2xl border border-border bg-card p-6">
+          <h2 className="text-base">Why OneFlyer exists</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             Most local businesses don&apos;t have a marketing department. They have one promotion
             they want to run and no obvious way to turn it into a flyer, a social post, a text
@@ -70,7 +70,7 @@ export default function AboutPage() {
           </Link>
           <a
             href="mailto:support@oneflyer.org"
-            className="rounded-xl border border-white/20 px-5 py-2.5 font-medium transition-colors hover:bg-white/5"
+            className="rounded-xl border border-border px-5 py-2.5 font-medium transition-colors hover:bg-[var(--surface-sunken)]"
           >
             Get in touch
           </a>

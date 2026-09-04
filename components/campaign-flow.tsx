@@ -16,10 +16,10 @@ import {
 function FieldRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2.5">
-      <span className="w-[4.75rem] shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">
+      <span className="w-[4.75rem] shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </span>
-      <span className="truncate text-[13px] font-medium text-white/90">{value}</span>
+      <span className="truncate text-[13px] font-medium text-foreground">{value}</span>
     </div>
   )
 }
@@ -27,7 +27,7 @@ function FieldRow({ label, value }: { label: string; value: string }) {
 function DownArrow({ className = "" }: { className?: string }) {
   return (
     <div className={`flex justify-center ${className}`} aria-hidden="true">
-      <svg width="16" height="26" viewBox="0 0 16 26" fill="none" className="text-white/20">
+      <svg width="16" height="26" viewBox="0 0 16 26" fill="none" className="text-[var(--brand-slate)]/45">
         <path d="M8 0v20" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 3" />
         <path d="M3 18l5 6 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -52,15 +52,15 @@ function MiniAsset({
 }) {
   return (
     <div
-      className="asset-in flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
+      className="asset-in flex items-center gap-3 rounded-xl border border-border bg-[var(--surface-soft)] p-2.5"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-[#12141a]">
+      <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-[#16181d]">
         {children}
       </div>
       <div className="min-w-0">
-        <p className="truncate text-[12.5px] font-semibold text-white/85">{label}</p>
-        <p className="truncate text-[10.5px] text-white/40">{sub}</p>
+        <p className="truncate text-[12.5px] font-semibold text-foreground">{label}</p>
+        <p className="truncate text-[10.5px] text-muted-foreground">{sub}</p>
       </div>
     </div>
   )
@@ -82,12 +82,12 @@ export function CampaignFlowVisual() {
       <div
         aria-hidden="true"
         className="absolute -inset-8 -z-10 rounded-[2.5rem] opacity-50 blur-3xl"
-        style={{ background: "radial-gradient(circle at 65% 25%, rgba(94,184,240,0.32), transparent 62%)" }}
+        style={{ background: "radial-gradient(circle at 65% 25%, rgba(47,109,149,0.18), transparent 62%)" }}
       />
 
-      <div className="rounded-2xl border border-white/10 bg-card/80 p-4 shadow-2xl shadow-black/50 backdrop-blur-sm sm:p-5">
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-pop)] sm:p-5">
         {/* ── Input ── */}
-        <div className="asset-in rounded-xl border border-white/10 bg-[#12141a] p-3.5" style={{ animationDelay: "0ms" }}>
+        <div className="asset-in rounded-xl border border-border bg-[var(--surface-soft)] p-3.5" style={{ animationDelay: "0ms" }}>
           <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--brand-teal-bright)]">
             You tell us
           </p>
@@ -109,19 +109,19 @@ export function CampaignFlowVisual() {
               <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z" />
             </svg>
           </span>
-          <span className="text-[12.5px] font-semibold tracking-tight text-white">OneFlyer</span>
+          <span className="text-[12.5px] font-semibold tracking-tight text-foreground">OneFlyer</span>
         </div>
 
         <DownArrow className="py-1" />
 
         {/* ── Output ── */}
-        <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
+        <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           You get
         </p>
         <div className="grid grid-cols-5 gap-3">
           <div className="asset-in col-span-2" style={{ animationDelay: "320ms" }}>
             <FlyerPreview content={content} />
-            <p className="mt-1.5 text-center text-[10px] font-medium text-white/45">Print flyer</p>
+            <p className="mt-1.5 text-center text-[10px] font-medium text-muted-foreground">Print flyer</p>
           </div>
 
           <div className="col-span-3 flex flex-col gap-2">
@@ -147,7 +147,7 @@ export function CampaignFlowVisual() {
           </div>
         </div>
 
-        <p className="mt-3.5 border-t border-white/[0.07] pt-3 text-center text-[10.5px] leading-relaxed text-white/35">
+        <p className="mt-3.5 border-t border-border pt-3 text-center text-[10.5px] leading-relaxed text-muted-foreground">
           Example campaign · {DEMO_BUSINESS} is a fictional business
         </p>
       </div>

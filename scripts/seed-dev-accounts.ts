@@ -13,11 +13,31 @@
  * shared login would trip that limiter and fail tests for the wrong reason.
  */
 import "./load-env"
-import { setClientPlan, setClientPasswordHash, setClientBusinessName, assertRedisMatchesEnvironment } from "../lib/store"
+import {
+  setClientPlan,
+  setClientPasswordHash,
+  setClientBusinessName,
+  assertRedisMatchesEnvironment,
+  seedFlyerDeliverables,
+  updateDeliverable,
+} from "../lib/store"
 import { hashPassword } from "../lib/auth"
 import { getAppEnvironment } from "../lib/env"
 
 const PASSWORD = "DevTest!2345"
+
+/** A minimal but letter-proportioned flyer, so the dashboard thumbnail iframe
+ *  has something real to render at the same 850x1100 the pipeline produces. */
+function seedFlyerHtml(title: string): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>body{margin:0;font-family:system-ui,sans-serif;width:850px;height:1100px;background:#fff;color:#12141a}
+.m{background:#1b3a5c;color:#fff;padding:44px 56px;font-size:36px;font-weight:700}
+.b{padding:48px 56px}.o{font-size:68px;line-height:1;color:#1b3a5c;font-weight:800;margin:0}
+.p{margin:36px 0;height:280px;border-radius:14px;background:linear-gradient(135deg,#2c5f8f,#12263c)}</style></head>
+<body><div class="m">Miller Heating &amp; Air</div><div class="b"><p class="o">${title}</p>
+<div class="p"></div><p style="font-size:24px">Free written estimate · Licensed &amp; insured</p>
+<p style="font-size:30px;font-weight:800;color:#1b3a5c">(555) 014-2200</p></div></body></html>`
+}
 const PROJECTS = ["chromium", "firefox", "webkit"] as const
 const ROLES = [
   { slug: "basic", plan: "basic" },
@@ -46,6 +66,26 @@ async function main() {
       await setClientPlan(email, role.plan)
       await setClientPasswordHash(email, passwordHash)
       created.push(`${email}  (${role.plan})`)
+
+      // The `basic` account also gets two finished flyers. Without them the
+      // dashboard renders its empty state, and tests/browser/flyer-3d.spec.ts
+      // skipped on every engine — a spec that always skips looks like passing
+      // coverage and is none.
+      if (role.slug === "basic") {
+        const reqs = [
+          { id: `seed-flyer-a-${project}`, purpose: "Spring tune-up special" },
+          { id: `seed-flyer-b-${project}`, purpose: "Furnace replacement promo" },
+        ]
+        await seedFlyerDeliverables(email, reqs)
+        for (const r of reqs) {
+          await updateDeliverable(email, {
+            type: "flyer",
+            id: r.id,
+            status: "Ready",
+            downloadUrl: `data:text/html;charset=utf-8,${encodeURIComponent(seedFlyerHtml(r.purpose))}`,
+          })
+        }
+      }
     }
   }
 

@@ -48,12 +48,12 @@ function AdminLoginForm() {
         <label htmlFor="password" className="block text-sm font-medium mb-1.5">Password</label>
         <input id="password" type="password" required autoFocus value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+          className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
           placeholder="••••••••" />
       </div>
-      {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <button type="submit" disabled={loading}
-        className="mt-2 w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+        className="mt-2 w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-white text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
         {loading ? "Signing in…" : "Sign in"}
       </button>
     </form>
@@ -68,7 +68,7 @@ function EmailField({ value, onChange }: { value: string; onChange: (v: string) 
       <label htmlFor="email" className="block text-sm font-medium mb-1.5">Email</label>
       <input id="email" type="email" required autoFocus value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+        className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
         placeholder="you@business.com" />
     </div>
   )
@@ -212,14 +212,14 @@ function ClientLoginForm({
             <label htmlFor="password" className="block text-sm font-medium mb-1.5">Password</label>
             <input id="password" type="password" required minLength={8} value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+              className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
               placeholder="At least 8 characters"
               aria-describedby="password-requirements" />
             {/* Stated up front rather than only surfacing as a rejected
                 submit — the rule is trivial, and finding it out by failing is
                 a needless round trip. Live feedback once they start typing. */}
             <p id="password-requirements"
-              className={`mt-1.5 text-xs ${password.length === 0 ? "text-muted-foreground" : password.length >= 8 ? "text-emerald-400" : "text-amber-300"}`}>
+              className={`mt-1.5 text-xs ${password.length === 0 ? "text-muted-foreground" : password.length >= 8 ? "text-emerald-700" : "text-amber-700"}`}>
               {password.length === 0
                 ? "Must be at least 8 characters."
                 : password.length >= 8
@@ -231,11 +231,11 @@ function ClientLoginForm({
             <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1.5">Confirm password</label>
             <input id="confirmPassword" type="password" required minLength={8} value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
+              className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35" />
           </div>
-          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={working}
-            className="w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+            className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-white text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
             {working ? "Creating account…" : "Create account"}
           </button>
         </form>
@@ -252,10 +252,10 @@ function ClientLoginForm({
       <>
         <form onSubmit={handleForgot} className="mt-6 flex flex-col gap-4">
           <EmailField value={email} onChange={setEmail} />
-          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           {notice && <p className="text-sm text-[var(--brand-teal-bright)]">{notice}</p>}
           <button type="submit" disabled={working || !email}
-            className="w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+            className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-white text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
             {working ? "Sending…" : "Email me a reset link"}
           </button>
         </form>
@@ -281,12 +281,12 @@ function ClientLoginForm({
           </div>
           <input id="password" type="password" required value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+            className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
             placeholder="••••••••" />
         </div>
-        {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={working || !email || !password}
-          className="w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+          className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-white text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
           {working ? "Signing you in…" : "Log in"}
         </button>
       </form>
@@ -340,22 +340,45 @@ function LoginPageInner() {
           : "Log in with your email and password to see your own flyers."
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    // Liquid-glass auth screen. The reference used a 5000x3333 JPG for the
+    // backdrop (~1.4MB); this is the same look as layered CSS gradients —
+    // nothing to download, nothing to lay out, no LCP image on the one page
+    // where people are waiting to get in.
+    <div
+      className="relative min-h-screen flex items-center justify-center overflow-hidden px-6 py-14"
+      style={{
+        backgroundColor: "#e8eef6",
+        backgroundImage: [
+          "radial-gradient(at 14% 82%, rgba(56,118,199,0.55) 0px, transparent 56%)",
+          "radial-gradient(at 86% 14%, rgba(214,152,224,0.50) 0px, transparent 54%)",
+          "radial-gradient(at 66% 96%, rgba(96,170,222,0.45) 0px, transparent 50%)",
+          "radial-gradient(at 34% 30%, rgba(255,255,255,0.92) 0px, transparent 48%)",
+        ].join(","),
+      }}
+    >
+      {/* Floating glass orbs, straight from the reference. Decorative only. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="glass-effect absolute left-[12%] top-[18%] h-32 w-32 animate-pulse rounded-full opacity-60" />
+        <div className="glass-effect absolute right-[14%] top-[68%] h-24 w-24 animate-pulse rounded-full opacity-50 [animation-delay:1s]" />
+        <div className="glass-effect absolute right-[28%] top-[38%] h-16 w-16 animate-pulse rounded-full opacity-55 [animation-delay:.5s]" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-sm">
         {/* The wordmark is the only way back out of login/signup — without it
             someone who lands here by mistake has no route to the homepage. */}
         <div className="flex justify-center mb-8">
           <Link
             href="/"
             aria-label="OneFlyer — back to homepage"
-            className="inline-flex items-center gap-2 font-semibold rounded-md px-2 py-1 -mx-2 transition-colors hover:text-[var(--brand-teal-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-teal-bright)]"
+            className="inline-flex items-center gap-2 rounded-md px-2 py-1 -mx-2 text-lg transition-colors hover:text-[var(--brand-teal-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-teal-bright)]"
+            style={{ fontFamily: "var(--font-heading)" }}
           >
             <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-teal-bright)]" />
             OneFlyer
           </Link>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-card p-7">
-          <h1 className="text-xl font-semibold">{heading}</h1>
+        <div className="glass-card hover-lift rounded-3xl p-7">
+          <h1 className="text-2xl">{heading}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">{subheading}</p>
 
           {mode === "client" ? (

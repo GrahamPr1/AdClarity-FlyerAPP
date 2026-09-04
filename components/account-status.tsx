@@ -52,8 +52,8 @@ export function AccountStatus() {
   }
 
   return (
-    <section className="mt-12 rounded-2xl border border-white/10 bg-card p-6">
-      <h2 className="text-lg font-semibold">Your account</h2>
+    <section className="mt-12 rounded-2xl border border-border bg-card p-6">
+      <h2 className="text-lg">Your account</h2>
 
       {isLoading ? (
         <p className="mt-2 text-sm text-muted-foreground">Loading…</p>
@@ -86,13 +86,13 @@ export function AccountStatus() {
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="mt-4 rounded-lg border border-white/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-white/5"
+            className="mt-4 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-sunken)]"
           >
             Pause my account
           </button>
         </>
       ) : (
-        <div className="mt-4 rounded-xl border border-white/12 bg-white/[0.03] p-4">
+        <div className="mt-4 rounded-xl border border-border bg-[var(--surface-soft)] p-4">
           <p className="text-sm font-medium">Pause, rather than cancel?</p>
           <ul className="mt-2 flex flex-col gap-1.5 text-sm text-muted-foreground">
             <li>· Billing stops. You keep the account.</li>
@@ -112,12 +112,12 @@ export function AccountStatus() {
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="rounded-lg border border-white/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-white/5"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-sunken)]"
             >
               Never mind
             </button>
           </div>
-          <p className="mt-4 border-t border-white/10 pt-3 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
             Want to close the account entirely instead? Email{" "}
             <a href="mailto:support@oneflyer.org" className="text-[var(--brand-teal-bright)] hover:underline">
               support@oneflyer.org

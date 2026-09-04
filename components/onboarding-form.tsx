@@ -43,7 +43,7 @@ const MAX_FLYER_PHOTOS = 5
 type OnboardingFormState = Omit<IntakeSubmission, "businessCategory"> & { businessCategory: BusinessCategory | "" }
 
 function fieldBase() {
-  return "w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
+  return "w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
 }
 
 function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
@@ -329,7 +329,7 @@ export function OnboardingForm({
 
   return (
     <div>
-      <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+      <h1 className="text-2xl md:text-3xl tracking-tight">
         {isFirstCampaign ? "Let's create your first campaign" : "Create a new campaign"}
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
@@ -357,13 +357,13 @@ export function OnboardingForm({
           <div key={label} className="flex items-center gap-2 flex-1">
             <div
               className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
-                i <= step ? "bg-[var(--brand-teal-bright)] text-white" : "bg-white/[0.06] text-muted-foreground"
+                i <= step ? "bg-[var(--brand-teal-bright)] text-white" : "bg-[var(--surface-soft)] text-muted-foreground"
               }`}
             >
               {i + 1}
             </div>
             {i < STEPS.length - 1 && (
-              <div className={`h-px flex-1 ${i < step ? "bg-[var(--brand-teal-bright)]" : "bg-white/10"}`} />
+              <div className={`h-px flex-1 ${i < step ? "bg-[var(--brand-teal-bright)]" : "bg-[var(--surface-soft)]"}`} />
             )}
           </div>
         ))}
@@ -372,7 +372,7 @@ export function OnboardingForm({
         Step {step + 1} of {STEPS.length} — {STEPS[step]}
       </p>
 
-      <div className="mt-6 rounded-2xl border border-white/10 bg-card p-6 md:p-8">
+      <div className="mt-6 rounded-2xl border border-border bg-card p-6 md:p-8">
         {/* STEP 1 — Business: every field here is required by /api/intake. */}
         {step === 0 && (
           <div className="flex flex-col gap-5">
@@ -390,7 +390,7 @@ export function OnboardingForm({
                   className={`text-left rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
                     form.businessCategory === category
                       ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)]"
-                      : "border-white/12 bg-white/[0.04] text-foreground/80 hover:border-white/25"
+                      : "border-border bg-[var(--surface-soft)] text-foreground/80 hover:border-[var(--brand-slate)]"
                   }`}
                 >
                   {category}
@@ -398,7 +398,7 @@ export function OnboardingForm({
               ))}
             </div>
 
-            <div className="border-t border-white/[0.07] pt-5">
+            <div className="border-t border-border pt-5">
               <Label htmlFor="businessName">Business name</Label>
               <input id="businessName" autoComplete="organization" className={fieldBase()} value={form.businessName}
                 onChange={(e) => set("businessName", e.target.value)} placeholder="Bluegrass Roofing" />
@@ -419,7 +419,7 @@ export function OnboardingForm({
                       placeholder={i === 0 ? "Roof replacement" : "Another service"} />
                     <button type="button" onClick={() => removeService(s.id)}
                       disabled={form.services.length === 1}
-                      className="shrink-0 w-10 h-10 rounded-lg border border-white/12 text-muted-foreground hover:text-foreground hover:border-white/25 disabled:opacity-40 transition-colors"
+                      className="shrink-0 w-10 h-10 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-[var(--brand-slate)] disabled:opacity-40 transition-colors"
                       aria-label={`Remove service ${i + 1}`}>
                       −
                     </button>
@@ -475,7 +475,7 @@ export function OnboardingForm({
                         className={`rounded-lg border px-3.5 py-2.5 text-left transition-colors ${
                           active
                             ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)]"
-                            : "border-white/12 hover:border-white/25"
+                            : "border-border hover:border-[var(--brand-slate)]"
                         }`}
                       >
                         <span className="block text-sm font-medium">{f.label}</span>
@@ -496,7 +496,7 @@ export function OnboardingForm({
                       {id === "proposal" && (
                         <Link
                           href="/coloring-page"
-                          className="rounded-lg border border-white/12 px-3.5 py-2.5 text-left transition-colors hover:border-white/25"
+                          className="rounded-lg border border-border px-3.5 py-2.5 text-left transition-colors hover:border-[var(--brand-slate)]"
                         >
                           <span className="block text-sm font-medium">Coloring page</span>
                           <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
@@ -562,11 +562,11 @@ export function OnboardingForm({
               </p>
             )}
 
-            <details className="rounded-lg border border-white/10 bg-white/[0.02]">
+            <details className="rounded-lg border border-border bg-[var(--surface-soft)]">
               <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground/80 hover:text-foreground">
                 Add photos or reference material (optional)
               </summary>
-              <div className="flex flex-col gap-5 border-t border-white/[0.07] px-4 py-5">
+              <div className="flex flex-col gap-5 border-t border-border px-4 py-5">
                 <div>
                   <Label htmlFor="flyerPhotos">Your own photos (up to {MAX_FLYER_PHOTOS})</Label>
                   <input id="flyerPhotos" type="file" accept="image/*"
@@ -579,7 +579,7 @@ export function OnboardingForm({
                   {(form.flyerPhotoUrls?.length ?? 0) > 0 && (
                     <div className="mt-3 flex flex-wrap gap-3">
                       {form.flyerPhotoUrls!.map((url) => (
-                        <div key={url} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
+                        <div key={url} className="relative w-20 h-20 rounded-lg overflow-hidden border border-border">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={url} alt="Uploaded flyer photo" className="w-full h-full object-cover" />
                           <button type="button" onClick={() => removePhoto(url)}
@@ -647,7 +647,7 @@ export function OnboardingForm({
             type="button"
             onClick={() => setStep((s) => Math.max(0, s - 1))}
             disabled={step === 0}
-            className="px-5 py-2.5 rounded-lg border border-white/12 text-sm text-foreground/80 hover:bg-white/[0.05] disabled:opacity-40 transition-colors"
+            className="px-5 py-2.5 rounded-lg border border-border text-sm text-foreground/80 hover:bg-[var(--surface-sunken)] disabled:opacity-40 transition-colors"
           >
             Back
           </button>

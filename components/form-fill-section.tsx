@@ -61,7 +61,7 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
   const hasProfile = !!profile?.file || !!profile?.link
 
   return (
-    <div className="rounded-xl border border-white/10 bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium">Business Profile</p>
@@ -74,19 +74,19 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
         <div className="shrink-0 flex items-center gap-2">
           {hasProfile && !editing && (
             <button onClick={handleRemove} disabled={removing}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] disabled:opacity-60 transition-colors">
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-[var(--surface-sunken)] disabled:opacity-60 transition-colors">
               {removing ? "Removing…" : "Remove"}
             </button>
           )}
           <button onClick={() => setEditing((v) => !v)}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] transition-colors">
+            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-[var(--surface-sunken)] transition-colors">
             {editing ? "Cancel" : hasProfile ? "Update" : "Save one"}
           </button>
         </div>
       </div>
 
       {editing && (
-        <form onSubmit={handleSave} className="mt-4 flex flex-col gap-3 pt-4 border-t border-white/10">
+        <form onSubmit={handleSave} className="mt-4 flex flex-col gap-3 pt-4 border-t border-border">
           <div>
             <label htmlFor="profile-file" className="block text-xs font-medium mb-1.5">File (PDF or image) {profile?.file && "— leave blank to keep your saved one"}</label>
             <input id="profile-file" type="file" accept="application/pdf,image/*"
@@ -97,7 +97,7 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
             <label htmlFor="profile-link" className="block text-xs font-medium mb-1.5">…or a link (a Google Sheet works too)</label>
             <input id="profile-link" type="url" placeholder="https://…" value={link}
               onChange={(e) => setLink(e.target.value)}
-              className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
+              className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
           </div>
           {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
           <button type="submit" disabled={saving}
@@ -115,7 +115,7 @@ function FormFillCard({ request }: { request: FormFillRequest }) {
   const failed = request.status === "Failed"
 
   return (
-    <div className="rounded-xl border border-white/10 bg-card p-4 flex items-center justify-between gap-3">
+    <div className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="text-sm font-medium truncate">{request.title}</p>
         <div className="mt-1.5"><StatusBadge status={request.status} /></div>
@@ -197,7 +197,7 @@ export function FormFillSection() {
   return (
     <div className="mt-12">
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold">Fill a Form</h2>
+        <h2 className="text-lg">Fill a Form</h2>
         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--brand-slate-tint)] text-[var(--brand-slate)]">Pro</span>
       </div>
       <p className="mt-1.5 text-sm text-muted-foreground max-w-2xl">
@@ -208,7 +208,7 @@ export function FormFillSection() {
         <BusinessProfileCard profile={profileData?.profile ?? null} onSaved={mutateProfile} onRemoved={() => { setUseSavedProfile(false); mutateProfile() }} />
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-5 rounded-xl border border-white/10 bg-card p-5 flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="mt-5 rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
         <div>
           <label htmlFor="target-form" className="block text-sm font-medium mb-1.5">Form to fill out (PDF)</label>
           <input id="target-form" type="file" accept="application/pdf" required
@@ -236,7 +236,7 @@ export function FormFillSection() {
               <label htmlFor="info-link" className="block text-sm font-medium mb-1.5">…or a link with the information (a Google Sheet works too)</label>
               <input id="info-link" type="url" placeholder="https://…" value={infoLink}
                 onChange={(e) => setInfoLink(e.target.value)}
-                className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
+                className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
               <p className="mt-1.5 text-xs text-muted-foreground">For a Google Sheet, set sharing to &quot;Anyone with the link can view&quot; first.</p>
             </div>
           </>

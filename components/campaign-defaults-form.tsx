@@ -18,7 +18,7 @@ import { LoadingSpinner } from "./loading-spinner"
 const STYLE_OPTIONS: BrandStyle[] = ["modern", "classic", "playful", "minimal"]
 
 function fieldBase() {
-  return "w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
+  return "w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
 }
 
 function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor: string }) {
@@ -112,7 +112,7 @@ export function CampaignDefaultsForm() {
 
   return (
     <div>
-      <div className="rounded-2xl border border-white/10 bg-card p-6 md:p-8">
+      <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
         <div className="flex flex-col gap-5">
           <div>
             <Label htmlFor="years">Years in business</Label>
@@ -144,7 +144,7 @@ export function CampaignDefaultsForm() {
               onChange={(e) => set("voiceTone", e.target.value)} placeholder="e.g. friendly, professional, no-nonsense" />
           </div>
 
-          <div className="border-t border-white/[0.07] pt-5">
+          <div className="border-t border-border pt-5">
             <p className="text-sm font-medium">Contact details printed on your materials</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Your phone number is asked for on every campaign. These extras are added when you provide them.
@@ -187,7 +187,7 @@ export function CampaignDefaultsForm() {
             {saving ? "Saving…" : "Save details"}
           </button>
           <button type="button" onClick={() => router.push("/dashboard")}
-            className="rounded-lg border border-white/12 px-5 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-white/[0.05]">
+            className="rounded-lg border border-border px-5 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-[var(--surface-sunken)]">
             Back to dashboard
           </button>
           {savedAt && !justSaved && (

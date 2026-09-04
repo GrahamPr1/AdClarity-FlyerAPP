@@ -28,15 +28,15 @@ const CampaignDemo = dynamic(() => import("./campaign-demo").then((m) => m.Campa
   loading: () => (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-12" aria-hidden="true">
       <div className="flex flex-col gap-4 rounded-2xl border border-[var(--brand-teal)]/35 bg-[var(--brand-teal-tint)] p-6">
-        <div className="h-4 w-24 rounded bg-white/10" />
-        <div className="h-10 rounded-lg bg-white/[0.06]" />
-        <div className="h-4 w-20 rounded bg-white/10" />
-        <div className="h-10 rounded-lg bg-white/[0.06]" />
-        <div className="h-4 w-16 rounded bg-white/10" />
-        <div className="h-10 rounded-lg bg-white/[0.06]" />
-        <div className="mt-2 h-11 rounded-xl bg-white/[0.08]" />
+        <div className="h-4 w-24 rounded bg-[var(--surface-soft)]" />
+        <div className="h-10 rounded-lg bg-[var(--surface-soft)]" />
+        <div className="h-4 w-20 rounded bg-[var(--surface-soft)]" />
+        <div className="h-10 rounded-lg bg-[var(--surface-soft)]" />
+        <div className="h-4 w-16 rounded bg-[var(--surface-soft)]" />
+        <div className="h-10 rounded-lg bg-[var(--surface-soft)]" />
+        <div className="mt-2 h-11 rounded-xl bg-[var(--surface-soft)]" />
       </div>
-      <div className="min-h-[26rem] rounded-2xl border border-white/10 bg-card" />
+      <div className="min-h-[26rem] rounded-2xl border border-border bg-card" />
     </div>
   ),
 })

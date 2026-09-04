@@ -15,7 +15,7 @@ export default function ContactPage() {
           OneFlyer
         </Link>
 
-        <h1 className="mt-8 text-2xl font-semibold tracking-tight md:text-3xl">Contact us</h1>
+        <h1 className="mt-8 text-2xl tracking-tight md:text-3xl">Contact us</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           A real person reads these. <strong className="text-foreground">We reply within one business day</strong> —
           usually sooner. You can also email{" "}
@@ -29,7 +29,7 @@ export default function ContactPage() {
           <ContactForm />
         </div>
 
-        <div className="mt-12 border-t border-white/10 pt-6 text-sm text-muted-foreground">
+        <div className="mt-12 border-t border-border pt-6 text-sm text-muted-foreground">
           <p>
             Locked out of your account? Use{" "}
             <Link href="/login" className="text-[var(--brand-teal-bright)] hover:underline">

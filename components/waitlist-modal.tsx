@@ -68,7 +68,7 @@ export function WaitlistModal({
   }
 
   const field =
-    "w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
+    "w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
 
   return (
     <div
@@ -84,11 +84,11 @@ export function WaitlistModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Join ${planLabel} Early Access`}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/12 bg-card p-6 outline-none"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-6 outline-none"
       >
         {done ? (
           <>
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-lg">
               {done.alreadyExists ? "You're already on the list." : "You're on the list."}
             </h2>
             {signedInEmail ? (
@@ -117,7 +117,7 @@ export function WaitlistModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-xl border border-white/20 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-white/5"
+                className="rounded-xl border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-[var(--surface-sunken)]"
               >
                 Done
               </button>
@@ -125,7 +125,7 @@ export function WaitlistModal({
           </>
         ) : (
           <form onSubmit={handleSubmit}>
-            <h2 className="text-lg font-semibold">Join {planLabel} Early Access</h2>
+            <h2 className="text-lg">Join {planLabel} Early Access</h2>
             <p className="mt-1.5 text-sm text-muted-foreground">
               Billing isn&apos;t switched on yet. Leave your email and we&apos;ll send a checkout
               link the day it is — nothing is charged now.
@@ -139,7 +139,7 @@ export function WaitlistModal({
 
             <div className="mt-4">
               <span className="block text-sm font-medium mb-1.5">Plan</span>
-              <p className="rounded-lg border border-white/12 bg-white/[0.03] px-3.5 py-2.5 text-sm">{planLabel}</p>
+              <p className="rounded-lg border border-border bg-[var(--surface-soft)] px-3.5 py-2.5 text-sm">{planLabel}</p>
             </div>
 
             <fieldset className="mt-4">
@@ -149,7 +149,7 @@ export function WaitlistModal({
                   <label
                     key={opt}
                     className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3.5 py-2.5 transition-colors ${
-                      interval === opt ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)]" : "border-white/12 hover:border-white/25"
+                      interval === opt ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)]" : "border-border hover:border-[var(--brand-slate)]"
                     }`}
                   >
                     <input type="radio" name="billing" value={opt} checked={interval === opt}
@@ -175,7 +175,7 @@ export function WaitlistModal({
                 {submitting ? "Joining…" : "Join Early Access"}
               </button>
               <button type="button" onClick={onClose}
-                className="rounded-xl border border-white/20 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-white/5">
+                className="rounded-xl border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-[var(--surface-sunken)]">
                 Cancel
               </button>
             </div>

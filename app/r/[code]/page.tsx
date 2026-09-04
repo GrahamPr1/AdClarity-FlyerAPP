@@ -25,9 +25,9 @@ export default async function RedeemPage({ params }: { params: Promise<{ code: s
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-16">
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-card p-7 text-center">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-7 text-center">
         <p className="text-xs uppercase tracking-widest text-muted-foreground/70">{record.businessName}</p>
-        {record.headline && <h1 className="mt-2 text-2xl font-semibold tracking-tight">{record.headline}</h1>}
+        {record.headline && <h1 className="mt-2 text-2xl tracking-tight">{record.headline}</h1>}
         {record.offer && <p className="mt-3 text-[var(--brand-teal-bright)] font-medium">{record.offer}</p>}
 
         <div className="mt-6 flex flex-col gap-3">

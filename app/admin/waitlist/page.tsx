@@ -10,7 +10,7 @@ type Summary = { total: number; basic: number; pro: number; monthly: number; ann
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-card p-4">
+    <div className="rounded-xl border border-border bg-card p-4">
       <p className="text-xs uppercase tracking-widest text-muted-foreground/70">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold">{value}</p>
     </div>
@@ -30,13 +30,13 @@ export default function WaitlistAdminPage() {
         ← Admin
       </Link>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Early Access waitlist</h1>
+        <h1 className="text-2xl">Early Access waitlist</h1>
         {/* A plain link, not fetch+blob: the browser's own download handles
             the Content-Disposition the API already sets, and it still carries
             the admin session cookie. */}
         <a
           href="/api/admin/waitlist?format=csv"
-          className="rounded-lg border border-white/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-white/5"
+          className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-sunken)]"
         >
           Export CSV
         </a>
@@ -61,13 +61,13 @@ export default function WaitlistAdminPage() {
           </div>
 
           {data.entries.length === 0 ? (
-            <p className="mt-10 rounded-xl border border-white/10 bg-card p-6 text-sm text-muted-foreground">
+            <p className="mt-10 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
               Nobody has joined yet.
             </p>
           ) : (
-            <div className="mt-8 overflow-x-auto rounded-xl border border-white/10">
+            <div className="mt-8 overflow-x-auto rounded-xl border border-border">
               <table className="w-full min-w-[40rem] text-sm">
-                <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-widest text-muted-foreground/70">
+                <thead className="bg-[var(--surface-soft)] text-left text-xs uppercase tracking-widest text-muted-foreground/70">
                   <tr>
                     <th className="px-4 py-3 font-medium">Email</th>
                     <th className="px-4 py-3 font-medium">Plan</th>
@@ -78,7 +78,7 @@ export default function WaitlistAdminPage() {
                 </thead>
                 <tbody>
                   {data.entries.map((e) => (
-                    <tr key={e.id} className="border-t border-white/[0.07]">
+                    <tr key={e.id} className="border-t border-border">
                       <td className="px-4 py-3 break-all">{e.email}</td>
                       <td className="px-4 py-3 capitalize">{e.desiredPlan}</td>
                       <td className="px-4 py-3 capitalize">{e.billingInterval}</td>

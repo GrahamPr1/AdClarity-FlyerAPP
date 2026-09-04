@@ -4,66 +4,91 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* OneFlyer brand — grey / white / light blue / black. Replaces the
-     earlier warm espresso/terracotta palette per explicit direction: not
-     brown or orange. Same structure/variable names as before, new hues. */
-  --background: #12141a;          /* near-black, cool grey-blue base */
-  --foreground: #eef1f5;          /* cool near-white text */
-  --card: #1b1e26;                /* dark grey-blue panel (brand primary) */
-  --card-foreground: #eef1f5;
-  --popover: #1b1e26;
-  --popover-foreground: #eef1f5;
-  --primary: #3a7ca8;             /* brand steel blue */
+  /* ---------------------------------------------------------------------
+     OneFlyer brand — LIGHT editorial palette.
+
+     Adopts the layout language of the reference template (warm off-white
+     paper, serif display headings, generous hairline rules) while keeping
+     OneFlyer's own steel blue rather than the template's orange, so the
+     logo, the flyer previews and the marketing art stay coherent.
+
+     The token NAMES are deliberately unchanged from the previous dark
+     palette: --brand-teal-bright alone is referenced 192 times across the
+     app and --brand-teal 91 more. Remapping the VALUES here re-themes all
+     of those call sites at once, rather than a 300-site find-and-replace
+     that would inevitably miss some and leave invisible text behind.
+
+     Contrast was checked, not eyeballed. Against the #fbfaf7 paper:
+     --brand-teal-bright 5.45:1, --brand-slate 5.47:1, --foreground 16.4:1.
+     White text on a --brand-teal-bright button is 5.64:1. All clear AA;
+     the body/ink pair clears AAA.
+     --------------------------------------------------------------------- */
+  --background: #fbfaf7;          /* warm off-white "paper" */
+  --foreground: #16181d;          /* near-black ink */
+  --card: #ffffff;                /* raised white panel */
+  --card-foreground: #16181d;
+  --popover: #ffffff;
+  --popover-foreground: #16181d;
+  --primary: #2f6d95;             /* brand steel blue */
   --primary-foreground: #ffffff;
-  --secondary: #232730;           /* lighter grey-blue */
-  --secondary-foreground: #eef1f5;
-  --muted: #232730;
-  --muted-foreground: #97a1ad;    /* cool grey */
-  --accent: #3a7ca8;              /* steel blue accent */
+  --secondary: #f4f1e9;           /* warm sand panel */
+  --secondary-foreground: #16181d;
+  --muted: #f4f1e9;
+  --muted-foreground: #5f6875;    /* cool grey, AA on paper */
+  --accent: #2f6d95;
   --accent-foreground: #ffffff;
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: #c0392f;
   --destructive-foreground: #ffffff;
-  --border: rgba(255,255,255,0.10);
-  --input: rgba(255,255,255,0.12);
-  --ring: #5eb8f0;
-  --chart-1: #3a7ca8;
-  --chart-2: #5eb8f0;
-  --chart-3: #8ecbf5;
-  --chart-4: #9aa5b1;
-  --chart-5: #6b7684;
+  --border: #e7e3db;              /* warm hairline */
+  --input: #ffffff;
+  --ring: #2f6d95;
+  --chart-1: #2f6d95;
+  --chart-2: #5b95b8;
+  --chart-3: #7fb2d4;
+  --chart-4: #5f6875;
+  --chart-5: #a8b0ba;
   --radius: 0.75rem;
 
-  /* Brand tokens */
-  --brand-navy: #1b1e26;
-  --brand-navy-deep: #12141a;
-  --brand-teal: #3a7ca8;          /* steel blue */
-  --brand-teal-bright: #5eb8f0;   /* light blue — pops on dark bg for CTAs */
-  --brand-teal-tint: rgba(94,184,240,0.14); /* soft light-blue tint sections */
-  --brand-slate: #9aa5b1;         /* neutral grey secondary accent — value/highlights */
-  --brand-slate-tint: rgba(154,165,177,0.12);
-  --brand-sky: #8ecbf5;           /* very light sky blue, tertiary variety accent */
-  --brand-ice: #d3ecfc;           /* palest icy blue — lightest step in the same family, for a fresher/more inviting accent */
-  --brand-ice-tint: rgba(211,236,252,0.16);
-  --accent-cta: #5eb8f0;
-  --accent-cta-hover: #3a7ca8;
+  /* Brand tokens — same names as the dark palette, light-appropriate values */
+  --brand-navy: #16181d;
+  --brand-navy-deep: #0f1115;
+  --brand-teal: #245a7c;          /* deeper blue — hover / emphasis */
+  --brand-teal-bright: #2f6d95;   /* primary action blue */
+  --brand-teal-tint: rgba(47, 109, 149, 0.10);  /* soft blue wash sections */
+  --brand-slate: #5f6875;         /* neutral grey secondary */
+  --brand-slate-tint: rgba(95, 104, 117, 0.09);
+  --brand-sky: #7fb2d4;           /* decorative mid blue */
+  --brand-ice: #eaf2f8;           /* palest blue surface */
+  --brand-ice-tint: rgba(47, 109, 149, 0.06);
+  --accent-cta: #2f6d95;
+  --accent-cta-hover: #245a7c;
 
-  /* Light / white surfaces — used for contrast bands & "paper" mocks */
-  --surface-white: #ffffff;       /* pure white band / card */
-  --surface-soft: #f3f5f7;        /* light grey-white panel */
-  --on-white: #171a20;            /* near-black text on white */
-  --on-white-muted: #5c6570;      /* cool grey text on white */
-  --white-glass: rgba(255,255,255,0.06); /* subtle white glass on dark */
-  --white-glass-strong: rgba(255,255,255,0.10);
-  --white-border: rgba(255,255,255,0.14);
+  /* Surfaces. On the old dark theme these were the "paper" contrast band;
+     on light they invert — the page IS paper, so these now describe the
+     raised and recessed steps away from it. */
+  --surface-white: #ffffff;       /* raised card */
+  --surface-soft: #f4f1e9;        /* recessed warm sand */
+  --surface-raised: #ffffff;
+  --surface-sunken: #f2eee5;
+  --on-white: #16181d;
+  --on-white-muted: #5f6875;
+  --white-glass: rgba(255, 255, 255, 0.55);
+  --white-glass-strong: rgba(255, 255, 255, 0.75);
+  --white-border: rgba(22, 24, 29, 0.10);
 
-  --sidebar: #1b1e26;
-  --sidebar-foreground: #eef1f5;
-  --sidebar-primary: #3a7ca8;
+  /* Light designs need real shadows where the dark one used borders. */
+  --shadow-soft: 0 1px 2px rgba(22, 24, 29, 0.04), 0 8px 24px -14px rgba(22, 24, 29, 0.12);
+  --shadow-lift: 0 2px 4px rgba(22, 24, 29, 0.05), 0 20px 44px -20px rgba(22, 24, 29, 0.20);
+  --shadow-pop: 0 4px 8px rgba(22, 24, 29, 0.06), 0 34px 70px -28px rgba(22, 24, 29, 0.28);
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #16181d;
+  --sidebar-primary: #2f6d95;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #232730;
-  --sidebar-accent-foreground: #eef1f5;
-  --sidebar-border: rgba(255,255,255,0.10);
-  --sidebar-ring: #5eb8f0;
+  --sidebar-accent: #f4f1e9;
+  --sidebar-accent-foreground: #16181d;
+  --sidebar-border: #e7e3db;
+  --sidebar-ring: #2f6d95;
 }
 
 .dark {
@@ -102,10 +127,10 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
-  --font-pixel: var(--font-inter), system-ui, sans-serif;
-  --font-heading: var(--font-baloo), var(--font-inter), system-ui, sans-serif;
+  --font-pixel: var(--font-dm-sans), system-ui, sans-serif;
+  --font-heading: var(--font-dm-serif), Georgia, 'Times New Roman', serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -151,11 +176,152 @@
   body {
     @apply bg-background text-foreground;
   }
-  /* Warm, rounded display font on headings only — body copy stays on Inter
-     for readability. Meant to soften the "enterprise SaaS" feel. */
+  /* Serif display on headings, sans for body — the editorial contrast that
+     carries the reference template's look. Weight comes down to 400 because
+     DM Serif Display only ships one weight and faux-bolding it looks muddy. */
   h1, h2, h3 {
     font-family: var(--font-heading);
+    font-weight: 400;
+    letter-spacing: -0.015em;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Editorial primitives — the reusable pieces of the template's visual
+   language, defined once here so sections stay consistent and short.
+   --------------------------------------------------------------------------- */
+@layer utilities {
+  /* Small icon + label that opens most sections ("What we do", "About us"). */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+
+  /* Pill buttons — the template's signature control shape. */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    min-height: 44px;             /* WCAG target size, kept from the perf pass */
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .pill-solid {
+    background: var(--brand-teal-bright);
+    color: #fff;
+    box-shadow: var(--shadow-soft);
+  }
+  .pill-solid:hover {
+    background: var(--brand-teal);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lift);
+  }
+  .pill-outline {
+    border: 1px solid var(--foreground);
+    color: var(--foreground);
+  }
+  .pill-outline:hover {
+    background: var(--brand-teal-bright);
+    border-color: var(--brand-teal-bright);
+    color: #fff;
+  }
+
+  /* Liquid-glass surface, from the login reference. Used on the auth card and
+     the floating header. backdrop-filter is progressively enhanced — the
+     rgba background alone is already legible if a browser drops the blur. */
+  .glass-effect {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow: 0 8px 32px rgba(22, 24, 29, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  }
+  .glass-card {
+    background: rgba(255, 255, 255, 0.42);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow:
+      0 32px 80px rgba(22, 24, 29, 0.16),
+      inset 0 2px 0 rgba(255, 255, 255, 0.7),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+  }
+
+  .hover-lift {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+
+  .shadow-soft { box-shadow: var(--shadow-soft); }
+  .shadow-lift { box-shadow: var(--shadow-lift); }
+  .shadow-pop  { box-shadow: var(--shadow-pop); }
+}
+
+/* ---------------------------------------------------------------------------
+   3D flyer — the interactive hero piece and the dashboard cards.
+
+   Pure CSS transforms driven by a couple of custom properties, so the same
+   markup works for the big hero showpiece and for a small dashboard tile.
+   Kept out of JS animation loops: the component only writes --rx/--ry on
+   pointer move and the compositor does the rest.
+   --------------------------------------------------------------------------- */
+.flyer3d-scene {
+  perspective: 1400px;
+  perspective-origin: 50% 40%;
+}
+.flyer3d-card {
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(0);
+  transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+/* While the pointer is down/moving we want it to track the cursor with no
+   easing lag; the class is toggled off on leave so it glides back. */
+.flyer3d-card.is-tracking {
+  transition: transform 80ms linear;
+}
+/* Specular sweep that follows the tilt — this is what actually reads as
+   "glossy paper" rather than a flat image on a skewed div. */
+.flyer3d-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    var(--glare-angle, 120deg),
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, var(--glare-strength, 0.35)) 50%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  mix-blend-mode: overlay;
+  transition: opacity 300ms ease;
+}
+/* Physical page thickness — a stack of offset faces behind the front one. */
+.flyer3d-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #d8d2c6, #efeae0);
+  transform: translateZ(calc(var(--depth, 1px) * -1));
+}
+/* Idle drift, so the hero reads as interactive before anyone touches it. */
+@keyframes flyer3d-idle {
+  0%, 100% { transform: rotateX(2.5deg) rotateY(-7deg) translateY(0); }
+  50%      { transform: rotateX(-1.5deg) rotateY(6deg) translateY(-10px); }
+}
+.flyer3d-idle {
+  animation: flyer3d-idle 9s ease-in-out infinite;
 }
 
 /* Glitch Animation */
@@ -260,8 +426,8 @@ html {
    cannot delay the hero (which paints normally underneath). It's
    position:fixed and pointer-events:none throughout, so it causes no layout
    shift and never intercepts a click on the CTA behind it.
-   The previous version was a ~2.8s JS-sequenced wipe that held the headline
-   back; this one is a quick brand transition instead.
+   Recoloured for the light theme — a near-black veil over a paper-white page
+   is a flash of exactly the thing the redesign removed.
    Skipped entirely when already seen this session (see the pre-paint script
    in app/page.tsx, which sets data-intro-seen before first paint so there's
    no flash) and when the visitor prefers reduced motion.
@@ -274,7 +440,7 @@ html {
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  background: linear-gradient(160deg, #1f232c 0%, #12141a 55%, #090a0d 100%);
+  background: linear-gradient(160deg, #ffffff 0%, #fbfaf7 55%, #f1ece2 100%);
   animation: intro-veil-out 900ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
 }
 .intro-veil-glow {
@@ -285,18 +451,18 @@ html {
   max-height: 40rem;
   border-radius: 9999px;
   filter: blur(100px);
-  background: radial-gradient(circle, rgba(94, 184, 240, 0.3), transparent 65%);
+  background: radial-gradient(circle, rgba(47, 109, 149, 0.22), transparent 65%);
 }
 .intro-mark {
   position: relative;
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-family: var(--font-heading), var(--font-inter), system-ui, sans-serif;
-  font-weight: 700;
+  font-family: var(--font-heading), Georgia, serif;
+  font-weight: 400;
   font-size: clamp(1.75rem, 7vw, 3rem);
   letter-spacing: -0.02em;
-  color: #eef1f5;
+  color: #16181d;
   animation: intro-mark-in 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .intro-mark-dot {
@@ -304,7 +470,7 @@ html {
   height: 0.42em;
   border-radius: 9999px;
   background: var(--brand-teal-bright);
-  box-shadow: 0 0 1.4em rgba(94, 184, 240, 0.75);
+  box-shadow: 0 0 1.4em rgba(47, 109, 149, 0.55);
 }
 
 @keyframes intro-veil-out {
@@ -378,5 +544,14 @@ html {
      what someone enabling this setting is asking not to see. */
   .intro-veil {
     display: none !important;
+  }
+  /* The 3D flyer keeps its static tilt (it's part of the composition) but
+     stops drifting, and stops tracking the pointer. */
+  .flyer3d-idle {
+    animation: none !important;
+    transform: rotateX(2deg) rotateY(-6deg);
+  }
+  .flyer3d-card {
+    transition: none !important;
   }
 }

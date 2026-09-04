@@ -51,14 +51,14 @@ function ResetPasswordForm() {
         <label htmlFor="password" className="block text-sm font-medium mb-1.5">New password</label>
         <input id="password" type="password" required autoFocus minLength={8} value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+          className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
           placeholder="At least 8 characters" />
       </div>
       <div>
         <label htmlFor="confirm" className="block text-sm font-medium mb-1.5">Confirm new password</label>
         <input id="confirm" type="password" required minLength={8} value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
+          className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
       </div>
       {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
       <button type="submit" disabled={working}
@@ -77,8 +77,8 @@ export default function ResetPasswordPage() {
           <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-teal-bright)]" />
           OneFlyer
         </div>
-        <div className="rounded-2xl border border-white/10 bg-card p-7">
-          <h1 className="text-xl font-semibold">Set a new password</h1>
+        <div className="rounded-2xl border border-border bg-card p-7">
+          <h1 className="text-xl">Set a new password</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">Choose a password you&apos;ll use to log in from now on.</p>
           <Suspense fallback={null}>
             <ResetPasswordForm />

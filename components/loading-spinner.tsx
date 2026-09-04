@@ -5,7 +5,7 @@
 export function LoadingSpinner({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-8 h-8 rounded-full border-2 border-white/15 border-t-[var(--brand-teal-bright)] animate-spin" />
+      <div className="w-8 h-8 rounded-full border-2 border-border border-t-[var(--brand-teal-bright)] animate-spin" />
       <p className="mt-4 text-sm text-muted-foreground">{message}</p>
     </div>
   )

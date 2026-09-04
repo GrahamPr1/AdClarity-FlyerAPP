@@ -57,8 +57,8 @@ export function CreateFlyerFlow({ email }: { email: string }) {
     <button
       type="button"
       onClick={() => setPath("guided")}
-      className={`text-left rounded-2xl border bg-card p-6 hover:bg-white/[0.03] transition-colors ${
-        quickIsPrimary ? "border-white/10" : "border-2 border-[var(--brand-teal-bright)]"
+      className={`text-left rounded-2xl border bg-card p-6 hover:bg-[var(--surface-sunken)] transition-colors ${
+        quickIsPrimary ? "border-border" : "border-2 border-[var(--brand-teal-bright)]"
       }`}
     >
       <p className="text-lg font-semibold">Guided Setup</p>
@@ -73,8 +73,8 @@ export function CreateFlyerFlow({ email }: { email: string }) {
       type="button"
       onClick={() => isPaidPlan && setPath("quick")}
       disabled={!isPaidPlan}
-      className={`text-left rounded-2xl border bg-card p-6 hover:bg-white/[0.03] transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-card ${
-        quickIsPrimary ? "border-2 border-[var(--brand-teal-bright)]" : "border-white/10"
+      className={`text-left rounded-2xl border bg-card p-6 hover:bg-[var(--surface-sunken)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-card ${
+        quickIsPrimary ? "border-2 border-[var(--brand-teal-bright)]" : "border-border"
       }`}
     >
       <p className="text-lg font-semibold">Quick Prompt</p>
@@ -99,12 +99,12 @@ export function CreateFlyerFlow({ email }: { email: string }) {
           first campaign. */}
       {isReturning ? (
         <>
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Create a New Campaign</h1>
+          <h1 className="text-2xl md:text-3xl tracking-tight">Create a New Campaign</h1>
           <p className="mt-2 text-sm text-muted-foreground">Choose how you want to get started.</p>
         </>
       ) : (
         <>
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Let&apos;s create your first campaign.</h1>
+          <h1 className="text-2xl md:text-3xl tracking-tight">Let&apos;s create your first campaign.</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Start with your business and what you want to promote — we&apos;ll turn it into your
             flyer and the matching versions to share.

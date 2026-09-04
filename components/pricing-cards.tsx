@@ -55,8 +55,8 @@ function PlanCard({
       <div
         className={`relative flex flex-col w-full rounded-2xl p-8 border transition-colors ${
           highlighted
-            ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)] shadow-2xl shadow-[color:var(--brand-teal)]/25 ring-1 ring-white/15"
-            : "border-white/10 bg-card hover:border-white/20"
+            ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)] shadow-2xl shadow-[color:var(--brand-teal)]/25 ring-1 ring-border"
+            : "border-border bg-card hover:border-[var(--brand-slate)]"
         }`}
         style={
           highlighted
@@ -69,14 +69,14 @@ function PlanCard({
             className={`absolute -top-3 left-8 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
               highlighted
                 ? "bg-[var(--brand-teal-bright)] text-white shadow-lg shadow-[color:var(--brand-teal)]/40"
-                : "bg-[var(--brand-slate)] text-[#12141a]"
+                : "bg-[var(--brand-slate)] text-white"
             }`}
           >
             {plan.badge}
           </span>
         )}
 
-        <h3 className="text-xl font-semibold tracking-tight text-white">{plan.name}</h3>
+        <h3 className="text-xl tracking-tight text-foreground">{plan.name}</h3>
         <p className="mt-1.5 text-sm text-[var(--brand-teal-bright)] font-medium leading-snug">{plan.tagline}</p>
         <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{plan.description}</p>
 
@@ -100,7 +100,7 @@ function PlanCard({
         {/* Sits under the price rather than in the header, so it can't overlap
             the "Most Popular" badge on the Pro card. */}
         {isPaid && (
-          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-[var(--surface-soft)] px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
             Billing coming soon
           </span>
@@ -120,10 +120,10 @@ function PlanCard({
         {isPaid ? (
           <button
             onClick={() => onJoinWaitlist(plan.id as "basic" | "pro")}
-            className={`mt-6 w-full py-3.5 rounded-xl text-sm font-semibold transition-colors ${
+            className={`mt-6 w-full py-3.5 rounded-full text-sm font-medium transition-colors ${
               highlighted
                 ? "bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
-                : "bg-white/[0.06] text-foreground hover:bg-white/[0.12] border border-white/10"
+                : "border border-foreground/30 text-foreground hover:bg-[var(--brand-teal-bright)] hover:border-[var(--brand-teal-bright)] hover:text-white"
             }`}
           >
             Join {plan.name} Early Access
@@ -131,10 +131,10 @@ function PlanCard({
         ) : plan.ctaHref ? (
           <a
             href={plan.ctaHref}
-            className={`mt-6 w-full py-3.5 rounded-xl text-sm font-semibold text-center transition-colors ${
+            className={`mt-6 w-full py-3.5 rounded-full text-sm font-medium text-center transition-colors ${
               highlighted
                 ? "bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
-                : "bg-white/[0.06] text-foreground hover:bg-white/[0.12] border border-white/10"
+                : "border border-foreground/30 text-foreground hover:bg-[var(--brand-teal-bright)] hover:border-[var(--brand-teal-bright)] hover:text-white"
             }`}
           >
             {plan.ctaLabel}
@@ -143,10 +143,10 @@ function PlanCard({
           <button
             onClick={() => onSubscribe(plan.id)}
             disabled={isLoading}
-            className={`mt-6 w-full py-3.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 ${
+            className={`mt-6 w-full py-3.5 rounded-full text-sm font-medium transition-colors disabled:opacity-60 ${
               highlighted
                 ? "bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
-                : "bg-white/[0.06] text-foreground hover:bg-white/[0.12] border border-white/10"
+                : "border border-foreground/30 text-foreground hover:bg-[var(--brand-teal-bright)] hover:border-[var(--brand-teal-bright)] hover:text-white"
             }`}
           >
             {isLoading ? "Redirecting…" : plan.ctaLabel}
@@ -162,7 +162,7 @@ function PlanCard({
           <span className="text-xs text-foreground/80 leading-snug">{plan.note}</span>
         </div>
 
-        <div className="mt-6 pt-6 border-t border-white/10 flex flex-col gap-3">
+        <div className="mt-6 pt-6 border-t border-border flex flex-col gap-3">
           {plan.features.map((f) => (
             <div key={f} className="flex items-start gap-2.5 text-sm text-foreground/90">
               <CheckIcon />
@@ -172,7 +172,7 @@ function PlanCard({
         </div>
 
         {/* Outcome line */}
-        <div className="mt-6 pt-5 border-t border-white/10 flex items-start gap-2.5">
+        <div className="mt-6 pt-5 border-t border-border flex items-start gap-2.5">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-teal-bright)" strokeWidth="2" className="mt-0.5 shrink-0" aria-hidden="true">
             <path d="M3 17l6-6 4 4 8-8" />
             <path d="M21 7v5h-5" />
@@ -229,7 +229,7 @@ export function PricingCards() {
         />
       )}
       <div className="flex justify-center mb-8">
-        <div className="inline-flex items-center rounded-full border border-white/10 bg-card p-1">
+        <div className="inline-flex items-center rounded-full border border-border bg-card p-1">
           {(["monthly", "annual"] as const).map((option) => (
             <button
               key={option}
@@ -261,7 +261,7 @@ export function PricingCards() {
 
       {/* How the tiers relate */}
       <Reveal delay={160}>
-        <div className="mt-10 max-w-3xl mx-auto rounded-2xl border border-white/10 bg-card p-6 md:p-7 flex items-start gap-4">
+        <div className="mt-10 max-w-3xl mx-auto rounded-2xl border border-border bg-card p-6 md:p-7 flex items-start gap-4">
           <div className="w-10 h-10 shrink-0 rounded-xl bg-[var(--brand-teal-tint)] flex items-center justify-center text-[var(--brand-teal-bright)]">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />

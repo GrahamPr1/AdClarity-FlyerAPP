@@ -56,7 +56,7 @@ export function CampaignDemo() {
   }
 
   const field =
-    "w-full rounded-lg border border-white/12 bg-white/[0.04] px-3.5 py-2.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground/50 focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] focus:outline-none"
+    "w-full rounded-lg border border-border bg-[var(--surface-soft)] px-3.5 py-2.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground/50 focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] focus:outline-none"
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-12">
@@ -157,7 +157,7 @@ export function CampaignDemo() {
               always visible (`sm:contents` drops this wrapper from the grid
               so the children remain direct grid items). */}
           <details className="group sm:contents" open={secondaryOpen} onToggle={(e) => setSecondaryOpen((e.currentTarget as HTMLDetailsElement).open)}>
-            <summary className="mx-auto mt-1 w-full max-w-[17rem] cursor-pointer list-none rounded-lg border border-white/12 bg-white/[0.03] px-4 py-2.5 text-center text-sm font-medium text-foreground/80 sm:hidden">
+            <summary className="mx-auto mt-1 w-full max-w-[17rem] cursor-pointer list-none rounded-lg border border-border bg-[var(--surface-soft)] px-4 py-2.5 text-center text-sm font-medium text-foreground/80 sm:hidden">
               {secondaryOpen ? "Hide the other formats" : "See the Instagram, text & Nextdoor versions"}
             </summary>
 

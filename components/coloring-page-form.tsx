@@ -59,7 +59,7 @@ export function ColoringPageForm() {
   }
 
   const field =
-    "w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
+    "w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -93,7 +93,7 @@ export function ColoringPageForm() {
                 onClick={() => setAudience(a.id)}
                 aria-pressed={active}
                 className={`rounded-lg border px-3.5 py-2.5 text-left transition-colors ${
-                  active ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)]" : "border-white/12 hover:border-white/25"
+                  active ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)]" : "border-border hover:border-[var(--brand-slate)]"
                 }`}
               >
                 <span className="block text-sm font-medium">{a.label}</span>

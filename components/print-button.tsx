@@ -101,7 +101,7 @@ export function PrintButton({
         disabled={preparing}
         className={
           className ??
-          "text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] disabled:opacity-60 transition-colors"
+          "text-xs font-medium px-4 py-1.5 rounded-full border border-border hover:bg-[var(--surface-sunken)] disabled:opacity-60 transition-colors"
         }
       >
         {preparing ? "Preparing…" : "Print"}

@@ -15,7 +15,7 @@ type SortKey = "businessName" | "plan" | "businessCategory" | "createdAt" | "fly
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-xs uppercase tracking-widest text-muted-foreground/70">{label}</p>
       <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
@@ -25,7 +25,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 function BreakdownList({ title, counts, labels }: { title: string; counts: Record<string, number>; labels?: Record<string, string> }) {
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
   return (
-    <div className="rounded-xl border border-white/10 bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-xs uppercase tracking-widest text-muted-foreground/70">{title}</p>
       <div className="mt-3 flex flex-col gap-2">
         {Object.entries(counts).map(([key, count]) => (
@@ -103,7 +103,7 @@ export default function AdminUsersPage() {
   return (
     <div className="px-6 md:px-10 lg:px-16 py-10 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Users</h1>
+        <h1 className="text-2xl md:text-3xl tracking-tight">Users</h1>
         <Link href="/admin" className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Admin home</Link>
       </div>
 
@@ -117,7 +117,7 @@ export default function AdminUsersPage() {
             <StatCard label="New signups this month" value={data.newSignupsThisMonth} />
           </div>
 
-          <div className="mt-6 rounded-xl border border-white/10 bg-card p-5">
+          <div className="mt-6 rounded-xl border border-border bg-card p-5">
             <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Signups — last 30 days</p>
             <div className="mt-4 h-56">
               <ResponsiveContainer width="100%" height="100%">
@@ -142,19 +142,19 @@ export default function AdminUsersPage() {
           </div>
 
           <div className="mt-8 flex items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold">All users</h2>
+            <h2 className="text-lg">All users</h2>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name or email…"
-              className="w-64 rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
+              className="w-64 rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
             />
           </div>
 
-          <div className="mt-4 overflow-x-auto rounded-xl border border-white/10">
+          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-muted-foreground/70">
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground/70">
                   <th className="px-4 py-3"><SortHeader label="Name / Email" sortField="businessName" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} /></th>
                   <th className="px-4 py-3"><SortHeader label="Plan" sortField="plan" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} /></th>
                   <th className="px-4 py-3"><SortHeader label="Category" sortField="businessCategory" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} /></th>
@@ -165,7 +165,7 @@ export default function AdminUsersPage() {
               </thead>
               <tbody>
                 {filteredSorted.map((u) => (
-                  <tr key={u.email} className="border-b border-white/5 last:border-0 hover:bg-white/[0.03] transition-colors">
+                  <tr key={u.email} className="border-b border-border last:border-0 hover:bg-[var(--surface-sunken)] transition-colors">
                     <td className="px-4 py-3">
                       <Link href={`/admin/users/${encodeURIComponent(u.email)}`} className="hover:text-[var(--brand-teal-bright)] transition-colors">
                         <div className="font-medium">{u.businessName ?? "—"}</div>

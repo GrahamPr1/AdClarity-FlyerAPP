@@ -31,7 +31,7 @@ export default async function ProfilePage() {
           <span className="inline-block h-2 w-2 rounded-full bg-[var(--brand-teal-bright)]" />
           OneFlyer
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Your brand details</h1>
+        <h1 className="text-2xl tracking-tight md:text-3xl">Your brand details</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           All optional — your campaigns work without any of it. Fill in what you know and
           every future campaign will use it automatically, so you never re-type it.

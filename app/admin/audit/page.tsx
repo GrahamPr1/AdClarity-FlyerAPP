@@ -23,7 +23,7 @@ function StatCard({ label, value, tone }: { label: string; value: string | numbe
   const toneClass =
     tone === "bad" ? "text-red-300" : tone === "warn" ? "text-amber-300" : tone === "good" ? "text-emerald-300" : ""
   return (
-    <div className="rounded-xl border border-white/10 bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-xs uppercase tracking-widest text-muted-foreground/70">{label}</p>
       <p className={`mt-2 text-2xl font-semibold ${toneClass}`}>{value}</p>
     </div>
@@ -41,7 +41,7 @@ function Row({
 }) {
   const style = VERDICT_STYLE[audit.verdict]
   return (
-    <div className="rounded-xl border border-white/10 bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <input
@@ -143,7 +143,7 @@ export default function AuditPage() {
         ← Admin
       </Link>
 
-      <h1 className="mt-4 text-2xl font-semibold">Test &amp; preview data audit</h1>
+      <h1 className="mt-4 text-2xl">Test &amp; preview data audit</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Scans every account in the database this deployment is connected to and flags anything that
         looks like it came from testing rather than a real signup. These are heuristics, and nothing
@@ -155,7 +155,7 @@ export default function AuditPage() {
 
       {data && (
         <>
-          <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm">
+          <div className="mt-6 rounded-xl border border-border bg-[var(--surface-soft)] p-4 text-sm">
             <span className="text-muted-foreground">Connected to the </span>
             <span className="font-medium">{data.databaseMarker ?? "unmarked"}</span>
             <span className="text-muted-foreground"> database, running as </span>
@@ -197,7 +197,7 @@ export default function AuditPage() {
             </div>
           )}
 
-          <h2 className="mt-10 text-lg font-semibold">
+          <h2 className="mt-10 text-lg">
             Flagged {data.flagged.length > 0 && <span className="text-muted-foreground">({data.flagged.length})</span>}
           </h2>
 
@@ -232,7 +232,7 @@ export default function AuditPage() {
                   type="button"
                   disabled={busy}
                   onClick={async () => setPreview(await call(true))}
-                  className="mt-4 rounded-lg border border-white/20 px-4 py-2 text-sm font-medium hover:bg-white/5 disabled:opacity-50 transition-colors"
+                  className="mt-4 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-[var(--surface-sunken)] disabled:opacity-50 transition-colors"
                 >
                   {busy ? "Checking…" : "Preview what would be deleted"}
                 </button>

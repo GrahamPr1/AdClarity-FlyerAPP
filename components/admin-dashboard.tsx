@@ -26,11 +26,11 @@ function categoryCounts(clients: Deliverables[]): Record<BusinessCategory, numbe
 function CategorySummary({ clients }: { clients: Deliverables[] }) {
   const counts = useMemo(() => categoryCounts(clients), [clients])
   return (
-    <div className="mt-8 rounded-2xl border border-white/10 bg-card p-6">
+    <div className="mt-8 rounded-2xl border border-border bg-card p-6">
       <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Clients by business category</p>
       <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {BUSINESS_CATEGORIES.map((category) => (
-          <div key={category} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-2.5">
+          <div key={category} className="flex items-center justify-between rounded-lg border border-border bg-[var(--surface-soft)] px-4 py-2.5">
             <span className="text-sm">{category}</span>
             <span className="text-sm font-semibold text-[var(--brand-teal-bright)]">{counts[category]}</span>
           </div>
@@ -57,12 +57,12 @@ function ClientRow({ client, onRetry, onDelete, onPlanChange, onUpdatePrintStatu
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-card p-6">
+    <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <p className="font-medium">{email}</p>
-            <span className="text-xs px-2 py-0.5 rounded-full border border-white/12 text-muted-foreground">{client.businessCategory}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full border border-border text-muted-foreground">{client.businessCategory}</span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {client.flyersCreated} / {client.flyersLimit} flyers used · resets {new Date(client.flyersResetAt).toLocaleDateString()}
@@ -71,7 +71,7 @@ function ClientRow({ client, onRetry, onDelete, onPlanChange, onUpdatePrintStatu
         <div className="flex items-center gap-3">
           <StatusBadge status={client.billingStatus === "Active" ? "Ready" : "Pending"} />
           <select value={client.planId} onChange={handlePlanChange} disabled={changingPlan}
-            className="rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm disabled:opacity-60">
+            className="rounded-lg bg-[var(--surface-soft)] border border-border px-3 py-1.5 text-sm disabled:opacity-60">
             {PLAN_OPTIONS.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
@@ -91,7 +91,7 @@ function ClientRow({ client, onRetry, onDelete, onPlanChange, onUpdatePrintStatu
         <div className="mt-5 flex flex-col gap-2.5">
           <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Print requests</p>
           {client.printRequests.map((r) => (
-            <div key={r.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-wrap items-center justify-between gap-3">
+            <div key={r.id} className="rounded-xl border border-border bg-[var(--surface-soft)] p-3 flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm">{r.quantity}× {r.flyerTitle}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{r.shippingName} — {r.shippingAddress}{r.notes ? ` · ${r.notes}` : ""}</p>
@@ -101,11 +101,11 @@ function ClientRow({ client, onRetry, onDelete, onPlanChange, onUpdatePrintStatu
                 {r.status === "Requested" && (
                   <>
                     <button onClick={() => onUpdatePrintStatus(email, r.id, "Fulfilled")}
-                      className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] transition-colors">
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-[var(--surface-sunken)] transition-colors">
                       Mark Fulfilled
                     </button>
                     <button onClick={() => onUpdatePrintStatus(email, r.id, "Cancelled")}
-                      className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/12 hover:bg-white/[0.05] transition-colors">
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-[var(--surface-sunken)] transition-colors">
                       Cancel
                     </button>
                   </>
@@ -225,7 +225,7 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      <h1 className="mt-8 text-2xl md:text-3xl font-semibold tracking-tight">All Clients</h1>
+      <h1 className="mt-8 text-2xl md:text-3xl tracking-tight">All Clients</h1>
       <p className="mt-1.5 text-sm text-muted-foreground">Every client&apos;s plan, usage, and flyers — this view only ever exists for the admin session.</p>
 
       {isLoading || !data ? (
@@ -240,7 +240,7 @@ export function AdminDashboard() {
             <label htmlFor="categoryFilter" className="text-sm text-muted-foreground">Filter by category</label>
             <select id="categoryFilter" value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value as (typeof CATEGORY_FILTER_OPTIONS)[number])}
-              className="rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm">
+              className="rounded-lg bg-[var(--surface-soft)] border border-border px-3 py-1.5 text-sm">
               {CATEGORY_FILTER_OPTIONS.map((c) => (
                 <option key={c} value={c} className="bg-card">{c}</option>
               ))}

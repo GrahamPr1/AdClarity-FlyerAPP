@@ -28,7 +28,7 @@ function ChipRow<T extends string>({ options, value, onChange, allowNone }: {
           className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
             value === opt
               ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)]"
-              : "border-white/12 bg-white/[0.04] text-foreground/80 hover:border-white/25"
+              : "border-border bg-[var(--surface-soft)] text-foreground/80 hover:border-[var(--brand-slate)]"
           }`}
         >
           {opt}
@@ -39,7 +39,7 @@ function ChipRow<T extends string>({ options, value, onChange, allowNone }: {
 }
 
 function fieldBase() {
-  return "w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
+  return "w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
 }
 
 interface QuickPromptResult {
@@ -145,7 +145,7 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
   if (clarifyingQuestion) {
     return (
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Just one thing…</h1>
+        <h1 className="text-2xl tracking-tight">Just one thing…</h1>
         <p className="mt-2 text-sm text-muted-foreground">{clarifyingQuestion}</p>
         <form onSubmit={handleClarificationSubmit} className="mt-6 flex flex-col gap-4">
           <textarea rows={2} className={fieldBase()} value={clarificationAnswer}
@@ -164,7 +164,7 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
   return (
     <div>
       <button type="button" onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back</button>
-      <h1 className="mt-3 text-2xl font-semibold tracking-tight">Quick Prompt</h1>
+      <h1 className="mt-3 text-2xl tracking-tight">Quick Prompt</h1>
       <p className="mt-2 text-sm text-muted-foreground">Describe what you need in one sentence — we&apos;ll handle the rest.</p>
 
       <form onSubmit={handleGenerate} className="mt-6 flex flex-col gap-5">
@@ -211,7 +211,7 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
             <div className="flex flex-wrap gap-2">
               {starters.map((s) => (
                 <button key={s} type="button" onClick={() => setPrompt(s)}
-                  className="px-3 py-1.5 rounded-full text-xs border border-white/12 bg-white/[0.03] text-muted-foreground hover:border-white/25 hover:text-foreground transition-colors">
+                  className="px-3 py-1.5 rounded-full text-xs border border-border bg-[var(--surface-soft)] text-muted-foreground hover:border-[var(--brand-slate)] hover:text-foreground transition-colors">
                   {s}
                 </button>
               ))}
@@ -220,7 +220,7 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
         )}
 
         {needsFallbackFields && (
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex flex-col gap-4">
+          <div className="rounded-xl border border-border bg-[var(--surface-soft)] p-4 flex flex-col gap-4">
             <p className="text-xs text-muted-foreground">
               {hasSavedBrand ? "Not using your saved brand — a few basics for this flyer:" : "Since this is your first flyer, a few basics:"}
             </p>
@@ -367,7 +367,7 @@ function QuickPromptResultView({ flyerId, hasSavedBrand, onBack }: { flyerId: st
   return (
     <div>
       <button type="button" onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to dashboard</button>
-      <h1 className="mt-3 text-2xl font-semibold tracking-tight">Your flyer</h1>
+      <h1 className="mt-3 text-2xl tracking-tight">Your flyer</h1>
 
       <div className="mt-6 max-w-sm">
         {!flyer ? (
@@ -380,7 +380,7 @@ function QuickPromptResultView({ flyerId, hasSavedBrand, onBack }: { flyerId: st
       {ready && (
         <div className="mt-5 max-w-sm flex flex-col gap-2">
           <button type="button" onClick={handleTryAgain} disabled={regenerating}
-            className="self-start px-4 py-2 rounded-lg border border-white/12 text-sm hover:bg-white/[0.05] disabled:opacity-60 transition-colors">
+            className="self-start px-4 py-2 rounded-lg border border-border text-sm hover:bg-[var(--surface-sunken)] disabled:opacity-60 transition-colors">
             {regenerating ? "Generating a new take…" : "Try Again"}
           </button>
           {regenerateNotice && <p className="text-xs text-muted-foreground">{regenerateNotice}</p>}
@@ -409,11 +409,11 @@ function QuickPromptResultView({ flyerId, hasSavedBrand, onBack }: { flyerId: st
           <label htmlFor="refine" className="block text-sm font-medium">Want to change something?</label>
           <textarea id="refine" rows={2} value={refineInstruction} onChange={(e) => setRefineInstruction(e.target.value)}
             placeholder="e.g. 'make the headline bigger', 'use blue instead of green'"
-            className="w-full rounded-lg bg-white/[0.04] border border-white/12 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
+            className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
           {refineError && <p role="alert" className="text-xs text-red-400">{refineError}</p>}
           {refineNotice && <p className="text-xs text-muted-foreground">{refineNotice}</p>}
           <button type="submit" disabled={refining || !refineInstruction.trim()}
-            className="self-start px-4 py-2 rounded-lg border border-white/12 text-sm hover:bg-white/[0.05] disabled:opacity-60 transition-colors">
+            className="self-start px-4 py-2 rounded-lg border border-border text-sm hover:bg-[var(--surface-sunken)] disabled:opacity-60 transition-colors">
             {refining ? "Applying…" : "Apply change"}
           </button>
         </form>

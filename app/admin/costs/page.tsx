@@ -18,7 +18,7 @@ function fmt(cost: number): string {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-xs uppercase tracking-widest text-muted-foreground/70">{label}</p>
       <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
@@ -37,7 +37,7 @@ export default function AdminCostsPage() {
   return (
     <div className="px-6 md:px-10 lg:px-16 py-10 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">AI Cost Tracking</h1>
+        <h1 className="text-2xl md:text-3xl tracking-tight">AI Cost Tracking</h1>
         <Link href="/admin" className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Admin home</Link>
       </div>
       <p className="mt-1.5 text-sm text-muted-foreground">
@@ -54,7 +54,7 @@ export default function AdminCostsPage() {
             <StatCard label="Spend this month" value={fmt(data.totalCostThisMonthUsd)} />
           </div>
 
-          <div className="mt-6 rounded-xl border border-white/10 bg-card p-5">
+          <div className="mt-6 rounded-xl border border-border bg-card p-5">
             <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Spend — last 30 days</p>
             <div className="mt-4 h-56">
               <ResponsiveContainer width="100%" height="100%">
@@ -70,12 +70,12 @@ export default function AdminCostsPage() {
           </div>
 
           <div className="mt-6 grid sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-white/10 bg-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Avg cost per flyer generation</p>
               <p className="mt-2 text-2xl font-semibold">{fmt(data.averageCostPerFlyerGenerationUsd)}</p>
               <p className="mt-1 text-xs text-muted-foreground">Average of one Flyer Agent call, last 30 days.</p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Cost by pipeline stage (last 30 days)</p>
               <div className="mt-3 flex flex-col gap-2">
                 {(Object.entries(data.costByAgentType) as [GenerationAgentType, number][]).map(([stage, cost]) => (
@@ -89,19 +89,19 @@ export default function AdminCostsPage() {
           </div>
 
           <div className="mt-8 flex items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold">Top 20 highest-cost users this month</h2>
+            <h2 className="text-lg">Top 20 highest-cost users this month</h2>
             <select value={planFilter} onChange={(e) => setPlanFilter(e.target.value as (typeof PLAN_FILTER_OPTIONS)[number])}
-              className="rounded-lg bg-white/[0.04] border border-white/12 px-3 py-1.5 text-sm">
+              className="rounded-lg bg-[var(--surface-soft)] border border-border px-3 py-1.5 text-sm">
               {PLAN_FILTER_OPTIONS.map((p) => (
                 <option key={p} value={p} className="bg-card">{p === "All" ? "All plans" : PLAN_LABELS[p as PlanId]}</option>
               ))}
             </select>
           </div>
 
-          <div className="mt-4 overflow-x-auto rounded-xl border border-white/10">
+          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-muted-foreground/70">
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground/70">
                   <th className="px-4 py-3">User</th>
                   <th className="px-4 py-3">Plan</th>
                   <th className="px-4 py-3">Cost this month</th>
@@ -111,7 +111,7 @@ export default function AdminCostsPage() {
               </thead>
               <tbody>
                 {filteredUsers.map((u) => (
-                  <tr key={u.email} className="border-b border-white/5 last:border-0 hover:bg-white/[0.03] transition-colors">
+                  <tr key={u.email} className="border-b border-border last:border-0 hover:bg-[var(--surface-sunken)] transition-colors">
                     <td className="px-4 py-3">
                       <Link href={`/admin/users/${encodeURIComponent(u.email)}`} className="hover:text-[var(--brand-teal-bright)] transition-colors">
                         <div className="font-medium">{u.businessName ?? "—"}</div>
