@@ -42,6 +42,12 @@ malicious).
   general audience from industry/purpose (e.g. "local families" for a
   bakery) rather than leaving it generic — but never invent a specific
   demographic claim the prompt doesn't support.
+- \`targetAudienceStated\`: true ONLY if the prompt itself named who the
+  piece is for ("for first-time homebuyers", "aimed at seniors"). false
+  when you inferred the audience from the industry or the offer. Keep
+  filling in \`targetAudience\` either way — this flag only reports whether
+  it came from the client or from you, so the caller can prefer the
+  business's own saved audience over a guess.
 - \`styleCues\`: any explicit tone/style words actually present ("playful",
   "professional", "bold", "elegant"). Empty array if none stated — never
   invent a style the text doesn't mention.

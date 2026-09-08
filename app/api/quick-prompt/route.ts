@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { waitUntil } from "@vercel/functions"
 import { PLAN_LIMITS, QUICK_PROMPT_FORMATS, QUICK_PROMPT_STYLES } from "@/lib/types"
 import type { QuickPromptFormat, QuickPromptStyle } from "@/lib/types"
-import { getOrCreateClient, reserveFlyerQuota, getSavedBrandProfile } from "@/lib/store"
+import { getOrCreateClient, reserveFlyerQuota, getSavedBrandProfile, getCampaignDefaults } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { continuePipelineFromIntake } from "@/lib/agent-pipeline/pipeline"
@@ -11,6 +11,7 @@ import type { NormalizedIntake } from "@/lib/agent-pipeline/schemas/intake"
 import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
 import { formatIdFromLabel } from "@/lib/agent-pipeline/formats"
 import { scrapeSiteForIntake } from "@/lib/agent-pipeline/scrape-site"
+import { fillContactGapsFromProfile, nonEmpty, parseYearsInBusiness } from "@/lib/agent-pipeline/profile-defaults"
 
 export const maxDuration = 300
 
@@ -103,6 +104,14 @@ export async function POST(request: NextRequest) {
   const useSavedBrand = !!body.useSavedBrand
   const savedBrand = useSavedBrand ? await getSavedBrandProfile(email) : null
 
+  // The client's OWN typed profile (/profile). Read unconditionally, unlike
+  // savedBrand: it isn't an opt-in "reuse my brand" toggle, it's answers they
+  // already gave us, and Quick Prompt was the one generation path ignoring
+  // them. Null for anyone who has never opened /profile — every use below is
+  // a no-op in that case, so nothing changes for them.
+  // See lib/agent-pipeline/profile-defaults.ts for the precedence rules.
+  const profile = await getCampaignDefaults(email)
+
   // Optional website personalisation.
   //
   // Quick Prompt previously had only what the client typed into one box, so
@@ -166,10 +175,15 @@ export async function POST(request: NextRequest) {
         social: null,
         contactName: null,
       }
+  // Anything the branches above left blank gets filled from the saved
+  // profile. Gap-fill only — a number typed into THIS request, a saved
+  // brand's contact, or a scraped site all still win.
+  const contactWithProfile = fillContactGapsFromProfile(contact, profile)
+
   // Only the phone is genuinely needed: it's the flyer's call-to-action.
   // Requiring an address here rejected submissions the rest of the pipeline
   // is perfectly happy to build.
-  if (!contact.phone) {
+  if (!contactWithProfile.phone) {
     return NextResponse.json(
       { error: "missing_phone", message: "Add a phone number so your flyer has a way for customers to reach you." },
       { status: 422 },
@@ -183,8 +197,14 @@ export async function POST(request: NextRequest) {
     parsed.businessNameGuess ||
     `${parsed.industry} Business`
 
-  const voiceTonePreference = styleOverride?.toLowerCase() ?? parsed.styleCues[0]?.toLowerCase() ?? "professional"
-  const fontStylePreference: NormalizedIntake["fontStylePreference"] = styleOverride ? STYLE_TO_FONT[styleOverride] : "modern"
+  // Saved tone slots in ABOVE the hardcoded "professional" fallback but
+  // BELOW anything this request expressed — an explicit style pick, or a tone
+  // the parser read out of the prompt ("make it playful"), still wins.
+  const voiceTonePreference =
+    styleOverride?.toLowerCase() ?? parsed.styleCues[0]?.toLowerCase() ?? nonEmpty(profile?.voiceTone) ?? "professional"
+  const fontStylePreference: NormalizedIntake["fontStylePreference"] = styleOverride
+    ? STYLE_TO_FONT[styleOverride]
+    : profile?.preferredStyle ?? "modern"
 
   const flyerRequestId = crypto.randomUUID()
   const intake: NormalizedIntake = {
@@ -193,12 +213,23 @@ export async function POST(request: NextRequest) {
     // prompt is what the client is asking for RIGHT NOW — so the site fills
     // gaps rather than overriding intent.
     industry: parsed.industry || scrapedIntake?.industry || "",
-    yearsInBusiness: scrapedIntake?.yearsInBusiness ?? null,
+    // Typed beats crawled: the client knows this, the site may be stale.
+    yearsInBusiness: parseYearsInBusiness(profile?.yearsInBusiness) ?? scrapedIntake?.yearsInBusiness ?? null,
     // The typed purpose stays first: it's this campaign's offer. The site's
     // service list follows as supporting context.
     services: [parsed.purpose, ...(scrapedIntake?.services ?? [])].slice(0, 6),
-    targetAudience: parsed.targetAudience || scrapedIntake?.targetAudience || "",
-    contact,
+    // A stated audience is this campaign's actual intent and always wins, so
+    // "flyer for first-time homebuyers" is still honoured for a client who
+    // has a different audience saved. An INFERRED one is only a guess, and
+    // loses to the business's own saved answer. With no saved profile the
+    // guess is still used, exactly as before.
+    targetAudience:
+      (parsed.targetAudienceStated ? nonEmpty(parsed.targetAudience) : null) ??
+      nonEmpty(profile?.targetAudience) ??
+      nonEmpty(parsed.targetAudience) ??
+      nonEmpty(scrapedIntake?.targetAudience) ??
+      "",
+    contact: contactWithProfile,
     brandAssets: {
       logoUrl: scrapedIntake?.brandAssets.logoUrl ?? null,
       existingColors: savedBrand

@@ -16,6 +16,19 @@ export const QuickPromptParseSchema = z.object({
   industry: z.string(),
   purpose: z.string(),
   targetAudience: z.string(),
+  /**
+   * Whether the prompt ACTUALLY named an audience, as opposed to this agent
+   * inferring a plausible one (which it is still told to do — see the
+   * targetAudience rule in prompts/quickPrompt.ts).
+   *
+   * Exists because the inference is unconditional, so `targetAudience` is
+   * never empty and the route could not tell a real instruction apart from a
+   * guess. That made a client's saved Business Profile audience
+   * (CampaignDefaults.targetAudience) unreachable on this path: the guess
+   * always won. Same convention as `businessNameGuess` and `styleCues`
+   * below — say when something was genuinely stated.
+   */
+  targetAudienceStated: z.boolean(),
   styleCues: z.array(z.string()),
   /** A business name only if one was actually mentioned in the prompt — never invented. */
   businessNameGuess: z.string().nullable(),
