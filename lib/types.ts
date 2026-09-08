@@ -167,11 +167,45 @@ export interface CampaignDefaults {
   yearsInBusiness: string
   brandColors: string
   preferredStyle: BrandStyle
+  /** Tone of voice. Predates the "business brain" work — already flows into
+   *  the Brand Agent as NormalizedIntake.voiceTonePreference. */
   voiceTone: string
   contactName: string
   website: string
   address: string
   socialHandles: string
+  /**
+   * Who the business sells to. Onboarding already asks for this every
+   * campaign (IntakeSubmission.targetAudience) and the Brand Agent already
+   * uses it to build positioning — it just was never PERSISTED, so it had to
+   * be retyped for every campaign. Stored here it pre-fills like the rest.
+   *
+   * Optional on older records saved before this field existed — the form
+   * spreads over EMPTY, and the API defaults it to "".
+   */
+  targetAudience?: string
+  /**
+   * Where the business actually works — "Louisville + 30 miles", "all of
+   * Jefferson County". Deliberately NOT the same as `address`, which is the
+   * business's own street address and is what gets printed on a flyer.
+   *
+   * Stored and editable now; NOT yet consumed by the agent pipeline. Feeding
+   * it into generation means changing the intake schema and prompt, which is
+   * out of scope for this phase.
+   */
+  serviceArea?: string
+  /**
+   * Promotions this business has run before — a plain list, no performance
+   * data attached, because there is no campaign-history store to attach any
+   * to yet.
+   *
+   * Note this does not duplicate what OneFlyer already knows: every flyer
+   * ever generated is kept in `deliverables:{email}` with a title derived
+   * from what was promoted, so OneFlyer-run offers are already recoverable.
+   * This list is for offers run OUTSIDE OneFlyer (newspaper, door-knocking,
+   * a previous agency), which nothing else can know about.
+   */
+  pastOffers?: string[]
 }
 
 // ---- Client records (usage limits) ---------------------------------------

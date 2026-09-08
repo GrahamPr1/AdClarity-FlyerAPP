@@ -159,6 +159,10 @@ export function OnboardingForm({
           yearsInBusiness: f.yearsInBusiness || saved.yearsInBusiness,
           brandColors: f.brandColors || saved.brandColors,
           voiceTone: f.voiceTone || saved.voiceTone,
+          // Same `already-typed wins` rule as every field above: this only
+          // fills a blank, so someone running a campaign for a different
+          // audience than usual can still just type over it.
+          targetAudience: f.targetAudience || saved.targetAudience || "",
           preferredStyle: initialData?.preferredStyle ?? saved.preferredStyle,
           contact: {
             ...f.contact,

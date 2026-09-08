@@ -20,6 +20,32 @@ function clean(value: unknown, max = 300): string {
   return typeof value === "string" ? value.trim().slice(0, max) : ""
 }
 
+/**
+ * Same discipline as clean(), for the one list-valued field (pastOffers).
+ * Bounded on BOTH axes on purpose: this is client-supplied and ends up
+ * inside an AI prompt, so an unbounded array is an unbounded token bill and
+ * a lever for shoving arbitrary text at the model. Drops blanks and
+ * case-insensitive duplicates so the list stays a list of distinct offers.
+ */
+const MAX_PAST_OFFERS = 20
+const MAX_PAST_OFFER_LEN = 120
+
+function cleanList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const item of value) {
+    const s = clean(item, MAX_PAST_OFFER_LEN)
+    if (!s) continue
+    const key = s.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(s)
+    if (out.length >= MAX_PAST_OFFERS) break
+  }
+  return out
+}
+
 export async function GET(request: NextRequest) {
   const session = await getSessionIdentity(request)
   if (!session || session.sub === ADMIN_SUB) {
@@ -54,6 +80,9 @@ export async function POST(request: NextRequest) {
     website: clean(body.website, 200),
     address: clean(body.address, 200),
     socialHandles: clean(body.socialHandles, 200),
+    targetAudience: clean(body.targetAudience, 200),
+    serviceArea: clean(body.serviceArea, 200),
+    pastOffers: cleanList(body.pastOffers),
   })
 
   return NextResponse.json({ ok: true, defaults: saved })
