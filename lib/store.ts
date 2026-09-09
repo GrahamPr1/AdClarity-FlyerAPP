@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
+import type { BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PendingGoalCampaign, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { getAppEnvironment, verdictForMarker } from "./env"
@@ -529,6 +529,43 @@ export async function savePendingBrandProfile(flyerId: string, brandProfile: Bra
 
 export async function getPendingBrandProfile(flyerId: string): Promise<SavedBrandProfile | null> {
   return (await redis.get<SavedBrandProfile>(pendingBrandProfileKey(flyerId))) ?? null
+}
+
+// ---- Pending goal-driven campaign plan --------------------------------------
+//
+// A goal-derived campaign is assembled, shown to the client, and only
+// generated once they approve it. This holds the assembled intake in between.
+//
+// Server-side on purpose. The client is handed an opaque planId and never the
+// intake itself: if the confirm step posted the object back, a tampered
+// payload would put attacker-chosen text onto a real, printable flyer. Keyed
+// by email AND id so a guessed id still cannot reach another account's plan.
+//
+// One hour, not the 24h a pending brand profile gets — this is a confirm
+// artifact. If it has been sitting for an hour the client should re-plan
+// against whatever their profile says now, rather than execute something
+// assembled from stale context.
+const PENDING_GOAL_CAMPAIGN_TTL_SECONDS = 60 * 60
+
+function pendingGoalCampaignKey(email: string, planId: string) {
+  return `goal-campaign-plan:${email}:${planId}`
+}
+
+export async function savePendingGoalCampaign(
+  email: string,
+  planId: string,
+  record: PendingGoalCampaign,
+): Promise<void> {
+  await redis.set(pendingGoalCampaignKey(email, planId), record, { ex: PENDING_GOAL_CAMPAIGN_TTL_SECONDS })
+}
+
+export async function getPendingGoalCampaign(email: string, planId: string): Promise<PendingGoalCampaign | null> {
+  return (await redis.get<PendingGoalCampaign>(pendingGoalCampaignKey(email, planId))) ?? null
+}
+
+/** Consumed on execute so one approval cannot be replayed into several flyers. */
+export async function deletePendingGoalCampaign(email: string, planId: string): Promise<void> {
+  await redis.del(pendingGoalCampaignKey(email, planId))
 }
 
 // ---- Client records (usage limits) ---------------------------------------

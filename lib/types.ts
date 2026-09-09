@@ -8,6 +8,7 @@
 
 import type { BrandProfile } from "./agent-pipeline/schemas/brand"
 import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
+import type { MarketingGoal } from "./agent-pipeline/schemas/goal"
 
 // The three real tiers — used BOTH for the marketing pricing page a visitor
 // picks from AND as the real enforcement flag on a client's persisted
@@ -445,6 +446,28 @@ export interface SavedBrandProfile {
   savedAt: string
   brandProfile: BrandProfile
   contact: NormalizedIntake["contact"]
+}
+
+// ---- Goal-driven campaign (approval boundary) --------------------------------
+//
+// A campaign assembled from a plain-language goal, held between "here's the
+// plan" and "generate it". See savePendingGoalCampaign in lib/store.ts for
+// why the assembled intake stays server-side.
+//
+// Exists because a goal-derived offer is NOT the same as a Quick Prompt
+// purpose: Quick Prompt uses literally what the client typed, whereas this
+// can inherit an offer from their pastOffers history. Printing a promise the
+// client never made in that session is the thing the confirm step prevents.
+export interface PendingGoalCampaign {
+  createdAt: string
+  /** What the goal parser produced, kept so the confirm screen can show it. */
+  goal: MarketingGoal
+  /** The fully assembled pipeline input. Never sent to the client. */
+  intake: NormalizedIntake
+  /** Which canvas this produces — see lib/agent-pipeline/formats.ts. */
+  formatId: string
+  /** True when nothing on file supplies a phone; execute must be given one. */
+  needsPhone: boolean
 }
 
 // ---- AI generation cost log -------------------------------------------------

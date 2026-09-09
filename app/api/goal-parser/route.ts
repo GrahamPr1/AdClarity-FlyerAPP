@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { parseMarketingGoal, GoalTooVagueError } from "@/lib/agent-pipeline/goal-parser"
 import { AgentRefusalError } from "@/lib/agent-pipeline/client"
+import { checkGoalRateLimit } from "@/lib/agent-pipeline/goal-rate-limit"
 
 // POST /api/goal-parser — plain-language business goal in, structured
 // marketing objective out. Nothing else: it creates no campaign, no flyer and
@@ -22,6 +23,16 @@ export async function POST(request: NextRequest) {
   const session = await getSessionIdentity(request)
   if (!session || session.sub === ADMIN_SUB) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  // Flagged as missing when this route shipped: it makes a real model call
+  // and consumes no flyer quota, so nothing else bounded it.
+  const rate = await checkGoalRateLimit(session.sub, "parse")
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "That's a lot of goals in one go — try again shortly." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } },
+    )
   }
 
   let body: { goal?: unknown }
