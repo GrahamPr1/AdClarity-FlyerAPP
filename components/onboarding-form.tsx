@@ -78,6 +78,8 @@ export function OnboardingForm({
   const [error, setError] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingMaterial, setUploadingMaterial] = useState(false)
+  const [materialUploadError, setMaterialUploadError] = useState("")
   const [logoUploadError, setLogoUploadError] = useState("")
   const [photoUploadError, setPhotoUploadError] = useState("")
 
@@ -128,6 +130,7 @@ export function OnboardingForm({
       contactName: initialData?.contact?.contactName,
     },
     existingMaterialsFileName: undefined,
+    existingMaterialsUrl: undefined,
     flyerPhotoUrls: [],
     wantsAiPhotos: false,
     wantsQrCode: initialData?.wantsQrCode ?? true,
@@ -250,6 +253,27 @@ export function OnboardingForm({
       setLogoUploadError(err instanceof Error ? err.message : "Upload failed — please try again.")
     } finally {
       setUploadingLogo(false)
+    }
+  }
+
+  /** Same discard bug the logo had: the File was thrown away and only its
+   *  name kept, so nothing was ever uploaded. */
+  async function uploadMaterial(file: File | undefined) {
+    if (!file) return
+    setUploadingMaterial(true)
+    setMaterialUploadError("")
+    const body = new FormData()
+    body.append("file", file)
+    try {
+      const res = await fetch("/api/onboarding/upload-material", { method: "POST", body })
+      const data = await res.json().catch(() => ({}) as { url?: string; error?: string })
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed — please try again.")
+      set("existingMaterialsUrl", data.url)
+      set("existingMaterialsFileName", file.name)
+    } catch (err) {
+      setMaterialUploadError(err instanceof Error ? err.message : "Upload failed — please try again.")
+    } finally {
+      setUploadingMaterial(false)
     }
   }
 
@@ -656,12 +680,18 @@ export function OnboardingForm({
 
                 <div>
                   <Label htmlFor="existing">Existing marketing materials to reference</Label>
-                  <input id="existing" type="file"
-                    onChange={(e) => set("existingMaterialsFileName", e.target.files?.[0]?.name)}
+                  <input id="existing" type="file" accept="application/pdf,image/*"
+                    disabled={uploadingMaterial}
+                    onChange={(e) => uploadMaterial(e.target.files?.[0])}
                     className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--brand-teal-tint)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--brand-teal-bright)] hover:file:bg-[var(--brand-teal)]/20" />
-                  {form.existingMaterialsFileName && (
-                    <p className="mt-1.5 text-xs text-muted-foreground">Selected: {form.existingMaterialsFileName}</p>
+                  {uploadingMaterial && <p className="mt-1.5 text-xs text-muted-foreground">Uploading…</p>}
+                  {!uploadingMaterial && form.existingMaterialsUrl && form.existingMaterialsFileName && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">Uploaded: {form.existingMaterialsFileName}</p>
                   )}
+                  {materialUploadError && <p className="mt-1.5 text-xs text-red-500">{materialUploadError}</p>}
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Saved to your account for reference. Not yet used to generate flyers — coming soon.
+                  </p>
                 </div>
 
                 <div>

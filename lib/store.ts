@@ -146,6 +146,25 @@ export async function setRedisEnvironmentMarker(environment: string): Promise<vo
   await redis.set(ENV_MARKER_KEY, environment)
 }
 
+/**
+ * Who uploaded a given onboarding material.
+ *
+ * This record IS the access control for GET /api/onboarding/material — the
+ * blob pathname is random, but obscurity is not authorisation, and these are
+ * a client's private documents rather than flyer images.
+ */
+function materialOwnerKey(pathname: string) {
+  return `material-owner:${pathname}`
+}
+
+export async function recordMaterialOwner(pathname: string, email: string): Promise<void> {
+  await redis.set(materialOwnerKey(pathname), email.trim().toLowerCase())
+}
+
+export async function getMaterialOwner(pathname: string): Promise<string | null> {
+  return (await redis.get<string>(materialOwnerKey(pathname))) ?? null
+}
+
 /** Reads the marker without asserting — for diagnostics. */
 export async function readRedisEnvironmentMarker(): Promise<string | null> {
   return (await redis.get<string>(ENV_MARKER_KEY)) ?? null

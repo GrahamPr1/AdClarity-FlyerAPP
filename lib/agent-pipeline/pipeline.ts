@@ -9,7 +9,7 @@ import { toAssetContext, findVerbatimViolations, findInventedComplianceLanguage 
 import type { CampaignSource } from "@/lib/types"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage } from "./higgsfield"
-import { buildSearchQuery, findPhoto, finalizePhotoUsage, type UnsplashPhoto } from "@/lib/unsplash"
+import { findPhotoForPromotion, finalizePhotoUsage, type UnsplashPhoto } from "@/lib/unsplash"
 import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
 import { planIncludesExtras, aiPhotosEnabled, stockPhotosEnabled } from "./plan-features"
 import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
@@ -293,13 +293,17 @@ async function buildPhotoPool(
     flyerRequests.map(async (request) => {
       const context = `flyer "${request.purpose}"`
 
-      const query = buildSearchQuery({
-        industry: intake.industry,
-        purpose: request.purpose,
-        services: intake.services,
-      })
+      // Promotion-led, with the broad industry query as the fallback — see
+      // findPhotoForPromotion. The old single query put industry first and hit
+      // the three-term cap before reaching the offer, so what the flyer was
+      // actually advertising never influenced the photo.
       const found = gates.allowStockPhotos
-        ? await findPhoto({ query, context })
+        ? await findPhotoForPromotion({
+            industry: intake.industry,
+            purpose: request.purpose,
+            services: intake.services,
+            context,
+          })
         : ({ ok: false, reason: "not_configured", detail: "stock photos disabled for this flyer" } as const)
 
       if (found.ok) {

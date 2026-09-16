@@ -151,6 +151,73 @@ export function buildSearchQuery(opts: { industry: string; purpose: string; serv
   return kept.join(" ").slice(0, 100)
 }
 
+/**
+ * Scheduling and connective noise that survives STOPWORDS but describes
+ * nothing visual. Kept separate from STOPWORDS rather than merged into it so
+ * the broad fallback query below stays byte-identical to the one whose
+ * result counts were measured against the live API.
+ */
+const NON_VISUAL_WORDS = new Set([
+  "back", "every", "all", "any", "this", "that", "here", "when", "who", "how",
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+  "weekend", "weekday", "daily", "weekly", "monthly", "annual", "annually",
+  "limited", "time", "times", "hours", "hour", "book", "booking", "call",
+  "schedule", "starts", "starting", "ends", "ending", "join", "come", "visit",
+])
+
+/**
+ * A query built from what is actually being PROMOTED, with the business
+ * category as a single anchor rather than the leading terms.
+ *
+ * buildSearchQuery below puts industry first, then the service, then the
+ * offer. Because Unsplash ANDs terms, the cap of three is reached before the
+ * offer is read, so the promotion was systematically dropped. Measured on the
+ * real shapes this product generates:
+ *
+ *   "Summer Kickboxing Bootcamp"      -> "gym personal training"   (no kickboxing)
+ *   "Back to School Checkup Special"  -> "dental teeth whitening"  (no checkup)
+ *   "Live Jazz Brunch Every Sunday"   -> "restaurant catering live" (no jazz/brunch)
+ *
+ * Every one of those returns a photo of the trade in general and nothing of
+ * the thing the flyer is advertising.
+ *
+ * The industry anchors the result so a promotion term alone can't pull in an
+ * unrelated subject, and it goes LAST so it is what gets trimmed, not the
+ * promotion. The near-duplicate collapse is kept: "Roof Replacement" with
+ * industry "Roofing" yields "roof replacement" rather than "roofing roof
+ * replacement", which measured 2,179 results against 59.
+ *
+ * This is the FIRST query tried, not the only one — see findPhotoForPromotion.
+ * A more specific query is more likely to come back thin, and the broad query
+ * remains the fallback, so tightening relevance cannot cost a flyer its photo.
+ */
+export function buildSpecificSearchQuery(opts: { industry: string; purpose: string; services: string[] }): string {
+  const tokenise = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length >= MIN_TERM_LENGTH && !STOPWORDS.has(w) && !NON_VISUAL_WORDS.has(w))
+
+  const promoted = tokenise(opts.purpose)
+  // Two, not three: leaving a slot for the anchor is what stops a promotion
+  // term matching a photo from another trade entirely.
+  const kept: string[] = []
+  for (const w of promoted) {
+    if (kept.some((k) => k.startsWith(w) || w.startsWith(k))) continue
+    kept.push(w)
+    if (kept.length === MAX_QUERY_TERMS - 1) break
+  }
+
+  for (const w of [...tokenise(opts.industry), ...tokenise(opts.services[0] ?? "")]) {
+    if (kept.length >= MAX_QUERY_TERMS) break
+    if (kept.some((k) => k.startsWith(w) || w.startsWith(k))) continue
+    kept.push(w)
+  }
+
+  return kept.join(" ").slice(0, 100)
+}
+
 /** Meaningful words a candidate photo should plausibly relate to. */
 function relevanceTerms(query: string): string[] {
   return query
@@ -262,6 +329,46 @@ export async function findPhoto(opts: { query: string; context: string }): Promi
       description: match.description ?? match.alt_description,
     },
   }
+}
+
+/**
+ * Finds a photo for a specific promotion, falling back to the broad query.
+ *
+ * Two attempts at most, and only when the first genuinely found nothing
+ * usable. A more specific query is more likely to come back thin — that is
+ * the cost of relevance — so without this fallback, tightening the query
+ * would trade "a generic photo" for "no photo", which is the worse outcome
+ * for a printed piece the client already spent a credit on.
+ *
+ * Deliberately does NOT retry on rate_limited, not_configured or error: those
+ * mean the second call cannot succeed either, and each call spends from the
+ * site-wide hourly budget.
+ */
+export async function findPhotoForPromotion(opts: {
+  industry: string
+  purpose: string
+  services: string[]
+  context: string
+}): Promise<PhotoSearchOutcome & { queryUsed: string }> {
+  const specific = buildSpecificSearchQuery(opts)
+  const broad = buildSearchQuery(opts)
+
+  if (specific) {
+    const first = await findPhoto({ query: specific, context: opts.context })
+    if (first.ok) return { ...first, queryUsed: specific }
+    if (first.reason !== "thin_results" && first.reason !== "no_relevant_match") {
+      return { ...first, queryUsed: specific }
+    }
+    if (broad && broad !== specific) {
+      console.log(`[unsplash] ${opts.context}: "${specific}" came back ${first.reason}; falling back to "${broad}".`)
+      const second = await findPhoto({ query: broad, context: opts.context })
+      return { ...second, queryUsed: broad }
+    }
+    return { ...first, queryUsed: specific }
+  }
+
+  const only = await findPhoto({ query: broad, context: opts.context })
+  return { ...only, queryUsed: broad }
 }
 
 /**

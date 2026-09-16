@@ -158,7 +158,17 @@ export interface IntakeSubmission {
     /** The person to contact, not the business — only ever collected on the website-scrape Path A form (see components/guided-setup-flow.tsx). Optional: the manual guided flow never asks for it. */
     contactName?: string
   }
+  /** Display-only, like logoFileName. See existingMaterialsUrl for the upload. */
   existingMaterialsFileName?: string
+  /** Real Blob URL for a reference material the client uploaded. Read back
+   *  through the AUTHENTICATED /api/onboarding/material route — unlike
+   *  flyerPhotoUrls, these are private business documents, not images
+   *  embedded in a flyer a stranger has to be able to open.
+   *
+   *  Saved and retrievable, but NOT yet read by any generation stage — the
+   *  onboarding field says so. Extracting brand data from it is the same
+   *  unbuilt work as the business-profile PDF. */
+  existingMaterialsUrl?: string
   /** Real Blob URLs — unlike logoFileName/existingMaterialsFileName, these are actually uploaded (see /api/onboarding/upload-photo), not just filenames. */
   flyerPhotoUrls?: string[]
   /** Explicit opt-in to AI-generated stock photos when a flyer has no client photo to use — Pro-only, real server-side gate (see hasProPhotoGeneration in lib/agent-pipeline/pipeline.ts). Never inferred from silence. */
