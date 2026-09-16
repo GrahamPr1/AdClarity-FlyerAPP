@@ -37,6 +37,26 @@ export const PLAN_LIMITS: Record<PlanId, number> = {
   pro: 50,
 }
 
+/**
+ * Plan ordering, for deciding whether a change is an upgrade or a downgrade.
+ *
+ * Stated explicitly rather than derived from PLAN_LIMITS, even though the
+ * monthly allowances happen to sort the same way today. Ordering is about
+ * entitlement, not quota — a future tier with a lower flyer cap but more
+ * features would sort wrongly under a quota comparison, and silently, which
+ * is the failure mode this exists to stop.
+ */
+export const PLAN_RANK: Record<PlanId, number> = {
+  trial: 0,
+  basic: 1,
+  pro: 2,
+}
+
+/** True when moving from `current` to `next` grants more than it takes away. */
+export function isPlanUpgrade(current: PlanId, next: PlanId): boolean {
+  return PLAN_RANK[next] > PLAN_RANK[current]
+}
+
 // Single source of truth for the annual-billing discount shown on the
 // pricing page — the displayed "Save X%" badge and every plan's
 // annualMonthlyFee (see lib/plans.ts) both read this, so changing the

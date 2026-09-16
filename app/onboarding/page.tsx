@@ -5,6 +5,7 @@ import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { CreateFlyerFlow } from "@/components/create-flyer-flow"
 import { getOrCreateClient, setClientPlan } from "@/lib/store"
 import type { PlanId } from "@/lib/types"
+import { isPlanUpgrade } from "@/lib/types"
 
 export const metadata = {
   // Just the page name: the root layout supplies the " — OneFlyer" suffix
@@ -36,10 +37,21 @@ export default async function OnboardingPage({
   // stub), so until that exists, arriving here with a plan picked IS the
   // real enforcement action: apply it now rather than silently discarding
   // the param and leaving the account on whatever it already was.
+  //
+  // UPGRADES ONLY. This previously applied any plan the URL named, which made
+  // a plain GET to /onboarding?plan=trial silently revoke a paid tier. That is
+  // not a hypothetical: with Early Access on, the free-trial card is the only
+  // live pricing CTA, so "Start Free Trial" — or a bookmark, a shared link, a
+  // back-button — would quietly undo an admin's upgrade, and the account would
+  // read Free Trial again with no record of why.
+  //
+  // A ?plan= in a URL is a request to pick a plan up, never authority to take
+  // one away. Downgrades are a deliberate act and belong to the admin path
+  // (POST /api/admin/set-plan), which is session-guarded and attributable.
   const { plan } = await searchParams
   if (plan && (VALID_PLAN_IDS as string[]).includes(plan)) {
     const client = await getOrCreateClient(session.sub)
-    if (client.plan !== plan) await setClientPlan(session.sub, plan as PlanId)
+    if (isPlanUpgrade(client.plan, plan as PlanId)) await setClientPlan(session.sub, plan as PlanId)
   }
 
   return (
