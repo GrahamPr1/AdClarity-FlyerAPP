@@ -112,3 +112,35 @@ describe("escaping", () => {
     expect(escapeHtml(`<>&"'`)).toBe("&lt;&gt;&amp;&quot;&#39;")
   })
 })
+
+describe("the kill-switch", () => {
+  // Mirrors the gate in runBatch. Template mode is on unless explicitly
+  // disabled, so an unset env var enables it and only "off" rolls back.
+  const enabled = (v: string | undefined) => v !== "off"
+
+  it("is ON when the env var is unset", () => {
+    expect(enabled(undefined)).toBe(true)
+  })
+
+  it("stays ON for any value other than off, including the old opt-in", () => {
+    expect(enabled("on")).toBe(true)
+    expect(enabled("")).toBe(true)
+  })
+
+  it("is OFF only when explicitly set to off — the rollback", () => {
+    expect(enabled("off")).toBe(false)
+  })
+
+  it("leaves the paginating format on the AI path regardless of the flip", () => {
+    // proposal is the ONLY format that paginates; a fixed-height template
+    // would truncate it, so it must keep falling back to the AI agent.
+    expect(selectTemplate("x", "proposal")).toBeNull()
+  })
+
+  it("covers every non-paginating format with a correctly sized template", () => {
+    expect(selectTemplate("x", "flyer")!.formatIds).toContain("flyer")
+    expect(selectTemplate("x", "one-pager")!.formatIds).toContain("one-pager")
+    expect(selectTemplate("x", "door-hanger")!.id).toBe("door-hanger-stack")
+    expect(selectTemplate("x", "social-post")!.id).toBe("social-square")
+  })
+})

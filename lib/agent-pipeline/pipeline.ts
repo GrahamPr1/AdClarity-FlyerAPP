@@ -770,9 +770,15 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     ? toAssetContext(await listContentAssets(agentProfile.orgId).catch(() => []))
     : []
   const enterpriseAssets = approvedAssets.length > 0 ? approvedAssets : null
-  // Opt-in for the pilot. Off by default, so the SMB AI path is what every
-  // existing client still gets.
-  const templateMode = process.env.TEMPLATE_MODE === "on" 
+  // ON by default. TEMPLATE_MODE is now a kill-switch rather than an opt-in:
+  // set it to "off" to route everything back through the full AI path, which
+  // is the rollback if template output turns out wrong in the field.
+  //
+  // Only affects canvases that HAVE a template. Verified across every format:
+  // flyer and one-pager -> the 8.5x11 layouts, door-hanger -> 350x850,
+  // social-post -> 1080x1080, and proposal -> AI fallback, since it is the one
+  // format that paginates and a fixed-height template would truncate it.
+  const templateMode = process.env.TEMPLATE_MODE !== "off" 
   if (enterpriseAssets) {
     console.log(`[enterprise] ${email}: composing from ${enterpriseAssets.length} approved asset(s) in org ${agentProfile!.orgId}`)
   }
