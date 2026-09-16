@@ -45,9 +45,12 @@ export const TEMPLATES: FlyerTemplate[] = [
   {
     id: "banner-hero",
     archetype: "banner-hero",
-    // Measured against the rendered box, not guessed: the headline sits at
-    // 64px across ~700px of usable width, which is ~2 lines at 42 chars.
-    budgets: { headline: 42, supporting: 95 },
+    // Verified by rendering, not counting: a 52-char headline at 64px over
+    // ~738px of usable width wraps to 2 lines and the page does not overflow
+    // 1100px. Raised from 42 after 4/20 pilot samples were cut 2-7 chars over,
+    // losing the qualifier that made the offer concrete ('installed', 'for
+    // dogs under 30 lbs').
+    budgets: { headline: 52, supporting: 110 },
     html: SHELL(`
       <header style="background:var(--brand-primary);color:#fff;padding:44px 56px;display:flex;align-items:center;justify-content:space-between;gap:24px">
         <div style="min-width:0">{{LOGO_BLOCK}}<p style="font-size:20px;letter-spacing:.14em;text-transform:uppercase;opacity:.85;margin-top:10px">{{BUSINESS}}</p></div>
@@ -66,7 +69,7 @@ export const TEMPLATES: FlyerTemplate[] = [
   {
     id: "split-vertical",
     archetype: "split-vertical",
-    budgets: { headline: 34, supporting: 110 },
+    budgets: { headline: 44, supporting: 125 },
     html: SHELL(`
       <div style="display:flex;height:1100px">
         <aside style="flex:0 0 320px;background:var(--brand-primary);color:#fff;padding:44px 32px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden">
