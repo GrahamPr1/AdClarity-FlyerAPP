@@ -14,6 +14,18 @@ export const PolishAgentOutputSchema = z.object({
   headline: z.string(),
   /** One supporting line under it. */
   supporting: z.string(),
+  /**
+   * The two repurposed formats that are PLAIN TEXT anyway.
+   *
+   * Folded in here rather than left to the Repurpose Agent for template-mode
+   * flyers: that agent costs $0.0462 a call largely because it also writes a
+   * full Instagram HTML document, and the square template now renders that in
+   * code. What remains is two short pieces of prose, which this call is
+   * already set up to produce — so they ride along for a few hundred output
+   * tokens instead of a separate $0.0462 call.
+   */
+  textBlurb: z.string(),
+  nextdoorPost: z.string(),
 })
 
 export type PolishAgentOutput = z.infer<typeof PolishAgentOutputSchema>

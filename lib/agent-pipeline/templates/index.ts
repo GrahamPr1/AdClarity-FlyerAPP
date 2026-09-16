@@ -23,18 +23,34 @@ export interface FlyerTemplate {
   id: string
   /** The LAYOUT_ARCHETYPES name this is a port of. */
   archetype: string
-  /** Character budgets the layout can physically fit. */
+  /**
+   * Which OutputFormat ids this layout can render.
+   *
+   * Not cosmetic: a 1080x1080 square composition on a 3.5in door hanger is
+   * not a styling mismatch, it is a broken piece. selectTemplate filters on
+   * this, because the moment non-flyer templates exist an unfiltered pick
+   * will eventually put one on the wrong canvas.
+   */
+  formatIds: string[]
+  /** Character budgets the layout can physically fit. Derived by render. */
   budgets: { headline: number; supporting: number }
   html: string
 }
 
-const SHELL = (body: string) => `<!doctype html><html><head><meta charset="utf-8"><title>{{BUSINESS}}</title>
+/** Canvas sizes at the same ~100dpi scale the flyer already uses (8.5x11in -> 850x1100). */
+const CANVAS = {
+  flyer: { w: 850, h: 1100 },
+  "door-hanger": { w: 350, h: 850 },
+  "social-post": { w: 1080, h: 1080 },
+} as const
+
+const SHELL = (body: string, size: { w: number; h: number } = CANVAS.flyer) => `<!doctype html><html><head><meta charset="utf-8"><title>{{BUSINESS}}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:850px;height:1100px}
+html,body{width:${size.w}px;height:${size.h}px}
 body{font-family:var(--font-body);color:#16181d;background:#fff;
 -webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{width:850px;height:1100px;display:flex;flex-direction:column;overflow:hidden}
+.page{width:${size.w}px;height:${size.h}px;display:flex;flex-direction:column;overflow:hidden}
 h1,h2{font-family:var(--font-heading);font-weight:700;line-height:1.05}
 .logo{max-height:56px;max-width:200px;object-fit:contain;display:block}
 .qr{width:120px;height:120px;display:block}
@@ -45,6 +61,7 @@ export const TEMPLATES: FlyerTemplate[] = [
   {
     id: "banner-hero",
     archetype: "banner-hero",
+    formatIds: ["flyer", "one-pager"],
     // Verified by rendering, not counting: a 52-char headline at 64px over
     // ~738px of usable width wraps to 2 lines and the page does not overflow
     // 1100px. Raised from 42 after 4/20 pilot samples were cut 2-7 chars over,
@@ -69,6 +86,7 @@ export const TEMPLATES: FlyerTemplate[] = [
   {
     id: "split-vertical",
     archetype: "split-vertical",
+    formatIds: ["flyer", "one-pager"],
     budgets: { headline: 44, supporting: 165 },
     html: SHELL(`
       <div style="display:flex;height:1100px">
@@ -87,6 +105,72 @@ export const TEMPLATES: FlyerTemplate[] = [
       </div>`),
   },
 ]
+
+/* ------------------------- Non-flyer canvases ---------------------------- */
+
+TEMPLATES.push(
+  {
+    id: "door-hanger-stack",
+    archetype: "stacked-bands",
+    formatIds: ["door-hanger"],
+    // Derived by joint binary search against a real 350x850 render with the
+    // heaviest heading stack and worst-case long words: the pair (50, 105) is
+    // the largest that fits together. Shipped ~12% under that for margin.
+    // Searching each slot independently gave nonsense (a 96-char headline in a
+    // 434px column) because it optimises one slot against a starved value of
+    // the other — they have to be measured as a pair.
+    budgets: { headline: 44, supporting: 92 },
+    html: SHELL(
+      `
+      <div style="flex:0 0 96px;display:flex;align-items:center;justify-content:center">
+        <div style="width:44px;height:44px;border-radius:50%;border:3px solid var(--brand-primary);opacity:.35"></div>
+      </div>
+      <header style="background:var(--brand-primary);color:#fff;padding:20px 22px;text-align:center">
+        {{LOGO_BLOCK}}
+        <p style="font-size:14px;letter-spacing:.12em;text-transform:uppercase;opacity:.9;margin-top:8px">{{BUSINESS}}</p>
+      </header>
+      <section style="flex:0 0 180px;overflow:hidden;background:var(--brand-secondary)">{{PHOTO_BLOCK}}</section>
+      <section style="padding:24px 22px;flex:1 1 auto;overflow:hidden;text-align:center">
+        <h1 style="font-size:34px;color:var(--brand-primary)">{{HEADLINE}}</h1>
+        <p style="margin-top:14px;font-size:16px;line-height:1.35;color:#3a3f47">{{SUPPORTING}}</p>
+      </section>
+      <footer style="background:var(--brand-primary);color:#fff;padding:20px 22px;text-align:center">
+        <p style="font-size:22px;font-weight:700;font-family:var(--font-heading)">{{PHONE}}</p>
+        <p style="font-size:13px;opacity:.85;margin-top:4px">{{ADDRESS}}</p>
+        <div style="display:flex;justify-content:center;margin-top:12px">{{QR_BLOCK}}</div>
+      </footer>`,
+      CANVAS["door-hanger"],
+    ),
+  },
+  {
+    id: "social-square",
+    archetype: "centred-medallion",
+    // This IS the Instagram repurposing template — one artifact, not two.
+    formatIds: ["social-post"],
+    // Joint max on a real 1080x1080 render is (89, 187); shipped under it.
+    budgets: { headline: 78, supporting: 164 },
+    html: SHELL(
+      `
+      <div style="position:relative;width:1080px;height:1080px;overflow:hidden;background:var(--brand-secondary)">
+        <div style="position:absolute;inset:0">{{PHOTO_BLOCK}}</div>
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.35) 0%,rgba(0,0,0,.72) 62%)"></div>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:72px 76px;color:#fff">
+          <div>{{LOGO_BLOCK}}<p style="font-size:26px;letter-spacing:.16em;text-transform:uppercase;opacity:.9;margin-top:16px">{{BUSINESS}}</p></div>
+          <div>
+            <h1 style="font-size:86px;line-height:1.02">{{HEADLINE}}</h1>
+            <p style="margin-top:28px;font-size:34px;line-height:1.35;opacity:.94">{{SUPPORTING}}</p>
+          </div>
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:28px">
+            <div><p style="font-size:40px;font-weight:700;font-family:var(--font-heading)">{{PHONE}}</p>
+            <p style="font-size:22px;opacity:.85;margin-top:6px">{{ADDRESS}}</p></div>
+            {{QR_BLOCK}}
+          </div>
+        </div>
+      </div>`,
+      CANVAS["social-post"],
+    ),
+  },
+)
 
 export function templateById(id: string): FlyerTemplate | null {
   return TEMPLATES.find((t) => t.id === id) ?? null

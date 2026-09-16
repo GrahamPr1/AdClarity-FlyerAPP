@@ -553,11 +553,20 @@ async function runTemplateFlyer(
   input: Parameters<typeof runFlyerAgent>[0],
   agentEmail: string,
   intake: NormalizedIntake,
+  repurposeOut: Map<string, { instagramHtml: string; textBlurb: string; nextdoorPost: string; caption: string }>,
 ): Promise<Awaited<ReturnType<typeof runFlyerAgent>>> {
   type Spec = Awaited<ReturnType<typeof runFlyerAgent>>["flyers"][number]
   const flyers: Spec[] = []
   for (const request of input.flyerRequests) {
-    const template = selectTemplate(request.id)
+    const template = selectTemplate(request.id, getFormat(request.formatId).id)
+    // No template for this canvas — fall back to the AI agent rather than
+    // rendering the wrong aspect ratio. proposal/one-pager paginate and have
+    // no template at all.
+    if (!template) {
+      const aiOut = await runFlyerAgent({ ...input, flyerRequests: [request] }, agentEmail)
+      flyers.push(...(aiOut.flyers as Spec[]))
+      continue
+    }
     const polished = await runPolishAgent(
       {
         businessName: intake.businessName,
@@ -598,6 +607,35 @@ async function runTemplateFlyer(
       console.log(`[template] flyer ${request.id}: ${template.id} — budget cut ${filled.truncated.join(", ")}`)
     } else {
       console.log(`[template] flyer ${request.id}: ${template.id} — all slots within budget`)
+    }
+
+    // The square social template IS the Instagram asset — rendered here in
+    // code rather than written as HTML by the Repurpose Agent.
+    const square = selectTemplate(request.id, "social-post")
+    if (square) {
+      const sq = fillTemplate({
+        template: square,
+        headline: polished.headline,
+        supporting: polished.supporting,
+        businessName: intake.businessName,
+        phone: intake.contact.phone,
+        address: intake.contact.address,
+        hasLogo: Boolean(intake.brandAssets.logoUrl),
+        hasQr: false,
+        photoUrl: input.photos[0]?.url ?? null,
+        colors: {
+          primary: palette[0]?.hex ?? "#12314f",
+          secondary: palette[1]?.hex ?? "#eef1f4",
+          accent: palette[2]?.hex ?? "#e39a2b",
+        },
+        fonts: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+      })
+      repurposeOut.set(request.id, {
+        instagramHtml: sq.html,
+        textBlurb: polished.textBlurb,
+        nextdoorPost: polished.nextdoorPost,
+        caption: `${polished.headline} ${polished.supporting}`.trim(),
+      })
     }
 
     flyers.push({
@@ -739,13 +777,15 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     console.log(`[enterprise] ${email}: composing from ${enterpriseAssets.length} approved asset(s) in org ${agentProfile!.orgId}`)
   }
   const sourcesByFlyerId = new Map<string, CampaignSource[]>()
+  // Filled by the template path; consulted by the repurpose pass below.
+  const templateRepurposeByFlyer = new Map<string, { instagramHtml: string; textBlurb: string; nextdoorPost: string; caption: string }>()
 
   // One expression, so the dispatch costs a single changed line below rather
   // than a conditional woven through the call site. The enterprise path has
   // its own input shape and output schema (see enterprise.ts) — this does not
   // alter what the SMB call sends.
   const runFlyerForRequest = async (input: Parameters<typeof runFlyerAgent>[0], agentEmail: string) => {
-    if (templateMode) return runTemplateFlyer(input, agentEmail, intake)
+    if (templateMode) return runTemplateFlyer(input, agentEmail, intake, templateRepurposeByFlyer)
     if (!enterpriseAssets) return runFlyerAgent(input, agentEmail)
     const out = await runEnterpriseFlyerAgent({ ...input, approvedAssets: enterpriseAssets }, agentEmail)
     for (const flyer of out.flyers) {
@@ -847,6 +887,24 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
   await Promise.all(
     flyerResult.flyers.map(async (flyer) => {
       try {
+        // Template mode already has all three formats: the square template
+        // rendered the Instagram asset, and the polish call wrote the two
+        // plain-text versions. Calling the Repurpose Agent here would pay
+        // $0.0462 to redo work that is already done.
+        const fromTemplate = templateRepurposeByFlyer.get(flyer.id)
+        if (fromTemplate) {
+          await updateDeliverable(email, {
+            type: "flyer",
+            id: flyer.id,
+            repurposed: {
+              instagramDownloadUrl: toDataUrl(fromTemplate.instagramHtml),
+              instagramCaption: fromTemplate.caption,
+              textBlurb: fromTemplate.textBlurb,
+              nextdoorPost: fromTemplate.nextdoorPost,
+            },
+          })
+          return
+        }
         const repurposed = await runRepurposeAgent(
           {
             brandProfile,

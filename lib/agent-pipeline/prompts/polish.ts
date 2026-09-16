@@ -20,6 +20,13 @@ their own words. Return exactly two lines of PLAIN TEXT:
 2. \`supporting\` — one line underneath that makes the headline concrete: what
    it covers, who it is for, or when it runs.
 
+Also return two plain-text versions of the same promotion for other channels:
+
+3. \`textBlurb\` — one or two sentences for an SMS or email blast. No greeting,
+   no sign-off, no link placeholder. Under 300 characters.
+4. \`nextdoorPost\` — a short neighbourly post for a local community feed.
+   First person, plain, no marketing voice. Two or three sentences.
+
 Rules:
 - PLAIN TEXT ONLY. No HTML, no markdown, no quotes around the lines, no emoji.
 - COUNT THE CHARACTERS of each line before you respond, and check both against

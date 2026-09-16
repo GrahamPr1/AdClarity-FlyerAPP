@@ -101,13 +101,18 @@ export function fillTemplate(input: TemplateFillInput): TemplateFillResult {
  * Seeded on the flyer id like assignDesignVariants, so two pieces in one batch
  * differ and a refinement of the same flyer lands on the same layout.
  */
-export function selectTemplate(flyerId: string): FlyerTemplate {
+export function selectTemplate(flyerId: string, formatId: string = "flyer"): FlyerTemplate | null {
+  // Filter FIRST. Picking from every template and hoping the format matches
+  // would eventually render a 1080x1080 square on a 3.5in door hanger.
+  const eligible = TEMPLATES.filter((t) => t.formatIds.includes(formatId))
+  if (eligible.length === 0) return null
+
   let h = 0x811c9dc5
   for (let i = 0; i < flyerId.length; i++) {
     h ^= flyerId.charCodeAt(i)
     h = Math.imul(h, 0x01000193) >>> 0
   }
-  return TEMPLATES[h % TEMPLATES.length]
+  return eligible[h % eligible.length]
 }
 
 export { TEMPLATES, templateById }

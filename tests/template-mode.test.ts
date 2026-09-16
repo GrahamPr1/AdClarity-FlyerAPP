@@ -76,12 +76,34 @@ describe("template fill", () => {
 
 describe("template selection", () => {
   it("is deterministic for a flyer id, so a refine keeps its layout", () => {
-    expect(selectTemplate("flyer-abc").id).toBe(selectTemplate("flyer-abc").id)
+    expect(selectTemplate("flyer-abc")!.id).toBe(selectTemplate("flyer-abc")!.id)
   })
 
   it("varies across flyers in a batch", () => {
-    const ids = ["a", "b", "c", "d", "e", "f"].map((i) => selectTemplate(i).id)
+    const ids = ["a", "b", "c", "d", "e", "f"].map((i) => selectTemplate(i)!.id)
     expect(new Set(ids).size).toBeGreaterThan(1)
+  })
+})
+
+describe("format filtering", () => {
+  it("never puts a square social layout on a printed flyer", () => {
+    for (const id of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
+      expect(selectTemplate(id, "flyer")!.formatIds).toContain("flyer")
+    }
+  })
+
+  it("selects the door-hanger template for a door hanger", () => {
+    expect(selectTemplate("x", "door-hanger")!.id).toBe("door-hanger-stack")
+  })
+
+  it("selects the square template for a social post", () => {
+    expect(selectTemplate("x", "social-post")!.id).toBe("social-square")
+  })
+
+  it("returns null for a canvas with no template, so the caller can fall back", () => {
+    // proposal/one-pager paginate; rendering a fixed-height template would be
+    // worse than routing to the AI agent.
+    expect(selectTemplate("x", "proposal")).toBeNull()
   })
 })
 
