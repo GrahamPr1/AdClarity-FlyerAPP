@@ -7,6 +7,7 @@ import { PLAN_GUARANTEE, PLAN_EXPLAINER, PLAN_LIMITS, ANNUAL_DISCOUNT_PERCENT } 
 import { PLANS } from "@/lib/plans"
 import { Reveal } from "@/components/reveal"
 import { WaitlistModal } from "@/components/waitlist-modal"
+import { EARLY_ACCESS_ENABLED } from "@/lib/early-access"
 
 type Billing = "monthly" | "annual"
 
@@ -99,7 +100,7 @@ function PlanCard({
         )}
         {/* Sits under the price rather than in the header, so it can't overlap
             the "Most Popular" badge on the Pro card. */}
-        {isPaid && (
+        {isPaid && EARLY_ACCESS_ENABLED && (
           <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-[var(--surface-soft)] px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
             Billing coming soon
@@ -117,7 +118,7 @@ function PlanCard({
          *
          * The free tier is untouched — it works today, so it still just goes.
          */}
-        {isPaid ? (
+        {isPaid && EARLY_ACCESS_ENABLED ? (
           <button
             onClick={() => onJoinWaitlist(plan.id as "basic" | "pro")}
             className={`mt-6 w-full py-3.5 rounded-full text-sm font-medium transition-colors ${

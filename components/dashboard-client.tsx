@@ -12,6 +12,7 @@ import type {
   RepurposedFlyerContent,
 } from "@/lib/types"
 import { BUSINESS_CATEGORIES } from "@/lib/types"
+import { EARLY_ACCESS_ENABLED } from "@/lib/early-access"
 import { FormFillSection } from "@/components/form-fill-section"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SUPPORT_EMAIL } from "@/lib/marketing"
@@ -867,7 +868,7 @@ export function DashboardClient() {
           {/* They asked to be told when billing opens. Shown so it's clear
               the request was recorded and that nothing is being charged —
               STRIPE_REVERT, see REVERT_TO_STRIPE.md. */}
-          {data.waitlist?.length > 0 && (
+          {EARLY_ACCESS_ENABLED && data.waitlist?.length > 0 && (
             <div className="mt-8 rounded-xl border border-border bg-[var(--surface-soft)] px-4 py-3">
               {data.waitlist.map((w) => (
                 <p key={w.id} className="text-sm text-muted-foreground">

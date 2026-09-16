@@ -20,6 +20,25 @@ quietly broken.
 3. `POST /api/admin/waitlist/notify` with their entry ids, so the admin table
    shows who has already been contacted and nobody gets two emails.
 
+## Turning Early Access OFF without reverting anything
+
+There is now a toggle for this, added so the paid flow can be tested without
+editing components: `NEXT_PUBLIC_EARLY_ACCESS=off` (see `lib/early-access.ts`).
+
+It hides the Early Access buttons, the "Billing coming soon" badge and the
+dashboard waitlist banner, letting the paid CTAs fall through to their
+original `/onboarding?plan=<id>` behaviour.
+
+**It does not open billing.** There is still no checkout, so anyone who signs
+in gets that plan for free with the real server-side entitlements behind it —
+50 flyers/month and AI photos on Pro, each costing real API spend. It defaults
+to ON precisely so a deploy that forgets to set it cannot start giving the
+paid tiers away. Treat leaving it off in production as a deliberate decision
+with a cost, not a config detail.
+
+The steps below are the permanent revert, for when Stripe is actually
+connected. The toggle is not a substitute for them.
+
 ## The change
 
 1. **`components/pricing-cards.tsx`** — at the `STRIPE_REVERT` comment, drop
