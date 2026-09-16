@@ -69,7 +69,7 @@ export const TEMPLATES: FlyerTemplate[] = [
   {
     id: "split-vertical",
     archetype: "split-vertical",
-    budgets: { headline: 44, supporting: 125 },
+    budgets: { headline: 44, supporting: 165 },
     html: SHELL(`
       <div style="display:flex;height:1100px">
         <aside style="flex:0 0 320px;background:var(--brand-primary);color:#fff;padding:44px 32px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden">

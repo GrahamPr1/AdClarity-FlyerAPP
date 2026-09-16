@@ -566,6 +566,10 @@ async function runTemplateFlyer(
         targetAudience: intake.targetAudience,
         voiceTone: intake.voiceTonePreference,
         budgets: template.budgets,
+        hardLimits:
+          `headline: at most ${template.budgets.headline} characters. ` +
+          `supporting: at most ${template.budgets.supporting} characters. ` +
+          `Count them before responding.`,
       },
       agentEmail,
       request.id,

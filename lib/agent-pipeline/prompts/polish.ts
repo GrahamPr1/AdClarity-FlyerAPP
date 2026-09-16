@@ -22,8 +22,14 @@ their own words. Return exactly two lines of PLAIN TEXT:
 
 Rules:
 - PLAIN TEXT ONLY. No HTML, no markdown, no quotes around the lines, no emoji.
-- Respect the character budgets given in \`budgets\`. They are physical limits
-  of the layout, not suggestions. Shorter is always safe; longer is cut.
+- COUNT THE CHARACTERS of each line before you respond, and check both against
+  \`hardLimits\`. These are physical limits of a fixed layout, not suggestions:
+  anything over is cut off mid-phrase, and what gets lost is the end of the
+  line — usually the very detail that made the offer concrete ("installed",
+  "for dogs under 30 lbs", a booking deadline).
+- If a line is over, rewrite it shorter rather than trimming a word off the
+  end. Drop a clause, not the specifics: keep prices, dates and quantities.
+- Shorter is always safe. Aim a few characters UNDER each limit.
 - Use only facts present in the input. Never invent a discount, a date, a
   guarantee, a licence, or a years-in-business claim that was not given.
 - Keep the client's own offer intact. If they said $99, it stays $99.
