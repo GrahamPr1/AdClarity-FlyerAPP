@@ -29,6 +29,34 @@ export interface Palette {
   primary: string
   secondary: string
   accent: string
+  /**
+   * Two derived tones, computed not authored, for compositions carrying no
+   * photograph. A flyer with a photo gets most of its colour from the image;
+   * one without has only three flat fields, which reads thin however
+   * well-chosen they are. Derived rather than hand-picked so every palette —
+   * including any added later — gains them automatically and they can never
+   * drift out of relation to the base colours.
+   */
+  supporting?: string[]
+}
+
+/** Mixes two hex colours. Used only to derive supporting tones. */
+function mix(a: string, b: string, weight: number): string {
+  const parse = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
+  const [ar, ag, ab] = parse(a)
+  const [br, bg, bb] = parse(b)
+  const c = (x: number, y: number) => Math.round(x * (1 - weight) + y * weight)
+  return `#${[c(ar, br), c(ag, bg), c(ab, bb)].map((v) => v.toString(16).padStart(2, "0")).join("")}`.toUpperCase()
+}
+
+/**
+ * A soft tint of the primary and a deepened accent: enough range for banding,
+ * rules, panels and shape work without introducing a hue the palette never
+ * had. Deliberately NOT more saturation — saturation makes a thin design
+ * garish, not rich.
+ */
+export function withSupportingTones(p: Palette): Palette {
+  return { ...p, supporting: [mix(p.primary, p.secondary, 0.72), mix(p.accent, p.primary, 0.45)] }
 }
 
 export interface DesignVariant {
@@ -145,10 +173,35 @@ export function assignDesignVariants(
    * Omitted means every archetype is fair game.
    */
   allowedLayoutNames?: string[],
+  opts?: {
+    /**
+     * Stable identity for the BUSINESS (name + trade), not the flyer.
+     *
+     * Layout and palette are seeded differently on purpose. Layout stays
+     * per-flyer so a client ordering three pieces gets three distinct
+     * compositions — the original reason this file exists. Palette is seeded
+     * from the business instead, so every piece they ever receive shares one
+     * colour language across flyer, one-pager, door hanger and social post.
+     * That is what brand consistency means here: fixed palette, varied
+     * composition. Omitted keeps the previous per-flyer behaviour.
+     */
+    businessSeed?: string
+    /** Trade-appropriate pool — see palettePoolFor in trade-palettes.ts. */
+    palettePool?: Palette[]
+  },
 ): Map<string, DesignVariant> {
+  const palettePool = opts?.palettePool?.length ? opts.palettePool : MASS_APPEAL_PALETTES
+  const businessSeed = opts?.businessSeed
   const assigned = new Map<string, DesignVariant>()
   const usedLayouts = new Set<number>()
   const usedPalettes = new Set<number>()
+
+  // One draw for the whole batch when a business seed is supplied: every
+  // flyer in it, and every flyer this business ever gets, lands on the same
+  // palette. Without a seed this stays null and the per-flyer draw below
+  // applies, preserving the old behaviour.
+  const businessPalette =
+    businessSeed && palettePool.length > 0 ? palettePool[hash(`${businessSeed}:palette`) % palettePool.length] : null
 
   const pool = allowedLayoutNames?.length
     ? LAYOUT_ARCHETYPES.filter((l) => allowedLayoutNames.includes(l.name))
@@ -176,12 +229,14 @@ export function assignDesignVariants(
     const layout = layouts[claim(seed % layouts.length, usedLayouts, layouts.length)]
     // A second, decorrelated draw — otherwise layout and palette move in
     // lockstep and "navy" would always arrive with the same composition.
-    const paletteIndex = claim(hash(`${id}:palette`) % MASS_APPEAL_PALETTES.length, usedPalettes, MASS_APPEAL_PALETTES.length)
+    const paletteIndex = claim(hash(`${id}:palette`) % palettePool.length, usedPalettes, palettePool.length)
 
     assigned.set(id, {
       layoutName: layout.name,
       layoutBrief: layout.brief,
-      palette: allowPaletteVariation ? MASS_APPEAL_PALETTES[paletteIndex] : null,
+      // null whenever the client supplied real colours — their brand wins,
+      // and only the layout varies. Unchanged by the trade pools.
+      palette: allowPaletteVariation ? withSupportingTones(businessPalette ?? palettePool[paletteIndex]) : null,
     })
   }
 

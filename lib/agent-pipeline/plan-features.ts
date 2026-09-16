@@ -32,6 +32,30 @@ export function planAllowsAiPhotos(plan: PlanId | undefined): boolean {
  * nobody asked for spends real credits and puts invented pictures on a
  * client's marketing.
  */
+/**
+ * Whether STOCK photography (Unsplash) may be sourced for this flyer.
+ *
+ * Every tier, always. Deliberately not gated on plan and not gated on
+ * wantsAiPhotos:
+ *
+ *   - Not on plan, because a stock photograph costs nothing per image. The
+ *     only per-image spend is Higgsfield, which aiPhotosEnabled still gates.
+ *   - Not on wantsAiPhotos, because that question asks about AI-GENERATED
+ *     imagery. A real photograph taken by a real photographer is not what
+ *     the client declined, and reading "no AI photos" as "no photos at all"
+ *     is putting words in their mouth.
+ *
+ * A client's own uploaded photos still win over this — see buildPhotoPool.
+ *
+ * This is a behaviour change: before, one flag gated BOTH sources, so a
+ * free-trial flyer skipped Unsplash entirely and fell through to the
+ * no-photo design. Everything downstream (scrim, attribution, download
+ * trigger) already handles stock photos on any tier.
+ */
+export function stockPhotosEnabled(_plan: PlanId | undefined): boolean {
+  return true
+}
+
 export function aiPhotosEnabled(plan: PlanId | undefined, wantsAiPhotos: boolean): boolean {
   return planAllowsAiPhotos(plan) && wantsAiPhotos
 }

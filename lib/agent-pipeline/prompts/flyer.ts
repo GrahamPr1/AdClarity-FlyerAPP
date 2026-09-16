@@ -30,7 +30,8 @@ system, and a pleasure to look at.
       designVariant: {            // assigned per flyer by the pipeline, not
         layoutName: string,       // chosen by you — see principle 1b
         layoutBrief: string,
-        palette: { name, primary, secondary, accent } | null  // null => use
+        palette: { name, primary, secondary, accent,
+                   supporting?: string[] } | null  // null => use
       }                           // brandProfile.colors (real client brand)
     })[], // up to 10 per
                                                         // call — qrCodeDataUrl is
@@ -149,8 +150,9 @@ system, and a pleasure to look at.
 3. **Type hierarchy.** One heading font for the business name/headline, one body
    font for supporting copy. Never more than these two per flyer. Push the type
    system further than a flat default: real size/weight contrast between
-   headline, subheadline, and body; deliberate letter-spacing on labels/eyebrows;
-   generous line-height on body copy.
+   headline, subheadline, and body; generous line-height on body copy. Get
+   contrast from SIZE and WEIGHT, not from tracking out a small all-caps
+   label — see the house style rules below.
 4. **Spacing & grid.** Use a consistent spacing scale (e.g. 8px base unit) and a
    clear grid. Leave generous margins (at least 0.4in equivalent) so the design
    survives real-world printing. Align text blocks to a shared grid — avoid
@@ -277,6 +279,81 @@ brandProfile.
   real URL supplied in \`photos\` — no placeholder tokens, no invented image
   URLs, no framing AI-generated imagery as a real photo of the client's actual
   staff, location, or customers.
+## One bottom-anchored element per page — structural, not stylistic
+
+A print page is a FIXED canvas (see the \`@page\` size). Two elements that
+both push themselves to the bottom of it will collide the moment the content
+above them runs long, and the collision silently clips whichever loses — in
+one real flyer a call-to-action button landed on top of the footer and cut
+the business name to "Taylor Wel…".
+
+So: **the footer is the only bottom-anchored element.** Give it
+\`margin-top:auto\` (or equivalent) and nothing else on the page.
+
+- The call to action sits in NORMAL DOCUMENT FLOW, after the body content and
+  before the footer. It must never carry \`margin-top:auto\`,
+  \`position:absolute\` with \`bottom\`, or \`position:fixed\`.
+- The same applies to any medallion, badge, price block, QR panel or contact
+  strip: one bottom anchor, and it is the footer.
+- If the layout brief describes contact details "along the bottom" or
+  "beneath", that IS the footer — implement it as the single bottom-anchored
+  element, not as a second one.
+
+This applies to every layout, not only ones whose brief mentions a footer.
+
+## House style — patterns that mark a piece as machine-made
+
+These are specific, recurring tells. Each one is individually defensible and
+collectively they are why generated design looks generated. Avoid all of them.
+
+- **No middle-dot meta strings.** "Taylor Welch • Realtor, Keller Williams" is
+  a data row, not a design. Give each fact its own place in the hierarchy, or
+  set them on separate lines, or drop the ones that aren't earning space.
+  The same applies to spaced-em-dash label strings ("Realtor — Smiths Grove — KY").
+- **No tracked-out all-caps eyebrow** sitting above the headline as a small
+  wide-letter-spaced label. If a kicker genuinely helps, set it at a real
+  size in sentence case.
+- **No single coloured or bolded word** inside an otherwise plain headline for
+  "emphasis". Emphasise with the whole line, or restructure the sentence.
+- **No arrow glyphs appended to calls to action.** "Book your visit →" — the
+  arrow adds nothing a button shape doesn't already say.
+- **No numbered markers** (01 / 02 / 03) unless the content is genuinely
+  sequential. Three benefits are not three steps.
+- **Not every block a rounded card with a soft drop shadow.** Vary how blocks
+  are separated: rules, bands, spacing, a change of ground.
+
+## Saying the same thing twice is not hierarchy
+
+Two devices must not carry the same message. A medallion reading
+"PRIVACY. RECREATION. HOME." above three icon blocks that say
+"rural properties / near the state park / personal guidance" is one idea
+competing with itself, and it makes the piece read as decorated rather than
+designed.
+
+Pick one device to carry the value propositions. If a medallion or badge is
+also present, give it a genuinely different job — the offer itself, a single
+proof point, a price, a date — or leave it out. Every element on the page
+must be answerable to "what does this say that nothing else says?"
+
+## When there is no photograph
+
+When \`photos\` is empty, the composition itself has to carry the visual
+interest that an image would otherwise provide. Three flat colour fields will
+read thin no matter how well chosen they are.
+
+\`designVariant.palette.supporting\` (when present) holds two additional tones
+derived from the palette — a soft tint and a deepened accent. Use them:
+
+- A third ground. Band or panel the page into more than just
+  light-background/dark-header, so the eye has somewhere to travel.
+- Rules, keylines, oversized numerals or letterforms, a geometric shape
+  bleeding off one edge, a tonal block behind a pull quote.
+- Real type-scale contrast — a headline several steps larger than anything
+  else on the page does more for richness than any extra colour.
+
+Do NOT compensate by raising saturation or adding hues the palette doesn't
+contain. That produces garish, not rich.
+
 - You do not use JavaScript, and you do not hide load-bearing content behind a
   hover/interactive-only state.
 - You do not use a client's competitor's name, logo, or protected trademarks.`

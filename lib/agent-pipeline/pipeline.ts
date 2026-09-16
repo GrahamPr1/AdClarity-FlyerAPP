@@ -5,14 +5,23 @@ import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage } from "./higgsfield"
+import { buildSearchQuery, findPhoto, finalizePhotoUsage, type UnsplashPhoto } from "@/lib/unsplash"
 import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
-import { planIncludesExtras, aiPhotosEnabled } from "./plan-features"
+import { planIncludesExtras, aiPhotosEnabled, stockPhotosEnabled } from "./plan-features"
 import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
+import { palettePoolFor } from "./trade-palettes"
+import { applyLegibilityGuardrails } from "./legibility"
 import { getFormat, formatForAgent } from "./formats"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
 import type { FlyerRequest } from "./schemas/flyer"
 import {
   QR_PLACEHOLDER,
+  creditsUsedIn,
+  injectPhotoAttribution,
+  preservePhotoCredit,
+  enforceSingleBottomAnchor,
+  enforceBoundedContent,
+  enforceCtaOwnRow,
   substituteQr,
   collapseQrToToken,
   canonicalOfferFrom,
@@ -132,45 +141,192 @@ function buildRawIntakePayload(submission: IntakeSubmission) {
 function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerRequest): string {
   const services = intake.services.slice(0, 3).join(", ")
   const noteContext = request.notes ? ` — ${request.notes}` : ""
+  // The negative constraints are spelled out rather than listed, because the
+  // terse version did not hold: measured against z_image, "no people, no
+  // text, no logos" produced a photo of a technician with a fake ad banner
+  // and garbled lettering baked in. Both matter beyond aesthetics — an
+  // AI-generated person on a local business's flyer reads as a photo of
+  // their staff, and gibberish text printed on a real flyer is unshippable.
+  // The expanded wording below was verified to produce a clean, empty,
+  // on-brief scene at the same price.
   return (
     `${intake.industry} business, ${request.purpose}${noteContext}, ` +
-    `offering ${services}, for an audience of ${intake.targetAudience}, ` +
-    `professional environment, warm natural lighting, no people, no text, no logos, documentary style`
+    `offering ${services}, for an audience of ${intake.targetAudience}. ` +
+    `Empty scene, equipment and workspace only. ` +
+    `Absolutely no people, no faces, no hands, no human figures. ` +
+    `No text, no signage, no logos, no watermarks, no lettering of any kind. ` +
+    `Professional environment, warm natural lighting, documentary photography style.`
   )
 }
 
 /**
- * Fills the photo gap the old {{AI_PHOTO:...}} tokens left broken: if the
- * client supplied zero photos of their own, generate one real image per
- * flyer request via Higgsfield — but ONLY when allowAiGeneration is true
- * (Pro plan AND the client's own explicit opt-in, see intake.wantsAiPhotos
- * — never automatic). Least-credits approach — exactly one attempt per
- * flyer, no retries, skipped entirely if Higgsfield isn't configured.
- * Failures are per-image and never throw — the Flyer Agent's existing
- * CSS-only design already handles a flyer with no matching photo
- * gracefully, so a partial (or total) miss here just means fewer real
- * photos in the pool, not a broken flyer.
+ * Sources one candidate photo per flyer request.
+ *
+ * Order is Unsplash first, Higgsfield second, CSS-only last.
+ *
+ * Unsplash is primary because it returns real photographs at no per-image
+ * cost; Higgsfield generates a bespoke image but bills credits per call, so
+ * it now runs only when Unsplash has nothing on-topic. Both sit behind the
+ * SAME gate as before — Pro plan AND the client's explicit wantsAiPhotos
+ * opt-in — so this change alters which source is tried, never who gets
+ * photos. (Worth revisiting: that opt-in is worded as "AI-generated photos",
+ * which no longer describes an Unsplash stock photo.)
+ *
+ * Never throws. A miss at every level just means fewer photos in the pool,
+ * and the Flyer Agent's CSS-only design already handles that well — which is
+ * exactly why a weak Unsplash match is rejected rather than used.
  */
-async function buildPhotoPool(intake: NormalizedIntake, flyerRequests: FlyerRequest[], allowAiGeneration: boolean) {
-  if (intake.photos.length > 0) return intake.photos
-  if (!allowAiGeneration) return []
+async function buildPhotoPool(
+  intake: NormalizedIntake,
+  flyerRequests: FlyerRequest[],
+  gates: { allowStockPhotos: boolean; allowAiGeneration: boolean },
+): Promise<{ photos: NormalizedIntake["photos"]; unsplash: UnsplashPhoto[] }> {
+  // A client's own photographs always win, and need no attribution.
+  if (intake.photos.length > 0) {
+    console.log(`[photo-pool] using ${intake.photos.length} client-supplied photo(s); no stock lookup needed.`)
+    return { photos: intake.photos, unsplash: [] }
+  }
 
-  const results = await Promise.allSettled(
-    flyerRequests.map((request) =>
-      generateImage({
-        context: `flyer "${request.purpose}"`,
-        prompt: buildAiPhotoPrompt(intake, request),
-      }),
-    ),
+  // Every exit below says WHY. The bug this replaces was a silent early
+  // return: a single flag gated both sources, so a free-trial flyer skipped
+  // Unsplash without logging anything and landed on the no-photo design,
+  // which was indistinguishable from "Unsplash found nothing".
+  if (!gates.allowStockPhotos && !gates.allowAiGeneration) {
+    console.log("[photo-pool] skipped: both stock and AI photo sources are disabled for this flyer.")
+    return { photos: [], unsplash: [] }
+  }
+
+  const sourced = await Promise.allSettled(
+    flyerRequests.map(async (request) => {
+      const context = `flyer "${request.purpose}"`
+
+      const query = buildSearchQuery({
+        industry: intake.industry,
+        purpose: request.purpose,
+        services: intake.services,
+      })
+      const found = gates.allowStockPhotos
+        ? await findPhoto({ query, context })
+        : ({ ok: false, reason: "not_configured", detail: "stock photos disabled for this flyer" } as const)
+
+      if (found.ok) {
+        return {
+          photo: { url: found.photo.url, caption: `Stock photo — suggested for: ${request.purpose}` },
+          // UnsplashPhoto already carries every field PhotoCredit needs,
+          // so it doubles as the credit record — one list, no drift.
+          unsplash: found.photo,
+        }
+      }
+
+      // Logged per reason so we can see how often each trade falls through —
+      // "thin_results" is a library-coverage problem, "rate_limited" is the
+      // 50/hr demo ceiling, and they need different fixes.
+      console.log(`[photo-pool] ${context}: unsplash skipped/miss (${found.reason}) — ${found.detail}`)
+
+      if (!gates.allowAiGeneration) {
+        console.log(`[photo-pool] ${context}: higgsfield not attempted (needs Pro plan + the client's wantsAiPhotos opt-in) — CSS-only design.`)
+        return null
+      }
+      const generated = await generateImage({ context, prompt: buildAiPhotoPrompt(intake, request) })
+      if (generated) {
+        return {
+          photo: { url: generated.url, caption: `AI-generated, illustrative — suggested for: ${request.purpose}` },
+          unsplash: null,
+        }
+      }
+
+      console.log(`[photo-pool] ${context}: no photo from any source — CSS-only design.`)
+      return null
+    }),
   )
 
-  return results
-    .map((result, i) => (result.status === "fulfilled" && result.value ? { image: result.value, purpose: flyerRequests[i].purpose } : null))
-    .filter((entry): entry is { image: { url: string; creditsUsed: number | null }; purpose: string } => entry !== null)
-    .map(({ image, purpose }) => ({
-      url: image.url,
-      caption: `AI-generated, illustrative — suggested for: ${purpose}`,
-    }))
+  const hits = sourced
+    .map((r) => (r.status === "fulfilled" ? r.value : null))
+    .filter((v): v is NonNullable<typeof v> => v !== null)
+
+  return {
+    photos: hits.map((h) => h.photo),
+    unsplash: hits.map((h) => h.unsplash).filter((u): u is UnsplashPhoto => u !== null),
+  }
+}
+
+/**
+ * Honours the two obligations that come with using an Unsplash photo, for
+ * the photos that genuinely reached this flyer's final HTML.
+ *
+ * Kept as one function on purpose: the API Guidelines require BOTH a credit
+ * and a download trigger, and pairing them here means neither can be
+ * satisfied without the other. Matching against the finished HTML rather
+ * than the candidate pool is what makes "actually used" true — the agent is
+ * free to use none of the photos it was offered.
+ */
+async function applyPhotoObligations(
+  html: string,
+  unsplash: UnsplashPhoto[],
+  formatId: string | undefined,
+  context: string,
+): Promise<string> {
+  const used = creditsUsedIn(html, unsplash)
+  if (used.length === 0) {
+    // The distinction that was previously invisible. prompts/flyer.ts
+    // explicitly permits the agent to design with zero photos when nothing
+    // in `photos` fits ("design that flyer with zero photos instead"), so a
+    // flyer with no <img> and no credit has TWO possible histories: no photo
+    // was ever sourced, or one was sourced and declined. Without this line
+    // they are indistinguishable after the fact, which is exactly what made
+    // the "why is there no photo?" question unanswerable.
+    if (unsplash.length > 0) {
+      console.log(
+        `[photo-pool] ${context}: agent DECLINED all ${unsplash.length} available photo(s) — ` +
+          `composed with zero photos. Not a sourcing failure; see rule 5 in prompts/flyer.ts.`,
+      )
+    }
+    return html
+  }
+  await finalizePhotoUsage(used, context)
+  return injectPhotoAttribution(html, used, getFormat(formatId).medium)
+}
+
+/**
+ * Legibility pass, run on every flyer before it is stored.
+ *
+ * Unconditional — not gated on whether a photo came from Unsplash — because
+ * a client's OWN uploaded photo can bury text just as effectively as a stock
+ * one. Returns the html unchanged when there is nothing sitting on an image.
+ *
+ * Contrast failures are logged, not thrown. Regenerating is the most
+ * expensive call in the pipeline (~100s and a real model bill), and this
+ * check can only see the elements whose colours are resolvable — so a retry
+ * triggered by it would sometimes be spending that on a false positive. The
+ * scrim is what actually prevents the failure; this reports what it could
+ * and could not verify.
+ */
+function applyLegibility(html: string, context: string): string {
+  // Structural first: a collision clips text outright, which is worse than
+  // any contrast problem the scrim then fixes.
+  // Order matters: lift the CTA out FIRST, so the bound applied next can
+  // only ever clip body copy, never the call to action.
+  const lifted = enforceCtaOwnRow(html)
+  if (lifted.moved) console.log(`[layout] ${context}: moved CTA (${lifted.moved}) out of the growable track into its own row`)
+  const grown = enforceBoundedContent(lifted.html)
+  if (grown.bounded.length > 0) {
+    console.log(`[layout] ${context}: bounded ${grown.bounded.length} growable region(s) — ${grown.bounded.join(", ")}`)
+  }
+  const anchored = enforceSingleBottomAnchor(grown.html)
+  if (anchored.neutralised.length > 0) {
+    console.log(`[layout] ${context}: neutralised ${anchored.neutralised.length} extra bottom anchor(s) — ${anchored.neutralised.join(", ")}`)
+  }
+  const { html: guarded, report } = applyLegibilityGuardrails(anchored.html)
+  if (report.scrimsInjected > 0 || report.contrastFailures.length > 0) {
+    console.log(
+      `[legibility] ${context}: ${report.scrimsInjected} scrim(s) injected, ` +
+        `${report.contrastFailures.length} contrast failure(s), ${report.unresolved} image(s) not geometrically verifiable`,
+    )
+    for (const f of report.contrastFailures) {
+      console.warn(`[legibility] ${context}: ${f.ratio}:1 (needs ${f.required}:1) — "${f.text}"`)
+    }
+  }
+  return guarded
 }
 
 /**
@@ -223,8 +379,11 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     await savePendingBrandProfile(flyerRequests[0].id, brandProfile, intake.contact).catch((e) => console.error("[agent-pipeline] Failed to save pending brand profile:", e))
   }
   const { plan, includeExtras } = await getPlanFeatures(email)
-  if (aiPhotosEnabled(plan, intake.wantsAiPhotos)) await setGenerationStage(email, GENERATION_STAGES.photos)
-  const photos = await buildPhotoPool(intake, flyerRequests, aiPhotosEnabled(plan, intake.wantsAiPhotos))
+  if (stockPhotosEnabled(plan) || aiPhotosEnabled(plan, intake.wantsAiPhotos)) await setGenerationStage(email, GENERATION_STAGES.photos)
+  const { photos, unsplash: unsplashPool } = await buildPhotoPool(intake, flyerRequests, {
+    allowStockPhotos: stockPhotosEnabled(plan),
+    allowAiGeneration: aiPhotosEnabled(plan, intake.wantsAiPhotos),
+  })
   stageMark(runId, t0, "photo pool ready")
 
   // One tracking code + QR image per flyer, generated before the agent call
@@ -249,10 +408,18 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
   // formats never lands a split-vertical composition on a door hanger. When a
   // batch shares one format (the normal case) this is just that format's pool.
   const sharedFormat = getFormat(flyerRequests[0]?.formatId)
+  // Palette is seeded from the BUSINESS so every piece they ever get shares
+  // one colour language; layout stays seeded per flyer so a batch of three
+  // still reads as three distinct pieces. See assignDesignVariants.
+  const client = await getClient(email)
   const variants = assignDesignVariants(
     flyerRequests.map((r) => r.id),
     brandProfile?.colorSource === "agent_proposed",
     sharedFormat.allowedLayouts,
+    {
+      businessSeed: `${intake.businessName}:${client?.businessCategory ?? "Other"}`,
+      palettePool: palettePoolFor(client?.businessCategory),
+    },
   )
 
   const flyerRequestsWithQr = flyerRequests.map((r) => ({
@@ -328,7 +495,12 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
       type: "flyer",
       id: flyer.id,
       status: "Ready",
-      downloadUrl: toDataUrl(substituteQr(flyer.html, tracking?.qrDataUrl ?? null)),
+      downloadUrl: toDataUrl(
+        substituteQr(
+          await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), unsplashPool, flyerRequests[0]?.formatId, `flyer ${flyer.id}`),
+          tracking?.qrDataUrl ?? null,
+        ),
+      ),
       trackingCode: tracking?.code,
     })
   }
@@ -425,7 +597,10 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
   const brandProfile = await runBrandAgent(intake, email)
   stageMark(runId, t0, "brand done")
   const { plan, includeExtras } = await getPlanFeatures(email)
-  const photos = await buildPhotoPool(intake, [flyerRequest], aiPhotosEnabled(plan, intake.wantsAiPhotos))
+  const { photos, unsplash: unsplashPool } = await buildPhotoPool(intake, [flyerRequest], {
+    allowStockPhotos: stockPhotosEnabled(plan),
+    allowAiGeneration: aiPhotosEnabled(plan, intake.wantsAiPhotos),
+  })
   stageMark(runId, t0, "photo pool ready")
 
   // A retry gets its own fresh tracking code (Basic+/Pro only) — the old
@@ -470,7 +645,12 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
     type: "flyer",
     id: flyer.id,
     status: "Ready",
-    downloadUrl: toDataUrl(substituteQr(flyer.html, tracking?.qrDataUrl ?? null)),
+    downloadUrl: toDataUrl(
+      substituteQr(
+        await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), unsplashPool, flyerRequest.formatId, `flyer ${flyer.id}`),
+        tracking?.qrDataUrl ?? null,
+      ),
+    ),
     trackingCode: tracking?.code,
   })
 
@@ -604,7 +784,7 @@ export async function refineFlyer(
       type: "flyer",
       id: flyer.id,
       status: "Ready",
-      downloadUrl: toDataUrl(substituteQr(flyer.html, qrDataUrl)),
+      downloadUrl: toDataUrl(substituteQr(preservePhotoCredit(currentHtml, applyLegibility(flyer.html, `flyer ${flyer.id}`)), qrDataUrl)),
       trackingCode: existingTrackingCode,
     })
 
