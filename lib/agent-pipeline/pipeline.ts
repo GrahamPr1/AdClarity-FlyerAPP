@@ -3,6 +3,10 @@ import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineSt
 import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
+import { runEnterpriseFlyerAgent } from "./agents/flyerAgent"
+import { getAgentProfile, listContentAssets } from "@/lib/store"
+import { toAssetContext, findVerbatimViolations, findInventedComplianceLanguage } from "./enterprise"
+import type { CampaignSource } from "@/lib/types"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage } from "./higgsfield"
 import { buildSearchQuery, findPhoto, finalizePhotoUsage, type UnsplashPhoto } from "@/lib/unsplash"
@@ -453,9 +457,57 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
   // documents plus three pieces of copy, which reliably blew
   // PIPELINE_TIMEOUT_MS on Basic/Pro.
   await setGenerationStage(email, GENERATION_STAGES.flyer)
+
+  // ---- Enterprise mode (additive; SMB is the untouched default) ----------
+  //
+  // Triggered by DATA, not a query parameter: a client whose AgentProfile
+  // names an org that actually has approved assets generates from that
+  // library. A query-param trigger would have to thread a new argument
+  // through continuePipelineFromIntake and runBatch, changing both
+  // signatures — the exact modification this brief forbids. It is also what
+  // production would do anyway; Brief 3's demo route seeds the profile.
+  //
+  // Every lookup fails soft to null, so an enterprise misconfiguration
+  // degrades to a normal SMB generation rather than failing a campaign.
+  const agentProfile = await getAgentProfile(email).catch(() => null)
+  const approvedAssets = agentProfile?.orgId
+    ? toAssetContext(await listContentAssets(agentProfile.orgId).catch(() => []))
+    : []
+  const enterpriseAssets = approvedAssets.length > 0 ? approvedAssets : null
+  if (enterpriseAssets) {
+    console.log(`[enterprise] ${email}: composing from ${enterpriseAssets.length} approved asset(s) in org ${agentProfile!.orgId}`)
+  }
+  const sourcesByFlyerId = new Map<string, CampaignSource[]>()
+
+  // One expression, so the dispatch costs a single changed line below rather
+  // than a conditional woven through the call site. The enterprise path has
+  // its own input shape and output schema (see enterprise.ts) — this does not
+  // alter what the SMB call sends.
+  const runFlyerForRequest = async (input: Parameters<typeof runFlyerAgent>[0], agentEmail: string) => {
+    if (!enterpriseAssets) return runFlyerAgent(input, agentEmail)
+    const out = await runEnterpriseFlyerAgent({ ...input, approvedAssets: enterpriseAssets }, agentEmail)
+    for (const flyer of out.flyers) {
+      sourcesByFlyerId.set(flyer.id, out.sources)
+      const violations = findVerbatimViolations(flyer.html, out.sources, enterpriseAssets)
+      for (const v of violations) {
+        console.error(`[enterprise] VERBATIM VIOLATION on flyer ${flyer.id}: locked asset "${v.label}" (${v.assetId}) was not reproduced exactly. Expected to contain: "${v.expectedOpening}…"`)
+      }
+      // A second, independent check: approved text unaltered is not the same
+      // as no unapproved text added. See findInventedComplianceLanguage.
+      const invented = findInventedComplianceLanguage(flyer.html, enterpriseAssets)
+      for (const v of invented) {
+        console.error(`[enterprise] INVENTED COMPLIANCE LANGUAGE on flyer ${flyer.id} [${v.pattern}]: "${v.text}"`)
+      }
+      if (violations.length === 0 && invented.length === 0) {
+        console.log(`[enterprise] flyer ${flyer.id}: both checks clean (${out.sources.length} source(s) claimed)`)
+      }
+    }
+    return out
+  }
+
   const settled = await Promise.allSettled(
     flyerRequestsWithQr.map((request) =>
-      runFlyerAgent({
+      runFlyerForRequest({
         brandProfile,
         contact: intake.contact,
         photos,
@@ -503,6 +555,13 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
       ),
       trackingCode: tracking?.code,
     })
+  }
+
+  // Written as a second, additive pass so the SMB deliverable write above is
+  // untouched. No-op for SMB: sourcesByFlyerId is only ever populated on the
+  // enterprise path.
+  for (const [flyerId, sources] of sourcesByFlyerId) {
+    if (sources.length > 0) await updateDeliverable(email, { type: "flyer", id: flyerId, sources })
   }
 
   if (!includeExtras) {

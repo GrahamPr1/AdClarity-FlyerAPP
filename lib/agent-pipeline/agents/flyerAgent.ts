@@ -1,6 +1,12 @@
 import { runJsonAgent } from "../client"
 import { FLYER_AGENT_SYSTEM_PROMPT } from "../prompts/flyer"
 import { FlyerAgentOutputSchema, type FlyerAgentInput, type FlyerAgentOutput } from "../schemas/flyer"
+import {
+  ENTERPRISE_MODE_PROMPT,
+  EnterpriseFlyerAgentOutputSchema,
+  type EnterpriseAssetContext,
+  type EnterpriseFlyerAgentOutput,
+} from "../enterprise"
 
 // Each flyer's full HTML document costs meaningfully more tokens than a
 // single flat cap accounts for once more than one flyer is batched, and the
@@ -36,6 +42,32 @@ export async function runFlyerAgent(input: FlyerAgentInput, email: string): Prom
     systemPrompt: FLYER_AGENT_SYSTEM_PROMPT,
     userInput: input,
     schema: FlyerAgentOutputSchema,
+    maxTokens,
+    logContext: { email, agentType: "flyer", flyerId },
+  })
+}
+
+/**
+ * Enterprise-mode flyer generation: compose from an approved library.
+ *
+ * A SEPARATE entry point rather than a flag inside runFlyerAgent, because the
+ * SMB path has to stay byte-for-byte identical. runJsonAgent serialises the
+ * whole input object and compiles the schema into a token grammar, so an
+ * added `generationMode: "smb"` field or an extra optional output property
+ * would change what SMB generation sends and is constrained by. Nothing
+ * above this line was touched.
+ */
+export async function runEnterpriseFlyerAgent(
+  input: FlyerAgentInput & { approvedAssets: EnterpriseAssetContext[] },
+  email: string,
+): Promise<EnterpriseFlyerAgentOutput> {
+  const maxTokens = Math.min(TOKENS_PER_FLYER * Math.max(1, input.flyerRequests.length), MAX_TOKENS_CAP)
+  const flyerId = input.flyerRequests.length === 1 ? input.flyerRequests[0].id : null
+  return runJsonAgent({
+    // Appended, never edited — see the note in enterprise.ts.
+    systemPrompt: FLYER_AGENT_SYSTEM_PROMPT + ENTERPRISE_MODE_PROMPT,
+    userInput: input,
+    schema: EnterpriseFlyerAgentOutputSchema,
     maxTokens,
     logContext: { email, agentType: "flyer", flyerId },
   })

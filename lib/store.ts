@@ -319,6 +319,8 @@ export async function updateDeliverable(
     downloadUrl?: string
     repurposed?: RepurposedFlyerContent
     trackingCode?: string
+    /** Enterprise mode only — which approved assets backed this campaign. */
+    sources?: CampaignSource[]
   },
 ): Promise<FlyerDeliverable | null> {
   if (payload.type !== "flyer") return null
@@ -334,6 +336,9 @@ export async function updateDeliverable(
   if (payload.downloadUrl) flyer.downloadUrl = payload.downloadUrl
   if (payload.repurposed) flyer.repurposed = payload.repurposed
   if (payload.trackingCode) flyer.trackingCode = payload.trackingCode
+  // Only ever set, never defaulted to [] — an SMB flyer keeps no sources key
+  // at all (see FlyerDeliverable.sources in lib/types.ts).
+  if (payload.sources && payload.sources.length > 0) flyer.sources = payload.sources
   await writeDeliverables(email, current)
   return flyer
 }
