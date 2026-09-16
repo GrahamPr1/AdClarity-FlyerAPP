@@ -75,7 +75,7 @@ export const MAX_FLYERS_PER_BATCH = 10
 // kill the function outright.
 const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS) || 285 * 1000
 
-class PipelineTimeoutError extends Error {}
+export class PipelineTimeoutError extends Error {}
 
 // Every run that's hit PIPELINE_TIMEOUT_MS so far has hit it at EXACTLY the
 // configured ceiling, never naturally finishing a bit early or a bit late —
@@ -117,6 +117,94 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 function describeFailure(err: unknown): string {
   if (err instanceof PipelineTimeoutError) return err.message
   return `Generation failed: ${err instanceof Error ? err.message : "unknown error"}`
+}
+
+/**
+ * How long to keep watching in-flight work after PIPELINE_TIMEOUT_MS fires,
+ * before calling it a failure.
+ *
+ * PIPELINE_TIMEOUT_MS answers "should we still be waiting?", which is a
+ * question about OUR budget. It was being used to answer "did the generation
+ * fail?", which is a question about the AGENT — and the two are not the same.
+ * A real run crossed the ceiling at 285s and the Flyer Agent then returned
+ * successfully at 350s: the work succeeded, and the client had already been
+ * shown "Failed" with a retry button that would have burned a second
+ * generation on work that was about to land.
+ *
+ * So the timeout now starts a decision rather than concluding one. This
+ * spends most of the ~15s margin the ceiling deliberately leaves under the
+ * platform's 300s limit watching how the work actually ends, keeping enough
+ * to record the result before the function is reclaimed.
+ *
+ * Env-overridable for the same reason PIPELINE_TIMEOUT_MS is: tests must be
+ * able to drive both sides of this without waiting out real ceilings.
+ */
+const TIMEOUT_GRACE_MS = Number(process.env.PIPELINE_TIMEOUT_GRACE_MS) || 10 * 1000
+
+type Settled<T> = { state: "resolved"; value: T } | { state: "rejected"; reason: unknown } | { state: "pending" }
+
+/**
+ * Observes how `promise` ends, giving up after `ms` — without abandoning it.
+ *
+ * Distinct from withTimeout, which races and discards. Here the caller has
+ * already decided to stop waiting and needs to know WHY it stopped: work that
+ * succeeded late, work that genuinely failed, or work that is still stuck.
+ * Those three lead to three different deliverable states.
+ */
+export async function settleWithin<T>(promise: Promise<T>, ms: number): Promise<Settled<T>> {
+  // A rejection arriving after we stop watching is expected, not a crash —
+  // without this it surfaces as an unhandled rejection and can take the
+  // process down.
+  promise.catch(() => {})
+
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const pending = new Promise<Settled<T>>((resolve) => {
+    timer = setTimeout(() => resolve({ state: "pending" }), ms)
+  })
+  try {
+    return await Promise.race([
+      promise.then(
+        (value): Settled<T> => ({ state: "resolved", value }),
+        (reason): Settled<T> => ({ state: "rejected", reason }),
+      ),
+      pending,
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Turns "we stopped waiting" into the outcome that actually happened.
+ *
+ * Returns null when the work succeeded after all — the caller should record
+ * nothing, because the success path has already written its own Ready state.
+ * Otherwise returns the error to report: the real rejection if there was one,
+ * or the original timeout if the work is still stuck.
+ *
+ * Note what this deliberately does NOT do: it does not stop a genuinely
+ * stalled run from being marked Failed. That guarantee is why the ceiling
+ * exists (see PIPELINE_TIMEOUT_MS) and a flyer must never sit In Progress
+ * forever because a function was frozen or reclaimed mid-run.
+ */
+export async function resolveTimeoutOutcome<T>(
+  work: Promise<T>,
+  timeoutErr: unknown,
+  runId: string,
+  /** Injectable so tests can drive all three outcomes without waiting out the real grace. */
+  graceMs: number = TIMEOUT_GRACE_MS,
+): Promise<unknown | null> {
+  if (!(timeoutErr instanceof PipelineTimeoutError)) return timeoutErr
+
+  const settled = await settleWithin(work, graceMs)
+  if (settled.state === "resolved") {
+    console.warn(
+      `[agent-pipeline] ${runId}: exceeded the ${Math.round(PIPELINE_TIMEOUT_MS / 1000)}s ceiling but COMPLETED during the grace window — recording success, not failure.`,
+    )
+    return null
+  }
+  if (settled.state === "rejected") return settled.reason
+  return timeoutErr
 }
 
 /**
@@ -634,15 +722,27 @@ export async function continuePipelineFromIntake(
   const ids = flyerRequests.map((r) => r.id)
   const runId = ids.join(",")
   const t0 = Date.now()
+  let batch: Promise<void> | undefined
 
   try {
     await seedFlyerDeliverables(email, flyerRequests.map((r) => ({ id: r.id, purpose: r.purpose })))
     await markFlyersInProgress(email, ids)
     stageMark(runId, t0, "seeded, marked in-progress")
 
-    await withTimeout(runBatch(runId, t0, email, intake, flyerRequests, autoSaveBrandProfile), PIPELINE_TIMEOUT_MS)
+    // Held in a variable so the timeout path can keep observing it rather
+    // than abandoning it — see resolveTimeoutOutcome.
+    batch = runBatch(runId, t0, email, intake, flyerRequests, autoSaveBrandProfile)
+    await withTimeout(batch, PIPELINE_TIMEOUT_MS)
   } catch (err) {
-    const reason = describeFailure(err)
+    const outcome = batch ? await resolveTimeoutOutcome(batch, err, runId) : err
+    // Completed late. runBatch already wrote its own Ready state, and
+    // overwriting that with Failed is the bug this exists to prevent.
+    if (outcome === null) {
+      await setGenerationStage(email, null)
+      return
+    }
+
+    const reason = describeFailure(outcome)
     console.error("[agent-pipeline] Pipeline failed:", reason)
     await markFlyersFailed(email, ids, reason).catch((e) => console.error("[agent-pipeline] Failed to record failure:", e))
     // Clear the progress label too — a failed run must not sit showing
@@ -756,10 +856,19 @@ export async function retryFlyer(email: string, intake: NormalizedIntake, flyerR
   const t0 = Date.now()
   stageMark(runId, t0, "marked in-progress")
 
+  let attempt: Promise<void> | undefined
+
   try {
-    await withTimeout(runSingleFlyerRetry(runId, t0, email, intake, flyerRequest), PIPELINE_TIMEOUT_MS)
+    attempt = runSingleFlyerRetry(runId, t0, email, intake, flyerRequest)
+    await withTimeout(attempt, PIPELINE_TIMEOUT_MS)
   } catch (err) {
-    const reason = describeFailure(err)
+    const outcome = attempt ? await resolveTimeoutOutcome(attempt, err, runId) : err
+    if (outcome === null) {
+      await setGenerationStage(email, null)
+      return
+    }
+
+    const reason = describeFailure(outcome)
     console.error("[agent-pipeline] Retry failed:", reason)
     await markFlyerFailed(email, flyerRequest.id, reason).catch((e) => console.error("[agent-pipeline] Failed to record retry failure:", e))
     await setGenerationStage(email, null)
