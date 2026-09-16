@@ -27,6 +27,7 @@ import {
   enforceBoundedContent,
   enforceCtaOwnRow,
   substituteQr,
+  substituteLogo,
   collapseQrToToken,
   canonicalOfferFrom,
   assertOfferPreserved,
@@ -448,6 +449,12 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
     // decides the physical canvas.
     const formatId = getFormat(submission.formatId).id
     for (const request of result.data.flyerRequests) request.formatId = formatId
+    // Same reasoning again. The intake prompt instructs the agent to ALWAYS
+    // null brandAssets.logoUrl so it can never invent one, which means the
+    // real uploaded URL has to be stamped on here. Falls back to whatever is
+    // already set, so a logo found by the website scraper still survives.
+    const uploadedLogo = submission.logoUrl?.trim()
+    if (uploadedLogo) result.data.brandAssets.logoUrl = uploadedLogo
   }
   return result
 }
@@ -599,6 +606,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
         brandProfile,
         contact: intake.contact,
         photos,
+        hasLogo: Boolean(intake.brandAssets.logoUrl),
         flyerRequests: [request],
         batchSize: 1,
         includeRepurposing: false,
@@ -636,9 +644,12 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
       id: flyer.id,
       status: "Ready",
       downloadUrl: toDataUrl(
-        substituteQr(
-          await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), unsplashPool, flyerRequests[0]?.formatId, `flyer ${flyer.id}`),
-          tracking?.qrDataUrl ?? null,
+        substituteLogo(
+          substituteQr(
+            await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), unsplashPool, flyerRequests[0]?.formatId, `flyer ${flyer.id}`),
+            tracking?.qrDataUrl ?? null,
+          ),
+          intake.brandAssets.logoUrl,
         ),
       ),
       trackingCode: tracking?.code,
@@ -776,6 +787,7 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
     brandProfile,
     contact: intake.contact,
     photos,
+    hasLogo: Boolean(intake.brandAssets.logoUrl),
     flyerRequests: [
       {
         ...flyerRequest,
@@ -805,9 +817,12 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
     id: flyer.id,
     status: "Ready",
     downloadUrl: toDataUrl(
-      substituteQr(
-        await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), unsplashPool, flyerRequest.formatId, `flyer ${flyer.id}`),
-        tracking?.qrDataUrl ?? null,
+      substituteLogo(
+        substituteQr(
+          await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), unsplashPool, flyerRequest.formatId, `flyer ${flyer.id}`),
+          tracking?.qrDataUrl ?? null,
+        ),
+        intake.brandAssets.logoUrl,
       ),
     ),
     trackingCode: tracking?.code,
@@ -901,6 +916,9 @@ export async function refineFlyer(
   instruction: string,
   existingTrackingCode: string | undefined,
   includeRepurposing: boolean,
+  /** The client's logo, so a refinement can't quietly drop it. Refine has no
+   *  intake to read it from — unlike the batch and retry paths. */
+  logoUrl: string | null = null,
 ): Promise<void> {
   await updateDeliverable(email, { type: "flyer", id: flyerRequest.id, status: "In Progress" })
   const runId = flyerRequest.id
@@ -913,6 +931,7 @@ export async function refineFlyer(
           brandProfile,
           contact,
           photos: [],
+          hasLogo: Boolean(logoUrl),
           flyerRequests: [
             {
               ...flyerRequest,
@@ -952,7 +971,7 @@ export async function refineFlyer(
       type: "flyer",
       id: flyer.id,
       status: "Ready",
-      downloadUrl: toDataUrl(substituteQr(preservePhotoCredit(currentHtml, applyLegibility(flyer.html, `flyer ${flyer.id}`)), qrDataUrl)),
+      downloadUrl: toDataUrl(substituteLogo(substituteQr(preservePhotoCredit(currentHtml, applyLegibility(flyer.html, `flyer ${flyer.id}`)), qrDataUrl), logoUrl)),
       trackingCode: existingTrackingCode,
     })
 

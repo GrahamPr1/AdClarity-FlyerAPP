@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   const includeRepurposing = client.plan !== "trial"
 
   waitUntil(
-    refineFlyer(email, brandSource.brandProfile, brandSource.contact, flyerRequest, currentHtml, instruction, flyer.trackingCode, includeRepurposing).catch((err) => {
+    refineFlyer(email, brandSource.brandProfile, brandSource.contact, flyerRequest, currentHtml, instruction, flyer.trackingCode, includeRepurposing, pipelineState?.intake.brandAssets.logoUrl ?? null).catch((err) => {
       console.error("[agent-pipeline] Unhandled refinement error:", err)
     }),
   )

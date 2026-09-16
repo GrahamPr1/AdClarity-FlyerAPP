@@ -66,6 +66,7 @@ async function main() {
     brandProfile,
     contact: intake.contact,
     photos: intake.photos,
+    hasLogo: Boolean(intake.brandAssets.logoUrl),
     flyerRequests: (() => {
       const variants = assignDesignVariants(intake.flyerRequests.map((r) => r.id), true)
       return intake.flyerRequests.map((r) => ({ ...r, qrCodeDataUrl: placeholderQrCodeDataUrl, format: formatForAgent(undefined), designVariant: variants.get(r.id)! }))

@@ -122,6 +122,9 @@ export const FlyerAgentInputSchema = z.object({
     social: z.array(socialHandleEntrySchema()).nullable(),
   }),
   photos: z.array(z.object({ url: z.string(), caption: z.string() })),
+  /** The client's own logo, or null. Never the real URL in the prompt — the
+   *  agent is shown only that a logo exists and places LOGO_PLACEHOLDER. */
+  hasLogo: z.boolean(),
   flyerRequests: z.array(FlyerRequestWithQrSchema),
   batchSize: z.number().max(10),
   /** Whole-batch flag — a batch is always one client's own plan. False on Trial; gates the Instagram/text/Nextdoor repurposed content for real, not just in the UI. */

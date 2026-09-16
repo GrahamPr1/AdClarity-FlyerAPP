@@ -71,6 +71,79 @@ export function ensureScrollable(html: string): string {
  */
 export const QR_PLACEHOLDER = "{{QR_CODE_SRC}}"
 
+/**
+ * Stand-in for the client's logo, substituted after generation.
+ *
+ * Same reasoning as QR_PLACEHOLDER: the model must never be handed a real
+ * asset URL to copy. It reproduces long strings unreliably, and a mangled
+ * logo URL renders as a broken image on a printed piece. The token is short,
+ * exact, and its absence is detectable — which is what makes the guarantee
+ * below possible.
+ */
+export const LOGO_PLACEHOLDER = "{{LOGO_SRC}}"
+
+/**
+ * Replaces the logo token with the real URL, and GUARANTEES the logo is on
+ * the piece when the client supplied one.
+ *
+ * The prompt asks the agent to place the token; this makes it true. A prompt
+ * is a request — the agent composes a fresh flyer every call and cannot see
+ * what the last one omitted — so when the token is missing entirely, the logo
+ * is injected into the header rather than silently dropped. That is the exact
+ * failure this function exists for: an uploaded logo that never appeared.
+ *
+ * Returns the html unchanged when there is no logo, so a client without one
+ * is completely unaffected.
+ */
+export function substituteLogo(html: string, logoUrl: string | null): string {
+  if (!logoUrl) {
+    // No logo: strip any token the model emitted anyway, so a literal
+    // "{{LOGO_SRC}}" can never reach a printed flyer.
+    return html.split(LOGO_PLACEHOLDER).join("")
+  }
+  if (html.includes(LOGO_PLACEHOLDER)) {
+    return html.split(LOGO_PLACEHOLDER).join(logoUrl)
+  }
+  // Already present — do not add a second one. This is the refine path: it
+  // re-runs over the CURRENT html, which by then holds a real logo rather
+  // than the token, and a flyer that grows an extra logo per edit is worse
+  // than one that never had it.
+  if (html.includes(logoUrl)) return html
+  return injectLogo(html, logoUrl)
+}
+
+const LOGO_IMG_CLASS = "oneflyer-logo"
+
+/**
+ * Last-resort placement for a logo the agent left out.
+ *
+ * Deliberately conservative: prepended inside <body> with a bounded height
+ * and print-safe colour handling, so it cannot reflow a layout the model
+ * already balanced. A modest, correctly-placed logo beats a missing one; it
+ * is not trying to out-design the agent.
+ */
+function injectLogo(html: string, logoUrl: string): string {
+  const style =
+    `<style>.${LOGO_IMG_CLASS}{max-height:64px;max-width:220px;height:auto;width:auto;` +
+    `display:block;margin:0 0 16px 0;object-fit:contain;` +
+    `-webkit-print-color-adjust:exact;print-color-adjust:exact}</style>`
+  const img = `<img class="${LOGO_IMG_CLASS}" src="${logoUrl}" alt="" />`
+
+  const headIdx = html.toLowerCase().lastIndexOf("</head>")
+  const withStyle = headIdx === -1 ? style + html : html.slice(0, headIdx) + style + html.slice(headIdx)
+
+  const bodyMatch = withStyle.match(/<body[^>]*>/i)
+  if (!bodyMatch) return withStyle + img
+  const at = bodyMatch.index! + bodyMatch[0].length
+  return withStyle.slice(0, at) + img + withStyle.slice(at)
+}
+
+/** True when the logo really is in the markup — used by tests and the pipeline log. */
+export function logoPresentIn(html: string, logoUrl: string | null): boolean {
+  if (!logoUrl) return true
+  return html.includes(logoUrl)
+}
+
 export function substituteQr(html: string, qrDataUrl: string | null): string {
   if (!qrDataUrl) return html
   return html.split(QR_PLACEHOLDER).join(qrDataUrl)

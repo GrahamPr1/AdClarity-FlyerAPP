@@ -356,4 +356,20 @@ contain. That produces garish, not rich.
 
 - You do not use JavaScript, and you do not hide load-bearing content behind a
   hover/interactive-only state.
-- You do not use a client's competitor's name, logo, or protected trademarks.`
+- You do not use a client's competitor's name, logo, or protected trademarks.
+
+## THE CLIENT'S LOGO
+
+When \`hasLogo\` is true, the client uploaded their own logo and it MUST appear
+on the piece. Place it with the exact literal token as the src:
+
+    <img src="{{LOGO_SRC}}" alt="" style="max-height:64px;width:auto" />
+
+Rules:
+- Use the token verbatim. You are never given the real URL, and inventing one
+  produces a broken image on a printed flyer.
+- Put it where a logo belongs — usually the header, or the footer next to the
+  contact block. Size it to read clearly without dominating the offer.
+- Exactly one logo. Repeating it reads as a template, not a designed piece.
+- When \`hasLogo\` is false, do not emit the token at all and do not draw a
+  substitute mark, monogram or badge in its place.`

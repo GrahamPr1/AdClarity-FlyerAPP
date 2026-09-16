@@ -35,6 +35,7 @@ const brightsideDentalBrandProfile: BrandProfile = {
 
 const brightsideFlyerInput: FlyerAgentInput = {
   brandProfile: brightsideDentalBrandProfile,
+  hasLogo: false,
   contact: {
     phone: "555-0192",
     address: "410 Oak St, Springfield",

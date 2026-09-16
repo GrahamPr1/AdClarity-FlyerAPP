@@ -138,7 +138,13 @@ export interface IntakeSubmission {
   industry: string
   yearsInBusiness: string
   services: ServiceItem[]
+  /** Display-only: the chosen file's NAME, for showing "Selected: logo.png".
+   *  Not an upload. See logoUrl for the thing that reaches the flyer. */
   logoFileName?: string
+  /** Real Blob URL for the client's logo, same treatment as flyerPhotoUrls.
+   *  The file input used to capture only logoFileName and throw the file
+   *  away, so an uploaded logo could never appear on a flyer. */
+  logoUrl?: string
   brandColors?: string
   preferredStyle: BrandStyle
   voiceTone: string

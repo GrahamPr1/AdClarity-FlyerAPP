@@ -77,6 +77,8 @@ export function OnboardingForm({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [logoUploadError, setLogoUploadError] = useState("")
   const [photoUploadError, setPhotoUploadError] = useState("")
 
   // The AI-photo opt-in is Pro-only — real enforcement lives server-side in
@@ -112,6 +114,7 @@ export function OnboardingForm({
     yearsInBusiness: initialData?.yearsInBusiness ?? "",
     services: initialData?.services?.length ? initialData.services : [{ id: nextId(), name: "" }],
     logoFileName: initialData?.logoFileName,
+    logoUrl: initialData?.logoUrl,
     brandColors: initialData?.brandColors ?? "",
     preferredStyle: initialData?.preferredStyle ?? "modern",
     voiceTone: initialData?.voiceTone ?? "",
@@ -223,6 +226,30 @@ export function OnboardingForm({
       setPhotoUploadError(err instanceof Error ? err.message : "Upload failed — please try again.")
     } finally {
       setUploadingPhoto(false)
+    }
+  }
+
+  /**
+   * The logo input previously did `set("logoFileName", file.name)` and threw
+   * the File away, so an uploaded logo could never reach a flyer. This is the
+   * same real upload the photo input already used.
+   */
+  async function uploadLogo(file: File | undefined) {
+    if (!file) return
+    setUploadingLogo(true)
+    setLogoUploadError("")
+    const body = new FormData()
+    body.append("file", file)
+    try {
+      const res = await fetch("/api/onboarding/upload-photo", { method: "POST", body })
+      const data = await res.json().catch(() => ({}) as { url?: string; error?: string })
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed — please try again.")
+      set("logoUrl", data.url)
+      set("logoFileName", file.name)
+    } catch (err) {
+      setLogoUploadError(err instanceof Error ? err.message : "Upload failed — please try again.")
+    } finally {
+      setUploadingLogo(false)
     }
   }
 
@@ -617,9 +644,14 @@ export function OnboardingForm({
                 <div>
                   <Label htmlFor="logo">Logo</Label>
                   <input id="logo" type="file" accept="image/*"
-                    onChange={(e) => set("logoFileName", e.target.files?.[0]?.name)}
+                    disabled={uploadingLogo}
+                    onChange={(e) => uploadLogo(e.target.files?.[0])}
                     className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--brand-teal-tint)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--brand-teal-bright)] hover:file:bg-[var(--brand-teal)]/20" />
-                  {form.logoFileName && <p className="mt-1.5 text-xs text-muted-foreground">Selected: {form.logoFileName}</p>}
+                  {uploadingLogo && <p className="mt-1.5 text-xs text-muted-foreground">Uploading…</p>}
+                  {!uploadingLogo && form.logoUrl && form.logoFileName && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">Uploaded: {form.logoFileName}</p>
+                  )}
+                  {logoUploadError && <p className="mt-1.5 text-xs text-red-500">{logoUploadError}</p>}
                 </div>
 
                 <div>
