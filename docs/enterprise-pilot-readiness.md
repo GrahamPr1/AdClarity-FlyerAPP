@@ -122,6 +122,11 @@ plus a `sources` array in the output grammar, and lands much nearer that
 ceiling than SMB does — with enough variance to cross it. A real library with
 more than two assets makes this worse, not better.
 
-Needs a decision before a pilot: batch size limits, trimming which assets are
-sent per request, or splitting selection from composition into two shorter
-calls.
+Partially addressed: a run that crosses the ceiling but succeeds is no longer
+reported as Failed (commit `fae038e`). That removes the user-visible harm but
+not the underlying margin problem — a run genuinely killed at 300s still
+fails.
+
+The three candidate directions are written up with costs and pilot-scale
+viability in **docs/enterprise-timeout-options.md**. Needs a decision before a
+pilot; no implementation until then.
