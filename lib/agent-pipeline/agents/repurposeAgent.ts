@@ -36,6 +36,6 @@ export async function runRepurposeAgent(
     // it's part of producing one campaign's assets, and splitting it into its
     // own cost line would make the admin per-flyer cost figures look like the
     // price had doubled when nothing about the work changed.
-    logContext: { email, agentType: "flyer" },
+    logContext: { email, agentType: "repurpose" },
   })
 }
