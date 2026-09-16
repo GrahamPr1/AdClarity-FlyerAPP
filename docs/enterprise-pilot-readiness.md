@@ -4,9 +4,10 @@ Open items that must be settled before real carrier or broker-dealer content
 goes through the enterprise generation path. Kept separate from the code
 because most of them are not code problems.
 
-Status: Brief 1 (content-library schema) and Brief 2 (enterprise generation
-mode) are built and verified against seeded dev fixtures. Brief 3 (demo UI) is
-not started. Nothing here has been exercised against real approved content.
+Status: Brief 1 (content-library schema), Brief 2 (enterprise generation mode)
+and Brief 3 (internal demo at /admin/enterprise-demo) are built and verified
+against seeded dev fixtures. Nothing here has been exercised against real
+approved content.
 
 ---
 
@@ -83,8 +84,44 @@ phrasing is lent to the model and invented text reusing it would pass. This is
 the correct trade — the phrasing *is* approved content — but it means the check
 bounds invention, not claim strength. Same root issue as item 1.
 
-### 5. No provenance surface for the client
+### 5. No provenance surface for the CLIENT
 
-`sources[]` is persisted on the deliverable and verified correct for multiple
-assets, but nothing in the UI shows it. Brief 3 should surface it; an agent who
-cannot see which approved assets backed a piece cannot spot-check it.
+Resolved for internal review only. `/admin/enterprise-demo` shows per-block
+provenance (`lib/agent-pipeline/attribution.ts`), but it is admin-gated. The
+agent producing the campaign still has no way to see which approved assets
+backed their piece, and they are the person who would actually spot-check it
+before sending.
+
+### 6. Block-level attribution mislabels MIXED blocks
+
+Observed on a real run. The model fused an approved sentence with its own copy
+into one paragraph:
+
+> Northstar Mutual's retirement income solutions are designed for people within
+> ten years of retiring — join Dana Reyes for a clear, no-pressure evening on
+> your options.
+
+The first clause is verbatim approved text; the second is invented. The block
+gets one label (`adapted`, 56% traceable), because a block is the smallest unit
+the panel resolves. That is the safe direction — it lands in the amber "look at
+this" bucket rather than being certified by its approved half — but a reviewer
+should know the label describes the block, not every clause in it. Sub-block
+attribution would need span-level diffing and is not built.
+
+### 7. Enterprise generation runs close to the pipeline timeout
+
+Five enterprise runs on the same 2-asset library completed the flyer stage at
+**125s, 155s, 244s, 230s and 350s**, against `PIPELINE_TIMEOUT_MS` of 285s.
+One exceeded it and the deliverable was marked Failed — the generation itself
+succeeded at +350s, after the pipeline had already given up.
+
+The ceiling is not the problem and must not be raised: it sits just under
+Vercel's 300s function limit, so there is nowhere for it to go. The problem is
+that enterprise mode carries the full asset library plus the enterprise prompt
+plus a `sources` array in the output grammar, and lands much nearer that
+ceiling than SMB does — with enough variance to cross it. A real library with
+more than two assets makes this worse, not better.
+
+Needs a decision before a pilot: batch size limits, trimming which assets are
+sent per request, or splitting selection from composition into two shorter
+calls.

@@ -19,7 +19,8 @@
     "dev:redis": "node scripts/dev-redis.mjs",
     "seed:dev": "tsx scripts/seed-dev-accounts.ts",
     "profile:pipeline": "tsx scripts/profile-pipeline.ts",
-    "verify:enterprise": "tsx scripts/verify-enterprise-schema.ts"
+    "verify:enterprise": "tsx scripts/verify-enterprise-schema.ts",
+    "seed:enterprise-demo": "tsx scripts/seed-enterprise-demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

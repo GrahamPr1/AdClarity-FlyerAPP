@@ -158,7 +158,7 @@ export interface VerbatimViolation {
 }
 
 /** Markup and entity differences are not paraphrase; whitespace shape isn't either. */
-function normaliseForComparison(value: string): string {
+export function normaliseForComparison(value: string): string {
   return value
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
@@ -281,15 +281,15 @@ const COMPLIANCE_PATTERNS: { label: string; re: RegExp }[] = [
  * asset rather than from the model. Two is too weak — "is guaranteed" occurs
  * in approved and invented text alike.
  */
-const MIN_APPROVED_PHRASE_WORDS = 3
+export const MIN_APPROVED_PHRASE_WORDS = 3
 
 /** Comparable word forms; punctuation and casing are not part of a phrase. */
-function phraseWords(value: string): string[] {
+export function phraseWords(value: string): string[] {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean)
 }
 
 /** Every MIN_APPROVED_PHRASE_WORDS-gram appearing in the given assets. */
-function approvedPhrases(assets: EnterpriseAssetContext[]): Set<string> {
+export function approvedPhrases(assets: EnterpriseAssetContext[]): Set<string> {
   const out = new Set<string>()
   for (const asset of assets) {
     const w = phraseWords(normaliseForComparison(asset.content))
