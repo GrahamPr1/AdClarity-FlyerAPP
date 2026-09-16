@@ -365,6 +365,7 @@ export async function updateDeliverable(
     trackingCode?: string
     /** Enterprise mode only — which approved assets backed this campaign. */
     sources?: CampaignSource[]
+    generationMode?: "ai" | "template"
   },
 ): Promise<FlyerDeliverable | null> {
   if (payload.type !== "flyer") return null
@@ -383,6 +384,7 @@ export async function updateDeliverable(
   // Only ever set, never defaulted to [] — an SMB flyer keeps no sources key
   // at all (see FlyerDeliverable.sources in lib/types.ts).
   if (payload.sources && payload.sources.length > 0) flyer.sources = payload.sources
+  if (payload.generationMode) flyer.generationMode = payload.generationMode
   await writeDeliverables(email, current)
   return flyer
 }

@@ -820,6 +820,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
         ),
       ),
       trackingCode: tracking?.code,
+      generationMode: templateMode ? "template" : "ai",
     })
   }
 
@@ -1140,6 +1141,12 @@ export async function refineFlyer(
       status: "Ready",
       downloadUrl: toDataUrl(substituteLogo(substituteQr(preservePhotoCredit(currentHtml, applyLegibility(flyer.html, `flyer ${flyer.id}`)), qrDataUrl), logoUrl)),
       trackingCode: existingTrackingCode,
+      // A refined flyer IS an AI flyer from here on: refineFlyer sends the
+      // current HTML to runFlyerAgent, so what comes back is agent-authored
+      // regardless of what produced the original. Leaving the marker on
+      // "template" would have made it a lie the moment anyone edited, and
+      // would have mis-attributed this flyer's cost in any per-mode analysis.
+      generationMode: "ai",
     })
 
     if (includeRepurposing) {

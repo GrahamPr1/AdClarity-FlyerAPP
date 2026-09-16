@@ -350,6 +350,19 @@ export interface FlyerDeliverable {
   repurposed?: RepurposedFlyerContent
   /** Short code embedded as a QR code on the flyer itself — used to fetch this flyer's scan/click stats (GET /api/tracking/[code]) and to render its public redeem page (/r/[code]). */
   trackingCode?: string
+  /**
+   * Which pipeline produced this flyer. Absent on every flyer predating
+   * template mode, which is why it is optional rather than defaulted — those
+   * were all AI-generated, and writing "ai" onto them retroactively would
+   * change stored records for no reason.
+   *
+   * Persisted because nothing else records it: TEMPLATE_MODE is read from the
+   * environment inside runBatch and never written down, so after the fact
+   * there was no way to tell a template flyer from an AI one — which the
+   * refine test needs, and which per-mode cost measurement is impossible
+   * without.
+   */
+  generationMode?: "ai" | "template"
   /** Set when status is "Failed" — shown to the client, with a retry option. */
   error?: string
 }
