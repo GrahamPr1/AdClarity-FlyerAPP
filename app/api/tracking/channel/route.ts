@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getDeliverablesForEmail } from "@/lib/store"
+import { getDeliverables, getDeliverablesForEmail } from "@/lib/store"
 import { createChannelTrackingCode } from "@/lib/agent-pipeline/qrTracking"
 
 const MAX_LABEL_LENGTH = 40
@@ -13,9 +13,7 @@ const MAX_CHANNELS_PER_FLYER = 12
 // decides how they are distributing a flyer after they have seen it.
 export async function POST(request: NextRequest) {
   const session = await getSessionIdentity(request)
-  if (!session || session.sub === ADMIN_SUB) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   let body: { flyerId?: string; label?: string }
   try {
@@ -33,7 +31,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Label must be ${MAX_LABEL_LENGTH} characters or fewer` }, { status: 422 })
   }
 
-  const deliverables = await getDeliverablesForEmail(session.sub)
+  // Same admin allowance as the read route — the admin dashboard shows the
+  // mirrored client view, and minting from it must work there too.
+  const deliverables = session.sub === ADMIN_SUB ? await getDeliverables() : await getDeliverablesForEmail(session.sub)
   const flyer = deliverables.flyers.find((f) => f.id === flyerId)
   if (!flyer) return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (!flyer.trackingCode) {
