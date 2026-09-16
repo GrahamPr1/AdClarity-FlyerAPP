@@ -14,6 +14,8 @@ import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } fr
 import { planIncludesExtras, aiPhotosEnabled, stockPhotosEnabled } from "./plan-features"
 import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
 import { palettePoolFor } from "./trade-palettes"
+import { runPolishAgent } from "./agents/polishAgent"
+import { fillTemplate, selectTemplate } from "./template-mode"
 import { resolveBrandColors, resolveFonts } from "@/lib/brand-controls"
 import { applyLegibilityGuardrails } from "./legibility"
 import { getFormat, formatForAgent } from "./formats"
@@ -539,6 +541,83 @@ export function stampClientPreferences(data: NormalizedIntake, submission: Intak
   }
 }
 
+/**
+ * Template mode's stand-in for the Flyer Agent.
+ *
+ * Returns the SAME shape runFlyerAgent does, so the call site, the
+ * post-processing chain and the deliverable write are all untouched — the only
+ * difference is where the HTML came from. One ~512-token text call replaces a
+ * ~8,070-token HTML call.
+ */
+async function runTemplateFlyer(
+  input: Parameters<typeof runFlyerAgent>[0],
+  agentEmail: string,
+  intake: NormalizedIntake,
+): Promise<Awaited<ReturnType<typeof runFlyerAgent>>> {
+  type Spec = Awaited<ReturnType<typeof runFlyerAgent>>["flyers"][number]
+  const flyers: Spec[] = []
+  for (const request of input.flyerRequests) {
+    const template = selectTemplate(request.id)
+    const polished = await runPolishAgent(
+      {
+        businessName: intake.businessName,
+        industry: intake.industry,
+        promotion: [request.purpose, request.notes].filter(Boolean).join(" — "),
+        targetAudience: intake.targetAudience,
+        voiceTone: intake.voiceTonePreference,
+        budgets: template.budgets,
+      },
+      agentEmail,
+      request.id,
+    )
+
+    const palette = input.brandProfile?.colors ?? []
+    const filled = fillTemplate({
+      template,
+      headline: polished.headline,
+      supporting: polished.supporting,
+      businessName: intake.businessName,
+      phone: intake.contact.phone,
+      address: intake.contact.address,
+      hasLogo: Boolean(intake.brandAssets.logoUrl),
+      hasQr: Boolean(request.qrCodeDataUrl),
+      photoUrl: input.photos[0]?.url ?? null,
+      colors: {
+        primary: palette[0]?.hex ?? "#12314f",
+        secondary: palette[1]?.hex ?? "#eef1f4",
+        accent: palette[2]?.hex ?? "#e39a2b",
+      },
+      fonts: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+    })
+
+    if (filled.truncated.length > 0) {
+      console.log(`[template] flyer ${request.id}: ${template.id} — budget cut ${filled.truncated.join(", ")}`)
+    } else {
+      console.log(`[template] flyer ${request.id}: ${template.id} — all slots within budget`)
+    }
+
+    flyers.push({
+      id: request.id,
+      purpose: request.purpose,
+      dimensions: getFormat(request.formatId).dimensions,
+      headline: polished.headline,
+      subheadline: polished.supporting,
+      offer: polished.supporting,
+      cta: intake.contact.phone,
+      disclaimer: null,
+      html: filled.html,
+      paletteUsed: {
+        primary: palette[0]?.hex ?? "#12314f",
+        secondary: palette[1]?.hex ?? "#eef1f4",
+        accent: palette[2]?.hex ?? "#e39a2b",
+      },
+      fontsUsed: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+      repurposed: null,
+    } as Spec)
+  }
+  return { flyers }
+}
+
 async function runBatch(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[], autoSaveBrandProfile: boolean): Promise<void> {
   await setGenerationStage(email, GENERATION_STAGES.brand)
   const brandProfile = await applyFontChoice(await runBrandAgent(intake, email), email)
@@ -649,6 +728,9 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     ? toAssetContext(await listContentAssets(agentProfile.orgId).catch(() => []))
     : []
   const enterpriseAssets = approvedAssets.length > 0 ? approvedAssets : null
+  // Opt-in for the pilot. Off by default, so the SMB AI path is what every
+  // existing client still gets.
+  const templateMode = process.env.TEMPLATE_MODE === "on" 
   if (enterpriseAssets) {
     console.log(`[enterprise] ${email}: composing from ${enterpriseAssets.length} approved asset(s) in org ${agentProfile!.orgId}`)
   }
@@ -659,6 +741,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
   // its own input shape and output schema (see enterprise.ts) — this does not
   // alter what the SMB call sends.
   const runFlyerForRequest = async (input: Parameters<typeof runFlyerAgent>[0], agentEmail: string) => {
+    if (templateMode) return runTemplateFlyer(input, agentEmail, intake)
     if (!enterpriseAssets) return runFlyerAgent(input, agentEmail)
     const out = await runEnterpriseFlyerAgent({ ...input, approvedAssets: enterpriseAssets }, agentEmail)
     for (const flyer of out.flyers) {
