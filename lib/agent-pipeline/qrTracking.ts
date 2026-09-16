@@ -1,5 +1,5 @@
 import QRCode from "qrcode"
-import { createTrackingRecord, updateTrackingRecordContent } from "@/lib/store"
+import { getTrackingRecord, addFlyerChannelCode, createTrackingRecord, updateTrackingRecordContent } from "@/lib/store"
 import { getSiteUrl } from "@/lib/site-url"
 import type { NormalizedIntake } from "./schemas/intake"
 import type { FlyerSpecification } from "./schemas/flyer"
@@ -44,6 +44,42 @@ export async function createFlyerTrackingCode(
   })
 
   return { code, qrDataUrl }
+}
+
+/**
+ * Mints an additional tracked code for a flyer that already exists, labelled
+ * with the channel it will be handed out through.
+ *
+ * Post-generation only. It reuses the SAME redeem URL shape, the same QR
+ * generator and the same scan counter as the original code — the only
+ * difference is that the record carries a channelLabel, so /r/{code} and
+ * incrementTrackingScan need no changes at all.
+ *
+ * The parent's record is copied rather than rebuilt so the landing page shows
+ * identical content whichever channel someone scanned.
+ */
+export async function createChannelTrackingCode(
+  parentCode: string,
+  channelLabel: string,
+): Promise<{ code: string; qrDataUrl: string; redeemUrl: string } | null> {
+  const parent = await getTrackingRecord(parentCode)
+  if (!parent) return null
+
+  const code = generateTrackingCode()
+  const redeemUrl = `${getSiteUrl()}/r/${code}`
+  const qrDataUrl = await QRCode.toDataURL(redeemUrl, { margin: 1, width: 512 })
+
+  await createTrackingRecord(code, {
+    ...parent,
+    channelLabel,
+    // Always the ORIGINAL code, even when minted from another child, so the
+    // set stays a flat one-level grouping rather than a chain to walk.
+    parentCode: parent.parentCode ?? parentCode,
+    createdAt: new Date().toISOString(),
+  })
+  await addFlyerChannelCode(parent.flyerId, code)
+
+  return { code, qrDataUrl, redeemUrl }
 }
 
 /**

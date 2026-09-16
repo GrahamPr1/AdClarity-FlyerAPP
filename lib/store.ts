@@ -1077,6 +1077,27 @@ function trackingClicksKey(code: string) {
   return `tracking:${code}:clicks`
 }
 
+/**
+ * Codes minted for a flyer AFTER generation, one per distribution channel.
+ *
+ * A reverse index is required because tracking records are only reachable by
+ * code, and per-flyer aggregation needs to go the other way. The flyer's
+ * ORIGINAL code is deliberately NOT in here — it lives on the deliverable as
+ * FlyerDeliverable.trackingCode, and reading it from there is what lets every
+ * pre-existing flyer report a breakdown with no backfill.
+ */
+function flyerChannelCodesKey(flyerId: string) {
+  return `flyer:${flyerId}:channel-codes`
+}
+
+export async function addFlyerChannelCode(flyerId: string, code: string): Promise<void> {
+  await redis.sadd(flyerChannelCodesKey(flyerId), code)
+}
+
+export async function listFlyerChannelCodes(flyerId: string): Promise<string[]> {
+  return (await redis.smembers(flyerChannelCodesKey(flyerId))) ?? []
+}
+
 export async function createTrackingRecord(code: string, record: TrackingRecord): Promise<void> {
   await redis.set(trackingRecordKey(code), record)
 }

@@ -413,6 +413,36 @@ export interface TrackingRecord {
   phone: string
   website: string | null
   createdAt: string
+  /**
+   * Which distribution channel this code was handed out through — "Email
+   * blast", "Instagram post", "Printed". Null on a flyer's ORIGINAL code,
+   * which is what makes every already-printed flyer keep working and land in
+   * the "Direct / unlabeled" bucket with no migration.
+   */
+  channelLabel?: string | null
+  /** The flyer's original code this was minted alongside. Null on the original. */
+  parentCode?: string | null
+}
+
+/** Scans and clicks for one distribution channel of a flyer. */
+export interface ChannelStats {
+  code: string
+  /** UNLABELED_CHANNEL for a flyer's original code. */
+  label: string
+  scans: number
+  clicks: number
+  /** False for the original code, which cannot be deleted or relabelled. */
+  isChannel: boolean
+}
+
+/** What an unlabelled original code is shown as. Not stored — derived at read time. */
+export const UNLABELED_CHANNEL = "Direct / unlabeled"
+
+export interface FlyerTrackingBreakdown {
+  flyerId: string
+  totalScans: number
+  totalClicks: number
+  channels: ChannelStats[]
 }
 
 export interface TrackingStats {

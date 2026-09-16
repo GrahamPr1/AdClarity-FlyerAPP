@@ -12,6 +12,7 @@ import type {
   RepurposedFlyerContent,
 } from "@/lib/types"
 import { BUSINESS_CATEGORIES } from "@/lib/types"
+import type { FlyerTrackingBreakdown } from "@/lib/types"
 import { EARLY_ACCESS_ENABLED } from "@/lib/early-access"
 import { FormFillSection } from "@/components/form-fill-section"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -376,11 +377,42 @@ export function FlyerCard({
   // Refreshes periodically so a scan/click from a few minutes ago shows up
   // without a manual reload — cheap enough (one small GET) to poll while
   // the card is mounted rather than needing a push mechanism.
-  const { data: statsData } = useSWR<{ stats: { scans: number; clicks: number } }>(
-    ready && flyer.trackingCode ? `/api/tracking/${flyer.trackingCode}` : null,
+  // The per-flyer endpoint carries the same totals the single-code one did,
+  // plus the per-channel rows — so this replaces that call rather than adding
+  // a second one.
+  const { data: statsData, mutate: refreshStats } = useSWR<FlyerTrackingBreakdown>(
+    ready && flyer.trackingCode ? `/api/tracking/flyer/${flyer.id}` : null,
     fetcher,
     { refreshInterval: 15000 },
   )
+  const [showChannels, setShowChannels] = useState(false)
+  const [newLabel, setNewLabel] = useState("")
+  const [minting, setMinting] = useState(false)
+  const [channelError, setChannelError] = useState("")
+  const [justMinted, setJustMinted] = useState<{ label: string; url: string } | null>(null)
+
+  async function addChannel() {
+    const label = newLabel.trim()
+    if (!label) return
+    setMinting(true)
+    setChannelError("")
+    try {
+      const res = await fetch("/api/tracking/channel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flyerId: flyer.id, label }),
+      })
+      const data = await res.json().catch(() => ({}) as { url?: string; message?: string; error?: string })
+      if (!res.ok || !data.url) throw new Error(data.message ?? data.error ?? "Couldn't create that link.")
+      setJustMinted({ label, url: data.url })
+      setNewLabel("")
+      void refreshStats()
+    } catch (err) {
+      setChannelError(err instanceof Error ? err.message : "Couldn't create that link.")
+    } finally {
+      setMinting(false)
+    }
+  }
 
   async function handleRetry() {
     setRetrying(true)
@@ -455,12 +487,74 @@ export function FlyerCard({
           <p className="text-sm font-medium truncate">{flyer.title}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <StatusBadge status={flyer.status} />
-            {statsData?.stats && (
+            {statsData && (
               <span className="text-xs text-muted-foreground" title="QR scans / CTA clicks">
-                {statsData.stats.scans} scanned · {statsData.stats.clicks} clicked
+                {statsData.totalScans} scanned · {statsData.totalClicks} clicked
               </span>
             )}
+            {flyer.trackingCode && ready && (
+              <button
+                onClick={() => setShowChannels((v) => !v)}
+                className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors"
+              >
+                {showChannels ? "Hide channels" : `Track by channel${statsData && statsData.channels.length > 1 ? ` (${statsData.channels.length})` : ""}`}
+              </button>
+            )}
           </div>
+          {showChannels && flyer.trackingCode && (
+            <div className="mt-3 rounded-lg border border-border bg-[var(--surface-soft)] p-3">
+              <p className="text-xs text-muted-foreground">
+                Give each place you share this flyer its own QR link, so scans show which one worked.
+              </p>
+
+              <ul className="mt-2.5 space-y-1">
+                {(statsData?.channels ?? []).map((c) => (
+                  <li key={c.code} className="flex items-baseline justify-between gap-3 text-xs">
+                    <span className={c.isChannel ? "text-foreground" : "text-muted-foreground italic"}>{c.label}</span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      {c.scans} scanned · {c.clicks} clicked
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") void addChannel() }}
+                  disabled={minting}
+                  maxLength={40}
+                  placeholder="Email blast"
+                  aria-label="Channel name"
+                  className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs"
+                />
+                <button
+                  onClick={() => void addChannel()}
+                  disabled={minting || !newLabel.trim()}
+                  className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:bg-background disabled:opacity-50"
+                >
+                  {minting ? "Adding…" : "Add tracked link"}
+                </button>
+              </div>
+
+              {justMinted && (
+                <div className="mt-2.5 rounded-md border border-border bg-background px-2.5 py-2">
+                  <p className="text-xs text-muted-foreground">Link for <span className="text-foreground">{justMinted.label}</span>:</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <code className="flex-1 truncate text-xs">{justMinted.url}</code>
+                    <button
+                      onClick={() => void navigator.clipboard.writeText(justMinted.url)}
+                      className="shrink-0 text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
+              {channelError && <p className="mt-2 text-xs text-amber-700">{channelError}</p>}
+            </div>
+          )}
           {failed && flyer.error && <p className="mt-1.5 text-xs text-red-700/80 leading-snug">{flyer.error}</p>}
           {retryError && <p className="mt-1.5 text-xs text-amber-700 leading-snug">{retryError}</p>}
           {deleteError && <p className="mt-1.5 text-xs text-amber-700 leading-snug">{deleteError}</p>}
