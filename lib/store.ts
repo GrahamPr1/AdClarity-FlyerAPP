@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, PendingGoalCampaign, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
+import type { BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, AgentProfile, CampaignSource, ContentAsset, EnterpriseOrg, PendingGoalCampaign, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { getAppEnvironment, verdictForMarker } from "./env"
@@ -1059,6 +1059,109 @@ export async function getTrackingStats(code: string): Promise<TrackingStats> {
     redis.get<number>(trackingClicksKey(code)),
   ])
   return { scans: scans ?? 0, clicks: clicks ?? 0 }
+}
+
+// ---- Enterprise content library (prototype) ---------------------------------
+//
+// Entirely additive. No existing key namespace is touched, and nothing in the
+// SMB path reads any of this.
+//
+// Assets are stored one-per-key with the org holding an ordered index of ids,
+// the same shape the waitlist and deliverables already use: it keeps a single
+// asset writable without rewriting the whole library, and keeps the index
+// cheap to read when all the caller wants is "what does this org have?".
+
+function enterpriseOrgKey(orgId: string) {
+  return `enterprise-org:${orgId}`
+}
+
+function contentAssetKey(assetId: string) {
+  return `content-asset:${assetId}`
+}
+
+function agentProfileKey(email: string) {
+  return `client:${email}:agent-profile`
+}
+
+export async function saveEnterpriseOrg(org: EnterpriseOrg): Promise<EnterpriseOrg> {
+  await redis.set(enterpriseOrgKey(org.id), org)
+  return org
+}
+
+export async function getEnterpriseOrg(orgId: string): Promise<EnterpriseOrg | null> {
+  return (await redis.get<EnterpriseOrg>(enterpriseOrgKey(orgId))) ?? null
+}
+
+/**
+ * Creates an asset and registers it on its org in one call.
+ *
+ * Deliberately not two separate exported steps: an asset written without
+ * being indexed is invisible to listContentAssets and would look like data
+ * loss. Newest first, so a library reads as most-recently-approved first.
+ */
+export async function createContentAsset(
+  input: Omit<ContentAsset, "id" | "createdAt"> & { id?: string },
+): Promise<ContentAsset> {
+  const asset: ContentAsset = {
+    ...input,
+    id: input.id ?? crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+  }
+  await redis.set(contentAssetKey(asset.id), asset)
+
+  const org = await getEnterpriseOrg(asset.orgId)
+  if (org && !org.assets.includes(asset.id)) {
+    await saveEnterpriseOrg({ ...org, assets: [asset.id, ...org.assets] })
+  }
+  return asset
+}
+
+export async function getContentAsset(assetId: string): Promise<ContentAsset | null> {
+  return (await redis.get<ContentAsset>(contentAssetKey(assetId))) ?? null
+}
+
+/**
+ * Every asset belonging to an org, in index order.
+ *
+ * Tolerates an id in the index whose asset has gone: a half-written library
+ * should degrade to the assets that do exist rather than throwing in the
+ * middle of a generation.
+ */
+export async function listContentAssets(orgId: string): Promise<ContentAsset[]> {
+  const org = await getEnterpriseOrg(orgId)
+  if (!org || org.assets.length === 0) return []
+  const assets = await Promise.all(org.assets.map((id) => getContentAsset(id)))
+  return assets.filter((a): a is ContentAsset => a !== null && a.orgId === orgId)
+}
+
+export async function deleteContentAsset(assetId: string): Promise<boolean> {
+  const asset = await getContentAsset(assetId)
+  if (!asset) return false
+  await redis.del(contentAssetKey(assetId))
+  const org = await getEnterpriseOrg(asset.orgId)
+  if (org) await saveEnterpriseOrg({ ...org, assets: org.assets.filter((id) => id !== assetId) })
+  return true
+}
+
+export async function saveAgentProfile(email: string, profile: Omit<AgentProfile, "savedAt">): Promise<AgentProfile> {
+  const record: AgentProfile = { ...profile, savedAt: new Date().toISOString() }
+  await redis.set(agentProfileKey(email), record)
+  return record
+}
+
+export async function getAgentProfile(email: string): Promise<AgentProfile | null> {
+  return (await redis.get<AgentProfile>(agentProfileKey(email))) ?? null
+}
+
+/**
+ * Normalises a campaign's sources to an array.
+ *
+ * FlyerDeliverable.sources is optional precisely so SMB records keep their
+ * existing shape; every reader should come through here rather than
+ * scattering `?? []` around and eventually forgetting one.
+ */
+export function campaignSources(flyer: Pick<FlyerDeliverable, "sources">): CampaignSource[] {
+  return flyer.sources ?? []
 }
 
 // ---- AI generation cost log -------------------------------------------------

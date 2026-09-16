@@ -18,7 +18,8 @@
     "test:browser": "npm run seed:dev --silent && playwright test",
     "dev:redis": "node scripts/dev-redis.mjs",
     "seed:dev": "tsx scripts/seed-dev-accounts.ts",
-    "profile:pipeline": "tsx scripts/profile-pipeline.ts"
+    "profile:pipeline": "tsx scripts/profile-pipeline.ts",
+    "verify:enterprise": "tsx scripts/verify-enterprise-schema.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

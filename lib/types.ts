@@ -270,9 +270,31 @@ export interface RepurposedFlyerContent {
   nextdoorPost: string
 }
 
+/**
+ * What backed one block of a generated campaign — enterprise mode only.
+ *
+ * `locked` means the source asset must be reproduced verbatim (a carrier
+ * disclosure, an approved CTA), as opposed to material the agent may
+ * paraphrase or build connective copy around.
+ */
+export interface CampaignSource {
+  assetId: string
+  label: string
+  locked: boolean
+}
+
 export interface FlyerDeliverable {
   id: string
   title: string
+  /**
+   * Which approved assets backed this campaign. ENTERPRISE MODE ONLY —
+   * absent on every SMB flyer, which is why it is optional rather than
+   * defaulted to []: writing an empty array onto every SMB deliverable
+   * would change the stored JSON of records that have nothing to do with
+   * the content library. Callers should read it via campaignSources()
+   * in lib/store.ts, which normalises absent to [].
+   */
+  sources?: CampaignSource[]
   status: FlyerStatus
   thumbnailUrl?: string
   downloadUrl?: string
@@ -468,6 +490,69 @@ export interface PendingGoalCampaign {
   formatId: string
   /** True when nothing on file supplies a phone; execute must be given one. */
   needsPhone: boolean
+}
+
+// ---- Enterprise content library (prototype) ---------------------------------
+//
+// A separate namespace from everything above. SMB campaigns generate content
+// freely; an enterprise org generates only from a library its compliance team
+// has already approved. None of this is read by any existing SMB path.
+
+export type ContentAssetType = "pdf" | "image" | "text" | "logo"
+
+export interface ContentAsset {
+  id: string
+  orgId: string
+  assetType: ContentAssetType
+  /** Human label shown in the Sources panel, e.g. "Carrier Product Sheet v3". */
+  sourceLabel: string
+  /**
+   * Must be reproduced verbatim, never paraphrased. Disclosures and approved
+   * CTAs are the real cases: a reworded disclosure is a compliance failure,
+   * not a style choice.
+   */
+  locked: boolean
+  /**
+   * Plain text, or a Vercel Blob URL for binary assets (image/logo/pdf).
+   * Document extraction is explicitly out of scope for this prototype —
+   * text assets arrive already extracted.
+   */
+  content: string
+  createdAt: string
+}
+
+export interface EnterpriseOrg {
+  id: string
+  name: string
+  /** Asset ids, newest first. The assets themselves live under their own keys. */
+  assets: string[]
+}
+
+/**
+ * The individual producing campaigns on an org's behalf — an insurance agent
+ * under a carrier, for example.
+ *
+ * Deliberately its own record rather than an extension of CampaignDefaults.
+ * The overlap is exactly one field (`name` ~ `contactName`); phone is not on
+ * CampaignDefaults at all, and title / headshotUrl / licenseStates /
+ * qrDestination / orgId have no SMB equivalent. Folding six enterprise-only
+ * fields into the record that every SMB profile read and the /profile form
+ * both depend on would put enterprise concerns in the SMB hot path for one
+ * field of reuse. Keyed per client, same `client:{email}:*` convention as
+ * every other per-client record.
+ */
+export interface AgentProfile {
+  name: string
+  title: string
+  phone: string
+  email: string
+  headshotUrl: string | null
+  /** Two-letter state codes the agent is licensed in. */
+  licenseStates: string[]
+  /** Where this agent's QR codes should point. */
+  qrDestination: string
+  orgId: string
+  savedAt: string
 }
 
 // ---- AI generation cost log -------------------------------------------------
