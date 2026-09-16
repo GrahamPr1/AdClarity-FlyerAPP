@@ -244,8 +244,38 @@ export async function resolveTimeoutOutcome<T>(
  * in lib/store.ts) before the pipeline ever runs — a real segmentation tag,
  * not something for the agent to normalize or have an opinion on.
  */
-function buildRawIntakePayload(submission: IntakeSubmission) {
-  const { planId, businessCategory, submittedAt, ...rest } = submission
+/**
+ * What the Intake Agent is allowed to see.
+ *
+ * planId/businessCategory/submittedAt were already excluded because they are
+ * set on the ClientRecord in code and the agent has no business touching them.
+ * The brand-control fields belong to that same category and caused two real
+ * bugs by being visible:
+ *
+ *   1. TRUNCATION. The agent has no output slot for brandColorHexes,
+ *      brandColorsOverrideScan or fontChoiceId, but is instructed to narrate
+ *      anything it can't place into `normalizationNotes`. The extra narration
+ *      pushed the response past max_tokens, and POST /api/intake returned 500
+ *      with AgentTruncatedError. Measured: a payload with these fields failed
+ *      3/3 through the route while the same payload without them succeeded.
+ *   2. MISLABELLED COLOUR SOURCE. The agent is told to normalise colours into
+ *      `existingColors`. Seeing brandColorHexes, it folded them in — so
+ *      resolveBrandColors found a non-empty "scanned" value and reported
+ *      manual colours as scanned. The values were right by luck; the
+ *      precedence logic was being bypassed entirely.
+ *
+ * logoUrl and existingMaterialsUrl go too: both are consumed in code (stamped
+ * below / stored for retrieval), and the prompt already tells the agent to
+ * always null brandAssets.logoUrl. logoFileName and existingMaterialsFileName
+ * stay — the prompt refers to them by name.
+ */
+export function buildRawIntakePayload(submission: IntakeSubmission) {
+  const {
+    planId, businessCategory, submittedAt,
+    brandColorHexes, brandColorsOverrideScan, fontChoiceId,
+    logoUrl, existingMaterialsUrl,
+    ...rest
+  } = submission
   return rest
 }
 
@@ -479,25 +509,34 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
     // null brandAssets.logoUrl so it can never invent one, which means the
     // real uploaded URL has to be stamped on here. Falls back to whatever is
     // already set, so a logo found by the website scraper still survives.
-    const uploadedLogo = submission.logoUrl?.trim()
-    if (uploadedLogo) result.data.brandAssets.logoUrl = uploadedLogo
-
-    // Colour precedence, resolved in code rather than left to the model. A
-    // scan wins unless the client explicitly overrode it; with no scan, the
-    // manual pick IS the answer — measured live, only one of five real
-    // business sites yielded any colour at all, so this is the common path.
-    const resolvedColors = resolveBrandColors({
-      scanned: result.data.brandAssets.existingColors,
-      manual: submission.brandColorHexes,
-      manualOverridesScan: submission.brandColorsOverrideScan,
-    })
-    result.data.brandAssets.existingColors = resolvedColors.colors
+    stampClientPreferences(result.data, submission)
     await setClientFontChoice(submission.contact.email, submission.fontChoiceId ?? null)
-    if (resolvedColors.source !== "none") {
-      console.log(`[brand] ${submission.contact.email}: using ${resolvedColors.source} colours ${resolvedColors.colors!.join(", ")}`)
-    }
   }
   return result
+}
+
+/**
+ * Applies the client's own explicit choices over whatever the agent returned.
+ *
+ * Same treatment wantsQrCode and formatId already get: an explicit choice must
+ * not depend on a model following a copy instruction. Exported so tests can
+ * drive the REAL wiring rather than the pure helpers underneath it — both bugs
+ * this function exists to prevent hid behind green unit tests of
+ * resolveBrandColors and substituteLogo in isolation.
+ */
+export function stampClientPreferences(data: NormalizedIntake, submission: IntakeSubmission): void {
+  const uploadedLogo = submission.logoUrl?.trim()
+  if (uploadedLogo) data.brandAssets.logoUrl = uploadedLogo
+
+  const resolved = resolveBrandColors({
+    scanned: data.brandAssets.existingColors,
+    manual: submission.brandColorHexes,
+    manualOverridesScan: submission.brandColorsOverrideScan,
+  })
+  data.brandAssets.existingColors = resolved.colors
+  if (resolved.source !== "none") {
+    console.log(`[brand] ${submission.contact.email}: using ${resolved.source} colours ${resolved.colors!.join(", ")}`)
+  }
 }
 
 async function runBatch(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[], autoSaveBrandProfile: boolean): Promise<void> {
