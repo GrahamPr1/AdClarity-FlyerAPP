@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import type { BusinessCategory, CampaignDefaults, IntakeSubmission, PlanId, ServiceItem } from "@/lib/types"
+import { CURATED_FONTS, findFontChoice, normaliseHex } from "@/lib/brand-controls"
 import { BUSINESS_CATEGORIES } from "@/lib/types"
 import { getPlan } from "@/lib/plans"
 import { trackEvent } from "@/lib/analytics"
@@ -31,6 +32,14 @@ import { OUTPUT_FORMATS, FORMAT_IDS, DEFAULT_FORMAT } from "@/lib/agent-pipeline
 // on. Per-campaign extras (photos, reference material) stay here behind a
 // collapsed disclosure on the last step, so they cost nothing to skip.
 const STEPS = ["Business", "Promotion", "Contact"] as const
+
+/** Starting points for a client with no colours in mind — deliberately dark
+ *  enough to carry reversed-out white text, the same bar trade-palettes.ts
+ *  holds its primaries to. */
+const SWATCHES = [
+  "#12314f", "#1e4635", "#5c1f2b", "#23262b", "#3a2318",
+  "#11504c", "#2b1b46", "#6b2e22", "#16324f", "#e8622c",
+]
 
 const MAX_FLYER_PHOTOS = 5
 
@@ -79,6 +88,7 @@ export function OnboardingForm({
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingMaterial, setUploadingMaterial] = useState(false)
+  const [customColor, setCustomColor] = useState("#1b3a5c")
   const [materialUploadError, setMaterialUploadError] = useState("")
   const [logoUploadError, setLogoUploadError] = useState("")
   const [photoUploadError, setPhotoUploadError] = useState("")
@@ -118,6 +128,9 @@ export function OnboardingForm({
     logoFileName: initialData?.logoFileName,
     logoUrl: initialData?.logoUrl,
     brandColors: initialData?.brandColors ?? "",
+    brandColorHexes: initialData?.brandColorHexes ?? [],
+    brandColorsOverrideScan: initialData?.brandColorsOverrideScan ?? false,
+    fontChoiceId: initialData?.fontChoiceId,
     preferredStyle: initialData?.preferredStyle ?? "modern",
     voiceTone: initialData?.voiceTone ?? "",
     targetAudience: initialData?.targetAudience ?? "",
@@ -275,6 +288,20 @@ export function OnboardingForm({
     } finally {
       setUploadingMaterial(false)
     }
+  }
+
+  /**
+   * A scan only happens when a website was given. Without one the picker is
+   * the primary control, not a fallback — measured live, only one of five
+   * real business sites yielded any colour at all.
+   */
+  const willScan = Boolean(form.contact.website?.trim())
+
+  function toggleColor(raw: string) {
+    const hex = normaliseHex(raw)
+    if (!hex) return
+    const current = form.brandColorHexes ?? []
+    set("brandColorHexes", current.includes(hex) ? current.filter((c) => c !== hex) : [...current, hex])
   }
 
   function removePhoto(url: string) {
@@ -676,6 +703,81 @@ export function OnboardingForm({
                     <p className="mt-1.5 text-xs text-muted-foreground">Uploaded: {form.logoFileName}</p>
                   )}
                   {logoUploadError && <p className="mt-1.5 text-xs text-red-500">{logoUploadError}</p>}
+                </div>
+
+                <div>
+                  <Label>Brand colors</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {willScan
+                      ? "We'll read your brand colors from your website. Pick your own only if you'd rather override what we find."
+                      : "Pick the colors your flyer should use."}
+                  </p>
+
+                  {willScan && (
+                    <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <input type="checkbox" checked={!!form.brandColorsOverrideScan}
+                        onChange={(e) => set("brandColorsOverrideScan", e.target.checked)} />
+                      Use my own colors instead of my website&rsquo;s
+                    </label>
+                  )}
+
+                  <div className={willScan && !form.brandColorsOverrideScan ? "opacity-50" : ""}>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {SWATCHES.map((hex) => {
+                        const on = (form.brandColorHexes ?? []).includes(hex)
+                        return (
+                          <button key={hex} type="button" aria-label={hex} title={hex}
+                            onClick={() => toggleColor(hex)}
+                            className={`h-8 w-8 rounded-full border-2 transition-transform ${on ? "border-foreground scale-110" : "border-border"}`}
+                            style={{ backgroundColor: hex }} />
+                        )
+                      })}
+                    </div>
+
+                    <div className="mt-3 flex items-center gap-2">
+                      <input type="color" aria-label="Custom color" value={customColor}
+                        onChange={(e) => setCustomColor(e.target.value)}
+                        className="h-9 w-12 cursor-pointer rounded border border-border bg-transparent p-1" />
+                      <input aria-label="Custom hex" value={customColor} placeholder="#1b3a5c"
+                        onChange={(e) => setCustomColor(e.target.value)}
+                        className={fieldBase() + " max-w-[9rem]"} />
+                      <button type="button" onClick={() => toggleColor(customColor)}
+                        className="rounded-md border border-border px-3 py-2 text-sm hover:bg-[var(--surface-soft)]">
+                        Add
+                      </button>
+                    </div>
+
+                    {(form.brandColorHexes ?? []).length > 0 && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Chosen:</span>
+                        {(form.brandColorHexes ?? []).map((hex) => (
+                          <button key={hex} type="button" onClick={() => toggleColor(hex)}
+                            className="flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-xs hover:bg-[var(--surface-soft)]">
+                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: hex }} />
+                            {hex}
+                            <span aria-hidden>&times;</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="fontChoice">Font</Label>
+                  <select id="fontChoice" className={fieldBase()} value={form.fontChoiceId ?? ""}
+                    onChange={(e) => set("fontChoiceId", e.target.value || undefined)}>
+                    <option value="">Let OneFlyer choose for me</option>
+                    {CURATED_FONTS.map((f) => (
+                      <option key={f.id} value={f.id}>{f.label}</option>
+                    ))}
+                  </select>
+                  {form.fontChoiceId && (
+                    <p className="mt-1.5 text-xs text-muted-foreground"
+                       style={{ fontFamily: findFontChoice(form.fontChoiceId)?.heading }}>
+                      {findFontChoice(form.fontChoiceId)?.note}
+                    </p>
+                  )}
                 </div>
 
                 <div>

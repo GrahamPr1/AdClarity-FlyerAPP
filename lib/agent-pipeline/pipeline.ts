@@ -1,5 +1,5 @@
 import type { IntakeSubmission, PlanId } from "@/lib/types"
-import { markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile, setGenerationStage } from "@/lib/store"
+import { setClientFontChoice, getClientFontChoice, markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile, setGenerationStage } from "@/lib/store"
 import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
@@ -14,6 +14,7 @@ import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } fr
 import { planIncludesExtras, aiPhotosEnabled, stockPhotosEnabled } from "./plan-features"
 import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
 import { palettePoolFor } from "./trade-palettes"
+import { resolveBrandColors, resolveFonts } from "@/lib/brand-controls"
 import { applyLegibilityGuardrails } from "./legibility"
 import { getFormat, formatForAgent } from "./formats"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
@@ -98,6 +99,27 @@ export const GENERATION_STAGES = {
   flyer: "Designing your flyer",
   repurpose: "Creating your social and text versions",
 } as const
+
+/**
+ * Replaces the Brand Agent's font pairing with the client's explicit pick.
+ *
+ * Enforced here rather than asked of the prompt, the same treatment the QR
+ * token, the Unsplash credit and the logo get: a chosen font that only
+ * sometimes survives is worse than no picker at all, because the client sees
+ * their choice and the print does something else.
+ *
+ * A no-op when nothing was picked, so the Brand Agent's own choice from
+ * fontStylePreference keeps working exactly as today.
+ */
+async function applyFontChoice<T extends { fonts: { heading: string; body: string } }>(
+  brandProfile: T,
+  email: string,
+): Promise<T> {
+  const fonts = resolveFonts(await getClientFontChoice(email).catch(() => null))
+  if (!fonts) return brandProfile
+  console.log(`[brand] ${email}: applying chosen fonts ${fonts.heading.split(",")[0]} / ${fonts.body.split(",")[0]}`)
+  return { ...brandProfile, fonts }
+}
 
 function stageMark(runId: string, t0: number, label: string) {
   console.log(`[agent-pipeline] ${runId}: ${label} at +${Math.round((Date.now() - t0) / 1000)}s`)
@@ -459,13 +481,28 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
     // already set, so a logo found by the website scraper still survives.
     const uploadedLogo = submission.logoUrl?.trim()
     if (uploadedLogo) result.data.brandAssets.logoUrl = uploadedLogo
+
+    // Colour precedence, resolved in code rather than left to the model. A
+    // scan wins unless the client explicitly overrode it; with no scan, the
+    // manual pick IS the answer — measured live, only one of five real
+    // business sites yielded any colour at all, so this is the common path.
+    const resolvedColors = resolveBrandColors({
+      scanned: result.data.brandAssets.existingColors,
+      manual: submission.brandColorHexes,
+      manualOverridesScan: submission.brandColorsOverrideScan,
+    })
+    result.data.brandAssets.existingColors = resolvedColors.colors
+    await setClientFontChoice(submission.contact.email, submission.fontChoiceId ?? null)
+    if (resolvedColors.source !== "none") {
+      console.log(`[brand] ${submission.contact.email}: using ${resolvedColors.source} colours ${resolvedColors.colors!.join(", ")}`)
+    }
   }
   return result
 }
 
 async function runBatch(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[], autoSaveBrandProfile: boolean): Promise<void> {
   await setGenerationStage(email, GENERATION_STAGES.brand)
-  const brandProfile = await runBrandAgent(intake, email)
+  const brandProfile = await applyFontChoice(await runBrandAgent(intake, email), email)
   stageMark(runId, t0, "brand done")
   // Guided-flow submissions refresh the client's saved brand automatically
   // — they explicitly provided this info, so it's a strong signal. Quick
@@ -768,7 +805,7 @@ export async function continuePipelineFromIntake(
 
 async function runSingleFlyerRetry(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequest: FlyerRequest): Promise<void> {
   await setGenerationStage(email, GENERATION_STAGES.brand)
-  const brandProfile = await runBrandAgent(intake, email)
+  const brandProfile = await applyFontChoice(await runBrandAgent(intake, email), email)
   stageMark(runId, t0, "brand done")
   const { plan, includeExtras } = await getPlanFeatures(email)
   const { photos, unsplash: unsplashPool } = await buildPhotoPool(intake, [flyerRequest], {

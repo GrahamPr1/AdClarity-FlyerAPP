@@ -165,6 +165,31 @@ export async function getMaterialOwner(pathname: string): Promise<string | null>
   return (await redis.get<string>(materialOwnerKey(pathname))) ?? null
 }
 
+/**
+ * The font pairing a client picked in the builder.
+ *
+ * Stored beside the client rather than added to NormalizedIntake: that is the
+ * Intake Agent's OUTPUT schema, which structured outputs compile into a token
+ * grammar, so an extra optional field would change what intake generation is
+ * constrained by for every client. This is a client preference, not something
+ * the model produces.
+ */
+function fontChoiceKey(email: string) {
+  return `client:${email.trim().toLowerCase()}:font-choice`
+}
+
+export async function setClientFontChoice(email: string, fontChoiceId: string | null): Promise<void> {
+  if (!fontChoiceId) {
+    await redis.del(fontChoiceKey(email))
+    return
+  }
+  await redis.set(fontChoiceKey(email), fontChoiceId)
+}
+
+export async function getClientFontChoice(email: string): Promise<string | null> {
+  return (await redis.get<string>(fontChoiceKey(email))) ?? null
+}
+
 /** Reads the marker without asserting — for diagnostics. */
 export async function readRedisEnvironmentMarker(): Promise<string | null> {
   return (await redis.get<string>(ENV_MARKER_KEY)) ?? null

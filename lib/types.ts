@@ -145,7 +145,20 @@ export interface IntakeSubmission {
    *  The file input used to capture only logoFileName and throw the file
    *  away, so an uploaded logo could never appear on a flyer. */
   logoUrl?: string
+  /** Legacy free text ("navy, gold"). Kept for saved profiles that predate the
+   *  picker; profile-defaults.ts deliberately never maps names to hex, so this
+   *  alone cannot reach the Brand Agent as colour. Superseded by
+   *  brandColorHexes. */
   brandColors?: string
+  /** Colours picked in the builder, as hex. What the Brand Agent actually
+   *  wants — it is told to use existingColors as exact hex values. */
+  brandColorHexes?: string[]
+  /** Set when the client explicitly chose their own colours over a successful
+   *  website scan. Without it a scan always wins; see resolveBrandColors. */
+  brandColorsOverrideScan?: boolean
+  /** Id from CURATED_FONTS. Absent leaves the Brand Agent's own choice from
+   *  preferredStyle alone, exactly as today. */
+  fontChoiceId?: string
   preferredStyle: BrandStyle
   voiceTone: string
   targetAudience: string
