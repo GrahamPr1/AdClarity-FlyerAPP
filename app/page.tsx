@@ -1,4 +1,5 @@
 import { MobileNav } from "@/components/mobile-nav"
+import { FooterAccountLinks } from "@/components/account-menu"
 import { RevealText } from "@/components/reveal-text"
 import { Reveal } from "@/components/reveal"
 import { PricingCards } from "@/components/pricing-cards"
@@ -925,7 +926,7 @@ export default function Page() {
 
           <div className="flex flex-col gap-2.5">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">Account</span>
-            <a href="/login" className="text-sm text-muted-foreground transition-colors hover:text-[var(--brand-teal-bright)]">Log In</a>
+            <FooterAccountLinks className="text-sm text-muted-foreground transition-colors hover:text-[var(--brand-teal-bright)]" />
             <a href={PRIMARY_CTA_HREF} className="text-sm font-medium text-[var(--brand-teal-bright)] transition-colors hover:text-[var(--brand-teal)]">
               Start Free
             </a>
