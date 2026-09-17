@@ -4,11 +4,14 @@ import { useState } from "react"
 import { AccountMenu, useIsSignedIn } from "@/components/account-menu"
 import { NAV_LINKS, PRIMARY_CTA_HREF, PRIMARY_CTA_LABEL, PRIMARY_CTA_LABEL_SHORT } from "@/lib/marketing"
 
+// Both values come from tokens rather than literals so the bar follows the
+// theme. Hardcoding rgba(255,255,255,0.72) left a light pill floating on the
+// dark page — the one element that did not follow, and the most visible.
 const NAV_STYLE = {
   backdropFilter: "blur(20px) saturate(180%)",
   WebkitBackdropFilter: "blur(20px) saturate(180%)",
-  background: "rgba(255,255,255,0.72)",
-  boxShadow: "0 8px 32px rgba(22,24,29,0.10), 0 1px 2px rgba(22,24,29,0.04)",
+  background: "var(--white-glass-strong)",
+  boxShadow: "var(--shadow-soft)",
 } as const
 
 export function MobileNav() {
