@@ -48,7 +48,7 @@ function AdminLoginForm() {
         <label htmlFor="password" className="block text-sm font-medium mb-1.5">Password</label>
         <input id="password" type="password" required autoFocus value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
+          className="w-full rounded-xl border border-[var(--white-border)] bg-[var(--white-glass)] px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-[var(--white-glass-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
           placeholder="••••••••" />
       </div>
       {error && <p role="alert" className="text-sm text-[var(--destructive)]">{error}</p>}
@@ -68,7 +68,7 @@ function EmailField({ value, onChange }: { value: string; onChange: (v: string) 
       <label htmlFor="email" className="block text-sm font-medium mb-1.5">Email</label>
       <input id="email" type="email" required autoFocus value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
+        className="w-full rounded-xl border border-[var(--white-border)] bg-[var(--white-glass)] px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-[var(--white-glass-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
         placeholder="you@business.com" />
     </div>
   )
@@ -212,7 +212,7 @@ function ClientLoginForm({
             <label htmlFor="password" className="block text-sm font-medium mb-1.5">Password</label>
             <input id="password" type="password" required minLength={8} value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
+              className="w-full rounded-xl border border-[var(--white-border)] bg-[var(--white-glass)] px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-[var(--white-glass-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
               placeholder="At least 8 characters"
               aria-describedby="password-requirements" />
             {/* Stated up front rather than only surfacing as a rejected
@@ -231,7 +231,7 @@ function ClientLoginForm({
             <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1.5">Confirm password</label>
             <input id="confirmPassword" type="password" required minLength={8} value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35" />
+              className="w-full rounded-xl border border-[var(--white-border)] bg-[var(--white-glass)] px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-[var(--white-glass-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35" />
           </div>
           {error && <p role="alert" className="text-sm text-[var(--destructive)]">{error}</p>}
           <button type="submit" disabled={working}
@@ -281,7 +281,7 @@ function ClientLoginForm({
           </div>
           <input id="password" type="password" required value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
+            className="w-full rounded-xl border border-[var(--white-border)] bg-[var(--white-glass)] px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-[var(--white-glass-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
             placeholder="••••••••" />
         </div>
         {error && <p role="alert" className="text-sm text-[var(--destructive)]">{error}</p>}
@@ -347,12 +347,12 @@ function LoginPageInner() {
     <div
       className="relative min-h-screen flex items-center justify-center overflow-hidden px-6 py-14"
       style={{
-        backgroundColor: "#e8eef6",
+        backgroundColor: "var(--auth-bg)",
         backgroundImage: [
-          "radial-gradient(at 14% 82%, rgba(56,118,199,0.55) 0px, transparent 56%)",
-          "radial-gradient(at 86% 14%, rgba(214,152,224,0.50) 0px, transparent 54%)",
-          "radial-gradient(at 66% 96%, rgba(96,170,222,0.45) 0px, transparent 50%)",
-          "radial-gradient(at 34% 30%, rgba(255,255,255,0.92) 0px, transparent 48%)",
+          "radial-gradient(at 14% 82%, var(--auth-glow-1) 0px, transparent 56%)",
+          "radial-gradient(at 86% 14%, var(--auth-glow-2) 0px, transparent 54%)",
+          "radial-gradient(at 66% 96%, var(--auth-glow-3) 0px, transparent 50%)",
+          "radial-gradient(at 34% 30%, var(--auth-glow-4) 0px, transparent 48%)",
         ].join(","),
       }}
     >

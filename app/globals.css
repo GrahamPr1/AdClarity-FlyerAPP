@@ -76,6 +76,15 @@
   --white-glass-strong: rgba(255, 255, 255, 0.75);
   --white-border: rgba(22, 24, 29, 0.10);
 
+  /* The /login backdrop. Tokenised because the page paints it via INLINE
+     styles, which cannot carry a dark: variant — that is exactly how it stayed
+     light while its text followed the theme. */
+  --auth-bg: #e8eef6;
+  --auth-glow-1: rgba(56, 118, 199, 0.55);
+  --auth-glow-2: rgba(214, 152, 224, 0.50);
+  --auth-glow-3: rgba(96, 170, 222, 0.45);
+  --auth-glow-4: rgba(255, 255, 255, 0.92);
+
   /* Light designs need real shadows where the dark one used borders. */
   --shadow-soft: 0 1px 2px rgba(22, 24, 29, 0.04), 0 8px 24px -14px rgba(22, 24, 29, 0.12);
   --shadow-lift: 0 2px 4px rgba(22, 24, 29, 0.05), 0 20px 44px -20px rgba(22, 24, 29, 0.20);
@@ -157,6 +166,14 @@
   --white-glass: rgba(27, 30, 36, 0.62);
   --white-glass-strong: rgba(27, 30, 36, 0.82);
   --white-border: rgba(236, 238, 241, 0.12);
+
+  /* Same composition after dark: the coloured glows stay, the white bloom
+     becomes a lift rather than a wash, and the base goes to the page ground. */
+  --auth-bg: #12141a;
+  --auth-glow-1: rgba(56, 118, 199, 0.38);
+  --auth-glow-2: rgba(150, 96, 170, 0.34);
+  --auth-glow-3: rgba(58, 120, 165, 0.34);
+  --auth-glow-4: rgba(120, 140, 170, 0.16);
 
   /* Shadows carry almost no weight on a dark ground — depth comes from the
      panel being lighter than the page, so these stay subtle rather than
@@ -298,14 +315,14 @@
     box-shadow: 0 8px 32px rgba(22, 24, 29, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.75);
   }
   .glass-card {
-    background: rgba(255, 255, 255, 0.42);
+    /* Was rgba(255,255,255,0.42) — a hardcoded white pane. Its text uses
+       --foreground, so in dark mode near-white sat on near-white at 1.06:1.
+       --white-glass is already themed, so the pane now follows. */
+    background: var(--white-glass);
     backdrop-filter: blur(40px) saturate(200%);
     -webkit-backdrop-filter: blur(40px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow:
-      0 32px 80px rgba(22, 24, 29, 0.16),
-      inset 0 2px 0 rgba(255, 255, 255, 0.7),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+    border: 1px solid var(--white-border);
+    box-shadow: var(--shadow-pop);
   }
 
   .hover-lift {
