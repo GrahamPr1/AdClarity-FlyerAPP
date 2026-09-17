@@ -112,7 +112,7 @@ export default function RootLayout({
       <script
         // Static string, no interpolation — nothing user-controlled reaches it.
         dangerouslySetInnerHTML={{
-          __html: `(function(){try{var t=localStorage.getItem('oneflyer:theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
+          __html: `(function(){try{var t=localStorage.getItem('oneflyer:theme')||'light';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
         }}
       />
       <body className="font-sans antialiased bg-background text-foreground">

@@ -105,7 +105,7 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
           </div>
           {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
           <button type="submit" disabled={saving}
-            className="self-start px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white text-xs font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+            className="self-start px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-xs font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
             {saving ? "Saving…" : "Save profile"}
           </button>
         </form>
@@ -132,7 +132,7 @@ function FormFillCard({ request }: { request: FormFillRequest }) {
       </div>
       {ready && (
         <a href={`/api/form-fill/download/${request.id}`}
-          className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
+          className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] transition-colors">
           Download
         </a>
       )}
@@ -247,7 +247,7 @@ export function FormFillSection() {
         )}
         {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
         <button type="submit" disabled={submitting}
-          className="self-start px-5 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+          className="self-start px-5 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
           {submitting ? "Uploading…" : "Fill it out"}
         </button>
       </form>

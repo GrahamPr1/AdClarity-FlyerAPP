@@ -109,7 +109,7 @@ export function WaitlistModal({
               {!signedInEmail && (
                 <a
                   href="/onboarding"
-                  className="rounded-xl bg-[var(--brand-teal-bright)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)]"
+                  className="rounded-xl bg-[var(--brand-teal-bright)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)]"
                 >
                   Start free now
                 </a>
@@ -171,7 +171,7 @@ export function WaitlistModal({
 
             <div className="mt-6 flex flex-wrap gap-3">
               <button type="submit" disabled={submitting || !email.trim()}
-                className="rounded-xl bg-[var(--brand-teal-bright)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-50">
+                className="rounded-xl bg-[var(--brand-teal-bright)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-50">
                 {submitting ? "Joining…" : "Join Early Access"}
               </button>
               <button type="button" onClick={onClose}

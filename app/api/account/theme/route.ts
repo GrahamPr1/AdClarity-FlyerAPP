@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getClientTheme, setClientTheme } from "@/lib/store"
-import { THEME_PREFERENCES, type ThemePreference } from "@/lib/types"
+import { DEFAULT_THEME, THEME_PREFERENCES, type ThemePreference } from "@/lib/types"
 
 // GET/PUT /api/account/theme — the signed-in account's app-interface theme.
 //
@@ -13,10 +13,10 @@ export const dynamic = "force-dynamic"
 export async function GET(request: NextRequest) {
   const session = await getSessionIdentity(request)
   if (!session || session.sub === ADMIN_SUB) {
-    return NextResponse.json({ theme: "system" }, { headers: { "Cache-Control": "no-store" } })
+    return NextResponse.json({ theme: DEFAULT_THEME }, { headers: { "Cache-Control": "no-store" } })
   }
   return NextResponse.json(
-    { theme: (await getClientTheme(session.sub)) ?? "system" },
+    { theme: (await getClientTheme(session.sub)) ?? DEFAULT_THEME },
     { headers: { "Cache-Control": "no-store" } },
   )
 }

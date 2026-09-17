@@ -11,7 +11,7 @@ export function RedeemButton({ code, phone, label }: { code: string; phone: stri
 
   return (
     <a href={`tel:${phone.replace(/[^0-9+]/g, "")}`} onClick={handleClick}
-      className="w-full py-3 rounded-xl bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors">
+      className="w-full py-3 rounded-xl bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors">
       {label}
     </a>
   )

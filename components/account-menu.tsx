@@ -90,7 +90,7 @@ export function AccountMenu({ variant = "bar" }: { variant?: "bar" | "stacked" }
         aria-expanded={open}
         aria-label={`Signed in as ${label}`}
         title={`Signed in as ${label}`}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-teal-bright)] text-[13px] font-semibold text-white transition-colors hover:bg-[var(--brand-teal)]"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-teal-bright)] text-[13px] font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)]"
       >
         {initialFor(session.email, session.isAdmin)}
       </button>

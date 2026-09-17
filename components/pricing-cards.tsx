@@ -69,8 +69,8 @@ function PlanCard({
           <span
             className={`absolute -top-3 left-8 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
               highlighted
-                ? "bg-[var(--brand-teal-bright)] text-white shadow-lg shadow-[color:var(--brand-teal)]/40"
-                : "bg-[var(--brand-slate)] text-white"
+                ? "bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] shadow-lg shadow-[color:var(--brand-teal)]/40"
+                : "bg-[var(--brand-slate)] text-[var(--primary-foreground)]"
             }`}
           >
             {plan.badge}
@@ -123,8 +123,8 @@ function PlanCard({
             onClick={() => onJoinWaitlist(plan.id as "basic" | "pro")}
             className={`mt-6 w-full py-3.5 rounded-full text-sm font-medium transition-colors ${
               highlighted
-                ? "bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
-                : "border border-foreground/30 text-foreground hover:bg-[var(--brand-teal-bright)] hover:border-[var(--brand-teal-bright)] hover:text-white"
+                ? "bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
+                : "border border-foreground/30 text-foreground hover:bg-[var(--brand-teal-bright)] hover:border-[var(--brand-teal-bright)] hover:text-[var(--primary-foreground)]"
             }`}
           >
             Join {plan.name} Early Access
@@ -134,8 +134,8 @@ function PlanCard({
             href={plan.ctaHref}
             className={`mt-6 w-full py-3.5 rounded-full text-sm font-medium text-center transition-colors ${
               highlighted
-                ? "bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
-                : "border border-foreground/30 text-foreground hover:bg-[var(--brand-teal-bright)] hover:border-[var(--brand-teal-bright)] hover:text-white"
+                ? "bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
+                : "border border-foreground/30 text-foreground hover:bg-[var(--brand-teal-bright)] hover:border-[var(--brand-teal-bright)] hover:text-[var(--primary-foreground)]"
             }`}
           >
             {plan.ctaLabel}
@@ -146,8 +146,8 @@ function PlanCard({
             disabled={isLoading}
             className={`mt-6 w-full py-3.5 rounded-full text-sm font-medium transition-colors disabled:opacity-60 ${
               highlighted
-                ? "bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
-                : "border border-foreground/30 text-foreground hover:bg-[var(--brand-teal-bright)] hover:border-[var(--brand-teal-bright)] hover:text-white"
+                ? "bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
+                : "border border-foreground/30 text-foreground hover:bg-[var(--brand-teal-bright)] hover:border-[var(--brand-teal-bright)] hover:text-[var(--primary-foreground)]"
             }`}
           >
             {isLoading ? "Redirecting…" : plan.ctaLabel}
@@ -237,7 +237,7 @@ export function PricingCards() {
               type="button"
               onClick={() => setBilling(option)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                billing === option ? "bg-[var(--brand-teal-bright)] text-white" : "text-muted-foreground hover:text-foreground"
+                billing === option ? "bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)]" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {option === "monthly" ? "Monthly" : `Annual — save ${ANNUAL_DISCOUNT_PERCENT}%`}

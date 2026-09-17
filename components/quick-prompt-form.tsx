@@ -153,7 +153,7 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
             placeholder="Your answer…" />
           {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
           <button type="submit" disabled={submitting || !clarificationAnswer.trim()}
-            className="self-start px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+            className="self-start px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
             {submitting ? "Generating…" : "Continue"}
           </button>
         </form>
@@ -250,7 +250,7 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
         )}
 
         {scrapeNotice && (
-          <p className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3.5 py-2.5 text-sm text-amber-200">
+          <p className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3.5 py-2.5 text-sm text-amber-800 dark:text-amber-200">
             {scrapeNotice} We built your flyer from what you typed instead.
           </p>
         )}
@@ -258,7 +258,7 @@ export function QuickPromptForm({ email: _email, hasSavedBrand, onBack }: { emai
         {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
 
         <button type="submit" disabled={submitting || !prompt.trim() || (needsFallbackFields && (!businessName.trim() || !phone.trim() || !address.trim()))}
-          className="self-start px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+          className="self-start px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
           {submitting ? "Generating…" : "Generate"}
         </button>
       </form>
@@ -393,7 +393,7 @@ function QuickPromptResultView({ flyerId, hasSavedBrand, onBack }: { flyerId: st
           {saveError && <p className="mt-2 text-xs text-red-400">{saveError}</p>}
           <div className="mt-3 flex gap-3">
             <button type="button" onClick={handleSaveBrand} disabled={savingBrand}
-              className="px-4 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+              className="px-4 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
               {savingBrand ? "Saving…" : "Save as my brand"}
             </button>
             <button type="button" onClick={() => setSaveOffered(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">

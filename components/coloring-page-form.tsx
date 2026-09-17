@@ -136,7 +136,7 @@ export function ColoringPageForm() {
       <button
         type="submit"
         disabled={submitting || !subject.trim()}
-        className="rounded-xl bg-[var(--brand-teal-bright)] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-50"
+        className="rounded-xl bg-[var(--brand-teal-bright)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-50"
       >
         {submitting ? "Drawing…" : "Create my coloring page"}
       </button>

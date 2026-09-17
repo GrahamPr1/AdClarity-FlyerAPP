@@ -179,7 +179,7 @@ export default function AuditPage() {
 
           {data.bursts.length > 0 && (
             <div className="mt-6 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-5">
-              <p className="font-medium text-amber-200">
+              <p className="font-medium text-amber-800 dark:text-amber-200">
                 {data.bursts.length} rapid signup cluster{data.bursts.length === 1 ? "" : "s"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -251,7 +251,7 @@ export default function AuditPage() {
                   </ul>
                   {preview.refused.length > 0 && (
                     <div className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-3 text-sm">
-                      <p className="font-medium text-amber-200">Refused by the server:</p>
+                      <p className="font-medium text-amber-800 dark:text-amber-200">Refused by the server:</p>
                       <ul className="mt-1.5 flex flex-col gap-1">
                         {preview.refused.map((r) => (
                           <li key={r.email} className="text-muted-foreground">
@@ -294,7 +294,7 @@ export default function AuditPage() {
                 ))}
               </ul>
               {done.refused.length > 0 && (
-                <ul className="mt-2 flex flex-col gap-1 text-sm text-amber-200/80">
+                <ul className="mt-2 flex flex-col gap-1 text-sm text-amber-800 dark:text-amber-200/80">
                   {done.refused.map((r) => (
                     <li key={r.email}>{r.email} — {r.reason}</li>
                   ))}

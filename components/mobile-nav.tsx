@@ -53,7 +53,7 @@ export function MobileNav() {
             ) : (
               <a
                 href="/login"
-                className={`hidden sm:inline-flex items-center rounded-full border border-foreground/25 px-4 py-2 text-[13px] text-foreground transition-colors hover:border-[var(--brand-teal-bright)] hover:bg-[var(--brand-teal-bright)] hover:text-white ${signedIn === null ? "invisible" : ""}`}
+                className={`hidden sm:inline-flex items-center rounded-full border border-foreground/25 px-4 py-2 text-[13px] text-foreground transition-colors hover:border-[var(--brand-teal-bright)] hover:bg-[var(--brand-teal-bright)] hover:text-[var(--primary-foreground)] ${signedIn === null ? "invisible" : ""}`}
               >
                 Log In
               </a>
@@ -63,7 +63,7 @@ export function MobileNav() {
                 below xl, where the full sentence wraps and breaks the bar. */}
             <a
               href={PRIMARY_CTA_HREF}
-              className="block text-[12px] sm:text-[13px] px-3 sm:px-4 py-2 rounded-full bg-[var(--brand-teal-bright)] text-white font-medium hover:bg-[var(--brand-teal)] transition-all duration-200 whitespace-nowrap"
+              className="block text-[12px] sm:text-[13px] px-3 sm:px-4 py-2 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] font-medium hover:bg-[var(--brand-teal)] transition-all duration-200 whitespace-nowrap"
             >
               <span className="hidden xl:inline">{PRIMARY_CTA_LABEL}</span>
               <span className="xl:hidden">{PRIMARY_CTA_LABEL_SHORT}</span>
@@ -127,7 +127,7 @@ export function MobileNav() {
               <a
                 href={PRIMARY_CTA_HREF}
                 onClick={close}
-                className="block text-center w-full text-sm px-4 py-3 rounded-full bg-[var(--brand-teal-bright)] text-white font-medium hover:bg-[var(--brand-teal)] transition-all duration-200"
+                className="block text-center w-full text-sm px-4 py-3 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] font-medium hover:bg-[var(--brand-teal)] transition-all duration-200"
               >
                 {PRIMARY_CTA_LABEL}
               </a>

@@ -289,7 +289,7 @@ export function CampaignDefaultsForm() {
           </div>
         </div>
 
-        {error && <p role="alert" className="mt-5 text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="mt-5 text-sm text-[var(--destructive)]">{error}</p>}
         {justSaved && (
           <p className="mt-5 text-sm text-[var(--brand-teal-bright)]">
             Saved. Your next campaign will use these automatically.
@@ -298,7 +298,7 @@ export function CampaignDefaultsForm() {
 
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <button type="button" onClick={handleSave} disabled={saving}
-            className="rounded-lg bg-[var(--brand-teal-bright)] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-60">
+            className="rounded-lg bg-[var(--brand-teal-bright)] px-6 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-60">
             {saving ? "Saving…" : "Save details"}
           </button>
           <button type="button" onClick={() => router.push("/dashboard")}

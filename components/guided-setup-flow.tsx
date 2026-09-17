@@ -216,7 +216,7 @@ export function GuidedSetupFlow({ email }: { email: string }) {
           </div>
           {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
           <button type="submit" disabled={!url.trim() || !fullName.trim() || !phone.trim()}
-            className="self-start px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+            className="self-start px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
             Scan my site
           </button>
         </form>

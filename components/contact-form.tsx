@@ -72,7 +72,7 @@ export function ContactForm() {
       <button
         type="submit"
         disabled={sending || !name.trim() || !email.trim() || message.trim().length < 10}
-        className="self-start rounded-xl bg-[var(--brand-teal-bright)] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-50"
+        className="self-start rounded-xl bg-[var(--brand-teal-bright)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-50"
       >
         {sending ? "Sending…" : "Send message"}
       </button>

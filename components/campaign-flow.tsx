@@ -104,7 +104,7 @@ export function CampaignFlowVisual() {
           className="asset-in flex items-center justify-center gap-2.5 rounded-xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] py-2.5"
           style={{ animationDelay: "160ms" }}
         >
-          <span className="relative grid h-6 w-6 place-items-center rounded-full bg-[var(--brand-teal-bright)] text-white">
+          <span className="relative grid h-6 w-6 place-items-center rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)]">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z" />
             </svg>

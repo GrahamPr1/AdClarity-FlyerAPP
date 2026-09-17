@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react"
-import type { ThemePreference } from "@/lib/types"
+import { DEFAULT_THEME, type ThemePreference } from "@/lib/types"
 
 /**
  * Applies the account's theme to OneFlyer's OWN interface.
@@ -32,7 +32,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: "system",
+  theme: DEFAULT_THEME,
   resolved: "light",
   setTheme: () => {},
   saving: false,
@@ -54,9 +54,9 @@ function apply(theme: ThemePreference) {
 
 /** Reads the local mirror without touching state, for the lazy initialiser. */
 function storedTheme(): ThemePreference {
-  if (typeof window === "undefined") return "system"
+  if (typeof window === "undefined") return DEFAULT_THEME
   const v = localStorage.getItem(STORAGE_KEY)
-  return v === "light" || v === "dark" || v === "system" ? v : "system"
+  return v === "light" || v === "dark" || v === "system" ? v : DEFAULT_THEME
 }
 
 /**

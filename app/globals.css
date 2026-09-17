@@ -265,7 +265,11 @@
   }
   .pill-solid {
     background: var(--brand-teal-bright);
-    color: #fff;
+    /* Not #fff: the dark-mode action blue is lifted so it reads as text on a
+       dark page, which leaves white on it at 2.61:1. --primary-foreground is
+       white in light and near-black in dark, so the pill stays legible in
+       both. */
+    color: var(--primary-foreground);
     box-shadow: var(--shadow-soft);
   }
   .pill-solid:hover {

@@ -69,13 +69,13 @@ function CategoryBanner({ onSaved }: { onSaved: () => void }) {
         ))}
       </select>
       <button onClick={handleSave} disabled={!category || saving}
-        className="text-sm font-medium px-4 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+        className="text-sm font-medium px-4 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
         {saving ? "Saving…" : "Save"}
       </button>
       <button onClick={() => setDismissed(true)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
         Not now
       </button>
-      {error && <p role="alert" className="w-full text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="w-full text-sm text-[var(--destructive)]">{error}</p>}
     </div>
   )
 }
@@ -85,11 +85,11 @@ export function StatusBadge({ status }: { status: FlyerStatus | string }) {
   const map: Record<string, string> = {
     Ready: "bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)] border-[var(--brand-teal)]/40",
     Fulfilled: "bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)] border-[var(--brand-teal)]/40",
-    "In Progress": "bg-amber-400/10 text-amber-700 border-amber-400/30",
+    "In Progress": "bg-amber-400/10 text-amber-700 dark:text-amber-300 border-amber-400/30",
     Pending: "bg-[var(--surface-soft)] text-muted-foreground border-border",
     Requested: "bg-[var(--surface-soft)] text-muted-foreground border-border",
-    Failed: "bg-red-500/10 text-red-600 border-red-500/30",
-    Cancelled: "bg-red-500/10 text-red-600 border-red-500/30",
+    Failed: "bg-red-500/10 text-[var(--destructive)] border-red-500/30",
+    Cancelled: "bg-red-500/10 text-[var(--destructive)] border-red-500/30",
   }
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${map[status] ?? map.Pending}`}>
@@ -213,7 +213,7 @@ function CopyableText({ label, text }: { label: string; text: string }) {
         </button>
       </div>
       {copyFailed && (
-        <p className="mt-1 text-xs text-amber-700">
+        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
           Your browser blocked copying — select the text below and copy it manually.
         </p>
       )}
@@ -337,9 +337,9 @@ function PrintOrderSection({ flyerId, onSubmit }: { flyerId: string; onSubmit: (
               placeholder="Paper stock, deadline, anything else"
               className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)]" />
           </div>
-          {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-xs text-[var(--destructive)]">{error}</p>}
           <button type="submit" disabled={submitting}
-            className="self-start mt-1 px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white text-xs font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+            className="self-start mt-1 px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-xs font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
             {submitting ? "Submitting…" : "Submit request"}
           </button>
         </form>
@@ -460,14 +460,24 @@ export function FlyerCard({
           on a phone. Hover/pointer is the engaging part; the wander isn't. */}
       <div
         className="flex items-center justify-center px-4 py-7"
-        style={{ background: "linear-gradient(150deg,#f7f4ed 0%,#eef3f7 58%,#e4edf4 100%)" }}
+        // The light "paper" stage is kept ONLY behind a real flyer, where it
+        // reads as a sheet lying on a surface and flatters the white artwork.
+        // With no flyer to hold — failed or still generating — it was just a
+        // bright rectangle on a dark page, so it falls back to a themed
+        // surface instead.
+        style={{
+          background:
+            ready && flyer.downloadUrl
+              ? "linear-gradient(150deg,#f7f4ed 0%,#eef3f7 58%,#e4edf4 100%)"
+              : "var(--surface-sunken)",
+        }}
       >
         {ready && flyer.downloadUrl ? (
           <Flyer3D depth={4} maxTilt={9} idle={false}>
             <FlyerThumbnail downloadUrl={flyer.downloadUrl} viewUrl={viewUrl} title={flyer.title} scale={0.18} />
           </Flyer3D>
         ) : failed ? (
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-red-600/60">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-[var(--destructive)]/60">
             <circle cx="12" cy="12" r="9" />
             <path d="M12 8v5M12 16h.01" />
           </svg>
@@ -552,18 +562,18 @@ export function FlyerCard({
                   </div>
                 </div>
               )}
-              {channelError && <p className="mt-2 text-xs text-amber-700">{channelError}</p>}
+              {channelError && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">{channelError}</p>}
             </div>
           )}
-          {failed && flyer.error && <p className="mt-1.5 text-xs text-red-700/80 leading-snug">{flyer.error}</p>}
-          {retryError && <p className="mt-1.5 text-xs text-amber-700 leading-snug">{retryError}</p>}
-          {deleteError && <p className="mt-1.5 text-xs text-amber-700 leading-snug">{deleteError}</p>}
+          {failed && flyer.error && <p className="mt-1.5 text-xs text-[var(--destructive)]/90 leading-snug">{flyer.error}</p>}
+          {retryError && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300 leading-snug">{retryError}</p>}
+          {deleteError && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300 leading-snug">{deleteError}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {ready && flyer.downloadUrl && (
             <a href={flyer.downloadUrl}
               download={`${flyer.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.html`}
-              className="text-xs font-medium px-4 py-1.5 rounded-full bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
+              className="text-xs font-medium px-4 py-1.5 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] transition-colors">
               Download
             </a>
           )}
@@ -578,7 +588,7 @@ export function FlyerCard({
             <button onClick={handleDelete} onBlur={() => setConfirmingDelete(false)} disabled={deleting}
               className={`text-xs font-medium px-4 py-1.5 rounded-full border transition-colors disabled:opacity-60 ${
                 confirmingDelete
-                  ? "border-red-500/50 bg-red-500/10 text-red-700 hover:bg-red-500/20"
+                  ? "border-red-500/50 bg-red-500/10 text-[var(--destructive)] hover:bg-red-500/20"
                   : "border-border hover:bg-[var(--surface-sunken)]"
               }`}>
               {deleting ? "Deleting…" : confirmingDelete ? "Confirm?" : "Delete"}
@@ -637,7 +647,7 @@ function ProfileNudge() {
         </p>
       </div>
       <Link href="/profile"
-        className="rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)]"
+        className="rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)]"
       >
         Add brand details
       </Link>
@@ -720,7 +730,7 @@ function UpsellModal({ onClose }: { onClose: () => void }) {
             <button
               onClick={handleSend}
               disabled={!details.trim()}
-              className="px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
               Compose email
             </button>
@@ -863,7 +873,7 @@ export function DashboardClient() {
             </Link>
           )}
           <button onClick={handleSignOut}
-            className="rounded-full border border-foreground/20 px-4 py-1.5 text-sm text-foreground transition-colors hover:border-[var(--brand-teal-bright)] hover:bg-[var(--brand-teal-bright)] hover:text-white">
+            className="rounded-full border border-foreground/20 px-4 py-1.5 text-sm text-foreground transition-colors hover:border-[var(--brand-teal-bright)] hover:bg-[var(--brand-teal-bright)] hover:text-[var(--primary-foreground)]">
             Sign out
           </button>
         </div>
@@ -898,7 +908,7 @@ export function DashboardClient() {
               <Link
                 href="/#pricing"
                 onClick={() => trackEvent("upgrade_clicked", { plan: data.planId, location: "dashboard_limit" })}
-                className="rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)]"
+                className="rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)]"
               >
                 Upgrade to keep creating
               </Link>
@@ -950,7 +960,7 @@ export function DashboardClient() {
                 />
               </div>
               {data.flyersCreated >= data.flyersLimit ? (
-                <Link href="/#pricing" className="mt-1.5 inline-block text-xs text-amber-700 hover:text-amber-900 transition-colors">
+                <Link href="/#pricing" className="mt-1.5 inline-block text-xs text-amber-700 dark:text-amber-300 hover:text-amber-900 transition-colors">
                   Limit reached — resets {new Date(data.flyersResetAt).toLocaleDateString()} →
                 </Link>
               ) : (
@@ -1011,7 +1021,7 @@ export function DashboardClient() {
               <h2 className="text-xl">Let&apos;s make your first campaign</h2>
               <p className="mt-2 text-sm text-muted-foreground">Takes about 2 minutes — we&apos;ll walk you through it.</p>
               <Link href="/onboarding"
-                className="mt-6 inline-block px-6 py-3 rounded-xl bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors">
+                className="mt-6 inline-block px-6 py-3 rounded-xl bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] transition-colors">
                 Create your first campaign
               </Link>
               <p className="mt-4 text-sm text-muted-foreground">
@@ -1029,7 +1039,7 @@ export function DashboardClient() {
                   not on every later dashboard visit, where it would be noise. */}
               {justOnboarded && data.flyers.some((f) => f.status === "Ready") && (
                 <div className="mt-12 flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] p-5">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--brand-teal-bright)] text-white">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)]">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
@@ -1053,11 +1063,11 @@ export function DashboardClient() {
                 <h2 className="text-2xl">Flyers &amp; Pages</h2>
                 <div className="flex items-center gap-2">
                   <Link href="/onboarding"
-                    className="text-sm font-medium px-5 py-2 rounded-full bg-[var(--brand-teal-bright)] text-white hover:bg-[var(--brand-teal)] transition-colors">
+                    className="text-sm font-medium px-5 py-2 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] transition-colors">
                     New Campaign
                   </Link>
                   <button onClick={() => setShowUpsell(true)}
-                    className="text-sm font-medium px-5 py-2 rounded-full border border-foreground/20 hover:border-[var(--brand-teal-bright)] hover:bg-[var(--brand-teal-bright)] hover:text-white transition-colors">
+                    className="text-sm font-medium px-5 py-2 rounded-full border border-foreground/20 hover:border-[var(--brand-teal-bright)] hover:bg-[var(--brand-teal-bright)] hover:text-[var(--primary-foreground)] transition-colors">
                     Request more collateral
                   </button>
                 </div>

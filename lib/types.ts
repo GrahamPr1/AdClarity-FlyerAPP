@@ -25,9 +25,10 @@ export type PlanId = "trial" | "basic" | "pro"
  * App-interface theme. Stored per ACCOUNT, not per browser, so it follows
  * someone between their laptop and their phone.
  *
- * "system" follows the device setting and is the default — a new account
- * should look like the rest of that person's machine rather than picking for
- * them.
+ * "light" is the default. An account starts on the light interface until
+ * someone chooses otherwise; "system" is available but opt-in, so a new
+ * signup on a dark-set laptop still sees the product the way it was designed
+ * before deciding.
  *
  * Applies to OneFlyer's own UI ONLY. A generated flyer carries the CLIENT's
  * colours and is rendered in its own document; see the note in
@@ -36,6 +37,9 @@ export type PlanId = "trial" | "basic" | "pro"
 export type ThemePreference = "light" | "dark" | "system"
 
 export const THEME_PREFERENCES: ThemePreference[] = ["light", "dark", "system"]
+
+/** What an account starts on before anyone chooses. */
+export const DEFAULT_THEME: ThemePreference = "light"
 
 // Real per-plan flyer caps — the single source of truth for both real
 // enforcement (lib/store.ts, app/api/intake/route.ts) and marketing copy

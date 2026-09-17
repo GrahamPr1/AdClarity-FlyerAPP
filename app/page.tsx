@@ -167,7 +167,11 @@ function PrimaryCta({
       // min-h-11 = 44px, WCAG's minimum, on the page's highest-intent button.
       className={`group pill ${
         invert
-          ? "bg-white text-[var(--brand-teal)] hover:bg-white/90"
+          // The background here is literally white in BOTH themes (it sits on
+          // a colour-block section), so the label must stay the light-mode
+          // blue rather than following the theme — --brand-teal lightens in
+          // dark and drops to 1.92:1 on white.
+          ? "bg-white text-[#245a7c] hover:bg-white/90"
           : "pill-solid"
       } px-7 text-sm font-medium ${className}`}
     >
@@ -860,7 +864,7 @@ export default function Page() {
             close rather than as a statistics panel — the template filled that
             band with "98% satisfaction / 50+ award-winning campaigns", and
             there are no real numbers to put in it. */}
-        <section className="bg-[var(--brand-teal-bright)] px-6 py-20 text-white md:px-12 lg:px-20">
+        <section className="bg-[var(--brand-teal-bright)] px-6 py-20 text-[var(--primary-foreground)] md:px-12 lg:px-20">
           <div className="mx-auto max-w-3xl text-center">
             <RevealText
               as="h2"

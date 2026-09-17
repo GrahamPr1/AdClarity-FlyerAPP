@@ -439,7 +439,7 @@ export function OnboardingForm({
           <div key={label} className="flex items-center gap-2 flex-1">
             <div
               className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
-                i <= step ? "bg-[var(--brand-teal-bright)] text-white" : "bg-[var(--surface-soft)] text-muted-foreground"
+                i <= step ? "bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)]" : "bg-[var(--surface-soft)] text-muted-foreground"
               }`}
             >
               {i + 1}
@@ -702,7 +702,7 @@ export function OnboardingForm({
                   {!uploadingLogo && form.logoUrl && form.logoFileName && (
                     <p className="mt-1.5 text-xs text-muted-foreground">Uploaded: {form.logoFileName}</p>
                   )}
-                  {logoUploadError && <p className="mt-1.5 text-xs text-red-500">{logoUploadError}</p>}
+                  {logoUploadError && <p className="mt-1.5 text-xs text-[var(--destructive)]">{logoUploadError}</p>}
                 </div>
 
                 <div>
@@ -728,7 +728,12 @@ export function OnboardingForm({
                         return (
                           <button key={hex} type="button" aria-label={hex} title={hex}
                             onClick={() => toggleColor(hex)}
-                            className={`h-8 w-8 rounded-full border-2 transition-transform ${on ? "border-foreground scale-110" : "border-border"}`}
+                            // The swatches are deliberately dark colours (they carry reversed-out
+// white text on a flyer), so on the dark panel an unselected one all but
+// disappears against --border. A brighter ring in dark mode keeps each
+// chip readable as a separate control — a contrast sweep never catches
+// this, because the failing element is the control, not its text.
+className={`h-8 w-8 rounded-full border-2 transition-transform ${on ? "border-foreground scale-110" : "border-border dark:border-white/30"}`}
                             style={{ backgroundColor: hex }} />
                         )
                       })}
@@ -790,7 +795,7 @@ export function OnboardingForm({
                   {!uploadingMaterial && form.existingMaterialsUrl && form.existingMaterialsFileName && (
                     <p className="mt-1.5 text-xs text-muted-foreground">Uploaded: {form.existingMaterialsFileName}</p>
                   )}
-                  {materialUploadError && <p className="mt-1.5 text-xs text-red-500">{materialUploadError}</p>}
+                  {materialUploadError && <p className="mt-1.5 text-xs text-[var(--destructive)]">{materialUploadError}</p>}
                   <p className="mt-1.5 text-xs text-muted-foreground">
                     Saved to your account for reference. Not yet used to generate flyers — coming soon.
                   </p>
@@ -824,7 +829,7 @@ export function OnboardingForm({
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors"
+              className="px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors"
             >
               {submitting ? "Submitting…" : "Submit & go to dashboard"}
             </button>
@@ -833,7 +838,7 @@ export function OnboardingForm({
               type="button"
               onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
               disabled={!canProceed}
-              className="px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-40 transition-colors"
+              className="px-6 py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-40 transition-colors"
             >
               Continue
             </button>

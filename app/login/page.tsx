@@ -51,9 +51,9 @@ function AdminLoginForm() {
           className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
           placeholder="••••••••" />
       </div>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-[var(--destructive)]">{error}</p>}
       <button type="submit" disabled={loading}
-        className="mt-2 w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-white text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
+        className="mt-2 w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
         {loading ? "Signing in…" : "Sign in"}
       </button>
     </form>
@@ -219,7 +219,7 @@ function ClientLoginForm({
                 submit — the rule is trivial, and finding it out by failing is
                 a needless round trip. Live feedback once they start typing. */}
             <p id="password-requirements"
-              className={`mt-1.5 text-xs ${password.length === 0 ? "text-muted-foreground" : password.length >= 8 ? "text-emerald-700" : "text-amber-700"}`}>
+              className={`mt-1.5 text-xs ${password.length === 0 ? "text-muted-foreground" : password.length >= 8 ? "text-emerald-700" : "text-amber-700 dark:text-amber-300"}`}>
               {password.length === 0
                 ? "Must be at least 8 characters."
                 : password.length >= 8
@@ -233,9 +233,9 @@ function ClientLoginForm({
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35" />
           </div>
-          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-[var(--destructive)]">{error}</p>}
           <button type="submit" disabled={working}
-            className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-white text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
+            className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
             {working ? "Creating account…" : "Create account"}
           </button>
         </form>
@@ -252,10 +252,10 @@ function ClientLoginForm({
       <>
         <form onSubmit={handleForgot} className="mt-6 flex flex-col gap-4">
           <EmailField value={email} onChange={setEmail} />
-          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-[var(--destructive)]">{error}</p>}
           {notice && <p className="text-sm text-[var(--brand-teal-bright)]">{notice}</p>}
           <button type="submit" disabled={working || !email}
-            className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-white text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
+            className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
             {working ? "Sending…" : "Email me a reset link"}
           </button>
         </form>
@@ -284,9 +284,9 @@ function ClientLoginForm({
             className="w-full rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
             placeholder="••••••••" />
         </div>
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="text-sm text-[var(--destructive)]">{error}</p>}
         <button type="submit" disabled={working || !email || !password}
-          className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-white text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
+          className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
           {working ? "Signing you in…" : "Log in"}
         </button>
       </form>

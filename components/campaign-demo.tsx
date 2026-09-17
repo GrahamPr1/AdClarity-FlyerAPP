@@ -119,7 +119,7 @@ export function CampaignDemo() {
 
         <button
           type="submit"
-          className="mt-1 rounded-xl bg-[var(--brand-teal-bright)] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[var(--brand-teal)]/25 transition-colors hover:bg-[var(--brand-teal)]"
+          className="mt-1 rounded-xl bg-[var(--brand-teal-bright)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] shadow-lg shadow-[var(--brand-teal)]/25 transition-colors hover:bg-[var(--brand-teal)]"
         >
           Preview My Campaign
         </button>
@@ -190,7 +190,7 @@ export function CampaignDemo() {
             </div>
             <a
               href={PRIMARY_CTA_HREF}
-              className="group inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--brand-teal-bright)] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[var(--brand-teal)]/25 transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-teal)]"
+              className="group inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--brand-teal-bright)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] shadow-lg shadow-[var(--brand-teal)]/25 transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-teal)]"
             >
               Create Mine Free
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true">

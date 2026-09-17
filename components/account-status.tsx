@@ -71,7 +71,7 @@ export function AccountStatus() {
             type="button"
             disabled={busy}
             onClick={() => setPaused(false)}
-            className="mt-4 rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-50"
+            className="mt-4 rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-50"
           >
             {busy ? "Resuming…" : "Resume my account"}
           </button>
@@ -105,7 +105,7 @@ export function AccountStatus() {
               type="button"
               disabled={busy}
               onClick={() => setPaused(true)}
-              className="rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-50"
+              className="rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)] disabled:opacity-50"
             >
               {busy ? "Pausing…" : "Pause my account"}
             </button>

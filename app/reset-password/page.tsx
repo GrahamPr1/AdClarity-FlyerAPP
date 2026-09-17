@@ -62,7 +62,7 @@ function ResetPasswordForm() {
       </div>
       {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
       <button type="submit" disabled={working}
-        className="mt-2 w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-white text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
+        className="mt-2 w-full py-2.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors">
         {working ? "Saving…" : "Set new password"}
       </button>
     </form>

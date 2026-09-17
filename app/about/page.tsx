@@ -64,7 +64,7 @@ export default function AboutPage() {
         <div className="mt-8 flex flex-wrap gap-4 text-sm">
           <Link
             href="/#pricing"
-            className="rounded-xl bg-[var(--brand-teal-bright)] px-5 py-2.5 font-semibold text-white transition-colors hover:bg-[var(--brand-teal)]"
+            className="rounded-xl bg-[var(--brand-teal-bright)] px-5 py-2.5 font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--brand-teal)]"
           >
             See pricing
           </Link>
