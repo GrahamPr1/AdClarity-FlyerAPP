@@ -68,7 +68,7 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
           <p className="mt-1 text-xs text-muted-foreground">
             {hasProfile
               ? `Saved${profile?.file ? ` — ${profile.file.fileName}` : ""}${profile?.link ? (profile?.file ? " + a link" : " — a link") : ""}, updated ${new Date(profile!.savedAt).toLocaleDateString()}`
-              : "Save your business info once, then reuse it for every form instead of re-uploading."}
+              : "Save your business info once — it fills out forms for you, and fills gaps in your flyer details."}
           </p>
         </div>
         <div className="shrink-0 flex items-center gap-2">
@@ -87,6 +87,10 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
 
       {editing && (
         <form onSubmit={handleSave} className="mt-4 flex flex-col gap-3 pt-4 border-t border-border">
+          <p className="text-xs text-muted-foreground">
+            Used to fill out PDF forms, and as background detail when generating flyers — anything you type into a
+            campaign still takes priority over what&rsquo;s in here.
+          </p>
           <div>
             <label htmlFor="profile-file" className="block text-xs font-medium mb-1.5">File (PDF or image) {profile?.file && "— leave blank to keep your saved one"}</label>
             <input id="profile-file" type="file" accept="application/pdf,image/*"
@@ -94,7 +98,7 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
               className="w-full text-sm text-muted-foreground" />
           </div>
           <div>
-            <label htmlFor="profile-link" className="block text-xs font-medium mb-1.5">…or a link (a Google Sheet works too)</label>
+            <label htmlFor="profile-link" className="block text-xs font-medium mb-1.5">…or a link (a Google Sheet works too — share it as &ldquo;anyone with the link can view&rdquo;)</label>
             <input id="profile-link" type="url" placeholder="https://…" value={link}
               onChange={(e) => setLink(e.target.value)}
               className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />

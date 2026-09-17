@@ -17,6 +17,7 @@ import { palettePoolFor } from "./trade-palettes"
 import { runPolishAgent } from "./agents/polishAgent"
 import { fillTemplate, selectTemplate } from "./template-mode"
 import { resolveBrandColors, resolveFonts } from "@/lib/brand-controls"
+import { loadBusinessProfileContext } from "./business-profile-context"
 import { applyLegibilityGuardrails } from "./legibility"
 import { getFormat, formatForAgent } from "./formats"
 import type { IntakeAgentOutput, NormalizedIntake } from "./schemas/intake"
@@ -490,8 +491,29 @@ function applyLegibility(html: string, context: string): string {
  * depends on this stage's output.
  */
 export async function runIntakeStage(submission: IntakeSubmission): Promise<IntakeAgentOutput> {
-  const rawPayload = buildRawIntakePayload(submission)
-  const result = await runIntakeAgent(rawPayload, submission.contact.email.trim().toLowerCase())
+  const email = submission.contact.email.trim().toLowerCase()
+
+  // A saved business profile is ADDITIONAL context, the same way scraped
+  // website colours are: it fills gaps in what the client typed, and never
+  // replaces it. Both halves already worked for form-fill — the PDF as a
+  // native document block, the Sheets link through its CSV export — so this
+  // points them at intake rather than building anything new.
+  const profile = await loadBusinessProfileContext(email).catch(() => null)
+
+  const rawPayload = {
+    ...buildRawIntakePayload(submission),
+    ...(profile?.linkContent
+      ? { savedBusinessProfileSheet: profile.linkContent }
+      : {}),
+  }
+  if (profile && (profile.documents.length > 0 || profile.linkContent)) {
+    console.log(
+      `[business-profile] ${email}: intake enriched with ${profile.documents.length > 0 ? `file "${profile.fileName}"` : "no file"}` +
+        `${profile.linkContent ? ` + ${profile.linkContent.length} chars of linked content` : ""}`,
+    )
+  }
+
+  const result = await runIntakeAgent(rawPayload, email, profile?.documents ?? [])
 
   // The prompt asks the agent to copy wantsQrCode verbatim, but a client's
   // explicit yes/no shouldn't depend on a model getting a copy instruction
@@ -511,10 +533,49 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
     // null brandAssets.logoUrl so it can never invent one, which means the
     // real uploaded URL has to be stamped on here. Falls back to whatever is
     // already set, so a logo found by the website scraper still survives.
+    enforceTypedPrecedence(result.data, submission)
     stampClientPreferences(result.data, submission)
     await setClientFontChoice(submission.contact.email, submission.fontChoiceId ?? null)
   }
   return result
+}
+
+/**
+ * What the client TYPED wins over anything read out of their saved business
+ * profile.
+ *
+ * The prompt says so too, but a precedence rule that only lives in a prompt is
+ * a request. A stale PDF quietly overwriting the phone number someone just
+ * typed is the exact failure this prevents, and it would be invisible — the
+ * flyer would simply carry the wrong number.
+ *
+ * Only non-empty typed values are enforced. A field the client left blank is
+ * left exactly as the agent returned it, which is what lets the profile fill
+ * gaps at all.
+ */
+export function enforceTypedPrecedence(data: NormalizedIntake, submission: IntakeSubmission): void {
+  const typed = (v: string | undefined | null) => (v ?? "").trim() || null
+
+  const businessName = typed(submission.businessName)
+  if (businessName) data.businessName = businessName
+
+  const industry = typed(submission.industry)
+  if (industry) data.industry = industry
+
+  const targetAudience = typed(submission.targetAudience)
+  if (targetAudience) data.targetAudience = targetAudience
+
+  const services = submission.services.map((s) => s.name.trim()).filter(Boolean)
+  if (services.length > 0) data.services = services
+
+  const phone = typed(submission.contact.phone)
+  if (phone) data.contact.phone = phone
+
+  const address = typed(submission.contact.address)
+  if (address) data.contact.address = address
+
+  const website = typed(submission.contact.website)
+  if (website) data.contact.website = website
 }
 
 /**

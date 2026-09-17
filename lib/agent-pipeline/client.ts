@@ -146,6 +146,10 @@ export async function runJsonAgentWithDocuments<T extends ZodType>(opts: {
   documents: DocumentInput[]
   schema: T
   maxTokens?: number
+  /** Optional only because form-fill predates the generation log. Intake
+   *  passes it, so attaching a business-profile PDF does not silently drop
+   *  intake out of per-agent cost reporting. */
+  logContext?: GenerationLogContext
 }): Promise<import("zod").infer<T>> {
   const content: Anthropic.Messages.MessageParam["content"] = [
     ...opts.documents.map((doc) =>
@@ -161,5 +165,6 @@ export async function runJsonAgentWithDocuments<T extends ZodType>(opts: {
     content,
     schema: opts.schema,
     maxTokens: opts.maxTokens,
+    logContext: opts.logContext,
   })
 }

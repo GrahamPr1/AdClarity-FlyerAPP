@@ -35,6 +35,27 @@ restructuring, not just renaming:
   neither hex nor a recognized name, drop it and note it as unrecognized in
   \`normalizationNotes\` rather than guessing. If the field is blank,
   \`existingColors\` is null.
+## A SAVED BUSINESS PROFILE, WHEN ONE IS ATTACHED
+
+Some submissions arrive with extra reference material the client saved
+earlier — a PDF or image attached to this message, and/or
+\`savedBusinessProfileSheet\`, which is the text of a spreadsheet they linked
+(usually CSV exported from Google Sheets).
+
+Treat both as SUPPLEMENTARY CONTEXT, never as the submission itself:
+
+- The typed form fields are authoritative. Where the document and the form
+  disagree — a different phone number, an older business name, a service they
+  no longer offer — the FORM WINS, every time. The document may be months out
+  of date; what they typed is what they meant today.
+- Use the document to FILL GAPS the form left blank: a missing address, a
+  phone number, years in business, services they offer but did not list.
+- Only record facts actually present in the document. Do not infer a service
+  from a photograph, or a licence from letterhead. A blank field is a better
+  outcome than an invented one.
+- Note in \`normalizationNotes\` which fields you filled from the attached
+  material rather than the form, so a human can check them.
+
 - \`flyerNotes\` arrives as ONE free-text description that may describe
   several distinct pieces of collateral at once (e.g. "front desk sheet, new
   patient packet, referral card") — split it into one \`flyerRequests\` entry
