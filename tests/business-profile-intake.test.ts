@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { enforceTypedPrecedence } from "@/lib/agent-pipeline/pipeline"
+import { enforceTypedPrecedence, noteProfileSourcedFields } from "@/lib/agent-pipeline/pipeline"
 import { toGoogleSheetsCsvExportUrl } from "@/lib/agent-pipeline/info-link"
 import type { IntakeSubmission } from "@/lib/types"
 import type { NormalizedIntake } from "@/lib/agent-pipeline/schemas/intake"
@@ -105,5 +105,38 @@ describe("the Google Sheets path is the one form-fill already proved", () => {
 
   it("returns null for a non-Sheets link, which is fetched as plain text", () => {
     expect(toGoogleSheetsCsvExportUrl("https://example.com/about")).toBeNull()
+  })
+})
+
+describe("audit trail of what the profile contributed", () => {
+  // The prompt asks the agent to record this and it came back empty on a real
+  // run. Diffing the output against the form cannot forget.
+  it("names the fields the form left blank", () => {
+    const notes = noteProfileSourcedFields(fromProfile(), submission({
+      yearsInBusiness: "",
+      contact: { ...submission().contact, address: "", website: "" },
+    }))
+    expect(notes).toHaveLength(1)
+    expect(notes[0]).toContain("years in business")
+    expect(notes[0]).toContain("address")
+    expect(notes[0]).toContain("website")
+  })
+
+  it("does not name fields the client actually typed", () => {
+    const notes = noteProfileSourcedFields(fromProfile(), submission())
+    expect(notes[0] ?? "").not.toContain("phone")
+    expect(notes[0] ?? "").not.toContain("business name")
+  })
+
+  it("says nothing when the form covered everything", () => {
+    const full = submission({ yearsInBusiness: "12", contact: { ...submission().contact, website: "pearl.example" } })
+    expect(noteProfileSourcedFields(fromProfile(), full)).toEqual([])
+  })
+
+  it("claims only that a field was not typed, never that it came from the PDF", () => {
+    // A blank field could equally have been inferred from flyerNotes; naming
+    // an unverified source would be a worse audit trail than an honest one.
+    const notes = noteProfileSourcedFields(fromProfile(), submission({ contact: { ...submission().contact, address: "" } }))
+    expect(notes[0]).toMatch(/saved business profile rather than this form/i)
   })
 })

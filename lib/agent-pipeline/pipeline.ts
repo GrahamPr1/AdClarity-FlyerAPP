@@ -533,11 +533,50 @@ export async function runIntakeStage(submission: IntakeSubmission): Promise<Inta
     // null brandAssets.logoUrl so it can never invent one, which means the
     // real uploaded URL has to be stamped on here. Falls back to whatever is
     // already set, so a logo found by the website scraper still survives.
+    if (profile && (profile.documents.length > 0 || profile.linkContent)) {
+      // normalizationNotes sits on the agent OUTPUT, not on data.
+      const notes = noteProfileSourcedFields(result.data, submission)
+      if (notes.length > 0) {
+        result.normalizationNotes = [...(result.normalizationNotes ?? []), ...notes]
+        console.log(`[business-profile] ${email}: ${notes[0]}`)
+      }
+    }
     enforceTypedPrecedence(result.data, submission)
     stampClientPreferences(result.data, submission)
     await setClientFontChoice(submission.contact.email, submission.fontChoiceId ?? null)
   }
   return result
+}
+
+/**
+ * Records which fields did NOT come from the form, so there is an audit trail
+ * of what a saved PDF or sheet contributed.
+ *
+ * Derived by diffing the agent's output against the typed submission rather
+ * than asked of the model. The prompt already asks it to note this and it came
+ * back empty on a real run — which is the usual outcome for "please also
+ * report what you did". A diff cannot forget.
+ *
+ * Deliberately says "not typed on the form" rather than "from the PDF": a
+ * value the client left blank could equally have been inferred from
+ * flyerNotes, and claiming a source we did not verify would be a worse audit
+ * trail than an honest one. Only runs when a profile was actually attached.
+ */
+export function noteProfileSourcedFields(data: NormalizedIntake, submission: IntakeSubmission): string[] {
+  const blank = (v: string | undefined | null) => !(v ?? "").trim()
+  const filled: string[] = []
+
+  if (blank(submission.businessName) && data.businessName) filled.push("business name")
+  if (blank(submission.industry) && data.industry) filled.push("industry")
+  if (blank(submission.targetAudience) && data.targetAudience) filled.push("target audience")
+  if (blank(submission.yearsInBusiness) && data.yearsInBusiness) filled.push("years in business")
+  if (submission.services.every((s) => blank(s.name)) && data.services.length > 0) filled.push("services")
+  if (blank(submission.contact.phone) && data.contact.phone) filled.push("phone")
+  if (blank(submission.contact.address) && data.contact.address) filled.push("address")
+  if (blank(submission.contact.website) && data.contact.website) filled.push("website")
+
+  if (filled.length === 0) return []
+  return [`Filled from your saved business profile rather than this form: ${filled.join(", ")}. Worth a check before printing.`]
 }
 
 /**
