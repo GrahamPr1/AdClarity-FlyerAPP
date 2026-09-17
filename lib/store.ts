@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, AgentProfile, CampaignSource, ContentAsset, EnterpriseOrg, PendingGoalCampaign, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats } from "./types"
+import type { BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, AgentProfile, CampaignSource, ContentAsset, EnterpriseOrg, PendingGoalCampaign, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats, ThemePreference} from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { getAppEnvironment, verdictForMarker } from "./env"
@@ -188,6 +188,24 @@ export async function setClientFontChoice(email: string, fontChoiceId: string | 
 
 export async function getClientFontChoice(email: string): Promise<string | null> {
   return (await redis.get<string>(fontChoiceKey(email))) ?? null
+}
+
+/**
+ * The account's app-theme preference. Server-side rather than localStorage so
+ * it follows the person across devices, which is the whole point of putting it
+ * on the account instead of in the browser.
+ */
+function themeKey(email: string) {
+  return `client:${email.trim().toLowerCase()}:theme`
+}
+
+export async function setClientTheme(email: string, theme: ThemePreference): Promise<void> {
+  await redis.set(themeKey(email), theme)
+}
+
+export async function getClientTheme(email: string): Promise<ThemePreference | null> {
+  const v = await redis.get<string>(themeKey(email))
+  return v === "light" || v === "dark" || v === "system" ? v : null
 }
 
 /** Reads the marker without asserting — for diagnostics. */

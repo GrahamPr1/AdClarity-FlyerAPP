@@ -21,6 +21,22 @@ import type { MarketingGoal } from "./agent-pipeline/schemas/goal"
 // anyone grant themselves Basic/Pro just by editing the URL.
 export type PlanId = "trial" | "basic" | "pro"
 
+/**
+ * App-interface theme. Stored per ACCOUNT, not per browser, so it follows
+ * someone between their laptop and their phone.
+ *
+ * "system" follows the device setting and is the default — a new account
+ * should look like the rest of that person's machine rather than picking for
+ * them.
+ *
+ * Applies to OneFlyer's own UI ONLY. A generated flyer carries the CLIENT's
+ * colours and is rendered in its own document; see the note in
+ * components/theme-provider.tsx.
+ */
+export type ThemePreference = "light" | "dark" | "system"
+
+export const THEME_PREFERENCES: ThemePreference[] = ["light", "dark", "system"]
+
 // Real per-plan flyer caps — the single source of truth for both real
 // enforcement (lib/store.ts, app/api/intake/route.ts) and marketing copy
 // (lib/plans.ts), so the two can't drift out of sync the way the old

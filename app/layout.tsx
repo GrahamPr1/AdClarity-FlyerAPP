@@ -1,4 +1,5 @@
 import React from "react"
+import { ThemeProvider } from "@/components/theme-provider"
 import type { Metadata } from 'next'
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
@@ -103,8 +104,19 @@ export default function RootLayout({
           In <head> via next/script so the consent defaults land before the
           first pageview — see components/google-analytics.tsx. */}
       <GoogleAnalytics />
+      {/* Applies the stored theme BEFORE first paint, so a dark-mode user
+          never sees a white flash while React hydrates and the account value
+          is fetched. Same pre-paint approach as the intro veil above, and the
+          reason <html> carries suppressHydrationWarning. Reads only the local
+          mirror; ThemeProvider reconciles it with the account afterwards. */}
+      <script
+        // Static string, no interpolation — nothing user-controlled reaches it.
+        dangerouslySetInnerHTML={{
+          __html: `(function(){try{var t=localStorage.getItem('oneflyer:theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
+        }}
+      />
       <body className="font-sans antialiased bg-background text-foreground">
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
         <Analytics />
       </body>
     </html>

@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { CampaignDefaultsForm } from "@/components/campaign-defaults-form"
 import { AccountStatus } from "@/components/account-status"
+import { ThemeSetting } from "@/components/theme-setting"
 
 export const metadata = {
   // The root layout's title template appends " — OneFlyer".
@@ -38,6 +39,9 @@ export default async function ProfilePage() {
         </p>
         <div className="mt-8">
           <CampaignDefaultsForm />
+        </div>
+        <div className="mt-8">
+          <ThemeSetting />
         </div>
         <AccountStatus />
       </div>
