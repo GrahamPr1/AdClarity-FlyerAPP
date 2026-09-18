@@ -348,9 +348,17 @@ export default function Page() {
         <section className="px-6 pb-20 md:px-12 lg:px-20 lg:pb-28">
           <div
             className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] border border-border px-6 pt-16 pb-10 sm:px-12"
+            // Was a hardcoded linear-gradient(#f7f4ed,#eef3f7,#e7eef4). Being a
+            // gradient, it was invisible to the old backgroundColor-walking
+            // audit, so in dark mode this stayed a full-width near-white panel
+            // on a near-black page — and the figcaption inside it, which uses
+            // --muted-foreground, flipped to pale grey ON that panel: 1.9:1.
+            // --surface-soft and --brand-ice are the themed equivalents of the
+            // warm and ice stops, so the stage now follows the theme and the
+            // dark bg-card satellites sit on a surface that matches them.
             style={{
               background:
-                "linear-gradient(150deg,#f7f4ed 0%,#eef3f7 52%,#e7eef4 100%)",
+                "linear-gradient(150deg,var(--surface-soft) 0%,var(--brand-ice) 100%)",
             }}
           >
             <HeroFlyer3D />
@@ -496,7 +504,15 @@ export default function Page() {
                         </div>
                         <span
                           className="text-3xl"
-                          style={{ color: accent.fg, opacity: 0.3, fontFamily: "var(--font-heading)" }}
+                          // 0.75, not 0.3. At 0.3 these step numerals measured
+                          // 1.72-1.96:1 against the 3:1 large-text threshold —
+                          // in BOTH themes, so a pre-existing miss the old audit
+                          // never scored rather than a dark-mode regression.
+                          // 0.6 cleared dark (3.27:1) but still failed light at
+                          // 2.45:1, which is why this is set from the measured
+                          // worst case (--brand-slate on paper) and not from the
+                          // first value that made the dark run go green.
+                          style={{ color: accent.fg, opacity: 0.75, fontFamily: "var(--font-heading)" }}
                         >
                           {s.n}
                         </span>
@@ -866,14 +882,23 @@ export default function Page() {
             there are no real numbers to put in it. */}
         <section className="bg-[var(--brand-teal-bright)] px-6 py-20 text-[var(--primary-foreground)] md:px-12 lg:px-20">
           <div className="mx-auto max-w-3xl text-center">
+            {/* No text-white here. The band sets --primary-foreground, which is
+                near-white in light mode and near-black (#0f1115) in dark, because
+                --brand-teal-bright itself flips from #2f6d95 to a much lighter
+                #64a8d0. A hardcoded white heading did not follow it and sat at
+                2.61:1 against a 3:1 large-text requirement. Inherit the token and
+                carry the de-emphasis as alpha on that same token, not a second
+                colour — alpha on the ink stays measurable by the audit, whereas
+                an opacity-* utility dims the element as a whole and would drop
+                it into the not-scorable bucket. */}
             <RevealText
               as="h2"
-              className="text-balance text-3xl leading-tight tracking-tight text-white md:text-5xl lg:text-6xl"
+              className="text-balance text-3xl leading-tight tracking-tight md:text-5xl lg:text-6xl"
             >
               Your next promotion could be ready in minutes.
             </RevealText>
             <Reveal delay={100}>
-              <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-white/80">
+              <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-[color:var(--primary-foreground)]/80">
                 Tell OneFlyer what you&apos;re promoting. We&apos;ll turn it into professional
                 marketing you can actually use.
               </p>
@@ -881,7 +906,7 @@ export default function Page() {
             <Reveal delay={180}>
               <div className="mt-9 flex flex-col items-center gap-3">
                 <PrimaryCta invert className="px-9 py-4 text-base" />
-                <p className="text-xs text-white/70">
+                <p className="text-xs text-[color:var(--primary-foreground)]/70">
                   {CTA_REASSURANCE}
                   <span className="hidden sm:inline"> • {DATA_ASSURANCE}</span>
                 </p>

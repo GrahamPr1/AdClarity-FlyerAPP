@@ -78,7 +78,14 @@ function PlanCard({
         )}
 
         <h3 className="text-xl tracking-tight text-foreground">{plan.name}</h3>
-        <p className="mt-1.5 text-sm text-[var(--brand-teal-bright)] font-medium leading-snug">{plan.tagline}</p>
+        {/* --brand-teal, not --brand-teal-bright: the highlighted card paints a
+            rgba(94,184,240,0.16) gradient over itself, which lifts the measured
+            backdrop to rgb(40,63,78) and left the bright teal at 4.22:1 in dark
+            mode — under AA, and invisible to any check that reads the card's
+            background-color instead of the pixels the gradient actually paints.
+            --brand-teal moves away from the backdrop in both themes: deeper
+            (#245a7c) on the light card, lighter (#8cc2e2) on the dark one. */}
+        <p className="mt-1.5 text-sm text-[var(--brand-teal)] font-medium leading-snug">{plan.tagline}</p>
         <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{plan.description}</p>
 
         <div className="mt-6 flex items-baseline gap-2 flex-wrap">

@@ -308,11 +308,17 @@
      the floating header. backdrop-filter is progressively enhanced — the
      rgba background alone is already legible if a browser drops the blur. */
   .glass-effect {
-    background: rgba(255, 255, 255, 0.55);
+    /* Was a hardcoded rgba(255,255,255,0.55) pane with a white border and a
+       white inset highlight. It carries no text, so every text-contrast audit
+       passed it while the three decorative orbs on /login rendered as pale
+       grey blobs on a near-black page — the same root cause as NAV_STYLE and
+       the .glass-card bug, just somewhere a contrast check cannot look.
+       --white-glass and --white-border are already themed; follow them. */
+    background: var(--white-glass);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.65);
-    box-shadow: 0 8px 32px rgba(22, 24, 29, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    border: 1px solid var(--white-border);
+    box-shadow: 0 8px 32px rgba(22, 24, 29, 0.10), inset 0 1px 0 var(--white-border);
   }
   .glass-card {
     /* Was rgba(255,255,255,0.42) — a hardcoded white pane. Its text uses
