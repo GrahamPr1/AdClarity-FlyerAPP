@@ -34,7 +34,14 @@
   --secondary: #f4f1e9;           /* warm sand panel */
   --secondary-foreground: #16181d;
   --muted: #f4f1e9;
-  --muted-foreground: #5f6875;    /* cool grey, AA on paper */
+  /* Was #5f6875, tuned against the paper and documented as "AA on paper" —
+     which it was (5.40:1). But muted text does not only land on paper: on the
+     Pro card's blue gradient tint it measured 4.31:1, on the /login glass card
+     4.40-4.45:1, and on the flyer preview's own drop shadow 3.74:1. A token
+     whose contract only holds on one of the surfaces it is used on is the same
+     failure as a colour with no dark variant, just in one theme.
+     Retuned against the DARKEST surface it actually lands on, not the page. */
+  --muted-foreground: #505863;    /* cool grey, AA on paper AND on tinted cards */
   --accent: #2f6d95;
   --accent-foreground: #ffffff;
   --destructive: #c0392f;

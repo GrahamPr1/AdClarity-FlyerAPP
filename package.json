@@ -22,7 +22,8 @@
     "verify:enterprise": "tsx scripts/verify-enterprise-schema.ts",
     "seed:enterprise-demo": "tsx scripts/seed-enterprise-demo.ts",
     "set-plan": "tsx scripts/set-plan.ts",
-    "provision-account": "tsx scripts/provision-dev-account.ts"
+    "provision-account": "tsx scripts/provision-dev-account.ts",
+    "remove-audit-account": "tsx scripts/remove-audit-account.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
