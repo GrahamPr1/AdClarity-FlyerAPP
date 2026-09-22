@@ -104,18 +104,31 @@ export default function RootLayout({
           In <head> via next/script so the consent defaults land before the
           first pageview — see components/google-analytics.tsx. */}
       <GoogleAnalytics />
-      {/* Applies the stored theme BEFORE first paint, so a dark-mode user
-          never sees a white flash while React hydrates and the account value
-          is fetched. Same pre-paint approach as the intro veil above, and the
-          reason <html> carries suppressHydrationWarning. Reads only the local
-          mirror; ThemeProvider reconciles it with the account afterwards. */}
-      <script
-        // Static string, no interpolation — nothing user-controlled reaches it.
-        dangerouslySetInnerHTML={{
-          __html: `(function(){try{var t=localStorage.getItem('oneflyer:theme')||'light';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
-        }}
-      />
       <body className="font-sans antialiased bg-background text-foreground">
+        {/* Applies the stored theme BEFORE first paint, so a dark-mode user
+            never sees a white flash while React hydrates and the account value
+            is fetched. Reads only the local mirror; ThemeProvider reconciles it
+            with the account afterwards.
+
+            MUST be inside <body>, as the first child. It previously sat as a
+            direct child of <html>, which HTML does not permit: the parser
+            relocated it into <body>, so React's tree said "script before body"
+            while the real DOM said "script inside body". That is a structural
+            hydration mismatch, not an attribute one, so the
+            suppressHydrationWarning on <html> did nothing for it — that only
+            covers <html>'s own attributes, one level deep. The server kept
+            returning a clean 200 and React then threw while hydrating on the
+            client, which is why the admin pages died with a browser-level
+            "This page couldn't load" instead of any server error.
+
+            First child of <body> still beats first paint: it is inline and
+            synchronous, so it runs before any body content is painted. */}
+        <script
+          // Static string, no interpolation — nothing user-controlled reaches it.
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('oneflyer:theme')||'light';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
+          }}
+        />
         <ThemeProvider>{children}</ThemeProvider>
         <Analytics />
       </body>
