@@ -80,7 +80,7 @@ function toFormInitialDataFromSavedProfile(saved: SavedBrandProfile): Partial<Om
   }
 }
 
-export function GuidedSetupFlow({ email }: { email: string }) {
+export function GuidedSetupFlow({ email, onBack }: { email: string; onBack?: () => void }) {
   const [stage, setStage] = useState<Stage>("checkingProfile")
   const [url, setUrl] = useState("")
   const [fullName, setFullName] = useState("")
@@ -227,6 +227,15 @@ export function GuidedSetupFlow({ email }: { email: string }) {
   // stage === "ask"
   return (
     <div>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          ← Back
+        </button>
+      )}
       <h1 className="text-2xl md:text-3xl tracking-tight">Do you have a website?</h1>
       <p className="mt-2 text-sm text-muted-foreground">We can read it automatically and pre-fill everything below.</p>
       <div className="mt-6 grid sm:grid-cols-2 gap-4">

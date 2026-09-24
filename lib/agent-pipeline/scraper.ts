@@ -1,5 +1,7 @@
 import * as cheerio from "cheerio"
 import robotsParser from "robots-parser"
+import { extractLogo, extractColorRoles, rolesToFlatColors } from "./brand-extract"
+import type { BrandColorRoles } from "@/lib/types"
 
 // Pure-code crawling — no AI here. Fetches the homepage plus same-domain
 // About/Services/Contact-ish pages (cheerio, not a headless browser: a real
@@ -18,7 +20,10 @@ const PER_PAGE_TIMEOUT_MS = 10_000
 // extraction call after it takes real additional time on top, same
 // latency reality as every other agent call in this app.
 const CRAWL_BUDGET_MS = 14_000
-const KEYWORD_PATTERNS = /\b(about|service|product|contact)/i
+// Pricing and plans added: an offer's real numbers live there, and the old
+// pattern skipped those pages entirely, so a scan of a business whose prices
+// are public still came back without them.
+const KEYWORD_PATTERNS = /\b(about|service|product|contact|pricing|plans|rates|menu|work|gallery)/i
 
 interface CrawledPage {
   url: string
@@ -28,7 +33,12 @@ interface CrawledPage {
 export interface CrawlResult {
   pages: CrawledPage[]
   logoUrl: string | null
+  /** Why that logo won, for the Control Center. Null when none was found. */
+  logoReason: string | null
+  /** Flat list — the shape NormalizedIntake.brandAssets.existingColors wants. */
   colors: string[]
+  /** The same colours by role. Roles with no evidence stay null. */
+  colorRoles: BrandColorRoles | null
   socialLinks: string[]
 }
 
@@ -117,88 +127,12 @@ function extractSameDomainLinks($: cheerio.CheerioAPI, pageUrl: string, origin: 
   return Array.from(links)
 }
 
-function extractLogoUrl($: cheerio.CheerioAPI, pageUrl: string): string | null {
-  const candidates = $("img[src]").filter((_, el) => {
-    const attrs = [$(el).attr("alt"), $(el).attr("class"), $(el).attr("id"), $(el).attr("src")].join(" ").toLowerCase()
-    return attrs.includes("logo")
-  })
-  const first = candidates.first().attr("src")
-  if (first) {
-    try {
-      return new URL(first, pageUrl).toString()
-    } catch {
-      /* fall through to favicon */
-    }
-  }
-  const icon = $('link[rel="icon"], link[rel="apple-touch-icon"], link[rel="shortcut icon"]').first().attr("href")
-  if (icon) {
-    try {
-      return new URL(icon, pageUrl).toString()
-    } catch {
-      return null
-    }
-  }
-  return null
-}
-
-const NEUTRAL_HEX = new Set(["#ffffff", "#fff", "#000000", "#000", "#fafafa", "#f5f5f5", "#eeeeee", "#e5e5e5", "#cccccc", "#f9f9f9"])
-
-function isNeutral(hex: string): boolean {
-  const h = hex.toLowerCase()
-  if (NEUTRAL_HEX.has(h)) return true
-  // Crude grayscale check for 6-digit hex: R, G, B all within 10 of each other.
-  if (h.length === 7) {
-    const r = parseInt(h.slice(1, 3), 16)
-    const g = parseInt(h.slice(3, 5), 16)
-    const b = parseInt(h.slice(5, 7), 16)
-    if (Math.max(r, g, b) - Math.min(r, g, b) < 12) return true
-  }
-  return false
-}
-
-/**
- * Best-effort dominant-color detection — a meta theme-color tag (a real,
- * common, reliable signal many sites provide) plus a frequency count of
- * hex colors appearing in inline <style> blocks and on key elements
- * (header/nav/button/.btn). Does NOT fetch external stylesheets — out of
- * scope for the time budget here, and most sites' brand colors show up in
- * at least one of the places above anyway. Never blocks the flow if this
- * comes back empty (see the "best-effort" note in the calling agent).
- */
-function extractColors($: cheerio.CheerioAPI): string[] {
-  const counts = new Map<string, number>()
-  const bump = (hex: string) => {
-    const normalized = hex.toLowerCase()
-    if (isNeutral(normalized)) return
-    counts.set(normalized, (counts.get(normalized) ?? 0) + 1)
-  }
-
-  // A strong, explicit signal when present — weighted heavily so it wins
-  // ties — but still passes through the SAME neutral filter as everything
-  // else below: a dark-themed site's theme-color is often just its page
-  // background (near-black), not a real accent color worth pre-filling as
-  // a brand color.
-  const themeColor = $('meta[name="theme-color"]').attr("content")
-  if (themeColor?.match(/^#[0-9a-f]{3,6}$/i) && !isNeutral(themeColor.toLowerCase())) {
-    counts.set(themeColor.toLowerCase(), 999)
-  }
-
-  const hexPattern = /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g
-  $("style").each((_, el) => {
-    const matches = $(el).text().match(hexPattern)
-    matches?.forEach(bump)
-  })
-  $("header, nav, button, .btn, a.btn").each((_, el) => {
-    const style = $(el).attr("style") ?? ""
-    const matches = style.match(hexPattern)
-    matches?.forEach(bump)
-  })
-
-  return Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
-    .map(([hex]) => hex)
-}
+// extractLogoUrl / extractColors used to live here. They are now
+// extractLogo / extractColorRoles in ./brand-extract.ts — moved so they can
+// be unit-tested without a network, and rewritten because the old versions
+// took the first "logo"-ish image (often a partner badge) and produced
+// colours with no roles. Deleted rather than left alongside: two extractors
+// disagreeing about a brand is worse than one that can be corrected.
 
 const SOCIAL_DOMAINS = ["facebook.com", "instagram.com", "twitter.com", "x.com", "tiktok.com", "linkedin.com", "youtube.com"]
 
@@ -211,7 +145,26 @@ function extractSocialLinks($: cheerio.CheerioAPI): string[] {
   return Array.from(links)
 }
 
-export async function crawlWebsite(rawUrl: string): Promise<CrawlResult | { error: CrawlFailureReason }> {
+/** Real progress, emitted as each operation actually completes. Used by the
+ *  AI Control Center — nothing here is emitted speculatively. */
+export type CrawlProgress =
+  | { step: "connected"; url: string }
+  | { step: "page_read"; url: string; total: number }
+  | { step: "logo_found"; url: string | null }
+  | { step: "colors_found"; count: number }
+
+export async function crawlWebsite(
+  rawUrl: string,
+  onProgress?: (p: CrawlProgress) => void,
+): Promise<CrawlResult | { error: CrawlFailureReason }> {
+  // PERMISSIVE on purpose. The strict policy — rejecting free text, email
+  // addresses, non-http schemes and private/loopback hosts — lives in
+  // lib/url-normalize.ts and is applied by the ROUTES, which is where
+  // untrusted input actually enters. Putting it here as well looked like
+  // defence in depth but was really a layering mistake: it made an internal
+  // utility refuse addresses its trusted callers legitimately use (the test
+  // harness serves fixtures from 127.0.0.1), while adding no protection the
+  // boundary check doesn't already provide.
   let startUrl: URL
   try {
     startUrl = new URL(rawUrl.match(/^https?:\/\//i) ? rawUrl : `https://${rawUrl}`)
@@ -230,7 +183,9 @@ export async function crawlWebsite(rawUrl: string): Promise<CrawlResult | { erro
   const queue: { url: string; depth: number }[] = [{ url: startUrl.toString(), depth: 0 }]
   const pages: CrawledPage[] = []
   let logoUrl: string | null = null
+  let logoReason: string | null = null
   let colors: string[] = []
+  let colorRoles: BrandColorRoles | null = null
   let socialLinks: string[] = []
   // Distinguishes "the homepage itself couldn't be fetched at all" (DNS
   // failure, connection refused, timeout) from "pages loaded fine but had
@@ -263,6 +218,28 @@ export async function crawlWebsite(rawUrl: string): Promise<CrawlResult | { erro
 
     const html = await res.text()
     const $ = cheerio.load(html)
+
+    // BRAND EXTRACTION RUNS FIRST, BEFORE extractText.
+    //
+    // extractText() strips <script>, <style>, <noscript> and <svg> from the
+    // DOM in place, so anything reading those tags afterwards sees a document
+    // they have already been deleted from. Colour detection reads <style>
+    // blocks, which means the previous ordering handed it a page with no
+    // stylesheet at all and it could only ever recover a <meta theme-color>.
+    // That is a long-standing bug — it predates this refactor — and it is the
+    // most likely explanation for colour detection historically succeeding on
+    // roughly one site in five. Order matters here; do not move this below.
+    if (next.depth === 0) {
+      const logo = extractLogo($, next.url)
+      logoUrl = logo?.url ?? null
+      logoReason = logo?.why ?? null
+      colorRoles = extractColorRoles($)
+      // Flat list stays the ranked roles, so the existing merge contract and
+      // everything downstream of it keeps working unchanged.
+      colors = rolesToFlatColors(colorRoles)
+      socialLinks = extractSocialLinks($)
+    }
+
     const text = extractText($)
     // The homepage is kept whenever it loaded at all, however terse: for a
     // one-page site it IS the business, and a name plus a phone number is
@@ -271,10 +248,15 @@ export async function crawlWebsite(rawUrl: string): Promise<CrawlResult | { erro
     const isHomepage = next.url === startUrl.toString()
     if (isHomepage ? text.length > 0 : text.length > 40) pages.push({ url: next.url, text })
 
+    if (isHomepage) onProgress?.({ step: "connected", url: next.url })
+    onProgress?.({ step: "page_read", url: next.url, total: pages.length })
+
+    // Emitted here rather than inside the block above so the "connected" and
+    // "page read" events still come first — the Control Center reads bottom-up
+    // in the order operations complete.
     if (next.depth === 0) {
-      logoUrl = extractLogoUrl($, next.url)
-      colors = extractColors($)
-      socialLinks = extractSocialLinks($)
+      onProgress?.({ step: "logo_found", url: logoUrl })
+      onProgress?.({ step: "colors_found", count: colors.length })
     }
 
     if (next.depth < MAX_DEPTH) {
@@ -288,5 +270,5 @@ export async function crawlWebsite(rawUrl: string): Promise<CrawlResult | { erro
     return { error: homepageUnreachable ? "unreachable" : "no_usable_content" }
   }
 
-  return { pages, logoUrl, colors, socialLinks }
+  return { pages, logoUrl, logoReason, colors, colorRoles, socialLinks }
 }

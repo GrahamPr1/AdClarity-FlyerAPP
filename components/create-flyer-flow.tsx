@@ -4,9 +4,10 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { GuidedSetupFlow } from "./guided-setup-flow"
 import { QuickPromptForm } from "./quick-prompt-form"
+import { BusinessScanFlow } from "./business-scan-flow"
 import type { PlanId } from "@/lib/types"
 
-type Path = "choose" | "guided" | "quick"
+type Path = "scan" | "choose" | "guided" | "quick"
 
 // The real "Create New Flyer" entry point (rendered by app/onboarding/page.tsx)
 // — this app has no separate screen for it; /onboarding IS both first-time
@@ -14,7 +15,11 @@ type Path = "choose" | "guided" | "quick"
 // resubmission in app/api/intake/route.ts). This wrapper decides Guided vs
 // Quick Prompt before either real flow loads.
 export function CreateFlyerFlow({ email }: { email: string }) {
-  const [path, setPath] = useState<Path>("choose")
+  // "scan" is the new front door for a client with no business profile yet.
+  // Resolved in the effect below once we know whether one exists — starting
+  // on "choose" and jumping would flash the old menu at a new client.
+  const [path, setPath] = useState<Path | null>(null)
+  const [hasProfile, setHasProfile] = useState(false)
   const [planId, setPlanId] = useState<PlanId | null>(null)
   const [hasSavedBrand, setHasSavedBrand] = useState(false)
   // Smart default routing: a "simple per-user flag" that's DERIVED rather
@@ -24,6 +29,17 @@ export function CreateFlyerFlow({ email }: { email: string }) {
   const [isReturning, setIsReturning] = useState(false)
 
   useEffect(() => {
+    // The scan screen is shown only to a client who has no business profile
+    // yet. Everyone else — including every existing account, via the
+    // read-through backfill — lands on the normal chooser, so this does not
+    // put an extra step in front of people who already told us who they are.
+    fetch("/api/profile")
+      .then((r) => r.json())
+      .then((d) => {
+        setHasProfile(!!d.profile)
+        setPath(d.profile ? "choose" : "scan")
+      })
+      .catch(() => setPath("choose"))
     fetch("/api/deliverables")
       .then((r) => r.json())
       .then((d) => {
@@ -40,7 +56,21 @@ export function CreateFlyerFlow({ email }: { email: string }) {
       .catch(() => {})
   }, [])
 
-  if (path === "guided") return <GuidedSetupFlow email={email} />
+  // Nothing is rendered until we know whether a profile exists, so a new
+  // client never sees the chooser flash before the scan screen replaces it.
+  if (path === null) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>
+  }
+
+  if (path === "scan") {
+    return (
+      <BusinessScanFlow
+        onComplete={() => { setHasProfile(true); setPath("choose") }}
+        onSkip={() => setPath("guided")}
+      />
+    )
+  }
+  if (path === "guided") return <GuidedSetupFlow email={email} onBack={() => setPath("choose")} />
   if (path === "quick") return <QuickPromptForm email={email} hasSavedBrand={hasSavedBrand} onBack={() => setPath("choose")} />
 
   // Quick Prompt is a paid-plan feature (Basic/Pro), same as the spec's
@@ -110,6 +140,16 @@ export function CreateFlyerFlow({ email }: { email: string }) {
             flyer and the matching versions to share.
           </p>
         </>
+      )}
+
+      {hasProfile && (
+        <button
+          type="button"
+          onClick={() => setPath("scan")}
+          className="mt-4 text-sm text-[var(--brand-teal-bright)] transition-colors hover:text-[var(--brand-teal)]"
+        >
+          Re-scan my website
+        </button>
       )}
 
       <div className="mt-6 grid sm:grid-cols-2 gap-4">

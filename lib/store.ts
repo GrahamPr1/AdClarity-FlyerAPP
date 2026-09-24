@@ -8,6 +8,7 @@ import { sha256Hex } from "./auth"
 import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
 import type { FlyerRequest } from "./agent-pipeline/schemas/flyer"
 import type { BrandProfile } from "./agent-pipeline/schemas/brand"
+import type { BusinessProfile as CanonicalBusinessProfile } from "./business-profile"
 
 // ---------------------------------------------------------------------------
 // Persistent storage via Upstash Redis (@upstash/redis). Replaces the old
@@ -554,6 +555,34 @@ export async function saveBusinessProfile(email: string, profile: BusinessProfil
 
 export async function deleteBusinessProfile(email: string): Promise<void> {
   await redis.del(businessProfileKey(email))
+}
+
+// ---- Canonical business profile ---------------------------------------------
+//
+// THE business profile — see lib/business-profile.ts for why this is a new
+// key rather than a rewrite of the three legacy stores. Note the key is
+// `:profile`, deliberately NOT `:business-profile`, which was taken years ago
+// by the form-fill file/link record directly above and cannot be reused
+// without rewriting live records.
+//
+// Only ever written through saveCanonicalProfile, and only ever read through
+// resolveBusinessProfile (lib/business-profile-resolve.ts), which handles the
+// read-through backfill from the legacy stores.
+
+function canonicalProfileKey(email: string) {
+  return `client:${email}:profile`
+}
+
+export async function getCanonicalProfile(email: string): Promise<CanonicalBusinessProfile | null> {
+  return (await redis.get<CanonicalBusinessProfile>(canonicalProfileKey(email))) ?? null
+}
+
+export async function saveCanonicalProfile(email: string, profile: CanonicalBusinessProfile): Promise<void> {
+  await redis.set(canonicalProfileKey(email), profile)
+}
+
+export async function deleteCanonicalProfile(email: string): Promise<void> {
+  await redis.del(canonicalProfileKey(email))
 }
 
 // ---- Saved brand profile (Quick Prompt) -------------------------------------

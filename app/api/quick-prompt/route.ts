@@ -11,6 +11,7 @@ import type { NormalizedIntake } from "@/lib/agent-pipeline/schemas/intake"
 import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
 import { formatIdFromLabel } from "@/lib/agent-pipeline/formats"
 import { scrapeSiteForIntake } from "@/lib/agent-pipeline/scrape-site"
+import { normalizeWebsiteUrl } from "@/lib/url-normalize"
 import { fillContactGapsFromProfile, nonEmpty, parseYearsInBusiness } from "@/lib/agent-pipeline/profile-defaults"
 
 export const maxDuration = 300
@@ -129,8 +130,12 @@ export async function POST(request: NextRequest) {
   let scrapedIntake: NormalizedIntake | null = null
   let scrapeNotice: string | null = null
   const websiteUrl = body.websiteUrl?.trim()
-  if (websiteUrl && !savedBrand) {
-    const result = await scrapeSiteForIntake(websiteUrl, email, { phone: body.phone })
+  // Same trust-boundary guard as /api/scrape-website. Personalisation is
+  // optional here, so a rejected URL just skips it rather than failing the
+  // whole generation.
+  const normalizedWebsite = websiteUrl ? normalizeWebsiteUrl(websiteUrl) : null
+  if (websiteUrl && normalizedWebsite?.ok && !savedBrand) {
+    const result = await scrapeSiteForIntake(normalizedWebsite.url, email, { phone: body.phone })
     if (result.scraped) {
       scrapedIntake = result.normalizedIntake
     } else {

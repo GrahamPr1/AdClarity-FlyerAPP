@@ -576,6 +576,23 @@ export interface BusinessProfileRecord {
 // that lives on the ORIGINAL intake instead — so a Quick Prompt submission
 // reusing a saved brand still needs somewhere to get real contact info
 // from without asking for it again every time.
+/**
+ * A brand's colours by ROLE, not just a bag of hexes.
+ *
+ * The existing NormalizedIntake.brandAssets.existingColors is a flat
+ * string[] — fine for "here are some colours we saw", useless for laying out
+ * a flyer, which needs to know which one is the background and which is the
+ * text. Roles are only ever filled from real evidence on the site; a role
+ * with no evidence stays null rather than being invented.
+ */
+export interface BrandColorRoles {
+  primary: string | null
+  secondary: string | null
+  accent: string | null
+  background: string | null
+  text: string | null
+}
+
 export interface SavedBrandProfile {
   savedAt: string
   brandProfile: BrandProfile

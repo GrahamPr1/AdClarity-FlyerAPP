@@ -1,4 +1,6 @@
-import { crawlWebsite } from "./scraper"
+import { crawlWebsite, type CrawlProgress } from "./scraper"
+import { emptyBusinessProfile, type BusinessProfile } from "@/lib/business-profile"
+import { normalizeWebsiteUrl } from "@/lib/url-normalize"
 import { runScrapeAgent } from "./agents/scrapeAgent"
 import { mergeScrapedContact } from "./scrape-merge"
 import type { NormalizedIntake } from "./schemas/intake"
@@ -36,15 +38,33 @@ export const SCRAPE_FAILURE_MESSAGES: Record<ScrapeFailureReason, string> = {
 }
 
 export type ScrapeSiteResult =
-  | { scraped: true; normalizedIntake: NormalizedIntake; businessCategoryGuess: string | null }
+  | {
+      scraped: true
+      normalizedIntake: NormalizedIntake
+      businessCategoryGuess: string | null
+      /**
+       * The same crawl + extraction, shaped as a persistent Business Profile.
+       *
+       * Returned from HERE rather than from a second scan function so there
+       * is exactly one crawl path in the app: the guided flow and the new
+       * business scanner run identical code and cannot drift apart or
+       * double-charge a client two Claude calls for one website.
+       */
+      profile: BusinessProfile
+      /** Which pages were actually read, for the Control Center. */
+      scannedPages: string[]
+      /** Why the chosen logo won. Null when none was found. */
+      logoReason: string | null
+    }
   | { scraped: false; reason: ScrapeFailureReason; message: string }
 
 export async function scrapeSiteForIntake(
   url: string,
   email: string,
   provided: { phone?: string; fullName?: string } = {},
+  onProgress?: (p: CrawlProgress) => void,
 ): Promise<ScrapeSiteResult> {
-  const crawlResult = await crawlWebsite(url)
+  const crawlResult = await crawlWebsite(url, onProgress)
   if ("error" in crawlResult) {
     const reason = crawlResult.error as ScrapeFailureReason
     return { scraped: false, reason, message: SCRAPE_FAILURE_MESSAGES[reason] }
@@ -79,5 +99,44 @@ export async function scrapeSiteForIntake(
     { phone: provided.phone, fullName: provided.fullName },
   )
 
-  return { scraped: true, normalizedIntake, businessCategoryGuess: extraction.businessCategoryGuess }
+  const d = extraction.data
+  const normalizedUrlResult = normalizeWebsiteUrl(url)
+  const normalizedUrl = normalizedUrlResult.ok ? normalizedUrlResult.url : null
+  const profile: BusinessProfile = {
+    ...emptyBusinessProfile(),
+    source: "website_scan",
+    businessName: d.businessName || null,
+    website: normalizedUrl,
+    description: extraction.businessSummary || null,
+    industry: d.industry || null,
+    services: d.services ?? [],
+    contact: {
+      // The merged intake is used, not the raw extraction, so anything the
+      // client typed themselves still outranks what the site said.
+      phone: normalizedIntake.contact.phone || null,
+      email: null,
+      address: normalizedIntake.contact.address || null,
+      social: normalizedIntake.contact.social ?? [],
+    },
+    brand: {
+      logoUrl: crawlResult.logoUrl,
+      colors: crawlResult.colorRoles,
+      tone: d.voiceTonePreference || null,
+    },
+    // terminology stays empty: it does not fit in the extraction schema's
+    // remaining budget (see schemas/scrape.ts). Kept on the record so it can
+    // be filled later without migrating stored profiles.
+    terminology: [],
+    ctas: extraction.ctas ?? [],
+    scannedPages: crawlResult.pages.map((pg) => pg.url),
+  }
+
+  return {
+    scraped: true,
+    normalizedIntake,
+    businessCategoryGuess: extraction.businessCategoryGuess,
+    profile,
+    scannedPages: crawlResult.pages.map((pg) => pg.url),
+    logoReason: crawlResult.logoReason,
+  }
 }

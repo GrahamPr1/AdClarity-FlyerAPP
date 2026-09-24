@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { fetcher } from "@/lib/swr-fetcher"
+import { BusinessDetailsCard } from "@/components/business-details-card"
 import type {
   BusinessCategory,
   Deliverables,
@@ -922,6 +923,14 @@ export function DashboardClient() {
               </Link>
             </div>
           )}
+
+          {/* Business details — the persistent Business Profile, so a client
+              can see (and correct) what OneFlyer believes about them without
+              starting a campaign. Above the plan summary because it is the
+              thing they most often come here to check. */}
+          <div className="mt-6">
+            <BusinessDetailsCard />
+          </div>
 
           {/* Plan + status summary */}
           <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">

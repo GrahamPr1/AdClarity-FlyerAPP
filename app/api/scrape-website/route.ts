@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { scrapeSiteForIntake } from "@/lib/agent-pipeline/scrape-site"
+import { normalizeWebsiteUrl } from "@/lib/url-normalize"
 
 export const maxDuration = 60
 
@@ -39,5 +40,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing required field: url" }, { status: 422 })
   }
 
-  return NextResponse.json(await scrapeSiteForIntake(url, session.sub, { phone: body.phone, fullName: body.fullName }))
+  // This is the trust boundary, so the strict policy applies here rather
+  // than inside the crawler: free text, email addresses, non-http schemes
+  // and private/loopback hosts are refused before any fetch is attempted.
+  // Returned in the same graceful { scraped: false } shape the rest of this
+  // route uses, so the client still falls back to the manual flow.
+  const normalized = normalizeWebsiteUrl(url)
+  if (!normalized.ok) {
+    return NextResponse.json({ scraped: false, reason: "invalid_url", message: normalized.message })
+  }
+
+  return NextResponse.json(
+    await scrapeSiteForIntake(normalized.url, session.sub, { phone: body.phone, fullName: body.fullName }),
+  )
 }
