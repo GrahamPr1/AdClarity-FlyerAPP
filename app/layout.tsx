@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { GoogleAnalytics } from '@/components/google-analytics'
+import { GoogleTagManager, GoogleTagManagerNoScript } from '@/components/google-tag-manager'
 import './globals.css'
 
 // Body copy. 400/500 only — the editorial layout leans on the serif for
@@ -99,12 +100,11 @@ export default function RootLayout({
     // suppresses the warning for <html>'s own attributes, one level deep —
     // the same pattern next-themes uses for exactly this reason.
     <html lang="en" suppressHydrationWarning className={`${dmSans.variable} ${dmSerif.variable}`}>
-      {/* GA4. Renders nothing unless NEXT_PUBLIC_GA_MEASUREMENT_ID is set, so
-          local and preview traffic can't contaminate production's numbers.
-          In <head> via next/script so the consent defaults land before the
-          first pageview — see components/google-analytics.tsx. */}
-      <GoogleAnalytics />
       <body className="font-sans antialiased bg-background text-foreground">
+        {/* GTM's no-JS fallback, first child of <body> per Google's snippet.
+            A <noscript> is valid here, so unlike a bare <script> the parser
+            leaves it exactly where React put it. */}
+        <GoogleTagManagerNoScript />
         {/* Applies the stored theme BEFORE first paint, so a dark-mode user
             never sees a white flash while React hydrates and the account value
             is fetched. Reads only the local mirror; ThemeProvider reconciles it
@@ -129,6 +129,26 @@ export default function RootLayout({
             __html: `(function(){try{var t=localStorage.getItem('oneflyer:theme')||'light';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light'}catch(e){}})()`,
           }}
         />
+        {/* GA4 — MOVED HERE FROM BEING A CHILD OF <html>, which is the other
+            half of the hydration bug that took the admin pages down. This
+            component renders a raw inline <script> for the Consent Mode
+            defaults, and a <script> is not permitted as a child of <html>:
+            the parser relocated it into <body>, React's tree disagreed with
+            the real DOM, and hydration threw.
+
+            The previous fix moved the theme script but missed this one,
+            because GA renders NOTHING unless NEXT_PUBLIC_GA_MEASUREMENT_ID is
+            set — it is unset locally and set in production, so the local
+            verification came back clean while production stayed broken.
+            Reproduced by running the dev server with the variable set: the
+            errors returned on every page, /admin included.
+
+            Ordering is preserved. The consent defaults still execute during
+            HTML parse, and gtag.js + the config call are both
+            strategy="afterInteractive", so they cannot run before it. */}
+        <GoogleAnalytics />
+        {/* GTM container. Loads alongside GA4, not instead of it. */}
+        <GoogleTagManager />
         <ThemeProvider>{children}</ThemeProvider>
         <Analytics />
       </body>
