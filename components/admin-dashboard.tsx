@@ -4,11 +4,12 @@ import Link from "next/link"
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
+import { fetcher } from "@/lib/swr-fetcher"
 import type { BusinessCategory, Deliverables, PlanId } from "@/lib/types"
 import { BUSINESS_CATEGORIES } from "@/lib/types"
 import { StatusBadge, FlyerCard } from "@/components/dashboard-client"
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
 
 const PLAN_OPTIONS: PlanId[] = ["trial", "basic", "pro"]
 const CATEGORY_FILTER_OPTIONS = ["All", ...BUSINESS_CATEGORIES] as const

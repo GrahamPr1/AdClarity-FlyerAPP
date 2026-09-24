@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
+import { fetcher } from "@/lib/swr-fetcher"
 import type {
   BusinessCategory,
   Deliverables,
@@ -21,7 +22,7 @@ import { trackEvent } from "@/lib/analytics"
 import { PrintButton } from "@/components/print-button"
 import { Flyer3D } from "@/components/flyer-3d"
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
 
 // Shown only for accounts that predate the Category onboarding step (see
 // Deliverables.businessCategoryIsDefaulted) — non-blocking by design, per
@@ -497,7 +498,7 @@ export function FlyerCard({
           <p className="text-sm font-medium truncate">{flyer.title}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <StatusBadge status={flyer.status} />
-            {statsData && (
+            {statsData?.totalScans !== undefined && (
               <span className="text-xs text-muted-foreground" title="QR scans / CTA clicks">
                 {statsData.totalScans} scanned · {statsData.totalClicks} clicked
               </span>
@@ -507,7 +508,14 @@ export function FlyerCard({
                 onClick={() => setShowChannels((v) => !v)}
                 className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors"
               >
-                {showChannels ? "Hide channels" : `Track by channel${statsData && statsData.channels.length > 1 ? ` (${statsData.channels.length})` : ""}`}
+                {/* statsData?.channels?.length, not statsData.channels.length.
+                    The fetcher now refuses to hand a non-OK response back as
+                    data, so this should never be an error body again — but
+                    this exact expression is the one that threw and unmounted
+                    the entire admin dashboard, and a count in a button label
+                    is never worth taking a route down for. Line 521 below
+                    already guarded the same field; this one did not. */}
+                {showChannels ? "Hide channels" : `Track by channel${(statsData?.channels?.length ?? 0) > 1 ? ` (${statsData?.channels?.length})` : ""}`}
               </button>
             )}
           </div>

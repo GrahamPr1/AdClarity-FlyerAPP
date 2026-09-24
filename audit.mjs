@@ -97,7 +97,14 @@ const PAGES = [
         for(let i=0;i<await ins.count();i++){const e=ins.nth(i); if(!(await e.inputValue().catch(()=>"x"))) await e.fill("Pearl Roofing").catch(()=>{})}
         await pg.getByRole('button',{name:/^Continue$/}).first().click().catch(()=>{}); await pg.waitForTimeout(600)
       } }],
-  ['forgot','/forgot-password',null,'anon'],
+  // /forgot-password DOES NOT EXIST. "Forgot password?" is a mode switch
+  // inside /login (switchMode("forgot")), so this entry spent every previous
+  // run scoring a 404 page — its "2 elements" were the 404 text, not the
+  // form. Same blind-spot class as the signed-out redirect: a page that never
+  // loaded still produced a confident row in the table.
+  ['forgot','/login', async pg=>{
+      await pg.getByRole('button',{name:/Forgot password\?/i}).first().click().catch(()=>{})
+      await pg.waitForTimeout(800) }, 'anon'],
   ['pricing-home','/#pricing',null],
   // Mobile viewport, nav opened. The menu is lg:hidden and sits at opacity:0
   // on a 1366px viewport, so seven links — Log In and the primary CTA among
