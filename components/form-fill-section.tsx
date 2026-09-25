@@ -252,11 +252,17 @@ export function FormFillSection() {
   return (
     <div className="mt-12">
       <div className="flex items-center gap-2">
-        <h2 className="text-lg">Fill a Form</h2>
+        {/* "Auto-fill a PDF", not "Fill a Form". This is a Pro FEATURE that
+            fills in a fillable PDF for you; the onboarding questionnaire was
+            called "Fill Out a Form", and having both on one dashboard made it
+            genuinely unclear which was which. The name now says what it does. */}
+        <h2 className="text-lg">Auto-fill a PDF</h2>
         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--brand-slate-tint)] text-[var(--brand-slate)]">Pro</span>
       </div>
       <p className="mt-1.5 text-sm text-muted-foreground max-w-2xl">
         Drop in a fillable PDF and a file or link with the information it needs — we&apos;ll fill it out for you.
+        Nothing to do with setting up your business; that lives on your{" "}
+        <a href="/profile#business" className="text-[var(--brand-teal-bright)] hover:underline">business details</a>.
       </p>
 
       <div className="mt-5">

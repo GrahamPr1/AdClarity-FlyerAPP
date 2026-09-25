@@ -52,11 +52,69 @@ function apply(theme: ThemePreference) {
   document.documentElement.style.colorScheme = dark ? "dark" : "light"
 }
 
-/** Reads the local mirror without touching state, for the lazy initialiser. */
+/** Reads the local mirror. Never called during render — see themeStore. */
 function storedTheme(): ThemePreference {
   if (typeof window === "undefined") return DEFAULT_THEME
   const v = localStorage.getItem(STORAGE_KEY)
   return v === "light" || v === "dark" || v === "system" ? v : DEFAULT_THEME
+}
+
+/**
+ * The localStorage mirror, as an external store.
+ *
+ * REPLACES `useState<ThemePreference>(storedTheme)`, whose lazy initialiser
+ * read localStorage during the FIRST RENDER. On the server that returned
+ * DEFAULT_THEME and on the client it returned whatever the client had
+ * chosen, so for every user whose theme is not the default, the two renders
+ * disagreed and React reported:
+ *
+ *   "Hydration failed because the server rendered text didn't match the
+ *    client. As a result this tree will be regenerated on the client."
+ *
+ * Reproduced on /profile, where ThemeSetting renders the selected option as
+ * text. React recovered, so nothing was visibly broken — but this is the
+ * same class of client/server mismatch that twice took real pages down in
+ * this codebase, and a live instance of it is not worth keeping.
+ *
+ * useSyncExternalStore is the sanctioned fix and is already the pattern used
+ * by useSystemPrefersDark directly below, for the same reason: localStorage
+ * IS an external store. It renders the SERVER snapshot during hydration and
+ * then immediately re-renders with the client snapshot, which is a
+ * deliberate, supported transition rather than a mismatch.
+ *
+ * Writes go through setStoredTheme so every subscriber updates together, and
+ * subscribing to the `storage` event means a theme changed in one tab now
+ * follows in the others — which the useState version never did.
+ */
+const listeners = new Set<() => void>()
+
+function subscribeToStoredTheme(onChange: () => void): () => void {
+  listeners.add(onChange)
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === null || e.key === STORAGE_KEY) onChange()
+  }
+  if (typeof window !== "undefined") window.addEventListener("storage", onStorage)
+  return () => {
+    listeners.delete(onChange)
+    if (typeof window !== "undefined") window.removeEventListener("storage", onStorage)
+  }
+}
+
+function setStoredTheme(t: ThemePreference): void {
+  if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, t)
+  for (const l of listeners) l()
+}
+
+function useStoredTheme(): ThemePreference {
+  return useSyncExternalStore(
+    subscribeToStoredTheme,
+    storedTheme,
+    // Server: the default. The VISUAL theme is not affected by this — the
+    // pre-paint script in app/layout.tsx sets the class on <html> before
+    // first paint and is untouched — so matching the server here costs no
+    // flash, it only makes the first React render agree with the HTML.
+    () => DEFAULT_THEME,
+  )
 }
 
 /**
@@ -81,10 +139,8 @@ function useSystemPrefersDark(): boolean {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Seeded lazily rather than set inside the effect: the mirror is known
-  // synchronously, and assigning it in an effect both trips the
-  // cascading-render lint and paints one frame of the wrong theme.
-  const [theme, setThemeState] = useState<ThemePreference>(storedTheme)
+  // Read from the external store, not component state — see useStoredTheme.
+  const theme = useStoredTheme()
   const [saving, setSaving] = useState(false)
   const systemDark = useSystemPrefersDark()
   const resolved: "light" | "dark" = theme === "dark" || (theme === "system" && systemDark) ? "dark" : "light"
@@ -101,16 +157,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       .then((r) => r.json())
       .then((d: { theme?: ThemePreference }) => {
         if (!alive || !d.theme) return
-        setThemeState(d.theme)
-        localStorage.setItem(STORAGE_KEY, d.theme)
+        // The account is the source of truth; the mirror follows it.
+        setStoredTheme(d.theme)
       })
       .catch(() => {})
     return () => { alive = false }
   }, [])
 
   const setTheme = useCallback((t: ThemePreference) => {
-    setThemeState(t)
-    localStorage.setItem(STORAGE_KEY, t)
+    setStoredTheme(t)
     setSaving(true)
     fetch("/api/account/theme", {
       method: "PUT",
