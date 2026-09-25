@@ -1057,6 +1057,19 @@ export async function continuePipelineFromIntake(
   intake: NormalizedIntake,
   flyerRequests: FlyerRequest[],
   autoSaveBrandProfile: boolean = true,
+  /**
+   * Campaign grouping for this batch, when the caller has one.
+   *
+   * Optional and last, so every existing caller (the guided flow, Quick
+   * Prompt, goal campaigns, retry) is untouched and their flyers keep the
+   * exact stored shape they have today — a flyer with no campaignId is a
+   * standalone flyer, which is what all of those are.
+   *
+   * Passed through rather than added to FlyerRequest: that schema is agent
+   * INPUT, and a campaign id is bookkeeping the model has no business
+   * seeing.
+   */
+  campaign?: { id: string; angleByFlyerId: Record<string, string> },
 ): Promise<void> {
   // Saved before generation starts (not after) so a retry has something to
   // work with even if this very attempt is what fails.
@@ -1068,7 +1081,14 @@ export async function continuePipelineFromIntake(
   let batch: Promise<void> | undefined
 
   try {
-    await seedFlyerDeliverables(email, flyerRequests.map((r) => ({ id: r.id, purpose: r.purpose })))
+    await seedFlyerDeliverables(
+      email,
+      flyerRequests.map((r) => ({
+        id: r.id,
+        purpose: r.purpose,
+        ...(campaign ? { campaignId: campaign.id, angle: campaign.angleByFlyerId[r.id] } : {}),
+      })),
+    )
     await markFlyersInProgress(email, ids)
     stageMark(runId, t0, "seeded, marked in-progress")
 

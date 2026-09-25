@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Suspense } from "react"
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
@@ -57,9 +58,16 @@ export default async function OnboardingPage({
   return (
     <main className="min-h-screen bg-background text-foreground px-6 py-16 md:py-24">
       <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-2 font-semibold mb-8">
-          <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-teal-bright)]" />
-          OneFlyer
+        <div className="mb-8 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 font-semibold">
+            <span className="inline-block w-2 h-2 rounded-full bg-[var(--brand-teal-bright)]" />
+            OneFlyer
+          </div>
+          {/* 4B: never trapped in a flow. The in-flow Back buttons step
+              between stages; this leaves the flow entirely. */}
+          <Link href="/dashboard" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            ← Back to dashboard
+          </Link>
         </div>
         <Suspense fallback={<div className="text-muted-foreground">Loading…</div>}>
           <CreateFlyerFlow email={session.sub} />

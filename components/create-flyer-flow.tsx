@@ -66,6 +66,11 @@ export function CreateFlyerFlow({ email }: { email: string }) {
   if (path === "scan") {
     return (
       <BusinessScanFlow
+        // Only offered when there is somewhere to go back TO. A brand-new
+        // client arrives here first and has no previous step; showing them a
+        // Back button that lands on an empty chooser would be worse than
+        // showing none.
+        onBack={hasProfile ? () => setPath("choose") : undefined}
         onComplete={() => { setHasProfile(true); setPath("choose") }}
         onSkip={() => setPath("guided")}
       />

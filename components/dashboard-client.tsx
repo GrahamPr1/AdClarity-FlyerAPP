@@ -7,6 +7,7 @@ import useSWR from "swr"
 import { fetcher } from "@/lib/swr-fetcher"
 import { BusinessDetailsCard } from "@/components/business-details-card"
 import type {
+  CampaignRecord,
   BusinessCategory,
   Deliverables,
   FlyerDeliverable,
@@ -18,7 +19,6 @@ import type { FlyerTrackingBreakdown } from "@/lib/types"
 import { EARLY_ACCESS_ENABLED } from "@/lib/early-access"
 import { FormFillSection } from "@/components/form-fill-section"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { SUPPORT_EMAIL } from "@/lib/marketing"
 import { trackEvent } from "@/lib/analytics"
 import { PrintButton } from "@/components/print-button"
 import { Flyer3D } from "@/components/flyer-3d"
@@ -358,6 +358,9 @@ export function FlyerCard({
   onOrderPrint,
   showUpgradeHint,
   ownerEmail,
+  angle,
+  siblingCount = 0,
+  onSeeOptions,
 }: {
   flyer: FlyerDeliverable
   onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
@@ -367,6 +370,16 @@ export function FlyerCard({
   showUpgradeHint?: boolean
   /** Only set by the admin roster view, which renders other clients' flyers. Threaded into the view URL so admin can open them; ignored for a client's own dashboard. */
   ownerEmail?: string
+  /** Creative angle this variation was generated under, when it belongs to a
+   *  campaign. Shown so the options are distinguishable at a glance rather
+   *  than being five cards with near-identical titles. */
+  angle?: string
+  /** How many options were generated together, for the "see other options"
+   *  affordance. 0 for a standalone flyer. */
+  siblingCount?: number
+  /** 4E: back to the other creative options without restarting the
+   *  campaign. Undefined for a flyer with no campaign. */
+  onSeeOptions?: () => void
 }) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
@@ -499,6 +512,11 @@ export function FlyerCard({
           <p className="text-sm font-medium truncate">{flyer.title}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <StatusBadge status={flyer.status} />
+            {angle && (
+              <span className="rounded-full border border-border bg-[var(--surface-soft)] px-2 py-0.5 text-[11px] text-muted-foreground">
+                {angle}
+              </span>
+            )}
             {statsData?.totalScans !== undefined && (
               <span className="text-xs text-muted-foreground" title="QR scans / CTA clicks">
                 {statsData.totalScans} scanned · {statsData.totalClicks} clicked
@@ -593,6 +611,15 @@ export function FlyerCard({
               {retrying ? "Retrying…" : "Retry"}
             </button>
           )}
+          {/* 4E: back to the other creative options for this campaign,
+              without restarting it or regenerating anything — they are
+              already on this page, grouped. */}
+          {onSeeOptions && siblingCount > 1 && (
+            <button onClick={onSeeOptions}
+              className="text-xs font-medium px-4 py-1.5 rounded-full border border-border hover:bg-[var(--surface-sunken)] transition-colors">
+              See other options ({siblingCount})
+            </button>
+          )}
           {onDelete && (
             <button onClick={handleDelete} onBlur={() => setConfirmingDelete(false)} disabled={deleting}
               className={`text-xs font-medium px-4 py-1.5 rounded-full border transition-colors disabled:opacity-60 ${
@@ -670,91 +697,13 @@ function ProfileNudge() {
   )
 }
 
-/* ------------------------------- Upsell modal ----------------------------
- * "Send request" used to be a lie: the textarea wasn't bound to any state
- * and the button only called onClose(), so a client could type out exactly
- * what they needed, hit send, watch the modal close, and never hear back —
- * because nothing was ever sent anywhere.
- *
- * There's no collateral-request API (and inventing one plus an admin queue
- * for it is a bigger change than this pass warrants), so this now composes a
- * real prefilled email instead. That genuinely delivers the message, and the
- * copy no longer promises a "build queue" that doesn't exist.
- */
-function UpsellModal({ onClose }: { onClose: () => void }) {
-  const [details, setDetails] = useState("")
-  const [sent, setSent] = useState(false)
-
-  function handleSend() {
-    const body = encodeURIComponent(
-      `Hi — I'd like to request additional marketing materials.\n\nWhat I need:\n${details.trim() || "(describe here)"}\n`,
-    )
-    const subject = encodeURIComponent("OneFlyer — request for more collateral")
-    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`
-    setSent(true)
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60" onClick={onClose} role="presentation">
-      <div
-        className="w-full max-w-md rounded-2xl border border-border bg-card p-7"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="upsell-title"
-      >
-        <h3 id="upsell-title" className="text-lg">Request more collateral</h3>
-        <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-          Need something beyond your plan — a specialty piece, a bigger batch, a custom
-          format? Describe it and we&apos;ll email you back to scope it.
-        </p>
-        <label htmlFor="collateral-details" className="mt-4 block text-sm font-medium">
-          What do you need?
-        </label>
-        <textarea
-          id="collateral-details"
-          rows={3}
-          value={details}
-          onChange={(e) => setDetails(e.target.value)}
-          placeholder="e.g. 500 door hangers for a spring roof promotion"
-          className="mt-1.5 w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]"
-        />
-        {sent ? (
-          <p className="mt-3 text-sm text-[var(--brand-teal-bright)]">
-            Your email app should have opened with the message ready to send. If it
-            didn&apos;t, email us at{" "}
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">{SUPPORT_EMAIL}</a>.
-          </p>
-        ) : (
-          <p className="mt-2 text-xs text-muted-foreground">
-            This opens your email app with the message drafted — nothing is sent until you
-            hit send there.
-          </p>
-        )}
-        <div className="mt-5 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-[var(--surface-sunken)] transition-colors">
-            {sent ? "Close" : "Cancel"}
-          </button>
-          {!sent && (
-            <button
-              onClick={handleSend}
-              disabled={!details.trim()}
-              className="px-4 py-2 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-semibold hover:bg-[var(--brand-teal)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-            >
-              Compose email
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+/* The Upsell modal that used to live here was removed in Phase 4C — see the
+   note at its former call site above. */
 
 /* ------------------------------- Dashboard ------------------------------- */
 export function DashboardClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [showUpsell, setShowUpsell] = useState(false)
   // /api/intake redirects here with ?onboarded=1 after a successful submit.
   // Nothing read it before, which produced the worst moment in the product:
   // seeding happens in a background waitUntil AFTER the response, so the
@@ -766,6 +715,10 @@ export function DashboardClient() {
   // yet, or any not yet "Ready") so Pending -> In Progress -> Ready shows up
   // without a manual refresh. Stops once all seeded flyers are Ready.
   // Auth is enforced server-side by middleware.ts before this ever renders.
+  // Campaign grouping. Fetched separately so /api/deliverables keeps the
+  // contract the admin view and onboarding chooser also depend on.
+  const { data: campaignData } = useSWR<{ campaigns: CampaignRecord[] }>("/api/campaigns", fetcher)
+
   const { data, isLoading, mutate } = useSWR<Deliverables>("/api/deliverables", fetcher, {
     refreshInterval: (latest) => {
       if (!latest) return 3000
@@ -1083,10 +1036,13 @@ export function DashboardClient() {
                     className="text-sm font-medium px-5 py-2 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] transition-colors">
                     New Campaign
                   </Link>
-                  <button onClick={() => setShowUpsell(true)}
-                    className="text-sm font-medium px-5 py-2 rounded-full border border-foreground/20 hover:border-[var(--brand-teal-bright)] hover:bg-[var(--brand-teal-bright)] hover:text-[var(--primary-foreground)] transition-colors">
-                    Request more collateral
-                  </button>
+                  {/* "Request more collateral" removed (Phase 4C). It opened a
+                      modal whose only action was a mailto: — the code comment
+                      on UpsellModal admitted there was no API behind it. A
+                      button that looks like a product feature and is actually
+                      an email draft is exactly the dead end 4C asks us to stop
+                      shipping. Support is reachable from /contact, which is
+                      honest about being a contact form. */}
                 </div>
               </div>
 
@@ -1101,13 +1057,97 @@ export function DashboardClient() {
                 in the same dialog if you need a file to email or take to a print shop.
                 <span className="text-foreground"> Download</span> saves the HTML itself.
               </p>
-              <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {data.flyers.map((f) => (
-                  <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete}
-                    onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
-                    showUpgradeHint={data.planId === "trial"} />
-                ))}
-              </div>
+              {/* 4A — the hierarchy made visible: Product -> Campaign ->
+                  Creative options -> this flyer. Flyers generated together
+                  are shown together under the product they advertise,
+                  instead of as loose cards in one long list.
+
+                  4E — because the options stay grouped, getting back to them
+                  from any one of them costs nothing and regenerates nothing;
+                  "See other options" scrolls to the group. Flyers made
+                  before campaigns existed have no campaignId and fall into
+                  "Other flyers", which is what they are. */}
+              {(() => {
+                const campaigns = campaignData?.campaigns ?? []
+                const byId = new Map(campaigns.map((c) => [c.id, c]))
+                const grouped = new Map<string, FlyerDeliverable[]>()
+                const ungrouped: FlyerDeliverable[] = []
+                for (const f of data.flyers) {
+                  if (f.campaignId && byId.has(f.campaignId)) {
+                    const list = grouped.get(f.campaignId) ?? []
+                    list.push(f)
+                    grouped.set(f.campaignId, list)
+                  } else {
+                    ungrouped.push(f)
+                  }
+                }
+                const orderedCampaigns = campaigns.filter((c) => grouped.has(c.id))
+
+                const grid = (flyers: FlyerDeliverable[], campaign?: CampaignRecord) => (
+                  <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {flyers.map((f) => (
+                      <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete}
+                        onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
+                        showUpgradeHint={data.planId === "trial"}
+                        angle={f.angle}
+                        siblingCount={campaign ? campaign.flyerIds.length : 0}
+                        onSeeOptions={campaign ? () => {
+                          document.getElementById(`campaign-${campaign.id}`)?.scrollIntoView({
+                            behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+                            block: "start",
+                          })
+                        } : undefined} />
+                    ))}
+                  </div>
+                )
+
+                return (
+                  <>
+                    {orderedCampaigns.map((c) => {
+                      const flyers = grouped.get(c.id) ?? []
+                      const ready = flyers.filter((f) => f.status === "Ready").length
+                      return (
+                        <section key={c.id} id={`campaign-${c.id}`} className="mt-8 scroll-mt-6">
+                          <div className="rounded-2xl border border-border bg-[var(--surface-soft)] px-5 py-4">
+                            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                              <div className="min-w-0">
+                                <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Campaign</p>
+                                <h3 className="mt-0.5 text-lg" style={{ fontFamily: "var(--font-heading)" }}>
+                                  {c.productName}
+                                </h3>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {flyers.length} creative option{flyers.length === 1 ? "" : "s"}
+                                {ready < flyers.length ? ` · ${ready} ready` : ""} ·{" "}
+                                {new Date(c.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            {c.angles.length > 0 && (
+                              <ul className="mt-2.5 flex flex-wrap gap-1.5">
+                                {c.angles.map((a) => (
+                                  <li key={a.flyerId} className="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px]">
+                                    {a.angle}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                          {grid(flyers, c)}
+                        </section>
+                      )
+                    })}
+
+                    {ungrouped.length > 0 && (
+                      <section className="mt-8">
+                        {orderedCampaigns.length > 0 && (
+                          <h3 className="text-sm font-medium text-muted-foreground">Other flyers</h3>
+                        )}
+                        {grid(ungrouped)}
+                      </section>
+                    )}
+                  </>
+                )
+              })()}
             </>
           )}
 
@@ -1132,7 +1172,6 @@ export function DashboardClient() {
         </>
       )}
 
-      {showUpsell && <UpsellModal onClose={() => setShowUpsell(false)} />}
     </div>
   )
 }

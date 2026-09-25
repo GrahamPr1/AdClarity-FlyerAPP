@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, AgentProfile, CampaignSource, ContentAsset, EnterpriseOrg, PendingGoalCampaign, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats, ThemePreference} from "./types"
+import type { CampaignRecord, BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, AgentProfile, CampaignSource, ContentAsset, EnterpriseOrg, PendingGoalCampaign, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats, ThemePreference} from "./types"
 import { PLAN_LIMITS } from "./types"
 import { getPlan } from "./plans"
 import { getAppEnvironment, verdictForMarker } from "./env"
@@ -351,9 +351,20 @@ export async function getDeliverables(): Promise<Deliverables> {
 // the caller having given each request a globally-unique id (see
 // crypto.randomUUID() in /api/intake) — the Intake Agent's own ids restart
 // at "flyer-1" for every batch, which would collide across submissions.
-export async function seedFlyerDeliverables(email: string, requests: { id: string; purpose: string }[]): Promise<void> {
+export async function seedFlyerDeliverables(
+  email: string,
+  // campaignId/angle are optional so every existing caller is unchanged and
+  // pre-campaign flyers keep their exact stored shape.
+  requests: { id: string; purpose: string; campaignId?: string; angle?: string }[],
+): Promise<void> {
   const current = await readDeliverables(email)
-  const newFlyers = requests.map((r): FlyerDeliverable => ({ id: r.id, title: r.purpose, status: "Pending" }))
+  const newFlyers = requests.map((r): FlyerDeliverable => ({
+    id: r.id,
+    title: r.purpose,
+    status: "Pending",
+    ...(r.campaignId ? { campaignId: r.campaignId } : {}),
+    ...(r.angle ? { angle: r.angle } : {}),
+  }))
   await writeDeliverables(email, {
     ...current,
     flyers: [...current.flyers, ...newFlyers],
@@ -867,6 +878,38 @@ export async function saveCampaignDefaults(
  * the canonical profile, so deleting it on a schedule would silently strip
  * their business details.
  */
+// ---- Campaigns -----------------------------------------------------------
+//
+// One record per "generate N options" call. Like products, the whole list
+// lives under one key: a client has tens of campaigns, never thousands, and
+// every read wants the set (the dashboard groups by it, a flyer looks up its
+// siblings). Newest first.
+
+function campaignsKey(email: string) {
+  return `client:${email}:campaigns`
+}
+
+const MAX_CAMPAIGNS = 200
+
+export async function listCampaigns(email: string): Promise<CampaignRecord[]> {
+  return (await redis.get<CampaignRecord[]>(campaignsKey(email))) ?? []
+}
+
+export async function getCampaign(email: string, id: string): Promise<CampaignRecord | null> {
+  return (await listCampaigns(email)).find((c) => c.id === id) ?? null
+}
+
+export async function saveCampaign(email: string, campaign: CampaignRecord): Promise<void> {
+  const all = await listCampaigns(email)
+  const next = [campaign, ...all.filter((c) => c.id !== campaign.id)].slice(0, MAX_CAMPAIGNS)
+  await redis.set(campaignsKey(email), next)
+}
+
+/** The campaign a given flyer belongs to, or null for a pre-campaign flyer. */
+export async function campaignForFlyer(email: string, flyerId: string): Promise<CampaignRecord | null> {
+  return (await listCampaigns(email)).find((c) => c.flyerIds.includes(flyerId)) ?? null
+}
+
 export async function deleteCampaignDefaults(email: string): Promise<void> {
   await redis.del(campaignDefaultsKey(email))
 }

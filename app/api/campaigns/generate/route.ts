@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { randomUUID } from "node:crypto"
 import { waitUntil } from "@vercel/functions"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getOrCreateClient, getProduct, reserveFlyerQuota } from "@/lib/store"
+import { getOrCreateClient, getProduct, reserveFlyerQuota, saveCampaign } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { PLAN_LIMITS } from "@/lib/types"
 import { resolveBusinessProfile } from "@/lib/business-profile-resolve"
@@ -105,8 +105,30 @@ export async function POST(req: NextRequest) {
     ...(r.formatId ? { formatId: r.formatId } : {}),
   }))
 
+  // The campaign record is written BEFORE generation starts, not after.
+  // Generation is fire-and-forget (waitUntil) and can fail per-flyer; the
+  // grouping is what lets the dashboard show those failures together and
+  // offer "see the other options", so it has to exist even if every
+  // variation fails.
+  const campaignId = randomUUID()
+  const angleByFlyerId: Record<string, string> = {}
+  requests.forEach((r, i) => {
+    angleByFlyerId[r.id] = context.angles[i]?.name ?? context.angles[0]?.name ?? "Straightforward"
+  })
+  await saveCampaign(email, {
+    id: campaignId,
+    createdAt: new Date().toISOString(),
+    productId: product.id,
+    // Captured now: renaming or deleting the product later must not rewrite
+    // what this campaign was for.
+    productName: product.name,
+    flyerIds: requests.map((r) => r.id),
+    angles: requests.map((r) => ({ flyerId: r.id, angle: angleByFlyerId[r.id] })),
+    ...(typeof body.formatId === "string" ? { formatId: body.formatId } : {}),
+  })
+
   waitUntil(
-    continuePipelineFromIntake(email, context.intake, requests, false).catch((err) => {
+    continuePipelineFromIntake(email, context.intake, requests, false, { id: campaignId, angleByFlyerId }).catch((err) => {
       console.error("[agent-pipeline] Unhandled campaign-generate pipeline error:", err)
     }),
   )
@@ -114,6 +136,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(
     {
       ok: true,
+      campaignId,
       flyerIds: requests.map((r) => r.id),
       variations,
       angles: context.angles.map((a) => ({ id: a.id, name: a.name })),

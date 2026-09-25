@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { cookies } from "next/headers"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { CampaignDefaultsForm } from "@/components/campaign-defaults-form"
@@ -29,9 +30,14 @@ export default async function ProfilePage() {
   return (
     <main className="min-h-screen bg-background px-6 py-16 text-foreground md:py-24">
       <div className="mx-auto max-w-2xl">
-        <div className="mb-8 flex items-center gap-2 font-semibold">
-          <span className="inline-block h-2 w-2 rounded-full bg-[var(--brand-teal-bright)]" />
-          OneFlyer
+        <div className="mb-8 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 font-semibold">
+            <span className="inline-block h-2 w-2 rounded-full bg-[var(--brand-teal-bright)]" />
+            OneFlyer
+          </div>
+          <Link href="/dashboard" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            ← Back to dashboard
+          </Link>
         </div>
         <h1 className="text-2xl tracking-tight md:text-3xl">Your business</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">

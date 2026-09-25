@@ -371,6 +371,24 @@ export interface FlyerDeliverable {
   /** Short code embedded as a QR code on the flyer itself — used to fetch this flyer's scan/click stats (GET /api/tracking/[code]) and to render its public redeem page (/r/[code]). */
   trackingCode?: string
   /**
+   * The campaign this flyer belongs to — the one "generate N options" call
+   * that produced it, alongside its siblings.
+   *
+   * Absent on every flyer created before campaigns existed, which is fine
+   * and needs no migration: a flyer with no campaignId simply has no
+   * siblings to return to, and the UI treats it as standalone exactly as
+   * it does today.
+   */
+  campaignId?: string
+  /**
+   * The creative angle this variation was generated under, e.g. "Offer-led".
+   * Stored rather than recomputed because the angle pool is evidence-gated
+   * (see creative-angles.ts) — re-deriving it later from a product whose
+   * details have since changed would relabel a finished flyer.
+   */
+  angle?: string
+
+  /**
    * Which pipeline produced this flyer. Absent on every flyer predating
    * template mode, which is why it is optional rather than defaulted — those
    * were all AI-generated, and writing "ai" onto them retroactively would
@@ -468,6 +486,34 @@ export interface FlyerTrackingBreakdown {
 export interface TrackingStats {
   scans: number
   clicks: number
+}
+
+/**
+ * One "generate N creative options" call.
+ *
+ * Groups the variations that were produced together so the UI can offer
+ * "see the other options" without regenerating anything, and so a flyer can
+ * be shown in the context it was created in rather than as a loose item in
+ * a long list.
+ *
+ * Deliberately a RECORD OF WHAT HAPPENED, not a live entity: it stores the
+ * ids and the angles as they were at generation time. The product it came
+ * from can later be edited or deleted without rewriting history — hence
+ * productName alongside productId.
+ */
+export interface CampaignRecord {
+  id: string
+  createdAt: string
+  /** The product this campaign advertised. May no longer exist. */
+  productId: string
+  /** Its name AT GENERATION TIME, so a renamed product doesn't rewrite the past. */
+  productName: string
+  /** Flyer ids produced by this call, in the order the options were offered. */
+  flyerIds: string[]
+  /** Creative angle per flyer id, parallel to how they were generated. */
+  angles: { flyerId: string; angle: string }[]
+  /** Output format, when one was chosen. */
+  formatId?: string
 }
 
 export interface Deliverables {
