@@ -858,6 +858,19 @@ export async function saveCampaignDefaults(
   return record
 }
 
+/**
+ * Removes the legacy campaignDefaults record.
+ *
+ * Called LAZILY, from the save path, and only when the record has nothing
+ * left that anything reads — never as a bulk migration. The read-through in
+ * resolveBusinessProfile still depends on this key for accounts that predate
+ * the canonical profile, so deleting it on a schedule would silently strip
+ * their business details.
+ */
+export async function deleteCampaignDefaults(email: string): Promise<void> {
+  await redis.del(campaignDefaultsKey(email))
+}
+
 export async function setClientBusinessName(email: string, businessName: string): Promise<void> {
   await redis.set(businessNameKey(email), businessName)
 }

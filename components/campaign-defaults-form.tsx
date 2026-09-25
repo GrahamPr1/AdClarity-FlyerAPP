@@ -104,16 +104,26 @@ function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor: stri
   )
 }
 
-type FormState = Omit<CampaignDefaults, "savedAt">
+/**
+ * The fields this form still owns.
+ *
+ * website, address, voiceTone and brandColors were removed: they describe
+ * the same facts as the canonical business profile and are now edited only
+ * in BusinessProfileForm. Two live writers for one fact is last-one-wins
+ * with no coordination — saving this form used to quietly revert a website
+ * the client had just corrected on the other.
+ *
+ * They remain on the CampaignDefaults TYPE and in stored records, because
+ * resolveBusinessProfile still backfills from them for accounts predating
+ * the canonical profile. The API carries the stored values through
+ * untouched; this form simply no longer sends them.
+ */
+type FormState = Omit<CampaignDefaults, "savedAt" | "website" | "address" | "voiceTone" | "brandColors">
 
 const EMPTY: FormState = {
   yearsInBusiness: "",
-  brandColors: "",
   preferredStyle: "modern",
-  voiceTone: "",
   contactName: "",
-  website: "",
-  address: "",
   socialHandles: "",
   targetAudience: "",
   serviceArea: "",
@@ -198,14 +208,6 @@ export function CampaignDefaultsForm() {
               value={form.yearsInBusiness} onChange={(e) => set("yearsInBusiness", e.target.value)} placeholder="e.g. 7" />
           </div>
           <div>
-            <Label htmlFor="colors">Brand colors</Label>
-            <input id="colors" className={fieldBase()} value={form.brandColors}
-              onChange={(e) => set("brandColors", e.target.value)} placeholder="e.g. #0E7C7B, navy, gold" />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Leave blank and we&apos;ll pick a palette that suits your industry.
-            </p>
-          </div>
-          <div>
             <Label htmlFor="style">Preferred style</Label>
             <select id="style" className={fieldBase()} value={form.preferredStyle}
               onChange={(e) => set("preferredStyle", e.target.value as BrandStyle)}>
@@ -215,11 +217,6 @@ export function CampaignDefaultsForm() {
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <Label htmlFor="voice">Voice / tone</Label>
-            <input id="voice" className={fieldBase()} value={form.voiceTone}
-              onChange={(e) => set("voiceTone", e.target.value)} placeholder="e.g. friendly, professional, no-nonsense" />
           </div>
 
           <div className="border-t border-border pt-5">
@@ -272,19 +269,9 @@ export function CampaignDefaultsForm() {
                 onChange={(e) => set("contactName", e.target.value)} placeholder="Jane Smith" />
             </div>
             <div>
-              <Label htmlFor="website">Website</Label>
-              <input id="website" type="url" inputMode="url" autoComplete="url" className={fieldBase()}
-                value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="brightsmile.com" />
-            </div>
-            <div>
               <Label htmlFor="social">Social handles</Label>
               <input id="social" className={fieldBase()} value={form.socialHandles}
                 onChange={(e) => set("socialHandles", e.target.value)} placeholder="@brightsmiledental" />
-            </div>
-            <div className="sm:col-span-2">
-              <Label htmlFor="address">Address</Label>
-              <input id="address" autoComplete="street-address" className={fieldBase()} value={form.address}
-                onChange={(e) => set("address", e.target.value)} placeholder="123 Main St, Springfield" />
             </div>
           </div>
         </div>

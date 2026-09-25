@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getCampaignDefaults, saveCampaignDefaults } from "@/lib/store"
+import { getCampaignDefaults, saveCampaignDefaults, deleteCampaignDefaults, getCanonicalProfile } from "@/lib/store"
 import type { BrandStyle } from "@/lib/types"
 
 // GET/POST /api/campaign-defaults — a client's own reusable brand + contact
@@ -71,18 +71,57 @@ export async function POST(request: NextRequest) {
   // nice-to-have, so an empty save is valid and simply clears the defaults
   // rather than being rejected.
   const style = clean(body.preferredStyle) as BrandStyle
-  const saved = await saveCampaignDefaults(session.sub, {
+
+  // website / address / voiceTone / brandColors are NOT read from the body.
+  //
+  // They describe the same facts as the canonical business profile, which is
+  // now the only place they are edited (BusinessProfileForm). Two live
+  // writers for one fact is last-one-wins with no coordination: saving this
+  // form would quietly revert a phone or a website the client had just
+  // corrected on the other one.
+  //
+  // They are carried through from the EXISTING record rather than dropped,
+  // because resolveBusinessProfile still backfills from them for accounts
+  // that predate the canonical profile. Writing "" here would erase an
+  // established client's details the first time they touched an unrelated
+  // preference.
+  const existing = await getCampaignDefaults(session.sub)
+
+  const kept = {
     yearsInBusiness: clean(body.yearsInBusiness, 10),
-    brandColors: clean(body.brandColors, 200),
     preferredStyle: STYLES.includes(style) ? style : "modern",
-    voiceTone: clean(body.voiceTone, 200),
     contactName: clean(body.contactName, 120),
-    website: clean(body.website, 200),
-    address: clean(body.address, 200),
     socialHandles: clean(body.socialHandles, 200),
     targetAudience: clean(body.targetAudience, 200),
     serviceArea: clean(body.serviceArea, 200),
     pastOffers: cleanList(body.pastOffers),
+  }
+
+  // Lazy retirement: once this record holds nothing unique AND the canonical
+  // profile exists to answer for the overlap fields, the key has no reader
+  // left and is removed on this write. Never in bulk — see
+  // deleteCampaignDefaults.
+  const nothingUniqueLeft =
+    !kept.yearsInBusiness &&
+    !kept.contactName &&
+    !kept.socialHandles &&
+    !kept.targetAudience &&
+    !kept.serviceArea &&
+    kept.pastOffers.length === 0 &&
+    kept.preferredStyle === "modern"
+
+  if (nothingUniqueLeft && (await getCanonicalProfile(session.sub))) {
+    await deleteCampaignDefaults(session.sub)
+    return NextResponse.json({ ok: true, defaults: null, retired: true })
+  }
+
+  const saved = await saveCampaignDefaults(session.sub, {
+    ...kept,
+    // Preserved, not re-read from the request.
+    brandColors: existing?.brandColors ?? "",
+    voiceTone: existing?.voiceTone ?? "",
+    website: existing?.website ?? "",
+    address: existing?.address ?? "",
   })
 
   return NextResponse.json({ ok: true, defaults: saved })
