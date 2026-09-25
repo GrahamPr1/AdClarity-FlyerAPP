@@ -32,6 +32,12 @@ export async function runRepurposeAgent(
     systemPrompt: REPURPOSE_AGENT_SYSTEM_PROMPT,
     userInput: input,
     schema: RepurposedContentSchema,
+    // This agent emits instagramHtml — a COMPLETE HTML document — and was
+    // running on the 4096 default, which is smaller than the flyer agent's
+    // median HTML output (5789 tokens, peaking at 27929). It was sized as
+    // though it returned a caption. Matched to the flyer budget, since it
+    // produces the same kind of artefact.
+    maxTokens: 30000,
     // Logged under the same "flyer" stage as the generation it belongs to:
     // it's part of producing one campaign's assets, and splitting it into its
     // own cost line would make the admin per-flyer cost figures look like the

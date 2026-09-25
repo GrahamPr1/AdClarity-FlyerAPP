@@ -36,6 +36,12 @@ export async function runProductAgent(
     systemPrompt: PRODUCT_AGENT_SYSTEM_PROMPT,
     userInput: input,
     schema: ProductExtractionSchema,
+    // Measured at 938 output tokens on a typical product, but the schema has
+    // six arrays (features, benefits, claims, limitations, ctaOpportunities,
+    // normalizationNotes) and a client who pastes a full service page can
+    // legitimately fill all of them. Sized for that rather than for the
+    // median — the whole point of tests/agent-token-budgets.test.ts.
+    maxTokens: 8192,
     logContext: { email, agentType: "product" },
   })
 }

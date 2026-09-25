@@ -18,6 +18,13 @@ export async function runIntakeAgent(
 ): Promise<IntakeAgentOutput> {
   if (documents.length === 0) {
     return runJsonAgent({
+    // Explicit, because the 4096 default was clipping this agent: measured
+    // across 51 logged intake calls, p99 AND max were both exactly 4096.
+    // NormalizedIntake is a large object and a business with several services
+    // and flyer requests fills it. A truncated intake fails the whole
+    // submission, which is what the AgentTruncatedError 500s on /api/intake
+    // were.
+    maxTokens: 16384,
       systemPrompt: INTAKE_AGENT_SYSTEM_PROMPT,
       userInput: rawFormSubmission,
       schema: IntakeAgentOutputSchema,

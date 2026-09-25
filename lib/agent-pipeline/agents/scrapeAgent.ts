@@ -22,6 +22,13 @@ export async function runScrapeAgent(
   email: string,
 ): Promise<ScrapeExtraction> {
   return runJsonAgent({
+    // Explicit, because the 4096 default was clipping this agent too:
+    // measured across 10 logged scrape calls, p99 and max were both exactly
+    // 4096. It reads up to six crawled pages and emits the whole intake
+    // object plus the Phase 2 additions, so 4096 was never realistic — this
+    // is why scanning a large site (oneflyer.org) failed with "Response was
+    // cut off before completion".
+    maxTokens: 16384,
     systemPrompt: SCRAPE_AGENT_SYSTEM_PROMPT,
     userInput: input,
     schema: ScrapeExtractionSchema,
