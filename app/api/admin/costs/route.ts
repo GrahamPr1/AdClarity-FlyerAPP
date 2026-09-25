@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
   // does costByAgentType[agentType] += cost, so a single coloring-page
   // generation turned that bucket into NaN in the admin cost table. Fixed
   // while adding `goal` rather than adding a second key with the same bug.
-  const costByAgentType = { intake: 0, brand: 0, flyer: 0, quick_prompt: 0, scrape: 0, coloring: 0, goal: 0, polish: 0, repurpose: 0 } satisfies Record<GenerationAgentType, number>
+  const costByAgentType = { intake: 0, brand: 0, flyer: 0, quick_prompt: 0, scrape: 0, coloring: 0, goal: 0, polish: 0, repurpose: 0, product: 0 } satisfies Record<GenerationAgentType, number>
   for (const e of log) costByAgentType[e.agentType] += e.estimatedCostUsd
 
   // Per-user cost this month — every user counts toward their plan's

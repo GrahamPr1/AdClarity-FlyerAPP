@@ -9,6 +9,8 @@ import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
 import type { FlyerRequest } from "./agent-pipeline/schemas/flyer"
 import type { BrandProfile } from "./agent-pipeline/schemas/brand"
 import type { BusinessProfile as CanonicalBusinessProfile } from "./business-profile"
+import type { ProductProfile } from "./product-profile"
+import { MAX_PRODUCTS } from "./product-profile"
 
 // ---------------------------------------------------------------------------
 // Persistent storage via Upstash Redis (@upstash/redis). Replaces the old
@@ -583,6 +585,54 @@ export async function saveCanonicalProfile(email: string, profile: CanonicalBusi
 
 export async function deleteCanonicalProfile(email: string): Promise<void> {
   await redis.del(canonicalProfileKey(email))
+}
+
+// ---- Products / services / offers --------------------------------------
+//
+// Stored as ONE record holding the whole list rather than a key per product.
+// A client has a handful of services, never thousands, and the list is always
+// read in full (the picker, the dashboard, generation) — so a single get
+// beats a SCAN plus N gets, and it makes reordering and de-duplication a
+// plain array operation instead of a multi-key transaction.
+//
+// The cap is enforced HERE, at the write, not only in the route: the store is
+// the last line before Redis and every caller goes through it.
+
+function productsKey(email: string) {
+  return `client:${email}:products`
+}
+
+export async function listProducts(email: string): Promise<ProductProfile[]> {
+  return (await redis.get<ProductProfile[]>(productsKey(email))) ?? []
+}
+
+export async function getProduct(email: string, id: string): Promise<ProductProfile | null> {
+  const all = await listProducts(email)
+  return all.find((p) => p.id === id) ?? null
+}
+
+/** Insert or replace by id. Returns the saved list, newest-updated first. */
+export async function upsertProduct(email: string, product: ProductProfile): Promise<ProductProfile[]> {
+  const all = await listProducts(email)
+  const idx = all.findIndex((p) => p.id === product.id)
+  if (idx >= 0) {
+    all[idx] = product
+  } else {
+    if (all.length >= MAX_PRODUCTS) {
+      throw new Error(`You can save up to ${MAX_PRODUCTS} products or services.`)
+    }
+    all.unshift(product)
+  }
+  await redis.set(productsKey(email), all)
+  return all
+}
+
+export async function deleteProduct(email: string, id: string): Promise<boolean> {
+  const all = await listProducts(email)
+  const next = all.filter((p) => p.id !== id)
+  if (next.length === all.length) return false
+  await redis.set(productsKey(email), next)
+  return true
 }
 
 // ---- Saved brand profile (Quick Prompt) -------------------------------------

@@ -5,9 +5,10 @@ import { useEffect, useState } from "react"
 import { GuidedSetupFlow } from "./guided-setup-flow"
 import { QuickPromptForm } from "./quick-prompt-form"
 import { BusinessScanFlow } from "./business-scan-flow"
+import { ProductCampaignFlow } from "./product-campaign-flow"
 import type { PlanId } from "@/lib/types"
 
-type Path = "scan" | "choose" | "guided" | "quick"
+type Path = "scan" | "choose" | "product" | "guided" | "quick"
 
 // The real "Create New Flyer" entry point (rendered by app/onboarding/page.tsx)
 // — this app has no separate screen for it; /onboarding IS both first-time
@@ -70,6 +71,7 @@ export function CreateFlyerFlow({ email }: { email: string }) {
       />
     )
   }
+  if (path === "product") return <ProductCampaignFlow onBack={() => setPath("choose")} />
   if (path === "guided") return <GuidedSetupFlow email={email} onBack={() => setPath("choose")} />
   if (path === "quick") return <QuickPromptForm email={email} hasSavedBrand={hasSavedBrand} onBack={() => setPath("choose")} />
 
@@ -83,12 +85,30 @@ export function CreateFlyerFlow({ email }: { email: string }) {
   // so Guided stays primary for them regardless of history.
   const quickIsPrimary = isReturning && isPaidPlan
 
+  // Phase 3's primary path: the business is already known, so a campaign
+  // starts from WHAT they're selling rather than from re-describing the
+  // business. Only offered once a profile exists — without one there is
+  // nothing for a product to inherit.
+  const productCard = (
+    <button
+      type="button"
+      onClick={() => setPath("product")}
+      className="text-left rounded-2xl border-2 border-[var(--brand-teal-bright)] bg-card p-6 hover:bg-[var(--surface-sunken)] transition-colors sm:col-span-2"
+    >
+      <p className="text-lg font-semibold">Product, service or offer</p>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        Pick what you&apos;re promoting and get up to {5} creative options — each a different angle on the
+        same details. Your business name, logo, colours and contact details are already filled in.
+      </p>
+    </button>
+  )
+
   const guidedCard = (
     <button
       type="button"
       onClick={() => setPath("guided")}
       className={`text-left rounded-2xl border bg-card p-6 hover:bg-[var(--surface-sunken)] transition-colors ${
-        quickIsPrimary ? "border-border" : "border-2 border-[var(--brand-teal-bright)]"
+        quickIsPrimary || hasProfile ? "border-border" : "border-2 border-[var(--brand-teal-bright)]"
       }`}
     >
       <p className="text-lg font-semibold">Guided Setup</p>
@@ -153,6 +173,7 @@ export function CreateFlyerFlow({ email }: { email: string }) {
       )}
 
       <div className="mt-6 grid sm:grid-cols-2 gap-4">
+        {hasProfile && productCard}
         {quickIsPrimary ? (
           <>
             {quickCard}

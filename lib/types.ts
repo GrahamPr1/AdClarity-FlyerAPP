@@ -705,7 +705,11 @@ export interface AgentProfile {
 // same shape the Intake Agent produces (see lib/agent-pipeline/agents/scrapeAgent.ts)
 // on the website-auto-fill onboarding path — the actual crawling itself is
 // pure code with no Claude call, so nothing logs for that part.
-export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt" | "scrape" | "coloring" | "goal" | "polish" | "repurpose"
+// "product" added in Phase 3 — the agent that structures a client's
+// description of what they sell. Listed here so its cost is attributed like
+// every other agent's rather than landing in an untracked bucket (the same
+// gap "polish" and "repurpose" were added to close).
+export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt" | "scrape" | "coloring" | "goal" | "polish" | "repurpose" | "product"
 
 export interface GenerationLogEntry {
   id: string
