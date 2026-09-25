@@ -37,6 +37,12 @@ export type ScanEvent =
       profile: BusinessProfile
       scannedPages: string[]
       logoReason: string | null
+      /**
+       * Required intake fields the site did not supply, e.g. ["contact.phone"].
+       * Present when the scan succeeded but left a gap the client should fill;
+       * absent on a fully complete scan.
+       */
+      missing?: string[]
     }
   | { type: "error"; reason: string; message: string }
 

@@ -56,7 +56,32 @@ export type ScrapeSiteResult =
       /** Why the chosen logo won. Null when none was found. */
       logoReason: string | null
     }
-  | { scraped: false; reason: ScrapeFailureReason; message: string }
+  | {
+      scraped: false
+      reason: ScrapeFailureReason
+      message: string
+      /**
+       * What the scan DID establish, when it established anything.
+       *
+       * needs_clarification does not mean the site was unreadable — it most
+       * often means one required-and-blocking intake field was absent. The
+       * commonest by far is contact.phone, which NormalizedIntake declares
+       * as z.string().min(1); a business that simply does not publish a phone
+       * number on its website cannot satisfy that, however well the scan went.
+       *
+       * Discarding everything else in that case is the wrong trade. Scanning
+       * oneflyer.org returns the business name, industry, a full service list,
+       * a description and nine CTAs, and then threw all of it away because
+       * there was no phone number on the page.
+       *
+       * Callers needing a valid NormalizedIntake (the guided flow, Quick
+       * Prompt) still see scraped:false and fall back exactly as before —
+       * this is additive. Only the business scanner reads it.
+       */
+      partialProfile?: BusinessProfile
+      /** Which required fields were missing, e.g. ["contact.phone"]. */
+      missingFields?: string[]
+    }
 
 export async function scrapeSiteForIntake(
   url: string,
@@ -89,7 +114,50 @@ export async function scrapeSiteForIntake(
   }
 
   if (extraction.status === "needs_clarification" || !extraction.data) {
-    return { scraped: false, reason: "needs_clarification", message: SCRAPE_FAILURE_MESSAGES.needs_clarification }
+    // Salvage whatever the agent did establish. partialData is a JSON string
+    // of the fields it could fill; BusinessProfile's contact fields are all
+    // nullable, so a missing phone costs us the phone and nothing else.
+    let partialProfile: BusinessProfile | undefined
+    try {
+      const partial = extraction.partialData ? JSON.parse(extraction.partialData) : null
+      if (partial && typeof partial === "object") {
+        const normalizedUrlResult = normalizeWebsiteUrl(url)
+        partialProfile = {
+          ...emptyBusinessProfile(),
+          source: "website_scan",
+          businessName: typeof partial.businessName === "string" ? partial.businessName || null : null,
+          website: normalizedUrlResult.ok ? normalizedUrlResult.url : null,
+          description: extraction.businessSummary || null,
+          industry: typeof partial.industry === "string" ? partial.industry || null : null,
+          services: Array.isArray(partial.services) ? partial.services.filter((x: unknown) => typeof x === "string") : [],
+          contact: {
+            phone: partial.contact?.phone || provided.phone?.trim() || null,
+            email: null,
+            address: partial.contact?.address || null,
+            social: Array.isArray(partial.contact?.social) ? partial.contact.social : [],
+          },
+          brand: {
+            logoUrl: crawlResult.logoUrl,
+            colors: crawlResult.colorRoles,
+            tone: typeof partial.voiceTonePreference === "string" ? partial.voiceTonePreference || null : null,
+          },
+          terminology: [],
+          ctas: extraction.ctas ?? [],
+          scannedPages: crawlResult.pages.map((pg) => pg.url),
+        }
+      }
+    } catch {
+      // partialData wasn't parseable JSON. Nothing salvageable; fall through
+      // to the plain failure, which is the pre-existing behaviour.
+    }
+
+    return {
+      scraped: false,
+      reason: "needs_clarification",
+      message: SCRAPE_FAILURE_MESSAGES.needs_clarification,
+      partialProfile,
+      missingFields: extraction.missingFields ?? undefined,
+    }
   }
 
   // Precedence rules live in one tested place — see mergeScrapedContact.

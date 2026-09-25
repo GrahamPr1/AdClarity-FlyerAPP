@@ -60,12 +60,27 @@ the site's content doesn't clearly support.
   "minimal" from the overall impression of the copy's tone and any
   described visual style; default "modern" if there's truly no signal,
   same as the guided flow's own default.
-- \`contact.phone\`: the input includes \`providedPhone\` — the number the
-  client typed into the form themselves, moments ago. Use it. Prefer it over
-  anything you find in the crawled text, since it's first-hand and current.
-  It is therefore NEVER a missing or blocking field: do not return
-  "needs_clarification" because a site doesn't publish a phone number. Many
-  perfectly good sites don't.
+- \`contact.phone\`: the input MAY include \`providedPhone\` — a number the
+  client typed in themselves. Two cases, and they behave differently:
+
+  1. \`providedPhone\` is NON-EMPTY. Use it, preferring it over anything in
+     the crawled text since it is first-hand and current. Phone is then never
+     a blocking field: do not return "needs_clarification" over it.
+
+  2. \`providedPhone\` is EMPTY and the site publishes no phone number
+     anywhere. You CANNOT fill contact.phone — the schema requires a
+     non-empty string, and there is no honest value to put there. Return
+     "needs_clarification" with missingFields ["contact.phone"] and put
+     EVERYTHING else you determined into partialData as a JSON string.
+
+     Do NOT emit a \`data\` object with an empty, placeholder or invented
+     phone. The schema rejects an empty one, which discards your entire
+     response including the work you did on the rest of the business — and an
+     invented one ends up printed on a flyer that real customers dial.
+
+     This case is normal, not a failure. Many good sites — software
+     companies especially — publish no phone number at all. Fill partialData
+     as completely as you can; it is used.
 - \`contact.address\`: pull it the same way, but it is OPTIONAL — set it to
   null when the site doesn't state one. Never treat a missing address as a
   reason to return "needs_clarification": a flyer with a phone number is

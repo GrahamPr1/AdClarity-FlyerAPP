@@ -44,6 +44,26 @@ export class AgentTruncatedError extends Error {
  * An interrupted stream means the response never got the chance to finish,
  * and retrying IS the correct response.
  */
+/**
+ * The model returned syntactically valid JSON that the schema refused.
+ *
+ * Distinct from AgentIncompleteError because the responses differ: an
+ * incomplete stream is worth retrying, a schema violation is not — the model
+ * answered as well as it could and the CONTRACT is what rejected it. Retrying
+ * just pays for the same rejection twice. The message carries Zod's own
+ * issue list, which names the offending field.
+ */
+export class AgentSchemaError extends Error {
+  readonly stopReason: string | null
+  readonly charsReceived: number
+  constructor(message: string, detail: { stopReason: string | null; charsReceived: number }) {
+    super(message)
+    this.name = "AgentSchemaError"
+    this.stopReason = detail.stopReason
+    this.charsReceived = detail.charsReceived
+  }
+}
+
 export class AgentIncompleteError extends Error {
   readonly stopReason: string | null
   readonly charsReceived: number
@@ -104,8 +124,23 @@ async function runStream<T extends ZodType>(opts: {
   try {
     message = await stream.finalMessage()
   } catch (err) {
-    const parseFailed = err instanceof Error && /Failed to parse structured output/i.test(err.message)
-    if (!parseFailed) throw err
+    // The SDK uses two DIFFERENT errors that both start "Failed to parse
+    // structured output", and conflating them hides the more common one:
+    //
+    //   "...as JSON: <syntax error>"  the bytes are not valid JSON
+    //   "...: <zod message>"          valid JSON that violates the schema
+    //
+    // Only the first is an incomplete response. A schema violation means the
+    // model answered coherently and the SCHEMA rejected it — a completely
+    // different problem with a completely different fix, and re-running it
+    // will produce the same rejection.
+    const msg = err instanceof Error ? err.message : String(err)
+    const jsonBroken = /Failed to parse structured output as JSON/i.test(msg)
+    const schemaRejected = !jsonBroken && /Failed to parse structured output/i.test(msg)
+    if (schemaRejected) {
+      throw new AgentSchemaError(msg, { stopReason: lastStopReason, charsReceived: rawText.length })
+    }
+    if (!jsonBroken) throw err
 
     // Now the useful question can actually be answered.
     if (lastStopReason === "max_tokens") {

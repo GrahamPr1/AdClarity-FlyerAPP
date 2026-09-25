@@ -122,6 +122,52 @@ export async function POST(req: NextRequest) {
         })
 
         if (!result.scraped) {
+          // A scan that read the site fine but lacked ONE blocking intake
+          // field is not a failed scan. Save what it found and name the gap.
+          //
+          // NormalizedIntake requires contact.phone (min length 1), so any
+          // business that doesn't publish a phone number on its site lands
+          // here — oneflyer.org among them, with its name, industry, services,
+          // description and CTAs all successfully extracted. Throwing that
+          // away and telling the client "we couldn't read your website" was
+          // both wrong and, from their side, obviously wrong.
+          if (result.partialProfile) {
+            const missing = result.missingFields ?? []
+            const human = missing
+              .map((f) => (f === "contact.phone" ? "phone number" : f.replace(/^contact\./, "").replace(/([A-Z])/g, " $1").toLowerCase()))
+              .join(", ")
+
+            send({ type: "step", id: "pages", status: "done", label: "Pages read", detail: `${pagesRead} page${pagesRead === 1 ? "" : "s"}` })
+            send({ type: "step", id: "extract", status: "done", label: "Business information read" })
+            const pp = result.partialProfile
+            send({
+              type: "step",
+              id: "services",
+              status: pp.services.length > 0 ? "done" : "skipped",
+              label: pp.services.length > 0 ? "Services identified" : "No services found",
+              detail: pp.services.length > 0 ? `${pp.services.length} found` : undefined,
+            })
+            send({
+              type: "step",
+              id: "contact",
+              status: "skipped",
+              label: human ? `No ${human} on the site` : "Contact information not found",
+              detail: "you can add it in a moment",
+            })
+            send({ type: "step", id: "save", status: "running", label: "Saving business profile" })
+            await persistBusinessProfile(email, pp)
+            if (pp.businessName) await setClientBusinessName(email, pp.businessName)
+            send({ type: "step", id: "save", status: "done", label: "Business profile saved" })
+            send({
+              type: "complete",
+              profile: pp,
+              scannedPages: pp.scannedPages ?? [],
+              logoReason: null,
+              missing,
+            })
+            return
+          }
+
           send({ type: "step", id: "pages", status: "failed", label: "Couldn't read the website", detail: result.message })
           send({ type: "error", reason: result.reason, message: result.message })
           return

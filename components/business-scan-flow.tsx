@@ -33,6 +33,13 @@ export function BusinessScanFlow({
   const [events, setEvents] = useState<ScanEvent[]>([])
   const [error, setError] = useState<string | null>(null)
   const [profile, setProfile] = useState<BusinessProfile | null>(null)
+  // Required details the site didn't publish. The scan still succeeded; these
+  // are simply gaps the client can close here rather than being told the scan
+  // failed. A missing phone is by far the most common — see the salvage path
+  // in lib/agent-pipeline/scrape-site.ts.
+  const [missing, setMissing] = useState<string[]>([])
+  const [phone, setPhone] = useState("")
+  const [savingPhone, setSavingPhone] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   // Validated in the browser with the SAME function the server uses, so the
@@ -46,6 +53,7 @@ export function BusinessScanFlow({
     setError(null)
     setEvents([])
     setProfile(null)
+    setMissing([])
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -67,7 +75,7 @@ export function BusinessScanFlow({
 
       const parser = createNdjsonParser((e) => {
         setEvents((prev) => [...prev, e])
-        if (e.type === "complete") setProfile(e.profile)
+        if (e.type === "complete") { setProfile(e.profile); setMissing(e.missing ?? []) }
         if (e.type === "error") setError(e.message)
       })
 
@@ -165,6 +173,48 @@ export function BusinessScanFlow({
               </div>
             )}
           </div>
+
+          {missing.includes("contact.phone") && !profile.contact.phone && (
+            <div className="mt-6 rounded-xl border border-border bg-[var(--surface-soft)] p-4">
+              <p className="text-sm font-medium">We couldn&apos;t find a phone number on your site</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Everything else saved fine. Add a number now and your flyers will have a way for customers to
+                reach you — or skip and add it later.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <label htmlFor="scan-phone" className="sr-only">Phone number</label>
+                <input
+                  id="scan-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(270) 555-0142"
+                  className="min-w-[12rem] flex-1 rounded-xl border border-border bg-[var(--input)] px-4 py-2.5 text-sm outline-none transition-colors focus:border-[var(--brand-teal-bright)]"
+                />
+                <button
+                  type="button"
+                  disabled={!phone.trim() || savingPhone}
+                  onClick={async () => {
+                    setSavingPhone(true)
+                    try {
+                      const res = await fetch("/api/profile", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contact: { phone: phone.trim() } }),
+                      })
+                      const body = await res.json().catch(() => null)
+                      if (res.ok && body?.profile) { setProfile(body.profile); setMissing([]) }
+                    } finally {
+                      setSavingPhone(false)
+                    }
+                  }}
+                  className="pill pill-solid px-5 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {savingPhone ? "Saving…" : "Save number"}
+                </button>
+              </div>
+            </div>
+          )}
 
           <p className="mt-6 text-xs text-muted-foreground">
             You can correct any of this later from your dashboard — nothing here is locked in.
