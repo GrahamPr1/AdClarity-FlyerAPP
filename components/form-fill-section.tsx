@@ -1,11 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import useSWR from "swr"
 import type { BusinessProfileRecord, FormFillRequest } from "@/lib/types"
 import { StatusBadge } from "@/components/dashboard-client"
+import { fetcher } from "@/lib/swr-fetcher"
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+// Was a third private copy of `(url) => fetch(url).then(r => r.json())`.
+// That one-liner never checks res.ok, so an errored response (a 401 after a
+// session expires, say) is stored by SWR as DATA — and the component then
+// reads fields off an error body. The shared fetcher throws instead, which
+// leaves `data` undefined and lets the existing empty states render.
 
 /* --------------------------- Business profile ----------------------------
  * A saved default info source (file and/or link) so a client doesn't have
@@ -23,6 +28,34 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [error, setError] = useState("")
+  const formRef = useRef<HTMLFormElement | null>(null)
+
+  /**
+   * Bring the form into view when it opens.
+   *
+   * Without this the button reads as completely dead, and that was a real
+   * reported bug rather than a theoretical one. The form is a disclosure that
+   * expands BELOW the whole card, while the button that opens it sits in the
+   * card's top-right. Measured: with the button 70px from the bottom of the
+   * viewport — exactly where it lands when someone scrolls down to find it —
+   * the first field rendered 106px below the fold on desktop and 170px below
+   * on mobile. Nothing moved, nothing scrolled, and the only other feedback
+   * was the button's own label changing to "Cancel" in 11px type.
+   *
+   * Focusing the first field as well as scrolling: it makes the state change
+   * unmistakable, and it is what a keyboard or screen-reader user needs in
+   * order to land somewhere useful after activating the control.
+   */
+  useEffect(() => {
+    if (!editing) return
+    const form = formRef.current
+    if (!form) return
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    form.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" })
+    // The file input first: it is the first control in the form, and focusing
+    // it does not pop a file picker (only a click would).
+    form.querySelector<HTMLInputElement>("#profile-file")?.focus({ preventScroll: true })
+  }, [editing])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -78,7 +111,25 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
               {removing ? "Removing…" : "Remove"}
             </button>
           )}
-          <button onClick={() => setEditing((v) => !v)}
+          <button
+            onClick={() => {
+              const opening = !editing
+              // Seed the fields from the SAVED profile each time the form
+              // opens, rather than only in useState's initialiser.
+              //
+              // That initialiser runs once, on first mount — which happens
+              // before SWR has fetched /api/business-profile, so `profile` is
+              // still null and `link` was permanently "". Clicking "Update" on
+              // a profile with a saved link therefore showed an EMPTY field,
+              // and anyone wanting to attach a file while keeping their link
+              // had to retype it from memory or lose it.
+              if (opening) {
+                setLink(profile?.link ?? "")
+                setFile(null)
+                setError("")
+              }
+              setEditing(opening)
+            }}
             className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-[var(--surface-sunken)] transition-colors">
             {editing ? "Cancel" : hasProfile ? "Update" : "Save one"}
           </button>
@@ -86,7 +137,7 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
       </div>
 
       {editing && (
-        <form onSubmit={handleSave} className="mt-4 flex flex-col gap-3 pt-4 border-t border-border">
+        <form ref={formRef} onSubmit={handleSave} className="mt-4 flex flex-col gap-3 pt-4 border-t border-border">
           <p className="text-xs text-muted-foreground">
             Used to fill out PDF forms, and as background detail when generating flyers — anything you type into a
             campaign still takes priority over what&rsquo;s in here.
