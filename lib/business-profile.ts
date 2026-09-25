@@ -1,4 +1,5 @@
 import type { BrandColorRoles } from "@/lib/types"
+import type { PageReport } from "@/lib/agent-pipeline/page-report"
 
 /**
  * THE canonical business profile.
@@ -57,6 +58,12 @@ export interface BusinessProfile {
 
   /** Which pages the scan actually read, for the Control Center and for trust. */
   scannedPages?: string[]
+  /**
+   * The same pages with their title, size and which extracted facts appear on
+   * them. Optional so profiles saved before this existed stay valid without
+   * migration; scannedPages is kept alongside it for the same reason.
+   */
+  pageReports?: PageReport[]
 }
 
 export function emptyBusinessProfile(): BusinessProfile {

@@ -141,7 +141,11 @@ export function BusinessDetailsCard() {
       )}
 
       <div className="mt-4 flex flex-wrap gap-3">
-        <Link href="/onboarding" className="pill pill-outline border-foreground/25 px-5 text-xs">
+        {/* /profile#business, NOT /onboarding. This used to drop the client
+            into the new-campaign flow, which is a different task entirely —
+            they asked to edit their details and got asked what they wanted to
+            promote. */}
+        <Link href="/profile#business" className="pill pill-outline border-foreground/25 px-5 text-xs">
           Update business details
         </Link>
       </div>

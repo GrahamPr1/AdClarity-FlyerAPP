@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react"
 import { AiControlCenter } from "@/components/ai-control-center"
+import { ScannedPagesPanel } from "@/components/scanned-pages-panel"
 import { createNdjsonParser, type ScanEvent } from "@/lib/scan-events"
 import { normalizeWebsiteUrl, displayHost } from "@/lib/url-normalize"
 import type { BusinessProfile } from "@/lib/business-profile"
@@ -234,7 +235,10 @@ export function BusinessScanFlow({
           </div>
         </div>
 
-        <AiControlCenter events={events} className="lg:sticky lg:top-6" />
+        <div className="space-y-4 lg:sticky lg:top-6">
+          <AiControlCenter events={events} />
+          <ScannedPagesPanel reports={profile.pageReports ?? []} />
+        </div>
       </div>
     )
   }

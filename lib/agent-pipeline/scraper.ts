@@ -28,6 +28,10 @@ const KEYWORD_PATTERNS = /\b(about|service|product|contact|pricing|plans|rates|m
 interface CrawledPage {
   url: string
   text: string
+  /** The page's own <title>, captured during the same parse that produced
+   *  `text`. Costs nothing extra — the document is already in memory — and
+   *  it is what makes a list of crawled URLs legible to a human. */
+  title: string
 }
 
 export interface CrawlResult {
@@ -246,7 +250,8 @@ export async function crawlWebsite(
     // already enough to prefill onboarding. The length floor still applies to
     // sub-pages, where a near-empty page is noise rather than the whole site.
     const isHomepage = next.url === startUrl.toString()
-    if (isHomepage ? text.length > 0 : text.length > 40) pages.push({ url: next.url, text })
+    const title = $("title").first().text().trim().slice(0, 160)
+    if (isHomepage ? text.length > 0 : text.length > 40) pages.push({ url: next.url, text, title })
 
     if (isHomepage) onProgress?.({ step: "connected", url: next.url })
     onProgress?.({ step: "page_read", url: next.url, total: pages.length })

@@ -1,6 +1,7 @@
 import { crawlWebsite, type CrawlProgress } from "./scraper"
 import { emptyBusinessProfile, type BusinessProfile } from "@/lib/business-profile"
 import { normalizeWebsiteUrl } from "@/lib/url-normalize"
+import { buildPageReports } from "./page-report"
 import { runScrapeAgent } from "./agents/scrapeAgent"
 import { mergeScrapedContact } from "./scrape-merge"
 import type { NormalizedIntake } from "./schemas/intake"
@@ -145,6 +146,7 @@ export async function scrapeSiteForIntake(
           ctas: extraction.ctas ?? [],
           scannedPages: crawlResult.pages.map((pg) => pg.url),
         }
+        partialProfile.pageReports = buildPageReports(crawlResult.pages, partialProfile)
       }
     } catch {
       // partialData wasn't parseable JSON. Nothing salvageable; fall through
@@ -198,6 +200,9 @@ export async function scrapeSiteForIntake(
     ctas: extraction.ctas ?? [],
     scannedPages: crawlResult.pages.map((pg) => pg.url),
   }
+  // Attributed AFTER the profile exists, since it matches extracted values
+  // against the page text they came from.
+  profile.pageReports = buildPageReports(crawlResult.pages, profile)
 
   return {
     scraped: true,
