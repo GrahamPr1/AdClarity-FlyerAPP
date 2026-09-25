@@ -21,6 +21,7 @@ import { FormFillSection } from "@/components/form-fill-section"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { trackEvent } from "@/lib/analytics"
 import { PrintButton } from "@/components/print-button"
+import { FlyerEditPanel } from "@/components/flyer-edit-panel"
 import { Flyer3D } from "@/components/flyer-3d"
 
 
@@ -361,6 +362,7 @@ export function FlyerCard({
   angle,
   siblingCount = 0,
   onSeeOptions,
+  onEdited,
 }: {
   flyer: FlyerDeliverable
   onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
@@ -380,11 +382,15 @@ export function FlyerCard({
   /** 4E: back to the other creative options without restarting the
    *  campaign. Undefined for a flyer with no campaign. */
   onSeeOptions?: () => void
+  /** Called after a direct edit saves, so the list refetches and the
+   *  thumbnail shows the edited document rather than the stale one. */
+  onEdited?: () => void
 }) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
   const [retrying, setRetrying] = useState(false)
   const [retryError, setRetryError] = useState("")
+  const [editing, setEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState("")
@@ -593,6 +599,9 @@ export function FlyerCard({
             </div>
           )}
           {failed && flyer.error && <p className="mt-1.5 text-xs text-[var(--destructive)]/90 leading-snug">{flyer.error}</p>}
+          {editing && ready && (
+            <FlyerEditPanel flyerId={flyer.id} onSaved={() => { void refreshStats(); onEdited?.() }} />
+          )}
           {retryError && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300 leading-snug">{retryError}</p>}
           {deleteError && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300 leading-snug">{deleteError}</p>}
         </div>
@@ -605,6 +614,15 @@ export function FlyerCard({
             </a>
           )}
           {ready && flyer.downloadUrl && <PrintButton flyerId={flyer.id} title={flyer.title} />}
+          {/* 4D: edits THIS flyer's own stored HTML. Each flyer owns its
+              document, so there is no master template to damage. */}
+          {ready && flyer.downloadUrl && (
+            <button onClick={() => setEditing((v) => !v)}
+              aria-expanded={editing}
+              className="text-xs font-medium px-4 py-1.5 rounded-full border border-border hover:bg-[var(--surface-sunken)] transition-colors">
+              {editing ? "Close editor" : "Edit"}
+            </button>
+          )}
           {failed && (
             <button onClick={handleRetry} disabled={retrying}
               className="text-xs font-medium px-4 py-1.5 rounded-full border border-border hover:bg-[var(--surface-sunken)] disabled:opacity-60 transition-colors">
@@ -1091,6 +1109,7 @@ export function DashboardClient() {
                         showUpgradeHint={data.planId === "trial"}
                         angle={f.angle}
                         siblingCount={campaign ? campaign.flyerIds.length : 0}
+                        onEdited={() => void mutate()}
                         onSeeOptions={campaign ? () => {
                           document.getElementById(`campaign-${campaign.id}`)?.scrollIntoView({
                             behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",

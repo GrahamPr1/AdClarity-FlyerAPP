@@ -78,13 +78,36 @@ export function fillTemplate(input: TemplateFillInput): TemplateFillResult {
     `:root{--brand-primary:${input.colors.primary};--brand-secondary:${input.colors.secondary};` +
     `--brand-accent:${input.colors.accent};--font-heading:${input.fonts.heading};--font-body:${input.fonts.body}}`
 
+  /**
+   * Wraps an editable value so a later direct edit can find it.
+   *
+   * data-field is the handle; data-max is the character budget the LAYOUT
+   * can physically fit, travelling with the element rather than being looked
+   * up later. That matters because the budget is per-template and per-field:
+   * carrying it in the markup means the editor enforces the same limit the
+   * generator did, on a flyer whose template choice nobody has to re-derive.
+   *
+   * An inline <span> is used rather than putting the attribute on the
+   * surrounding element, so this works for all templates at once without
+   * hand-editing each one, and cannot change layout — a span is inline and
+   * inherits everything from its parent.
+   *
+   * Flyers generated before this existed simply have no data-field
+   * attributes, which is exactly how the UI detects that direct editing is
+   * unavailable and offers AI refine instead.
+   */
+  const editable = (field: string, value: string, max: number) =>
+    `<span data-field="${field}" data-max="${max}">${escapeHtml(value)}</span>`
+
   let html = input.template.html
   const slots: Record<string, string> = {
-    "{{HEADLINE}}": escapeHtml(headline.text),
-    "{{SUPPORTING}}": escapeHtml(supporting.text),
+    "{{HEADLINE}}": editable("headline", headline.text, input.template.budgets.headline),
+    "{{SUPPORTING}}": editable("supporting", supporting.text, input.template.budgets.supporting),
+    // BUSINESS is deliberately NOT marked: it also fills <title>, where a
+    // span would be rendered as literal text in the browser tab.
     "{{BUSINESS}}": escapeHtml(input.businessName),
-    "{{PHONE}}": escapeHtml(input.phone),
-    "{{ADDRESS}}": escapeHtml(input.address ?? ""),
+    "{{PHONE}}": editable("phone", input.phone, 40),
+    "{{ADDRESS}}": editable("address", input.address ?? "", 120),
     "{{LOGO_BLOCK}}": logoBlock,
     "{{QR_BLOCK}}": qrBlock,
     "{{PHOTO_BLOCK}}": photoBlock,

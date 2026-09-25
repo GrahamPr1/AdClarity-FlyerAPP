@@ -910,6 +910,34 @@ export async function campaignForFlyer(email: string, flyerId: string): Promise<
   return (await listCampaigns(email)).find((c) => c.flyerIds.includes(flyerId)) ?? null
 }
 
+// ---- Direct-edit undo ----------------------------------------------------
+//
+// ONE pre-edit snapshot per flyer, not a history. Enough that a text edit is
+// not a one-way door; deliberately not a general versioning feature.
+//
+// Overwritten on each edit, so "Revert" always means "undo the edit I just
+// made". Expires after a week: the undo is for the minute after a mistake,
+// and keeping a full second copy of every flyer's HTML forever would double
+// the storage for a feature nobody uses on day-old flyers.
+
+function flyerPreEditKey(flyerId: string) {
+  return `flyer:${flyerId}:pre-edit`
+}
+
+const PRE_EDIT_TTL_SECONDS = 7 * 24 * 60 * 60
+
+export async function savePreEditSnapshot(flyerId: string, downloadUrl: string): Promise<void> {
+  await redis.set(flyerPreEditKey(flyerId), downloadUrl, { ex: PRE_EDIT_TTL_SECONDS })
+}
+
+export async function getPreEditSnapshot(flyerId: string): Promise<string | null> {
+  return (await redis.get<string>(flyerPreEditKey(flyerId))) ?? null
+}
+
+export async function clearPreEditSnapshot(flyerId: string): Promise<void> {
+  await redis.del(flyerPreEditKey(flyerId))
+}
+
 export async function deleteCampaignDefaults(email: string): Promise<void> {
   await redis.del(campaignDefaultsKey(email))
 }
