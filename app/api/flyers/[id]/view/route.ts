@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getDeliverablesForEmail } from "@/lib/store"
 import { ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
+import { decodeFlyerHtml } from "@/lib/flyer-data-url"
 
 // GET /api/flyers/[id]/view?variant=print|instagram
 //
@@ -55,14 +56,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "This flyer isn't ready yet" }, { status: 409 })
   }
 
-  const base64 = dataUrl.split("base64,")[1]
-  if (!base64) {
+  const decoded = decodeFlyerHtml(dataUrl)
+  if (!decoded) {
     return NextResponse.json({ error: "Stored flyer is malformed" }, { status: 500 })
   }
   // ensureScrollable also injects print-color-adjust (see flyer-html.ts).
   // Applied on READ so every flyer already in storage prints with its
   // backgrounds intact, not just ones generated since.
-  const html = ensureScrollable(Buffer.from(base64, "base64").toString("utf-8"))
+  const html = ensureScrollable(decoded)
 
   return new NextResponse(html, {
     status: 200,

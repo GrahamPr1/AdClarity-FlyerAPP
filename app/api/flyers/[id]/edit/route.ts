@@ -8,6 +8,7 @@ import {
   clearPreEditSnapshot,
 } from "@/lib/store"
 import { applyFieldEdits, readEditableFields, supportsDirectEdit } from "@/lib/agent-pipeline/flyer-edit"
+import { decodeFlyerHtml, encodeFlyerHtml } from "@/lib/flyer-data-url"
 
 /**
  * Direct field editing of ONE generated flyer.
@@ -22,24 +23,6 @@ import { applyFieldEdits, readEditableFields, supportsDirectEdit } from "@/lib/a
  * another account is simply not found.
  */
 export const dynamic = "force-dynamic"
-
-// [\s\S] rather than the /s flag: the compile target predates it.
-const DATA_URL = /^data:text\/html(?:;charset=[^;,]+)?(;base64)?,([\s\S]*)$/
-
-function decodeFlyerHtml(downloadUrl: string): string | null {
-  const m = downloadUrl.match(DATA_URL)
-  if (!m) return null
-  try {
-    return m[1] ? Buffer.from(m[2], "base64").toString("utf8") : decodeURIComponent(m[2])
-  } catch {
-    return null
-  }
-}
-
-/** Re-encoded the same way the pipeline stores it (see toDataUrl). */
-function encodeFlyerHtml(html: string): string {
-  return `data:text/html;charset=utf-8;base64,${Buffer.from(html, "utf8").toString("base64")}`
-}
 
 async function loadOwnFlyer(req: NextRequest, id: string) {
   const session = await getSessionIdentity({ cookies: req.cookies })

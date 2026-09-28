@@ -3,6 +3,7 @@ import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getDeliverablesForEmail } from "@/lib/store"
 import { ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
 import { renderFlyerPdf } from "@/lib/pdf/flyer-pdf"
+import { decodeFlyerHtml } from "@/lib/flyer-data-url"
 
 /**
  * GET /api/flyers/[id]/pdf?variant=print|instagram
@@ -42,14 +43,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const dataUrl = variant === "instagram" ? flyer.repurposed?.instagramDownloadUrl : flyer.downloadUrl
   if (!dataUrl) return NextResponse.json({ error: "This flyer isn't ready yet" }, { status: 409 })
 
-  const base64 = dataUrl.split("base64,")[1]
-  if (!base64) return NextResponse.json({ error: "Stored flyer is malformed" }, { status: 500 })
+  const decoded = decodeFlyerHtml(dataUrl)
+  if (!decoded) return NextResponse.json({ error: "Stored flyer is malformed" }, { status: 500 })
 
   // Same ensureScrollable() the view route applies on read, so the PDF is a
   // render of exactly what the client sees rather than a near-copy. It also
   // injects print-color-adjust, without which Chromium drops the flyer's
   // background fills.
-  const html = ensureScrollable(Buffer.from(base64, "base64").toString("utf-8"))
+  const html = ensureScrollable(decoded)
 
   let rendered
   try {
