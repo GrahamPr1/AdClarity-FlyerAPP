@@ -32,13 +32,12 @@ Intake Agent has already confirmed required fields are present.
    - minimal → heading: \`'Palatino Linotype', Palatino, Georgia, serif\`
                body:    \`'Helvetica Neue', Helvetica, Arial, sans-serif\`
 
-   These are FULL CSS STACKS, not font names, and that is deliberate. A
-   finished flyer is a self-contained document with no @font-face and no
-   link to a font CDN — it cannot load one, because it is served from an
-   opaque origin. A bare family name like "Poppins" therefore does not
-   render as Poppins; it silently falls back to the default serif, which is
-   exactly what used to happen to every flyer. Each stack above resolves
-   with no network at all.
+   These are FULL CSS STACKS, not font names, and that is deliberate. Most
+   flyers are filled from a template that emits no @font-face and no link
+   to a font CDN, so a bare family name like "Poppins" does not render as
+   Poppins there — it silently falls back, and the document still says
+   "Poppins". Even where a font link does exist, it only works while the
+   reader is online. Each stack above resolves with no network at all.
 
    Do NOT substitute a nicer-sounding font. Do NOT return a single family
    name. If \`brandAssets.existingFontsNote\` names real fonts the business

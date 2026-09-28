@@ -154,17 +154,25 @@ export const CURATED_FONTS: FontChoice[] = [
  * The font pair for a fontStylePreference, as a real CSS stack.
  *
  * Single source of truth for the Brand Agent's mapping. It previously named
- * Google families — Poppins, Inter, Playfair Display, Baloo 2, Quicksand —
- * in a document that has no @font-face and no font link, so NONE of them
- * resolved. Measured: text set in "Poppins" came out exactly the same width
- * as text set in a deliberately nonexistent family, i.e. every flyer was
- * silently rendering in the default fallback rather than the font that was
- * chosen for it.
+ * Google families — Poppins, Inter, Playfair Display, Baloo 2, Quicksand.
+ * Whether those resolved depended on which path produced the document, and
+ * nothing anywhere said which you got:
  *
- * The comment on CURATED_FONTS above already explains why: a flyer is stored
- * as a data: URL with an opaque origin, so an @import or <link> to a font
- * CDN is unreliable at best and ignored at worst. These stacks resolve with
- * no network at all, which is the whole point of them.
+ *   - TEMPLATE MODE, the default path, emits no @font-face and no font link
+ *     at all (see templates/index.ts — it only sets --font-heading /
+ *     --font-body). A bare "Poppins" there resolves to nothing it names.
+ *     Measured on the door-hanger fixture: the PDF's embedded fonts came
+ *     out as Helvetica, not Poppins.
+ *   - The AI-authored path sometimes has the model write a <link> to Google
+ *     Fonts into the document, and then the family really does load.
+ *     Measured on the flyer fixture: the PDF embedded Poppins-Bold.
+ *
+ * So the typeface was a coin flip decided by which generator ran and
+ * whether the reader had network access, and the failure is silent either
+ * way — the stored HTML says "Poppins" and looks correct in review.
+ *
+ * These stacks resolve with no network at all, on every path, which is the
+ * whole point of them.
  *
  * FORWARD-ONLY. Existing flyers keep whatever is baked into their stored
  * HTML; nothing is rewritten. Only new generations get the corrected pair.

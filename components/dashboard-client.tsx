@@ -21,6 +21,7 @@ import { FormFillSection } from "@/components/form-fill-section"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { trackEvent } from "@/lib/analytics"
 import { PrintButton } from "@/components/print-button"
+import { PdfButton } from "@/components/pdf-button"
 import { FlyerEditPanel } from "@/components/flyer-edit-panel"
 import { Flyer3D } from "@/components/flyer-3d"
 
@@ -613,6 +614,7 @@ export function FlyerCard({
               Download
             </a>
           )}
+          {ready && flyer.downloadUrl && <PdfButton flyerId={flyer.id} title={flyer.title} />}
           {ready && flyer.downloadUrl && <PrintButton flyerId={flyer.id} title={flyer.title} />}
           {/* 4D: edits THIS flyer's own stored HTML. Each flyer owns its
               document, so there is no master template to damage. */}
@@ -1064,16 +1066,14 @@ export function DashboardClient() {
                 </div>
               </div>
 
-              {/* Says what the file actually is, next to where it's acted on.
-                  Deliberately does NOT say "PDF export coming soon" — the
-                  print dialog's Save as PDF is a real, verified path today,
-                  so promising a future feature would be both inaccurate and
-                  a reason for someone to wait instead of using what works. */}
+              {/* Says what each button actually gives you, next to where
+                  they're acted on. Three files, three jobs, and the
+                  difference is not obvious from the labels alone. */}
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                Every piece is print-ready HTML. Hit <span className="text-foreground">Print</span> to send it
-                straight to your printer at its real size — or choose <span className="text-foreground">Save as PDF</span>{" "}
-                in the same dialog if you need a file to email or take to a print shop.
-                <span className="text-foreground"> Download</span> saves the HTML itself.
+                <span className="text-foreground">PDF</span> gives you a file to email or take to a print shop,
+                at the piece&apos;s real physical size. <span className="text-foreground">Print</span> sends it
+                straight to your own printer. <span className="text-foreground">Download</span> saves the
+                underlying HTML.
               </p>
               {/* 4A — the hierarchy made visible: Product -> Campaign ->
                   Creative options -> this flyer. Flyers generated together

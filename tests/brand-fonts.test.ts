@@ -45,7 +45,9 @@ describe("the Brand Agent prompt", () => {
 
   it("no longer asks for fonts that cannot load", () => {
     // Strip the block that explains the bug — it names one on purpose.
-    const asks = BRAND_PROMPT.replace(/A bare family name like[\s\S]*?no network at all\./, "")
+    const explanation = /These are FULL CSS STACKS[\s\S]*?no network at all\./
+    expect(BRAND_PROMPT, "the explanatory block moved; this test's exclusion is stale").toMatch(explanation)
+    const asks = BRAND_PROMPT.replace(explanation, "")
     for (const name of WEBFONT_ONLY) {
       expect(asks, `prompt still asks for ${name}`).not.toContain(name)
     }
