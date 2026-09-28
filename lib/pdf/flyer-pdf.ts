@@ -1,4 +1,6 @@
 import type { Browser } from "playwright-core"
+import { configureFonts, EXPECTED_SUBSTITUTES } from "./fonts"
+import { STYLE_FONT_STACKS } from "@/lib/brand-controls"
 
 /**
  * Renders a finished flyer to a print-ready PDF.
@@ -64,6 +66,10 @@ async function getBrowser(): Promise<Browser> {
   // the Chromium that Playwright already installed for the browser tests.
   const onLambda = process.platform === "linux"
   if (onLambda) {
+    // BEFORE launch: the child reads FONTCONFIG_PATH at startup, and the
+    // container ships only one font without this. See lib/pdf/fonts.ts.
+    const fonts = configureFonts()
+    if (!fonts.applied) console.warn(`[pdf] font substitution not applied: ${fonts.reason}`)
     const sparticuz = (await import("@sparticuz/chromium")).default
     cached = await chromium.launch({
       args: sparticuz.args,
@@ -132,49 +138,63 @@ export async function renderFlyerPdf(html: string): Promise<RenderedPdf> {
 }
 
 /**
- * Reports, once per cold start, whether the fonts the flyers ask for are
- * actually present in this container.
+ * Checks, once per cold start, that the flyers' four font stacks actually
+ * produce four different renderings in THIS container.
  *
- * Not paranoia: every flyer generated before commit 8e73f1b was set in the
- * browser's default fallback rather than the typeface chosen for it, and
- * nothing caught it for months because a missing font produces no error,
- * no warning and perfectly reasonable-looking output. A serverless
- * container has a different font set from a developer's Mac, so the same
- * class of failure can reappear in the PDF alone, where it is hardest to
- * notice. Measuring one string against a deliberately nonexistent family
- * is the check that caught it the first time: identical widths mean the
- * named family was never used.
+ * Not paranoia. A missing font produces no error, no warning and output
+ * that looks perfectly reasonable, which is how the original bug survived
+ * months of review. And the environments genuinely differ: the Vercel
+ * Linux runtime ships one font, so before lib/pdf/fonts.ts every stack
+ * measured an identical 719.77px and every PDF embedded OpenSans-Regular,
+ * while the same code on a developer's Mac rendered all four correctly.
+ *
+ * Distinctness is the assertion rather than "differs from a nonexistent
+ * family", because with substitution in place a nonexistent family also
+ * resolves to something. If the four collapse to one width, the container
+ * is rendering every flyer in the same face whatever the client chose,
+ * and that is worth a warning in the log rather than a silent wrong PDF.
  */
 let fontsLogged = false
 async function logFontsOnce(page: import("playwright-core").Page): Promise<void> {
   if (fontsLogged) return
   fontsLogged = true
   try {
-    const probe = await page.evaluate(() => {
-      const el = document.createElement("span")
-      el.style.cssText = "position:absolute;left:-9999px;white-space:nowrap;font-size:40px"
-      el.textContent = "Spring roof inspection — (270) 555-0142"
-      document.body.appendChild(el)
-      const width = (stack: string) => {
-        el.style.fontFamily = stack
-        return Math.round(el.getBoundingClientRect().width * 100) / 100
-      }
-      const control = width("'NoSuchFamilyAtAll-XYZ'")
-      const families = [
-        "'Helvetica Neue'", "Helvetica", "Arial", "Georgia", "'Times New Roman'",
-        "'Trebuchet MS'", "'Segoe UI'", "Verdana", "'Palatino Linotype'", "Palatino",
-      ]
-      const out = Object.fromEntries(families.map((f) => [f.replace(/'/g, ""), width(f)]))
-      el.remove()
-      return { control, sansKeyword: width("sans-serif"), serifKeyword: width("serif"), families: out }
-    })
-    const resolved = Object.entries(probe.families).filter(([, w]) => w !== probe.control)
-    const missing = Object.entries(probe.families).filter(([, w]) => w === probe.control)
-    console.log(
-      `[pdf] font check on ${process.platform}: control=${probe.control}px ` +
-        `resolved=[${resolved.map(([n]) => n).join(", ") || "none"}] ` +
-        `missing=[${missing.map(([n]) => n).join(", ") || "none"}]`,
+    const stacks = STYLE_FONT_STACKS
+    const probe = await page.evaluate(
+      ({ stacks, substitutes }) => {
+        const el = document.createElement("span")
+        el.style.cssText = "position:absolute;left:-9999px;white-space:nowrap;font-size:40px"
+        el.textContent = "Spring roof inspection \u2014 (270) 555-0142"
+        document.body.appendChild(el)
+        const width = (stack: string) => {
+          el.style.fontFamily = stack
+          return Math.round(el.getBoundingClientRect().width * 100) / 100
+        }
+        const out = {
+          stacks: Object.fromEntries(
+            Object.entries(stacks).map(([k, v]) => [k, width((v as { heading: string }).heading)]),
+          ),
+          substitutes: Object.fromEntries(substitutes.map((f) => [f, width(`'${f}'`)])),
+        }
+        el.remove()
+        return out
+      },
+      { stacks, substitutes: Object.values(EXPECTED_SUBSTITUTES) as string[] },
     )
+    const widths = Object.values(probe.stacks)
+    const distinct = new Set(widths).size
+    const detail =
+      Object.entries(probe.stacks).map(([k, w]) => `${k}=${w}`).join(" ") +
+      " | substitutes " +
+      Object.entries(probe.substitutes).map(([k, w]) => `${k}=${w}`).join(" ")
+    if (distinct === 1) {
+      console.warn(
+        `[pdf] FONT FALLBACK on ${process.platform}: all ${widths.length} brand stacks render identically ` +
+          `— every PDF from this container is set in one face regardless of the client's choice. ${detail}`,
+      )
+    } else {
+      console.log(`[pdf] fonts ok on ${process.platform}: ${distinct} distinct faces across the stacks. ${detail}`)
+    }
   } catch (err) {
     console.warn("[pdf] font check failed", err)
   }

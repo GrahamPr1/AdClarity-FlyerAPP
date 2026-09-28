@@ -12,6 +12,15 @@ const nextConfig = {
     unoptimized: true,
   },
 
+  // The PDF renderer reads these .ttf files from disk at runtime (see
+  // lib/pdf/fonts.ts). Nothing imports them, so Next's dependency tracing
+  // cannot see them and would ship the function without them — and the
+  // failure is silent: every PDF would come out in the container's single
+  // default face instead of the typeface the client chose.
+  outputFileTracingIncludes: {
+    "/api/flyers/[id]/pdf": ["./lib/pdf/fonts/**"],
+  },
+
   // Vanity paths people type or that appear in old links. Permanent, because
   // these are stable product URLs rather than temporary marketing routes.
   //
