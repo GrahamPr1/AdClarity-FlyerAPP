@@ -16,7 +16,7 @@ import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-varian
 import { palettePoolFor } from "./trade-palettes"
 import { runPolishAgent } from "./agents/polishAgent"
 import { fillTemplate, selectTemplate } from "./template-mode"
-import { resolveBrandColors, resolveFonts } from "@/lib/brand-controls"
+import { resolveBrandColors, resolveFonts, renderableFonts, type BrandStylePreference } from "@/lib/brand-controls"
 import { loadBusinessProfileContext } from "./business-profile-context"
 import { applyLegibilityGuardrails } from "./legibility"
 import { getFormat, formatForAgent } from "./formats"
@@ -117,11 +117,15 @@ export const GENERATION_STAGES = {
 async function applyFontChoice<T extends { fonts: { heading: string; body: string } }>(
   brandProfile: T,
   email: string,
+  /** The style the agent was asked to map, for the fallback stack. */
+  stylePreference: BrandStylePreference = "modern",
 ): Promise<T> {
   const fonts = resolveFonts(await getClientFontChoice(email).catch(() => null))
-  if (!fonts) return brandProfile
-  console.log(`[brand] ${email}: applying chosen fonts ${fonts.heading.split(",")[0]} / ${fonts.body.split(",")[0]}`)
-  return { ...brandProfile, fonts }
+  if (fonts) {
+    console.log(`[brand] ${email}: applying chosen fonts ${fonts.heading.split(",")[0]} / ${fonts.body.split(",")[0]}`)
+    return { ...brandProfile, fonts }
+  }
+  return { ...brandProfile, fonts: renderableFonts(brandProfile.fonts, stylePreference) }
 }
 
 function stageMark(runId: string, t0: number, label: string) {
@@ -762,7 +766,7 @@ async function runTemplateFlyer(
 
 async function runBatch(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequests: FlyerRequest[], autoSaveBrandProfile: boolean): Promise<void> {
   await setGenerationStage(email, GENERATION_STAGES.brand)
-  const brandProfile = await applyFontChoice(await runBrandAgent(intake, email), email)
+  const brandProfile = await applyFontChoice(await runBrandAgent(intake, email), email, intake.fontStylePreference)
   stageMark(runId, t0, "brand done")
   // Guided-flow submissions refresh the client's saved brand automatically
   // — they explicitly provided this info, so it's a strong signal. Quick
@@ -1116,7 +1120,7 @@ export async function continuePipelineFromIntake(
 
 async function runSingleFlyerRetry(runId: string, t0: number, email: string, intake: NormalizedIntake, flyerRequest: FlyerRequest): Promise<void> {
   await setGenerationStage(email, GENERATION_STAGES.brand)
-  const brandProfile = await applyFontChoice(await runBrandAgent(intake, email), email)
+  const brandProfile = await applyFontChoice(await runBrandAgent(intake, email), email, intake.fontStylePreference)
   stageMark(runId, t0, "brand done")
   const { plan, includeExtras } = await getPlanFeatures(email)
   const { photos, unsplash: unsplashPool } = await buildPhotoPool(intake, [flyerRequest], {

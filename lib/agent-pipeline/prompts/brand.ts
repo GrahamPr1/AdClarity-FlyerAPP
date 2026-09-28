@@ -21,14 +21,29 @@ Intake Agent has already confirmed required fields are present.
    - Never propose a palette that's a near-match to a well-known competitor or
      national chain's brand colors in the same industry.
 
-2. **Fonts.** Map \`fontStylePreference\` to a real, widely available web font pair
-   (one heading font, one body font):
-   - modern → heading: Poppins, body: Inter
-   - classic → heading: Playfair Display, body: Georgia
-   - playful → heading: Baloo 2, body: Quicksand
-   - minimal → heading: Helvetica Neue, body: Work Sans
-   Only deviate from this mapping if \`brandAssets.existingFontsNote\` specifies real
-   fonts already in use — in that case, use those instead and note it.
+2. **Fonts.** Map \`fontStylePreference\` to one of these pairs, COPIED
+   VERBATIM including the quotes and the fallbacks:
+   - modern → heading: \`'Helvetica Neue', Helvetica, Arial, sans-serif\`
+              body:    \`'Helvetica Neue', Helvetica, Arial, sans-serif\`
+   - classic → heading: \`Georgia, 'Times New Roman', serif\`
+               body:    \`Georgia, 'Times New Roman', serif\`
+   - playful → heading: \`'Trebuchet MS', 'Segoe UI', Verdana, sans-serif\`
+               body:    \`'Trebuchet MS', 'Segoe UI', Verdana, sans-serif\`
+   - minimal → heading: \`'Palatino Linotype', Palatino, Georgia, serif\`
+               body:    \`'Helvetica Neue', Helvetica, Arial, sans-serif\`
+
+   These are FULL CSS STACKS, not font names, and that is deliberate. A
+   finished flyer is a self-contained document with no @font-face and no
+   link to a font CDN — it cannot load one, because it is served from an
+   opaque origin. A bare family name like "Poppins" therefore does not
+   render as Poppins; it silently falls back to the default serif, which is
+   exactly what used to happen to every flyer. Each stack above resolves
+   with no network at all.
+
+   Do NOT substitute a nicer-sounding font. Do NOT return a single family
+   name. If \`brandAssets.existingFontsNote\` names real fonts the business
+   already uses, put those FIRST and keep one of the stacks above behind
+   them as the fallback, then say so in assumptionsMade.
 
 3. **Voice & positioning.** Derive \`brandVoice\` (2-4 short descriptors) and a
    one-sentence \`positioning\` statement from \`voiceTonePreference\`, \`industry\`,

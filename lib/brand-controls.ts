@@ -150,6 +150,71 @@ export const CURATED_FONTS: FontChoice[] = [
   },
 ]
 
+/**
+ * The font pair for a fontStylePreference, as a real CSS stack.
+ *
+ * Single source of truth for the Brand Agent's mapping. It previously named
+ * Google families — Poppins, Inter, Playfair Display, Baloo 2, Quicksand —
+ * in a document that has no @font-face and no font link, so NONE of them
+ * resolved. Measured: text set in "Poppins" came out exactly the same width
+ * as text set in a deliberately nonexistent family, i.e. every flyer was
+ * silently rendering in the default fallback rather than the font that was
+ * chosen for it.
+ *
+ * The comment on CURATED_FONTS above already explains why: a flyer is stored
+ * as a data: URL with an opaque origin, so an @import or <link> to a font
+ * CDN is unreliable at best and ignored at worst. These stacks resolve with
+ * no network at all, which is the whole point of them.
+ *
+ * FORWARD-ONLY. Existing flyers keep whatever is baked into their stored
+ * HTML; nothing is rewritten. Only new generations get the corrected pair.
+ */
+export const STYLE_FONT_STACKS: Record<BrandStylePreference, { heading: string; body: string }> = {
+  modern: { heading: CURATED_FONTS[0].heading, body: CURATED_FONTS[0].body }, // modern-sans
+  classic: { heading: CURATED_FONTS[1].heading, body: CURATED_FONTS[1].body }, // classic-serif
+  playful: { heading: CURATED_FONTS[4].heading, body: CURATED_FONTS[4].body }, // friendly-rounded
+  minimal: { heading: CURATED_FONTS[2].heading, body: CURATED_FONTS[2].body }, // editorial
+}
+
+/** The four values the Brand Agent receives as fontStylePreference. */
+export type BrandStylePreference = "modern" | "classic" | "playful" | "minimal"
+
+/**
+ * Guarantees the flyer is set in a font that will actually render.
+ *
+ * The Brand Agent's prompt now asks for full CSS stacks, but a prompt is a
+ * request, not a guarantee — and the failure mode is silent: a bare family
+ * name in a document with no @font-face falls back to the default serif,
+ * and nothing anywhere reports that the chosen typeface was never used.
+ *
+ * So the value is checked in code too. A single family with no fallbacks
+ * cannot survive in a self-contained document and is replaced by the stack
+ * for the requested style. A value that already carries fallbacks is
+ * trusted: it either came from CURATED_FONTS, or it names fonts the
+ * business really uses with a stack behind them.
+ */
+export function renderableFonts(
+  fonts: { heading: string; body: string },
+  style: BrandStylePreference,
+): { heading: string; body: string } {
+  const stack = STYLE_FONT_STACKS[style] ?? STYLE_FONT_STACKS.modern
+  const usable = (value: string, fallback: string, which: string) => {
+    // A real stack names alternatives or ends in a generic family. One bare
+    // name is the shape that silently fails.
+    const hasFallback = value.includes(",")
+    const isGeneric = /\b(serif|sans-serif|monospace|cursive|fantasy)\s*$/.test(value.trim())
+    if (value.trim() && (hasFallback || isGeneric)) return value
+    console.warn(
+      `[brand] ${which} font "${value}" has no fallbacks and cannot load in a self-contained flyer — using the ${style} stack instead.`,
+    )
+    return fallback
+  }
+  return {
+    heading: usable(fonts.heading, stack.heading, "heading"),
+    body: usable(fonts.body, stack.body, "body"),
+  }
+}
+
 export function findFontChoice(id: string | undefined | null): FontChoice | null {
   if (!id) return null
   return CURATED_FONTS.find((f) => f.id === id) ?? null
