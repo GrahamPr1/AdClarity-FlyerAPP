@@ -182,19 +182,56 @@ test.describe("the printed page", () => {
   })
 })
 
-test("text is set in the font the brand chose, not a silent fallback", async () => {
-  // The PDF names the fonts it actually used, which is the only check that
-  // distinguishes "asked for Helvetica Neue" from "got it". A document that
-  // fell back lands on the platform default instead.
-  const { pdf } = await renderFlyerPdf(await flyerWithAssets(STYLE_FONT_STACKS.classic))
-  const fonts = [...new Set([...pdf.toString("latin1").matchAll(/\/BaseFont\s*\/([A-Za-z0-9+\-,#]+)/g)]
+/**
+ * The faces the PDF really embedded.
+ *
+ * pdffonts is preferred and a raw scan is the fallback, because Chromium
+ * writes a VARIABLE font as a Type 3 font whose /BaseFont sits inside a
+ * compressed object stream — invisible to a byte scan. Measured: the same
+ * Georgia-substituted page reads as empty to the regex and as
+ * "Gelasio-Regular" to pdffonts. A check that can silently see nothing is
+ * the wrong check for a bug whose whole character is silence.
+ */
+function embeddedFonts(pdf: Buffer): { names: string[]; via: "pdffonts" | "raw scan" } {
+  if (hasPoppler) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "flyer-fonts-"))
+    try {
+      const file = path.join(dir, "out.pdf")
+      fs.writeFileSync(file, pdf)
+      const rows = execFileSync("pdffonts", [file], { encoding: "utf8" }).split("\n").slice(2)
+      const names = rows
+        .map((r) => r.trim().split(/\s+/)[0])
+        .filter(Boolean)
+        .map((n) => n.replace(/^[A-Z]{6}\+/, ""))
+      return { names: [...new Set(names)], via: "pdffonts" }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  }
+  const names = [...new Set([...pdf.toString("latin1").matchAll(/\/BaseFont\s*\/([A-Za-z0-9+\-,#]+)/g)]
     .map((m) => m[1].replace(/^[A-Z]{6}\+/, "")))]
-  expect(fonts.length, "the PDF embedded no fonts at all").toBeGreaterThan(0)
-  // classic is Georgia, 'Times New Roman', serif.
+  return { names, via: "raw scan" }
+}
+
+test("text is set in the font the brand chose, not a silent fallback", async () => {
+  // Naming the face is the only check that separates "asked for Georgia"
+  // from "got it" — a document that fell back lands on the platform
+  // default and looks entirely reasonable.
+  const { pdf } = await renderFlyerPdf(await flyerWithAssets(STYLE_FONT_STACKS.classic))
+  const { names, via } = embeddedFonts(pdf)
+  expect(names.length, `the PDF embedded no fonts at all (read via ${via})`).toBeGreaterThan(0)
+  // classic is Georgia, 'Times New Roman', serif. On a developer's Mac that
+  // resolves to Georgia itself; on the Linux runtime, to the bundled
+  // metric-compatible substitute (see lib/pdf/fonts.ts). Both are correct
+  // outcomes; Open Sans, the container's sole default face, is not.
   expect(
-    fonts.some((f) => /Georgia|Times/i.test(f)),
-    `expected Georgia (or its Times fallback); PDF used ${fonts.join(", ")}`,
+    names.some((f) => /Georgia|Times|Gelasio/i.test(f)),
+    `expected Georgia, its Times fallback, or the Gelasio substitute; PDF used ${names.join(", ")} (via ${via})`,
   ).toBe(true)
+  expect(
+    names.some((f) => /OpenSans/i.test(f)),
+    `fell back to the container's default face: ${names.join(", ")}`,
+  ).toBe(false)
 })
 
 test("nothing but the asset: no chrome survives into the PDF", async () => {
