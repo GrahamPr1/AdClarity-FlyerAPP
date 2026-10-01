@@ -5,6 +5,7 @@ import Link from "next/link"
 import { fetcher } from "@/lib/swr-fetcher"
 import { displayHost } from "@/lib/url-normalize"
 import type { BusinessProfile } from "@/lib/business-profile"
+import { LogoPreview } from "@/components/logo-preview"
 
 /**
  * Business / account details on the dashboard.
@@ -82,14 +83,7 @@ export function BusinessDetailsCard() {
         </div>
 
         {profile.brand.logoUrl && (
-          /* eslint-disable-next-line @next/next/no-img-element -- remote logo on an
-             arbitrary client domain; cannot be in next.config's image allowlist. */
-          <img
-            src={profile.brand.logoUrl}
-            alt=""
-            className="h-9 max-w-[8rem] object-contain"
-            onError={(e) => { e.currentTarget.style.display = "none" }}
-          />
+          <LogoPreview src={profile.brand.logoUrl} size="sm" />
         )}
       </div>
 

@@ -6,6 +6,7 @@ import { GuidedSetupFlow } from "./guided-setup-flow"
 import { QuickPromptForm } from "./quick-prompt-form"
 import { BusinessScanFlow } from "./business-scan-flow"
 import { ProductCampaignFlow } from "./product-campaign-flow"
+import { JourneyControlCenter } from "./journey-control-center"
 import type { PlanId } from "@/lib/types"
 
 type Path = "scan" | "choose" | "product" | "guided" | "quick"
@@ -63,8 +64,17 @@ export function CreateFlyerFlow({ email }: { email: string }) {
     return <p className="text-sm text-muted-foreground">Loading…</p>
   }
 
+  // The strip belongs on every screen of the flow, not just the chooser.
+  // Walked as a new client, it appeared on the chooser and then vanished the
+  // moment they went one level deeper into products — which is exactly when
+  // "where am I?" is worth answering. Rendered once here and shared by every
+  // branch below.
+  const strip = <JourneyControlCenter className="mb-6" hideWhenComplete />
+
   if (path === "scan") {
     return (
+      <>
+      {strip}
       <BusinessScanFlow
         // Only offered when there is somewhere to go back TO. A brand-new
         // client arrives here first and has no previous step; showing them a
@@ -74,11 +84,12 @@ export function CreateFlyerFlow({ email }: { email: string }) {
         onComplete={() => { setHasProfile(true); setPath("choose") }}
         onSkip={() => setPath("guided")}
       />
+      </>
     )
   }
-  if (path === "product") return <ProductCampaignFlow onBack={() => setPath("choose")} />
-  if (path === "guided") return <GuidedSetupFlow email={email} onBack={() => setPath("choose")} />
-  if (path === "quick") return <QuickPromptForm email={email} hasSavedBrand={hasSavedBrand} onBack={() => setPath("choose")} />
+  if (path === "product") return <>{strip}<ProductCampaignFlow onBack={() => setPath("choose")} /></>
+  if (path === "guided") return <>{strip}<GuidedSetupFlow email={email} onBack={() => setPath("choose")} /></>
+  if (path === "quick") return <>{strip}<QuickPromptForm email={email} hasSavedBrand={hasSavedBrand} onBack={() => setPath("choose")} /></>
 
   // Quick Prompt is a paid-plan feature (Basic/Pro), same as the spec's
   // "Available on every paid plan" — null planId means still loading, not
@@ -146,6 +157,8 @@ export function CreateFlyerFlow({ email }: { email: string }) {
 
   return (
     <div>
+      {strip}
+
       {/* Picks up the thread from the landing page's "Create My First Campaign"
           CTA rather than dropping them onto a generic form — but only for
           someone who genuinely hasn't made one yet. /onboarding is also the

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getDeliverablesForEmail } from "@/lib/store"
+import { getDeliverablesForEmail, recordFlyerExport } from "@/lib/store"
 import { ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
 import { decodeFlyerHtml } from "@/lib/flyer-data-url"
 
@@ -64,6 +64,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // Applied on READ so every flyer already in storage prints with its
   // backgrounds intact, not just ones generated since.
   const html = ensureScrollable(decoded)
+
+  // Reached only by a deliberate act — the Print button loads it into a
+  // hidden iframe, and "open full size" navigates to it. NOT the dashboard
+  // thumbnail, which renders the stored data: URL directly, so a page view
+  // cannot be counted as an export. Admin excluded for the same reason as
+  // in the PDF route: it is not the client's own export.
+  if (session.sub !== ADMIN_SUB) await recordFlyerExport(email, id, "print")
 
   return new NextResponse(html, {
     status: 200,

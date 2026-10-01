@@ -5,6 +5,7 @@ import useSWR from "swr"
 import { fetcher } from "@/lib/swr-fetcher"
 import { normalizeWebsiteUrl } from "@/lib/url-normalize"
 import type { BusinessProfile } from "@/lib/business-profile"
+import { LogoPreview } from "@/components/logo-preview"
 
 /**
  * Edits the CANONICAL business profile (client:<email>:profile).
@@ -168,10 +169,7 @@ function Editor({
           {profile?.brand.logoUrl && (
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground">Logo</p>
-              {/* eslint-disable-next-line @next/next/no-img-element -- remote logo on an
-                  arbitrary client domain; cannot be in next.config's image allowlist. */}
-              <img src={profile.brand.logoUrl} alt="" className="mt-1.5 h-8 max-w-[8rem] object-contain"
-                onError={(e) => { e.currentTarget.style.display = "none" }} />
+              <LogoPreview src={profile.brand.logoUrl} size="sm" className="mt-1.5" />
             </div>
           )}
           {profile?.brand.colors && (

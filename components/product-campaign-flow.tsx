@@ -4,6 +4,7 @@ import { useState } from "react"
 import useSWR from "swr"
 import { fetcher } from "@/lib/swr-fetcher"
 import { MAX_VARIATIONS, type ProductProfile } from "@/lib/product-profile"
+import type { Deliverables, FlyerDeliverable } from "@/lib/types"
 
 /**
  * Product / service -> creative options -> generate.
@@ -187,7 +188,11 @@ function CreativeOptions({ product, onBack }: { product: ProductProfile; onBack:
   const [count, setCount] = useState(3)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState<{ variations: number; angles: { id: string; name: string }[] } | null>(null)
+  const [done, setDone] = useState<{
+    variations: number
+    angles: { id: string; name: string }[]
+    flyerIds: string[]
+  } | null>(null)
 
   async function generate() {
     setBusy(true); setError(null)
@@ -199,7 +204,7 @@ function CreativeOptions({ product, onBack }: { product: ProductProfile; onBack:
       })
       const body = await res.json().catch(() => null)
       if (!res.ok) { setError(body?.message ?? body?.error ?? "Couldn't start generation."); return }
-      setDone({ variations: body.variations, angles: body.angles ?? [] })
+      setDone({ variations: body.variations, angles: body.angles ?? [], flyerIds: body.flyerIds ?? [] })
     } catch {
       setError("We couldn't reach the server. Check your connection and try again.")
     } finally {
@@ -209,26 +214,12 @@ function CreativeOptions({ product, onBack }: { product: ProductProfile; onBack:
 
   if (done) {
     return (
-      <div>
-        <h1 className="text-2xl md:text-3xl tracking-tight">
-          Generating {done.variations} option{done.variations === 1 ? "" : "s"}…
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Each one takes a different angle on {product.name}. They&apos;ll appear on your dashboard as they finish.
-        </p>
-        {done.angles.length > 0 && (
-          <ul className="mt-4 flex flex-wrap gap-1.5">
-            {done.angles.map((a, i) => (
-              <li key={`${a.id}-${i}`} className="rounded-full border border-border bg-[var(--surface-soft)] px-3 py-1 text-xs">
-                {a.name}
-              </li>
-            ))}
-          </ul>
-        )}
-        <a href="/dashboard" className="pill pill-solid mt-6 inline-flex px-6 text-sm font-medium">
-          Go to my dashboard
-        </a>
-      </div>
+      <GeneratingOptions
+        product={product}
+        variations={done.variations}
+        angles={done.angles}
+        flyerIds={done.flyerIds}
+      />
     )
   }
 
@@ -288,6 +279,147 @@ function CreativeOptions({ product, onBack }: { product: ProductProfile; onBack:
       </button>
     </div>
   )
+}
+
+/* -------------------------- Generation progress -------------------------- */
+
+/**
+ * What is actually happening while the options generate.
+ *
+ * This screen used to say "Generating N options…" and offer a link to the
+ * dashboard — a static sentence in front of a process that takes over a
+ * minute, with no way to tell progress from a hang. The pipeline already
+ * recorded its own stage (GENERATION_STAGES, written by setGenerationStage)
+ * and seeded one deliverable per option before any work started, so the real
+ * per-option state was sitting in storage unread.
+ *
+ * Every row below is one of those seeded deliverables, showing the status
+ * the pipeline actually wrote. Nothing here advances on a timer, and a
+ * failed option says so rather than spinning forever.
+ */
+function GeneratingOptions({
+  product,
+  variations,
+  angles,
+  flyerIds,
+}: {
+  product: ProductProfile
+  variations: number
+  angles: { id: string; name: string }[]
+  /** The exact ids /api/campaigns/generate reserved for this campaign. */
+  flyerIds: string[]
+}) {
+  const expected = flyerIds.length || variations
+
+  const { data } = useSWR<Deliverables>("/api/deliverables", fetcher, {
+    // Keeps polling until every option this campaign reserved has both
+    // APPEARED and settled.
+    //
+    // "Is anything running?" was the obvious condition and it was wrong:
+    // the generate call returns before the pipeline has seeded the
+    // deliverables, so the first poll sees an empty list, concludes
+    // nothing is running, and stops forever — leaving the screen frozen
+    // on the first stage while the campaign finishes behind it. Caught by
+    // walking the flow; the list is empty at the start for the same
+    // reason it is empty at the end, and only the expected count tells
+    // those two apart.
+    refreshInterval: (latest) => {
+      if (!latest) return 3000
+      const seen = latest.flyers.filter((f) => flyerIds.includes(f.id))
+      if (seen.length < expected) return 3000
+      return seen.some((f) => f.status === "Pending" || f.status === "In Progress") ? 3000 : 0
+    },
+  })
+
+  // Matched by id rather than by position: "the most recent N flyers"
+  // would show someone else's campaign if two were started close together,
+  // and these ids are already known.
+  const mine: FlyerDeliverable[] = flyerIds.length
+    ? flyerIds
+        .map((id) => (data?.flyers ?? []).find((f) => f.id === id))
+        .filter((f): f is FlyerDeliverable => !!f)
+    : (data?.flyers ?? []).slice(0, variations)
+  const ready = mine.filter((f) => f.status === "Ready").length
+  const failed = mine.filter((f) => f.status === "Failed").length
+  const settled = mine.length >= expected && ready + failed === mine.length
+
+  return (
+    <div>
+      <h1 className="text-2xl md:text-3xl tracking-tight">
+        {settled
+          ? `${ready} option${ready === 1 ? "" : "s"} ready`
+          : `Generating ${variations} option${variations === 1 ? "" : "s"}…`}
+      </h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {settled
+          ? `Each takes a different angle on ${product.name}. Open your dashboard to compare them, pick one, edit the text, then download a PDF or print it.`
+          : `Each one takes a different angle on ${product.name}. This updates on its own — you can leave it open or come back later.`}
+      </p>
+
+      {/* The pipeline's own stage, not a caption. Absent between stages,
+          which is why it is conditional rather than defaulted to a phrase. */}
+      {!settled && data?.generationStage && (
+        <p className="mt-3 flex items-center gap-2 text-sm font-medium text-[var(--brand-teal-bright)]">
+          <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-border border-t-[var(--brand-teal-bright)]" />
+          <span aria-live="polite">{data.generationStage}…</span>
+        </p>
+      )}
+
+      {mine.length > 0 ? (
+        <ul className="mt-5 space-y-2">
+          {mine.map((f, i) => (
+            <li
+              key={f.id}
+              className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm"
+            >
+              <OptionMark status={f.status} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{f.angle ?? angles[i]?.name ?? f.title}</span>
+                {f.status === "Failed" && f.error && (
+                  <span className="block truncate text-xs text-[var(--destructive)]">{f.error}</span>
+                )}
+              </span>
+              <span className="shrink-0 text-xs text-muted-foreground">{f.status}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        angles.length > 0 && (
+          <ul className="mt-5 flex flex-wrap gap-1.5">
+            {angles.map((a, i) => (
+              <li key={`${a.id}-${i}`} className="rounded-full border border-border bg-[var(--surface-soft)] px-3 py-1 text-xs">
+                {a.name}
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+
+      {failed > 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {failed} didn&apos;t finish. You can retry {failed === 1 ? "it" : "them"} from your dashboard without using more of your plan.
+        </p>
+      )}
+
+      <a href="/dashboard" className="pill pill-solid mt-6 inline-flex px-6 text-sm font-medium">
+        {ready > 0 ? `See your option${ready === 1 ? "" : "s"}` : "Go to my dashboard"}
+      </a>
+    </div>
+  )
+}
+
+function OptionMark({ status }: { status: FlyerDeliverable["status"] }) {
+  const base = "grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold"
+  if (status === "Ready") {
+    return <span className={`${base} bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)]`} aria-hidden="true">✓</span>
+  }
+  if (status === "Failed") {
+    return <span className={`${base} bg-[var(--destructive)] text-[var(--destructive-foreground)]`} aria-hidden="true">!</span>
+  }
+  if (status === "In Progress") {
+    return <span className={`${base} border-2 border-[var(--brand-teal-bright)] border-t-transparent animate-spin`} aria-hidden="true" />
+  }
+  return <span className={`${base} border border-border`} aria-hidden="true" />
 }
 
 function Detail({ label, value }: { label: string; value: string | null }) {

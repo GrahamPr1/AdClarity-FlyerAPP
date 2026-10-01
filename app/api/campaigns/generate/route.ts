@@ -128,7 +128,11 @@ export async function POST(req: NextRequest) {
   })
 
   waitUntil(
-    continuePipelineFromIntake(email, context.intake, requests, false, { id: campaignId, angleByFlyerId }).catch((err) => {
+    continuePipelineFromIntake(email, context.intake, requests, false, {
+      id: campaignId,
+      angleByFlyerId,
+      productName: product.name,
+    }).catch((err) => {
       console.error("[agent-pipeline] Unhandled campaign-generate pipeline error:", err)
     }),
   )

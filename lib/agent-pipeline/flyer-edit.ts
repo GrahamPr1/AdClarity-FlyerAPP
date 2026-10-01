@@ -40,6 +40,20 @@ export function supportsDirectEdit(html: string): boolean {
   return /data-field=/.test(html)
 }
 
+/**
+ * The order the EDITOR shows fields in.
+ *
+ * Document order is what cheerio returns, and on a split-panel template the
+ * footer's phone number comes before the headline in the markup — so the
+ * editor opened with "Phone" at the top and the headline third, which is
+ * backwards from how anyone thinks about a flyer. Sorting here rather than
+ * reordering the templates: the markup order is a layout decision and has
+ * no business deciding what the form looks like.
+ *
+ * Anything not listed keeps its document position, after these.
+ */
+const FIELD_ORDER = ["headline", "supporting", "cta", "phone", "address"]
+
 /** The editable fields and their current values, for rendering the form. */
 export function readEditableFields(html: string): EditableField[] {
   const $ = cheerio.load(html)
@@ -57,7 +71,14 @@ export function readEditableFields(html: string): EditableField[] {
       max: Number.isFinite(max) && max > 0 ? max : 200,
     })
   })
+  const rank = (f: string) => {
+    const i = FIELD_ORDER.indexOf(f)
+    return i === -1 ? FIELD_ORDER.length : i
+  }
   return out
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => rank(a.f.field) - rank(b.f.field) || a.i - b.i)
+    .map(({ f }) => f)
 }
 
 /**

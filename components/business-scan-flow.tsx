@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react"
 import { AiControlCenter } from "@/components/ai-control-center"
+import { LogoPreview } from "@/components/logo-preview"
 import { ScannedPagesPanel } from "@/components/scanned-pages-panel"
 import { createNdjsonParser, type ScanEvent } from "@/lib/scan-events"
 import { normalizeWebsiteUrl, displayHost } from "@/lib/url-normalize"
@@ -146,15 +147,7 @@ export function BusinessScanFlow({
             {profile.brand.logoUrl && (
               <div>
                 <p className="text-xs uppercase tracking-widest text-muted-foreground">Logo</p>
-                {/* eslint-disable-next-line @next/next/no-img-element -- a remote
-                    logo on an arbitrary client domain can't be added to
-                    next.config's image allowlist ahead of time. */}
-                <img
-                  src={profile.brand.logoUrl}
-                  alt=""
-                  className="mt-2 h-10 max-w-[10rem] object-contain"
-                  onError={(e) => { e.currentTarget.style.display = "none" }}
-                />
+                <LogoPreview src={profile.brand.logoUrl} className="mt-2" />
               </div>
             )}
             {swatches.length > 0 && (

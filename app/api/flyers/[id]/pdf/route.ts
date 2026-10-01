@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getDeliverablesForEmail } from "@/lib/store"
+import { getDeliverablesForEmail, recordFlyerExport } from "@/lib/store"
 import { ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
 import { renderFlyerPdf } from "@/lib/pdf/flyer-pdf"
 import { decodeFlyerHtml } from "@/lib/flyer-data-url"
@@ -60,6 +60,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "We couldn't build the PDF. Please try again." }, { status: 500 })
   }
   console.log(`[pdf] flyer ${id} (${variant}) rendered in ${rendered.ms}ms, ${rendered.pdf.length} bytes`)
+  // After the render succeeded, so a failed attempt is never recorded as an
+  // export. Admin sessions are excluded: the site owner opening a client's
+  // flyer is not that client getting their asset out of the product, and
+  // counting it would put a tick on their journey they did not earn.
+  if (session.sub !== ADMIN_SUB) await recordFlyerExport(email, id, "pdf")
 
   return new NextResponse(new Uint8Array(rendered.pdf), {
     status: 200,

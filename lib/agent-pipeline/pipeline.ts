@@ -1073,7 +1073,7 @@ export async function continuePipelineFromIntake(
    * INPUT, and a campaign id is bookkeeping the model has no business
    * seeing.
    */
-  campaign?: { id: string; angleByFlyerId: Record<string, string> },
+  campaign?: { id: string; angleByFlyerId: Record<string, string>; productName?: string },
 ): Promise<void> {
   // Saved before generation starts (not after) so a retry has something to
   // work with even if this very attempt is what fails.
@@ -1090,6 +1090,10 @@ export async function continuePipelineFromIntake(
       flyerRequests.map((r) => ({
         id: r.id,
         purpose: r.purpose,
+        // A campaign's options are all the same product seen from different
+        // angles, so the product's own name is the useful card title — the
+        // angle is already shown beside it as its own badge.
+        ...(campaign?.productName ? { title: campaign.productName } : {}),
         ...(campaign ? { campaignId: campaign.id, angle: campaign.angleByFlyerId[r.id] } : {}),
       })),
     )

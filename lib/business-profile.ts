@@ -93,6 +93,27 @@ export function isProfileUsable(p: BusinessProfile | null): boolean {
  * prompt. Weighted by what actually improves a flyer rather than by field
  * count — a logo and a phone number matter more than terminology.
  */
+/**
+ * Does this profile carry what a flyer actually needs?
+ *
+ * Deliberately NOT the completeness percentage above. That score weights
+ * logo and brand colours, which make a flyer look like the business but are
+ * not what makes it usable — a flyer with no phone number is broken in a way
+ * a flyer with no logo is not. The journey panel uses this to decide whether
+ * "Business profile" is genuinely done, and a tick there has to mean "you
+ * can generate from this", not "you are 70% of the way to a nicer one".
+ *
+ * A way to be reached is required and may be any real channel: a phone
+ * number, an email address or a street address all give the reader
+ * somewhere to go. Requiring a phone specifically would mark a profile
+ * incomplete for a business that genuinely only takes email.
+ */
+export function profileReadyForFlyer(p: BusinessProfile): boolean {
+  const reachable = !!(p.contact.phone || p.contact.email || p.contact.address)
+  const somethingToSay = !!p.description || p.services.length > 0
+  return !!p.businessName && reachable && somethingToSay
+}
+
 export function profileCompleteness(p: BusinessProfile): { score: number; missing: string[] } {
   const checks: { label: string; weight: number; present: boolean }[] = [
     { label: "Business name", weight: 2, present: !!p.businessName },

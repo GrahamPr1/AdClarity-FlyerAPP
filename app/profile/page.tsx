@@ -6,6 +6,7 @@ import { CampaignDefaultsForm } from "@/components/campaign-defaults-form"
 import { AccountStatus } from "@/components/account-status"
 import { BusinessProfileForm } from "@/components/business-profile-form"
 import { ThemeSetting } from "@/components/theme-setting"
+import { JourneyControlCenter } from "@/components/journey-control-center"
 
 export const metadata = {
   // The root layout's title template appends " — OneFlyer".
@@ -43,6 +44,12 @@ export default async function ProfilePage() {
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           What OneFlyer knows about you. Every campaign starts from this, so you never re-type it.
         </p>
+
+        {/* The same strip the flow and the dashboard carry. This page is a
+            step in that journey — the "Business profile" row links straight
+            here — so arriving and losing the thread would be the same
+            discontinuity the strip exists to remove. */}
+        <JourneyControlCenter className="mt-6" />
 
         {/* The canonical business profile. Anchored so the dashboard's
             "Update business details" can land directly on it. */}

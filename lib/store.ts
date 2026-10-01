@@ -355,12 +355,17 @@ export async function seedFlyerDeliverables(
   email: string,
   // campaignId/angle are optional so every existing caller is unchanged and
   // pre-campaign flyers keep their exact stored shape.
-  requests: { id: string; purpose: string; campaignId?: string; angle?: string }[],
+  // `title` is what the dashboard card shows; `purpose` is the brief the
+  // pipeline works from. They were the same field, which meant a campaign
+  // card was titled with the whole generated brief and rendered as a
+  // truncated run-on sentence. Optional so every existing caller keeps the
+  // exact behaviour it had.
+  requests: { id: string; purpose: string; title?: string; campaignId?: string; angle?: string }[],
 ): Promise<void> {
   const current = await readDeliverables(email)
   const newFlyers = requests.map((r): FlyerDeliverable => ({
     id: r.id,
-    title: r.purpose,
+    title: r.title?.trim() || r.purpose,
     status: "Pending",
     ...(r.campaignId ? { campaignId: r.campaignId } : {}),
     ...(r.angle ? { angle: r.angle } : {}),
@@ -1566,6 +1571,61 @@ export async function setGenerationStage(email: string, stage: string | null): P
 export async function getGenerationStage(email: string): Promise<string | null> {
   try {
     return (await redis.get<string>(generationStageKey(email))) ?? null
+  } catch {
+    return null
+  }
+}
+
+// ---- Export record ----------------------------------------------------------
+//
+// "Did this client ever get a finished asset out of the product?" — the last
+// step of the journey (see lib/journey.ts) and the one fact nothing else in
+// storage recorded. A flyer being Ready says the pipeline finished; it says
+// nothing about whether anyone downloaded or printed it.
+//
+// Written by the routes that actually serve a finished asset, so it cannot
+// report an export that did not happen. One key per client rather than a
+// field on FlyerDeliverable: the question is about the account, the writes
+// are frequent enough that widening a contract three surfaces read would be
+// the wrong trade, and nothing here needs to survive the flyer being deleted.
+//
+// No TTL. "They have exported before" stays true.
+
+export interface ExportRecord {
+  /** ISO timestamp of the most recent export. */
+  lastAt: string
+  /** How it left: a generated PDF, or the print/full-size view. */
+  lastKind: "pdf" | "print"
+  lastFlyerId: string
+  count: number
+}
+
+function exportKey(email: string) {
+  return `client:${email}:exports`
+}
+
+/** Never throws — recording an export must not be able to fail a download. */
+export async function recordFlyerExport(
+  email: string,
+  flyerId: string,
+  kind: ExportRecord["lastKind"],
+): Promise<void> {
+  try {
+    const existing = await redis.get<ExportRecord>(exportKey(email))
+    await redis.set(exportKey(email), {
+      lastAt: new Date().toISOString(),
+      lastKind: kind,
+      lastFlyerId: flyerId,
+      count: (existing?.count ?? 0) + 1,
+    } satisfies ExportRecord)
+  } catch {
+    // Deliberately swallowed.
+  }
+}
+
+export async function getExportRecord(email: string): Promise<ExportRecord | null> {
+  try {
+    return (await redis.get<ExportRecord>(exportKey(email))) ?? null
   } catch {
     return null
   }

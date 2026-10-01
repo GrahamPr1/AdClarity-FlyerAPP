@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { fetcher } from "@/lib/swr-fetcher"
 import { BusinessDetailsCard } from "@/components/business-details-card"
+import type { BusinessProfile } from "@/lib/business-profile"
 import type {
   CampaignRecord,
   BusinessCategory,
@@ -22,6 +23,7 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { trackEvent } from "@/lib/analytics"
 import { PrintButton } from "@/components/print-button"
 import { PdfButton } from "@/components/pdf-button"
+import { JourneyControlCenter } from "@/components/journey-control-center"
 import { FlyerEditPanel } from "@/components/flyer-edit-panel"
 import { Flyer3D } from "@/components/flyer-3d"
 
@@ -569,7 +571,7 @@ export function FlyerCard({
                   onKeyDown={(e) => { if (e.key === "Enter") void addChannel() }}
                   disabled={minting}
                   maxLength={40}
-                  placeholder="Email blast"
+                  placeholder="Front counter"
                   aria-label="Channel name"
                   className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs"
                 />
@@ -684,14 +686,27 @@ export function FlyerCard({
  *
  * Hidden entirely once saved, and dismissible before that. Deliberately not a
  * modal and not repeated — it's an offer, not a demand.
+ *
+ * Asks the CANONICAL profile whether there is anything left to offer, not
+ * the legacy campaign-defaults record. It used to ask the latter, and since
+ * CampaignDefaultsForm stopped writing colours, tone and contact details
+ * that record is empty for everyone who arrived through the scanner — so a
+ * client whose site had just been read for exactly those fields was offered
+ * the chance to go and enter them, on the same screen that displayed them.
  */
 function ProfileNudge() {
   const [dismissed, setDismissed] = useState(false)
-  const { data } = useSWR<{ defaults: unknown | null }>("/api/campaign-defaults", fetcher)
+  const { data } = useSWR<{ profile: BusinessProfile | null }>("/api/profile", fetcher)
 
   // Render nothing until we know — flashing a "finish your profile" prompt at
   // someone who already finished it is worse than showing it a moment late.
-  if (!data || data.defaults || dismissed) return null
+  if (!data || dismissed) return null
+
+  // Only the things this nudge actually collects. Anything already known
+  // is not worth asking for again.
+  const p = data.profile
+  const missing = !p || !p.brand.colors || !p.brand.tone || !(p.contact.phone || p.contact.email)
+  if (!missing) return null
 
   return (
     <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
@@ -873,6 +888,12 @@ export function DashboardClient() {
         <>
           {data.businessCategoryIsDefaulted && <CategoryBanner onSaved={mutate} />}
 
+          {/* The same strip the onboarding flow shows, kept here rather than
+              hidden on completion: on the dashboard it is the record of what
+              was actually done, and it carries the live generation stage
+              while a campaign is running. */}
+          <JourneyControlCenter className="mt-6" />
+
           {/* Plan limit reached. The backend already enforces this hard (see
               the limit_reached branch in /api/intake) — before this, the only
               way a client learned they were out was to fill in the entire
@@ -906,22 +927,26 @@ export function DashboardClient() {
           </div>
 
           {/* Plan + status summary */}
-          <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
               <p className="text-xs uppercase tracking-widest text-muted-foreground">Current plan</p>
               <p className="mt-2 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>{data.planName}</p>
               <div className="mt-2"><StatusBadge status={data.billingStatus === "Active" ? "Ready" : "Pending"} /></div>
               <p className="mt-1.5 text-xs text-muted-foreground">Billing: {data.billingStatus}</p>
             </div>
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
-              <p className="text-xs uppercase tracking-widest text-muted-foreground">Onboarding</p>
-              <p className="mt-2 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>{data.intakeStatus}</p>
-              {data.intakeStatus === "Not started" && (
-                <Link href="/onboarding" className="mt-2 inline-block text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
-                  Complete onboarding →
-                </Link>
-              )}
-            </div>
+            {/* The "Onboarding: Not started / Complete onboarding →" tile
+                used to sit here and has been removed.
+                `intakeStatus` is only ever set to "Submitted" by the legacy
+                onboarding FORM (see seedFlyerDeliverables). The campaign
+                path — scan, profile, product, generate — never touches it,
+                so a client who had scanned their site, built a profile,
+                added a product and generated three finished flyers was told
+                on that same screen that onboarding had not started, with a
+                link inviting them to go and do it. Walked end to end as a
+                new client, it contradicted the progress strip directly
+                above it.
+                Nothing replaces it because the strip already answers the
+                question honestly and for both paths. */}
             <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
               <p className="text-xs uppercase tracking-widest text-muted-foreground">Deliverables ready</p>
               <p className="mt-2 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
