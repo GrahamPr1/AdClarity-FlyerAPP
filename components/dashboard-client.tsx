@@ -35,13 +35,25 @@ import { Flyer3D } from "@/components/flyer-3d"
 // gates the rest of the dashboard. Disappears for good the moment they pick
 // something (including explicitly picking "Other"), since setting a real
 // value is what businessCategoryIsDefaulted actually tracks.
+//
+// AND only when the scan did not already answer it. businessCategoryIsDefaulted
+// tracks one specific field, and knew nothing about the business profile — so a
+// client whose site had just been read, and whose industry was displayed in the
+// Business Details card a few inches below, was still asked what type of
+// business they were. Asking for something we are already showing them reads as
+// the scan not having worked.
 function CategoryBanner({ onSaved }: { onSaved: () => void }) {
   const [dismissed, setDismissed] = useState(false)
   const [category, setCategory] = useState<BusinessCategory | "">("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const { data: profileData } = useSWR<{ profile: BusinessProfile | null }>("/api/profile", fetcher)
 
   if (dismissed) return null
+  // Render nothing until we know. Flashing the prompt and then withdrawing it
+  // is worse than showing it a moment late.
+  if (!profileData) return null
+  if (profileData.profile?.industry) return null
 
   async function handleSave() {
     if (!category) return
