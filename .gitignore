@@ -22,3 +22,6 @@ node_modules
 /playwright-report/
 /blob-report/
 tests/browser/.auth/
+
+# TypeScript build cache
+*.tsbuildinfo
