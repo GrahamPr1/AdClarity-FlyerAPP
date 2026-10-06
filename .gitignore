@@ -25,3 +25,6 @@ tests/browser/.auth/
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# Scratch scripts
+.tmp-*
