@@ -5,6 +5,7 @@ import { PLAN_LIMITS, BUSINESS_CATEGORIES } from "@/lib/types"
 import { saveIntake, getOrCreateClient, reserveFlyerQuota, setClientBusinessCategory, setClientBusinessName } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
+import { nopAgentGenerationBlock } from "@/lib/enterprise/generation-guard"
 import { continuePipelineFromIntake, runIntakeStage, MAX_FLYERS_PER_BATCH } from "@/lib/agent-pipeline/pipeline"
 import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
 
@@ -25,6 +26,13 @@ export async function POST(request: NextRequest) {
   const session = await getSessionIdentity(request)
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  // A NOP agent is refused before anything else, the same as the other AI
+  // routes. The second check below covers admin submitting for an agent.
+  if (session.sub !== ADMIN_SUB) {
+    const nopBlock = await nopAgentGenerationBlock(session.sub)
+    if (nopBlock) return nopBlock
   }
 
   let body: IntakeSubmission
@@ -62,6 +70,9 @@ export async function POST(request: NextRequest) {
   if (session.sub !== ADMIN_SUB && session.sub !== email) {
     return NextResponse.json({ error: "Forbidden — you can only submit for your own signed-in email" }, { status: 403 })
   }
+
+  const nopBlock = await nopAgentGenerationBlock(email)
+  if (nopBlock) return nopBlock
 
   // -------------------------------------------------------------------------
   // PLAN LIMIT — checked BEFORE running any part of the pipeline.

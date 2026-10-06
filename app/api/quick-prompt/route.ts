@@ -5,6 +5,7 @@ import type { QuickPromptFormat, QuickPromptStyle } from "@/lib/types"
 import { getOrCreateClient, reserveFlyerQuota, getSavedBrandProfile, getCampaignDefaults } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
+import { nopAgentGenerationBlock } from "@/lib/enterprise/generation-guard"
 import { continuePipelineFromIntake } from "@/lib/agent-pipeline/pipeline"
 import { runQuickPromptAgent } from "@/lib/agent-pipeline/agents/quickPromptAgent"
 import type { NormalizedIntake } from "@/lib/agent-pipeline/schemas/intake"
@@ -56,6 +57,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const email = session.sub
+
+  const nopBlock = await nopAgentGenerationBlock(email)
+  if (nopBlock) return nopBlock
 
   let body: QuickPromptRequestBody
   try {

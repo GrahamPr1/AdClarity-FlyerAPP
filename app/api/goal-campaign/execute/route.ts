@@ -10,6 +10,7 @@ import {
 } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
+import { nopAgentGenerationBlock } from "@/lib/enterprise/generation-guard"
 import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
 import { continuePipelineFromIntake } from "@/lib/agent-pipeline/pipeline"
 import { checkGoalRateLimit } from "@/lib/agent-pipeline/goal-rate-limit"
@@ -35,6 +36,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const email = session.sub
+
+  const nopBlock = await nopAgentGenerationBlock(email)
+  if (nopBlock) return nopBlock
 
   const rate = await checkGoalRateLimit(email, "execute")
   if (!rate.allowed) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { randomUUID } from "node:crypto"
 import { waitUntil } from "@vercel/functions"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
+import { nopAgentGenerationBlock } from "@/lib/enterprise/generation-guard"
 import { getOrCreateClient, getProduct, reserveFlyerQuota, saveCampaign } from "@/lib/store"
 import { getPlan } from "@/lib/plans"
 import { PLAN_LIMITS } from "@/lib/types"
@@ -37,6 +38,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not available for the admin account" }, { status: 403 })
   }
   const email = session.sub
+
+  const nopBlock = await nopAgentGenerationBlock(email)
+  if (nopBlock) return nopBlock
 
   let body: { productId?: unknown; variations?: unknown; formatId?: unknown }
   try {
