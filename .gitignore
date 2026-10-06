@@ -28,3 +28,6 @@ tests/browser/.auth/
 
 # Scratch scripts
 .tmp-*
+
+# Local NOP roster fixtures: test inboxes, never committed
+enterprise/nop/**/*.local.csv

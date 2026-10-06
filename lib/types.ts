@@ -728,6 +728,54 @@ export interface AgentProfile {
   qrDestination: string
   orgId: string
   savedAt: string
+
+  // ---- Locked-agent registration (NOP) ----
+  //
+  // Optional so Brief 3's demo profiles, which have no roster behind them,
+  // stay valid. System fields are copied from the roster, never from what the
+  // agent typed. Status is deliberately NOT here: it is read from the roster
+  // at call time (see canGenerate), so a stale copy can never let a suspended
+  // agent through.
+  agentId?: string
+  referralCode?: string
+  companyName?: string
+  /** Agent-editable. `name`/`phone`/`email` above mirror these. */
+  displayName?: string
+  displayPhone?: string
+  displayEmail?: string
+}
+
+export type AgentRosterStatus = "pending" | "active" | "suspended" | "terminated"
+
+/** One row of an org's roster, as issued by the org. Stored at roster:{org}:{agentId}. */
+export interface RosterRecord {
+  agentId: string
+  companyName: string
+  agentName: string
+  /** Normalized (trimmed, lowercased). Verification codes go here and nowhere else. */
+  rosterEmail: string
+  /** Formatted (XXX) XXX-XXXX. */
+  rosterPhone: string
+  referralCode: string
+  /** As supplied. Never used live; only compared against the expected URL. */
+  enrollmentUrl: string
+  enrollmentUrlMismatch: boolean
+  status: AgentRosterStatus
+  importedAt: string
+}
+
+/** A blocked registration attempt surfaced to the org admin. */
+export interface AgentFlag {
+  id: string
+  type: "email_mismatch" | "id_already_registered"
+  agentId: string
+  /** The OneFlyer account that made the attempt. */
+  account: string
+  /** email_mismatch: what the agent typed. */
+  attemptedEmail?: string
+  /** id_already_registered: who holds it. */
+  heldBy?: string
+  at: string
 }
 
 // ---- AI generation cost log -------------------------------------------------
