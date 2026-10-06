@@ -1,0 +1,36 @@
+{
+  "_note": "System-controlled values for the NOP flyer templates (kit v1.1.1). All locked copy (headlines, services, disclaimer) lives in the HTML masters and changes only through a new Design version. This file holds only values the rendering engine injects that agents cannot edit.",
+  "program": {
+    "name": "Neighborhood Outreach Program",
+    "kit_version": "1.1.1",
+    "effective_date": "2026-10-05"
+  },
+  "enroll_domain": "neighbor.basicbenefits.com/",
+  "default_logo": "assets/images/nop_logo.png",
+  "version_stamp_format": "NOP-{template}-{lang} v1.1.1 {MM}/{YYYY}",
+  "prices": {
+    "P1": { "single": "$22.50", "family": "$29.25" },
+    "P2": { "single": "$82.50", "family": "$107.25" },
+    "P3": { "single": "$135.00", "family": "$175.50" }
+  },
+  "template_price_fields": {
+    "NOP_P1_EN": { "price_single": "P1.single", "price_family": "P1.family" },
+    "NOP_P1_ES": { "price_single": "P1.single", "price_family": "P1.family" },
+    "NOP_P2_EN": { "price_single": "P2.single", "price_family": "P2.family" },
+    "NOP_P2_ES": { "price_single": "P2.single", "price_family": "P2.family" },
+    "NOP_P3_EN": { "price_single": "P3.single", "price_family": "P3.family" },
+    "NOP_P3_ES": { "price_single": "P3.single", "price_family": "P3.family" },
+    "NOP_ALL_EN": {
+      "price_p1_single": "P1.single", "price_p1_family": "P1.family",
+      "price_p2_single": "P2.single", "price_p2_family": "P2.family",
+      "price_p3_single": "P3.single", "price_p3_family": "P3.family"
+    },
+    "NOP_ALL_ES": {
+      "price_p1_single": "P1.single", "price_p1_family": "P1.family",
+      "price_p2_single": "P2.single", "price_p2_family": "P2.family",
+      "price_p3_single": "P3.single", "price_p3_family": "P3.family"
+    }
+  },
+  "editable_by_agent": ["agent_name", "agent_phone", "agent_email", "agent_logo"],
+  "system_controlled": ["agent_id", "agent_slug", "enroll_domain", "qr_code", "version_stamp", "all price fields"]
+}

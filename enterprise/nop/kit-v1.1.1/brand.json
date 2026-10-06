@@ -1,0 +1,241 @@
+{
+  "program": "Neighborhood Outreach Program",
+  "version": "1.1",
+  "colors": {
+    "navy": {
+      "hex": "#000836",
+      "use": "Header band, text, icon tiles, Package 3 price block and column"
+    },
+    "cyan": {
+      "hex": "#16B2F7",
+      "use": "Headline accent line, tier bar, card/column top borders, icons on navy, badges"
+    },
+    "cyan_dark": {
+      "hex": "#0A90C9",
+      "use": "Check icons on white, logo \"Outreach Program\" (color version)"
+    },
+    "link_blue": {
+      "hex": "#0277A8",
+      "use": "agent_slug text"
+    },
+    "white": {
+      "hex": "#FFFFFF",
+      "use": "Page, cards, QR quiet zone, text on navy"
+    },
+    "ink": {
+      "hex": "#2B3348",
+      "use": "Body copy, disclaimer"
+    },
+    "slate": {
+      "hex": "#5A6472",
+      "use": "Field labels, version stamp"
+    },
+    "slate_2": {
+      "hex": "#828993",
+      "use": "Package 1 top border"
+    },
+    "border": {
+      "hex": "#D0D2D8",
+      "use": "Card borders, footer rule, dashes"
+    },
+    "hairline": {
+      "hex": "#E4E7EC",
+      "use": "Comparison row rules"
+    },
+    "on_navy_lead": {
+      "hex": "#C2C9DC",
+      "use": "Supporting text on navy"
+    },
+    "check_chip": {
+      "rgba": "rgba(22,178,247,0.15)",
+      "use": "Check circle fill on white"
+    },
+    "guide_red": {
+      "hex": "#E11D48",
+      "use": "Template guides only. Never printed."
+    }
+  },
+  "fonts": {
+    "primary": {
+      "family": "Poppins",
+      "license": "SIL Open Font License 1.1",
+      "files": "fonts/",
+      "weights_used": {
+        "300": "Light: headline line 1",
+        "400": "Regular: body, disclaimer, version stamp",
+        "600": "SemiBold: card titles, labels, steps, phone/email",
+        "700": "Bold: eyebrows, badges, names, agent name, IDs, URL, disclaimer lead",
+        "800": "ExtraBold: prices",
+        "800 italic": "ExtraBold Italic: headline accent line"
+      }
+    }
+  },
+  "type_scale_px_at_96dpi": {
+    "headline_pkg": {
+      "EN": 36,
+      "ES": 33,
+      "line_height": 1.1,
+      "tracking": -0.8
+    },
+    "headline_comparison": {
+      "EN": 32,
+      "ES": 30
+    },
+    "package_name": {
+      "size": 22,
+      "weight": 700
+    },
+    "who_for": {
+      "size": 14,
+      "line_height": 1.4
+    },
+    "wordmark": {
+      "size": 16,
+      "weight": 700
+    },
+    "language_tag": {
+      "size": 12,
+      "weight": 600
+    },
+    "eyebrow": {
+      "size": 11,
+      "weight": 700,
+      "tracking": 2.5,
+      "case": "uppercase"
+    },
+    "tier_badge": {
+      "size": 11,
+      "weight": 700,
+      "tracking": 1.6,
+      "case": "uppercase"
+    },
+    "service_title": {
+      "P1": 18,
+      "P2": 14.5,
+      "P3": 13.5,
+      "weight": 600
+    },
+    "service_desc": {
+      "P1": 14.5,
+      "P2": 12.5,
+      "P3": 11.5
+    },
+    "featured_title": {
+      "size": 14,
+      "weight": 700
+    },
+    "featured_desc": {
+      "size": 12
+    },
+    "comparison_row_title": {
+      "size": 12.5,
+      "weight": 600
+    },
+    "comparison_row_sub": {
+      "size": 10.5
+    },
+    "comparison_col_name": {
+      "size": 12.5,
+      "weight": 700
+    },
+    "comparison_cell_text": {
+      "size": 11.5,
+      "weight": 700
+    },
+    "enroll_steps": {
+      "package": 14,
+      "comparison": 13,
+      "weight": 600
+    },
+    "price_package": {
+      "size": 32,
+      "weight": 800
+    },
+    "price_comparison": {
+      "size": 21,
+      "weight": 800
+    },
+    "agent_name": {
+      "size": 22,
+      "weight": 700,
+      "min": 16
+    },
+    "agent_fields": {
+      "size": 14
+    },
+    "field_labels": {
+      "size": 11,
+      "weight": 600,
+      "case": "uppercase"
+    },
+    "disclaimer": {
+      "size": 10.67,
+      "size_pt": 8,
+      "line_height": 1.36,
+      "color": "#2B3348",
+      "lead_weight": 700,
+      "lead_color": "#000836"
+    },
+    "footer_program_name": {
+      "size": 11,
+      "weight": 700
+    },
+    "version_stamp": {
+      "size": 9
+    }
+  },
+  "radii_px": {
+    "agent_card": 14,
+    "price_block": 14,
+    "service_card": 12,
+    "comparison_column": 12,
+    "icon_tile": 9,
+    "pill": 999
+  },
+  "tier_escalation": {
+    "P1": {
+      "accent_bar_px": 4,
+      "badge": "outline white",
+      "dots_filled": 1,
+      "price_block": "white, grey top border",
+      "comparison_column": "white, grey top border"
+    },
+    "P2": {
+      "accent_bar_px": 8,
+      "badge": "cyan fill + Most Popular",
+      "dots_filled": 2,
+      "price_block": "white, cyan top border",
+      "comparison_column": "white, cyan border + Most Popular tab",
+      "header_glow": 0.2
+    },
+    "P3": {
+      "accent_bar_px": 14,
+      "badge": "cyan fill",
+      "dots_filled": 3,
+      "price_block": "navy fill, cyan top accent",
+      "comparison_column": "navy fill, cyan top accent",
+      "header_glow": 0.38
+    },
+    "ALL": {
+      "accent_bar_px": 8,
+      "badge": "cyan fill, 3 dots",
+      "header_glow": 0.3
+    }
+  },
+  "logo": {
+    "files": [
+      "assets/images/nop_logo.svg",
+      "assets/images/nop_logo.png",
+      "assets/images/nop_logo_white.svg",
+      "assets/images/nop_logo_white.png"
+    ],
+    "png_size": "1200 x 400, transparent",
+    "construction": "2x2 dot mark + Poppins Bold wordmark (outlined to paths)"
+  },
+  "grid": {
+    "trim_in": "8.5 x 11",
+    "bleed_in": 0.125,
+    "safe_margin_in": 0.375,
+    "units": "96 px = 1 in"
+  }
+}
