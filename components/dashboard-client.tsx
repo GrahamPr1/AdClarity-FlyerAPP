@@ -22,7 +22,7 @@ import { FormFillSection } from "@/components/form-fill-section"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { trackEvent } from "@/lib/analytics"
 import { PrintButton } from "@/components/print-button"
-import { PdfButton } from "@/components/pdf-button"
+import { DownloadMenu } from "@/components/download-menu"
 import { JourneyControlCenter } from "@/components/journey-control-center"
 import { FlyerEditPanel } from "@/components/flyer-edit-panel"
 import { Flyer3D } from "@/components/flyer-3d"
@@ -240,7 +240,7 @@ function CopyableText({ label, text }: { label: string; text: string }) {
   )
 }
 
-function RepurposedSection({ repurposed, title, viewUrl }: { repurposed: RepurposedFlyerContent; title: string; viewUrl: string }) {
+function RepurposedSection({ flyerId, repurposed, title, viewUrl }: { flyerId: string; repurposed: RepurposedFlyerContent; title: string; viewUrl: string }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -254,11 +254,8 @@ function RepurposedSection({ repurposed, title, viewUrl }: { repurposed: Repurpo
           <div>
             <div className="flex items-center justify-between gap-2 mb-1.5">
               <p className="text-xs font-medium text-muted-foreground">Instagram post</p>
-              <a href={repurposed.instagramDownloadUrl}
-                download={`${title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-instagram.html`}
-                className="text-xs font-medium text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
-                Download
-              </a>
+              <DownloadMenu flyerId={flyerId} title={title} htmlUrl={repurposed.instagramDownloadUrl} variant="instagram"
+                triggerClassName="inline-flex items-center gap-1 text-xs font-medium text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] disabled:opacity-60 transition-colors" />
             </div>
             <FlyerThumbnail downloadUrl={repurposed.instagramDownloadUrl} viewUrl={`${viewUrl}&variant=instagram`} title={`${title} Instagram`} iframeWidth={1080} iframeHeight={1080} scale={0.14} />
           </div>
@@ -622,13 +619,8 @@ export function FlyerCard({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {ready && flyer.downloadUrl && (
-            <a href={flyer.downloadUrl}
-              download={`${flyer.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.html`}
-              className="text-xs font-medium px-4 py-1.5 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] transition-colors">
-              Download
-            </a>
+            <DownloadMenu flyerId={flyer.id} title={flyer.title} htmlUrl={flyer.downloadUrl} />
           )}
-          {ready && flyer.downloadUrl && <PdfButton flyerId={flyer.id} title={flyer.title} />}
           {ready && flyer.downloadUrl && <PrintButton flyerId={flyer.id} title={flyer.title} />}
           {/* 4D: edits THIS flyer's own stored HTML. Each flyer owns its
               document, so there is no master template to damage. */}
@@ -668,7 +660,7 @@ export function FlyerCard({
       </div>
       {ready && flyer.repurposed && (
         <div className="px-4 pb-4">
-          <RepurposedSection repurposed={flyer.repurposed} title={flyer.title} viewUrl={viewUrl} />
+          <RepurposedSection flyerId={flyer.id} repurposed={flyer.repurposed} title={flyer.title} viewUrl={viewUrl} />
         </div>
       )}
       {ready && onOrderPrint && (
@@ -1104,13 +1096,12 @@ export function DashboardClient() {
               </div>
 
               {/* Says what each button actually gives you, next to where
-                  they're acted on. Three files, three jobs, and the
-                  difference is not obvious from the labels alone. */}
+                  they're acted on. The difference is not obvious from the
+                  labels alone. */}
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                <span className="text-foreground">PDF</span> gives you a file to email or take to a print shop,
-                at the piece&apos;s real physical size. <span className="text-foreground">Print</span> sends it
-                straight to your own printer. <span className="text-foreground">Download</span> saves the
-                underlying HTML.
+                <span className="text-foreground">Download</span>{" "}gives you a PDF to email or take to a print
+                shop, at the piece&apos;s real physical size, or the underlying HTML.{" "}
+                <span className="text-foreground">Print</span>{" "}sends it straight to your own printer.
               </p>
               {/* 4A — the hierarchy made visible: Product -> Campaign ->
                   Creative options -> this flyer. Flyers generated together

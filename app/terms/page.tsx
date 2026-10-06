@@ -19,9 +19,8 @@ export default function TermsPage() {
         You describe your business and a promotion. We generate a print-ready flyer and, on paid
         plans, a matching Instagram design and caption, a text-message blurb, a Nextdoor post, and
         a trackable QR code. Flyers are self-contained HTML files. You can print one directly from your
-        dashboard, or save it as a PDF through the same browser print dialog;
-        each format prints at its real physical size. There is no separate
-        one-click PDF download.
+        dashboard or download it as a PDF or as HTML; each format prints at
+        its real physical size.
       </p>
 
       <H2>Your account</H2>

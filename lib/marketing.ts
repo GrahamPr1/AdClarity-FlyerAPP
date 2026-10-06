@@ -206,7 +206,7 @@ export const TRUST_POINTS: { title: string; body: string }[] = [
 export const FAQS: { q: string; a: string }[] = [
   {
     q: "What file do I actually get, and how do I print it?",
-    a: "Three buttons on every finished piece. PDF gives you a print-ready file to email or take to a print shop. Print sends it straight to your own printer. Download saves the underlying HTML, which is what the flyer actually is \u2014 a self-contained file you can open in any browser. All three come out at the real size of whatever you made: a flyer or one-pager on letter paper, a door hanger at 3.5 by 8.5 inches, a long proposal across two pages.",
+    a: "Two buttons on every finished piece. Download lets you choose a PDF, a print-ready file to email or take to a print shop, or the underlying HTML, which is what the flyer actually is \u2014 a self-contained file you can open in any browser. Print sends it straight to your own printer. All of them come out at the real size of whatever you made: a flyer or one-pager on letter paper, a door hanger at 3.5 by 8.5 inches, a long proposal across two pages.",
   },
   {
     q: "What is OneFlyer?",
@@ -234,7 +234,7 @@ export const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Can I get the flyers printed?",
-    a: "Two ways. Print it yourself straight from your dashboard — the Print button sends it to your printer at its real size, and the PDF button gives you a print-ready file to take elsewhere, with no design software needed. On Basic and Pro you can also request printed copies from your dashboard: you tell us the quantity and where to ship them, and we email you a quote covering price and turnaround before anything is printed or charged. Printing is not included in your subscription and is never charged automatically — it is a real request we fulfil by hand, so pricing depends on quantity, paper and destination.",
+    a: "Two ways. Print it yourself straight from your dashboard — the Print button sends it to your printer at its real size, and Download \u2192 PDF gives you a print-ready file to take elsewhere, with no design software needed. On Basic and Pro you can also request printed copies from your dashboard: you tell us the quantity and where to ship them, and we email you a quote covering price and turnaround before anything is printed or charged. Printing is not included in your subscription and is never charged automatically — it is a real request we fulfil by hand, so pricing depends on quantity, paper and destination.",
   },
   {
     q: "Can I track QR code scans?",
