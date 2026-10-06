@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getDeliverablesForEmail, recordFlyerExport } from "@/lib/store"
-import { ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
+import { ensurePageSize, ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
 import { decodeFlyerHtml } from "@/lib/flyer-data-url"
 
 // GET /api/flyers/[id]/view?variant=print|instagram
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // ensureScrollable also injects print-color-adjust (see flyer-html.ts).
   // Applied on READ so every flyer already in storage prints with its
   // backgrounds intact, not just ones generated since.
-  const html = ensureScrollable(decoded)
+  const html = ensurePageSize(ensureScrollable(decoded))
 
   // Reached only by a deliberate act — the Print button loads it into a
   // hidden iframe, and "open full size" navigates to it. NOT the dashboard

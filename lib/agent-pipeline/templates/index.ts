@@ -44,6 +44,20 @@ const CANVAS = {
   "social-post": { w: 1080, h: 1080 },
 } as const
 
+/**
+ * The physical page each canvas is meant to come out on. The SHELL below
+ * emits no @page, so without this a door hanger printed (and exported to
+ * PDF) onto a letter sheet. Applied on read by ensurePageSize() rather than
+ * written into SHELL, so every template flyer already stored is fixed too and
+ * the stored HTML download stays byte-for-byte what it was. The social square
+ * matches what the AI path's Instagram document declares.
+ */
+export const CANVAS_PAGE_SIZE: Record<string, string> = {
+  [`${CANVAS.flyer.w}x${CANVAS.flyer.h}`]: "8.5in 11in",
+  [`${CANVAS["door-hanger"].w}x${CANVAS["door-hanger"].h}`]: "3.5in 8.5in",
+  [`${CANVAS["social-post"].w}x${CANVAS["social-post"].h}`]: "1080px 1080px",
+}
+
 const SHELL = (body: string, size: { w: number; h: number } = CANVAS.flyer) => `<!doctype html><html><head><meta charset="utf-8"><title>{{BUSINESS}}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}

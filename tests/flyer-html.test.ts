@@ -6,6 +6,7 @@ import {
   canonicalOfferFrom,
   assertOfferPreserved,
   ensureScrollable,
+  ensurePageSize,
   toDataUrl,
 } from "@/lib/agent-pipeline/flyer-html"
 import type { FlyerSpecification } from "@/lib/agent-pipeline/schemas/flyer"
@@ -65,6 +66,43 @@ describe("ensureScrollable", () => {
 
   it("still injects when there is no <head>", () => {
     expect(ensureScrollable("<html><body>x</body></html>")).toContain("overflow-y:auto !important")
+  })
+})
+
+describe("ensurePageSize", () => {
+  // The template SHELL's own canvas rule, as fillTemplate emits it.
+  const shell = (w: number, h: number) =>
+    `<!doctype html><html><head><style>html,body{width:${w}px;height:${h}px}</style></head><body>x</body></html>`
+
+  it("gives a template door hanger its 3.5x8.5in page, scaled to fit", () => {
+    const out = ensurePageSize(shell(350, 850))
+    expect(out).toContain("@page{size:3.5in 8.5in;margin:0}")
+    expect(out).toContain("zoom:.9599")
+  })
+
+  it("gives a template flyer a letter page", () => {
+    expect(ensurePageSize(shell(850, 1100))).toContain("@page{size:8.5in 11in;margin:0}")
+  })
+
+  it("gives the social square its own pixel size and no print scaling", () => {
+    const out = ensurePageSize(shell(1080, 1080))
+    expect(out).toContain("@page{size:1080px 1080px;margin:0}")
+    expect(out).not.toContain("zoom")
+  })
+
+  it("leaves a document that declares its own @page alone", () => {
+    const html = "<html><head><style>@page{size:3.5in 8.5in}html,body{width:350px;height:850px}</style></head><body>x</body></html>"
+    expect(ensurePageSize(html)).toBe(html)
+  })
+
+  it("leaves an unknown canvas alone rather than guessing", () => {
+    const html = shell(900, 900)
+    expect(ensurePageSize(html)).toBe(html)
+  })
+
+  it("is not applied by toDataUrl, so the stored HTML download is unchanged", () => {
+    const decoded = Buffer.from(toDataUrl(shell(350, 850)).split("base64,")[1], "base64").toString("utf-8")
+    expect(decoded).not.toContain("@page")
   })
 })
 

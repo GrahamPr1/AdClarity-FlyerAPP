@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio"
 import type { FlyerSpecification } from "./schemas/flyer"
+import { CANVAS_PAGE_SIZE } from "./templates"
 
 // Pure, dependency-free helpers for producing and repairing flyer HTML.
 //
@@ -54,6 +55,39 @@ export function ensureScrollable(html: string): string {
   if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${INJECTED_CSS}</head>`)
   if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${INJECTED_CSS}</body>`)
   return html + INJECTED_CSS
+}
+
+/**
+ * Gives a code-built template document the @page its format needs.
+ *
+ * AI-written flyers declare their own @page; the templates (template mode,
+ * on by default) are fixed pixel canvases that declare none, so the browser
+ * and the PDF renderer both fell back to letter — a door hanger came out as a
+ * small strip on an 8.5x11 sheet. The template SHELL's `html,body{width;height}`
+ * rule identifies the canvas exactly.
+ *
+ * Called on READ only (the view and PDF routes), never by toDataUrl, so the
+ * stored document — and the HTML download, which is that document — is
+ * unchanged. A document with its own @page, or one that isn't a known
+ * canvas, is returned as is.
+ */
+export function ensurePageSize(html: string): string {
+  if (/@page/i.test(html)) return html
+  const canvas = html.match(/html,body\{width:(\d+)px;height:(\d+)px\}/)
+  const size = canvas && CANVAS_PAGE_SIZE[`${canvas[1]}x${canvas[2]}`]
+  if (!size) return html
+  // The print canvases are laid out at ~100dpi and the page is 96 CSS px per
+  // inch, so an 850x1100 flyer is 4% larger than its sheet. Left to
+  // shrink-to-fit, Chromium rounded it onto a second, near-empty page once
+  // the margin was 0. Scaled explicitly it fits one sheet, and the same holds
+  // in engines that don't shrink-to-fit at all. .9599 rather than the exact
+  // .96: at .96 the canvas lands precisely on the page edge and Chromium
+  // still rounded the banner-hero layout onto a second page (measured). The
+  // 0.1px it gives up is invisible.
+  const fit = size.endsWith("px") ? "" : "@media print{html{width:auto!important;height:auto!important}body{zoom:.9599}}"
+  const css = `<style data-oneflyer="page-size">@page{size:${size};margin:0}${fit}</style>`
+  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${css}</head>`)
+  return css + html
 }
 
 /**

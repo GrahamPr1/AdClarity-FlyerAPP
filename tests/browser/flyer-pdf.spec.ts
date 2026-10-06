@@ -5,7 +5,7 @@ import path from "node:path"
 import { execFileSync } from "node:child_process"
 import { PNG } from "pngjs"
 import jsQR from "jsqr"
-import { ensureScrollable, substituteLogo, substituteQr } from "@/lib/agent-pipeline/flyer-html"
+import { ensurePageSize, ensureScrollable, substituteLogo, substituteQr } from "@/lib/agent-pipeline/flyer-html"
 import { fillTemplate } from "@/lib/agent-pipeline/template-mode"
 import { TEMPLATES } from "@/lib/agent-pipeline/templates"
 import { STYLE_FONT_STACKS } from "@/lib/brand-controls"
@@ -45,7 +45,9 @@ const CASES = [
   { name: "coloring", inches: [8.5, 11] },
 ] as const
 
-const load = (name: string) => ensureScrollable(fs.readFileSync(path.join(FIXTURES, `${name}.html`), "utf8"))
+// Exactly what the PDF route does on read.
+const asServed = (html: string) => ensurePageSize(ensureScrollable(html))
+const load = (name: string) => asServed(fs.readFileSync(path.join(FIXTURES, `${name}.html`), "utf8"))
 
 for (const c of CASES) {
   test(`${c.name} exports at its own physical size`, async () => {
@@ -57,6 +59,44 @@ for (const c of CASES) {
     expect(w / PT_PER_IN, `${c.name} width`).toBeCloseTo(c.inches[0], 1)
     expect(h / PT_PER_IN, `${c.name} height`).toBeCloseTo(c.inches[1], 1)
     expect(mediaBoxes.length, `${c.name} page count`).toBe("pageCount" in c ? c.pageCount : 1)
+  })
+}
+
+/**
+ * The code-built templates (template mode, on by default) declare no @page of
+ * their own — the fixtures above are all AI-written and do. Without
+ * ensurePageSize a template door hanger came out on a letter sheet and the
+ * social square shrank onto one; this is what catches that.
+ */
+const TEMPLATE_PAGE: Record<string, { inches: [number, number] }> = {
+  flyer: { inches: [8.5, 11] },
+  "one-pager": { inches: [8.5, 11] },
+  "door-hanger": { inches: [3.5, 8.5] },
+  // 1080 CSS px at 96/in — the square's own size, as the AI path declares it.
+  "social-post": { inches: [11.25, 11.25] },
+}
+
+for (const t of TEMPLATES) {
+  test(`template ${t.id} exports at its format's size, on one page`, async () => {
+    const filled = fillTemplate({
+      template: t,
+      headline: "Fall Tune-Up Special",
+      supporting: "20% off this month",
+      businessName: "Acme HVAC",
+      phone: "(270) 555-0142",
+      address: "114 State St, Bowling Green, KY",
+      hasLogo: false,
+      hasQr: false,
+      photoUrl: null,
+      colors: { primary: "#12314f", secondary: "#eef1f4", accent: "#e39a2b" },
+      fonts: { heading: "Georgia, serif", body: "Georgia, serif" },
+    })
+    const { pdf } = await renderFlyerPdf(asServed(filled.html))
+    const mediaBoxes = pages(pdf)
+    const expected = TEMPLATE_PAGE[t.formatIds[0]].inches
+    expect(mediaBoxes[0][0] / PT_PER_IN, `${t.id} width`).toBeCloseTo(expected[0], 1)
+    expect(mediaBoxes[0][1] / PT_PER_IN, `${t.id} height`).toBeCloseTo(expected[1], 1)
+    expect(mediaBoxes.length, `${t.id} page count`).toBe(1)
   })
 }
 
@@ -107,7 +147,7 @@ async function flyerWithAssets(fonts = STYLE_FONT_STACKS.modern) {
     colors: { primary: "#0b5", secondary: "#063", accent: "#fc0" },
     fonts,
   })
-  return ensureScrollable(substituteLogo(substituteQr(filled.html, qr), logo))
+  return asServed(substituteLogo(substituteQr(filled.html, qr), logo))
 }
 
 /**

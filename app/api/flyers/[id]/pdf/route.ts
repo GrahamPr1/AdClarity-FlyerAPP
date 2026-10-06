@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getDeliverablesForEmail, recordFlyerExport } from "@/lib/store"
-import { ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
+import { ensurePageSize, ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
 import { renderFlyerPdf } from "@/lib/pdf/flyer-pdf"
 import { decodeFlyerHtml } from "@/lib/flyer-data-url"
 
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // render of exactly what the client sees rather than a near-copy. It also
   // injects print-color-adjust, without which Chromium drops the flyer's
   // background fills.
-  const html = ensureScrollable(decoded)
+  const html = ensurePageSize(ensureScrollable(decoded))
 
   let rendered
   try {

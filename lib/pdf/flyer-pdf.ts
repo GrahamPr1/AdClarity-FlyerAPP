@@ -47,6 +47,57 @@ import { STYLE_FONT_STACKS } from "@/lib/brand-controls"
 /** US Letter. Chromium accepts CSS units here and does its own fitting. */
 export const PAGE = { width: "8.5in", height: "11in" } as const
 
+/**
+ * The page size for a document that declares no @page.
+ *
+ * Every AI-written print format emits its own @page, and code-built template
+ * documents are given one on read (ensurePageSize), so in practice the only
+ * documents that reach this are AI-written square screen ones — a social
+ * post, whose brief forbids @page because it is never printed. Falling back
+ * to letter for those shrank a 1080px square onto
+ * an 8.5x11in sheet with white bands top and bottom. For a square document
+ * the page is the artwork's own size instead; its pixel size IS its intended
+ * size, unlike a letter template laid out at ~100dpi (see above).
+ *
+ * Anything else without @page keeps the letter fallback, so an old flyer that
+ * predates @page prints exactly as it did before.
+ */
+async function fallbackPageSize(
+  page: import("playwright-core").Page,
+): Promise<{ width: string; height: string; margin?: { top: string; right: string; bottom: string; left: string } }> {
+  // Measured under a tiny viewport: at the default 1280px a 1080px-wide
+  // document reports the viewport's width, not its own, and never looks
+  // square. Shrunk, the scroll extent is the content's real size. Restored
+  // after; page.pdf() lays out to the page size, not the viewport, anyway.
+  // Print media too: the injected scroll safety net sets html/body to
+  // height:auto under @media screen, which collapses a fixed-height canvas
+  // to its text and hides the very size being measured.
+  const viewport = page.viewportSize()
+  await page.setViewportSize({ width: 100, height: 100 })
+  await page.emulateMedia({ media: "print" })
+  const doc = await page.evaluate(() => {
+    let hasPageRule = false
+    for (const sheet of Array.from(document.styleSheets)) {
+      try {
+        if (Array.from(sheet.cssRules).some((r) => r instanceof CSSPageRule)) hasPageRule = true
+      } catch {
+        // A cross-origin stylesheet (Google Fonts) can't be read; it carries
+        // no @page either way.
+      }
+    }
+    const el = document.documentElement
+    return { hasPageRule, width: el.scrollWidth, height: el.scrollHeight }
+  })
+  await page.emulateMedia({ media: null })
+  if (viewport) await page.setViewportSize(viewport)
+  const square = doc.width > 0 && Math.abs(doc.width - doc.height) / doc.width < 0.02
+  if (doc.hasPageRule || !square) return PAGE
+  // Zero margins: the artwork is the page, edge to edge, and any default
+  // margin pushes the bottom of a full-height square onto a second page.
+  const none = "0"
+  return { width: `${doc.width}px`, height: `${doc.height}px`, margin: { top: none, right: none, bottom: none, left: none } }
+}
+
 let cached: Browser | null = null
 
 /**
@@ -116,12 +167,14 @@ export async function renderFlyerPdf(html: string): Promise<RenderedPdf> {
       .evaluate(() => document.fonts.ready.then(() => undefined))
       .catch(() => undefined)
     await logFontsOnce(page)
+    const fallback = await fallbackPageSize(page)
     const pdf = await page.pdf({
-      // The document's own @page wins; these are the fallback for one that
-      // somehow has none.
+      // The document's own @page wins; this is the fallback for one that
+      // has none (see fallbackPageSize).
       preferCSSPageSize: true,
-      width: PAGE.width,
-      height: PAGE.height,
+      width: fallback.width,
+      height: fallback.height,
+      margin: fallback.margin,
       printBackground: true,
       // No pageRanges. A flyer, door hanger or social post is one physical
       // piece and renders as one page on its own; a proposal legitimately
