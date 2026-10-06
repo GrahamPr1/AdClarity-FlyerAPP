@@ -173,3 +173,39 @@ export async function sendWaitlistConfirmation(
   console.info(`[waitlist] Would email ${email}: "${subject}" (sending is not enabled yet)`)
   return { sent: false, reason: "waitlist email sending is not enabled yet" }
 }
+
+/**
+ * Sends a locked-agent registration code.
+ *
+ * Always addressed by the caller to the roster email ON FILE, never to what
+ * the agent typed: that is the whole point of the step. Two Agent IDs a digit
+ * apart are easy to confuse, and only the real agent can read this inbox.
+ * Never throws; returns false and logs on any failure.
+ */
+export async function sendAgentVerificationCode(rosterEmail: string, code: string, programName: string): Promise<boolean> {
+  const resend = getClient()
+  if (!resend) {
+    console.error("[email] RESEND_API_KEY is not configured — cannot send agent verification code.")
+    return false
+  }
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: rosterEmail,
+      subject: `Your ${programName} verification code: ${code}`,
+      html: `
+        <p>Your OneFlyer verification code for the ${programName} is:</p>
+        <p style="font-size:24px;font-weight:600;letter-spacing:4px">${code}</p>
+        <p>It expires in 15 minutes. If you didn't try to register, you can ignore this email.</p>
+      `,
+    })
+    if (error) {
+      console.error("[email] Resend rejected the agent verification email:", error.message)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error("[email] Failed to send agent verification email:", err instanceof Error ? err.message : err)
+    return false
+  }
+}

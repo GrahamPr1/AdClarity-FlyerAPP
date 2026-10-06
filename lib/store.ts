@@ -1411,6 +1411,11 @@ export async function getAgentProfile(email: string): Promise<AgentProfile | nul
   return (await redis.get<AgentProfile>(agentProfileKey(email))) ?? null
 }
 
+/** Used when an admin unlocks or reassigns an Agent ID: the old account stops being that agent. */
+export async function deleteAgentProfile(email: string): Promise<void> {
+  await redis.del(agentProfileKey(email))
+}
+
 /**
  * Normalises a campaign's sources to an array.
  *
