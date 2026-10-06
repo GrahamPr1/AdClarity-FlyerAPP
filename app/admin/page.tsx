@@ -26,6 +26,9 @@ export default function AdminPage() {
         <Link href="/admin/waitlist" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
           Early Access Waitlist →
         </Link>
+        <Link href="/admin/enterprise/nop" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+          NOP Agents →
+        </Link>
       </div>
     </div>
   )
