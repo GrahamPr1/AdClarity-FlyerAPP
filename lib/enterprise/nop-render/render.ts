@@ -1,6 +1,6 @@
 import type { BrowserContext, Page } from "playwright-core"
 import QRCode from "qrcode"
-import { getBrowser } from "@/lib/pdf/flyer-pdf"
+import { acquireBrowser } from "./browser"
 import {
   enrollUrl,
   priceValues,
@@ -204,10 +204,15 @@ async function assertFonts(page: Page): Promise<string[]> {
   return result.used
 }
 
-async function newPage(dsf: number): Promise<{ context: BrowserContext; page: Page }> {
-  const browser = await getBrowser()
+/** A page in a fresh context; `close` disposes of the context and, on Vercel, the browser (see ./browser.ts). */
+async function newPage(dsf: number): Promise<{ context: BrowserContext; page: Page; close: () => Promise<void> }> {
+  const { browser, release } = await acquireBrowser()
   const context = await browser.newContext({ viewport: { width: 1000, height: 1200 }, deviceScaleFactor: dsf })
-  return { context, page: await context.newPage() }
+  const close = async () => {
+    await context.close().catch(() => undefined)
+    await release()
+  }
+  return { context, page: await context.newPage(), close }
 }
 
 /** Widens the layout to the digital design base (field_map "conversion"). Render-time only. */
@@ -249,7 +254,7 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
   const content = readKitContent()
   const expected = enrollUrl(content, agent.agentId)
   const dsf = format === "social" ? SOCIAL.w / DIGITAL_BASE_W : format === "preview" ? 1 : 2
-  const { context, page } = await newPage(dsf)
+  const { page, close } = await newPage(dsf)
   try {
     await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
     if (format === "social") await toDigitalLayout(page)
@@ -284,7 +289,7 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
     if (pages !== 1) throw new NopRenderError("master_invalid", `${format} PDF has ${pages} pages, expected 1`)
     return { body: pdf, contentType: "application/pdf", qr: qr!, ms: Date.now() - t0 }
   } finally {
-    await context.close()
+    await close()
   }
 }
 
@@ -294,7 +299,7 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
  * Not used to serve agents.
  */
 export async function renderBlankMaster(id: NopTemplateId, layout: "print" | "digital", dsf: number): Promise<{ png: Buffer; usedFonts: string[] }> {
-  const { context, page } = await newPage(dsf)
+  const { page, close } = await newPage(dsf)
   try {
     await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
     if (layout === "digital") await toDigitalLayout(page)
@@ -304,7 +309,7 @@ export async function renderBlankMaster(id: NopTemplateId, layout: "print" | "di
       : { x: 0, y: 0, width: TRIM.w + TRIM.x * 2, height: TRIM.h + TRIM.y * 2 }
     return { png: await page.screenshot({ type: "png", clip }), usedFonts }
   } finally {
-    await context.close()
+    await close()
   }
 }
 
@@ -323,7 +328,7 @@ export interface MasterLayout {
  */
 export async function measureDigitalLayout(id: NopTemplateId): Promise<MasterLayout> {
   const dsf = SOCIAL.w / DIGITAL_BASE_W
-  const { context, page } = await newPage(dsf)
+  const { page, close } = await newPage(dsf)
   try {
     await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
     await toDigitalLayout(page)
@@ -360,7 +365,7 @@ export async function measureDigitalLayout(id: NopTemplateId): Promise<MasterLay
     )
     return { png, ...measured }
   } finally {
-    await context.close()
+    await close()
   }
 }
 
@@ -379,7 +384,7 @@ export interface NopFlyerInspection {
  */
 export async function inspectNopFlyer(id: NopTemplateId, agent: NopAgentValues): Promise<NopFlyerInspection> {
   const content = readKitContent()
-  const { context, page } = await newPage(1)
+  const { page, close } = await newPage(1)
   try {
     await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
     await inject(page, textValues(content, id, agent), readKitFileBase64(content.default_logo), await qrSvg(enrollUrl(content, agent.agentId)))
@@ -420,6 +425,6 @@ export async function inspectNopFlyer(id: NopTemplateId, agent: NopAgentValues):
     })
     return { ...measured, tooWide }
   } finally {
-    await context.close()
+    await close()
   }
 }
