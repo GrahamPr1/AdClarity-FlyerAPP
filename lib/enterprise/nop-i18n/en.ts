@@ -49,7 +49,6 @@ export const en = {
   "reg.registering": "Registering…",
   "reg.not_me": "That's not me",
   "reg.done": "This account is registered as Agent ID {agentId}.",
-  "reg.view_profile": "View your agent profile →",
 
   // ---- Display fields (registration and profile) ----
   "display.name": "Name on your flyers",

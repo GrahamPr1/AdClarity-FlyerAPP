@@ -64,6 +64,7 @@ type Step =
  */
 export function NopRegisterFlow() {
   const { t, rich } = useNop()
+  const router = useRouter()
   const [step, setStep] = useState<Step>({ name: "loading" })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -208,7 +209,9 @@ export function NopRegisterFlow() {
                 if (data.error !== "invalid_fields") restart()
                 return
               }
+              // Registered: their home is the agent dashboard.
               setStep({ name: "done", agentId: data.agentId })
+              router.replace("/enterprise/nop/dashboard")
             })
           }}
           className="flex flex-col gap-5"
@@ -239,8 +242,8 @@ export function NopRegisterFlow() {
           <p className="text-sm">
             {rich("reg.done", { agentId: <span className="font-semibold">{step.agentId}</span> })}
           </p>
-          <Link href="/enterprise/nop/profile" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
-            {t("reg.view_profile")}
+          <Link href="/enterprise/nop/dashboard" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
+            {t("reg.view_dashboard")}
           </Link>
         </div>
       )}

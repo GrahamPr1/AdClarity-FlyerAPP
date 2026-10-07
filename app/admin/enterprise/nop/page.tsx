@@ -63,6 +63,52 @@ function LockActions({ entry, onDone }: { entry: RosterListEntry; onDone: () => 
   )
 }
 
+type RenderLogEntry = { agentId: string; account: string; template: string; format: string; kitVersion: string; at: string }
+
+/**
+ * Every flyer file an agent was given, previews included — the compliance
+ * record the Basic Benefits contract asks for at termination. The table
+ * shows the newest 200; the CSV is always the complete log.
+ */
+function RenderLog() {
+  const [agentId, setAgentId] = useState("")
+  const [applied, setApplied] = useState("")
+  const q = applied ? `?agentId=${encodeURIComponent(applied)}` : ""
+  const log = useSWR<{ entries: RenderLogEntry[]; total: number }>(`/api/admin/enterprise/nop/render-log${q}`, fetcher, { revalidateOnFocus: false })
+  const csvHref = `/api/admin/enterprise/nop/render-log?format=csv${applied ? `&agentId=${encodeURIComponent(applied)}` : ""}`
+  return (
+    <section className="mt-10" data-testid="render-log">
+      <h2 className="text-lg">Flyer generation log</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Every preview and download, never trimmed.</p>
+      <form className="mt-3 flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); setApplied(agentId.trim()) }}>
+        <label htmlFor="log-agent" className="text-sm">Agent ID</label>
+        <input id="log-agent" value={agentId} onChange={(e) => setAgentId(e.target.value)} inputMode="numeric" placeholder="All agents"
+          className="w-36 rounded-lg border border-border bg-[var(--surface-soft)] px-3 py-1.5 text-sm" />
+        <button type="submit" className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-[var(--surface-sunken)]">Filter</button>
+        {applied && <button type="button" onClick={() => { setAgentId(""); setApplied("") }} className="text-sm text-muted-foreground hover:text-foreground">Clear</button>}
+        <a href={csvHref} className="ml-auto text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
+          Export {applied ? `agent ${applied}'s` : "the full"} log (CSV)
+        </a>
+      </form>
+      {log.data && <p className="mt-3 text-sm text-muted-foreground">{log.data.total} entr{log.data.total === 1 ? "y" : "ies"}{log.data.total > log.data.entries.length ? `, newest ${log.data.entries.length} shown` : ""}.</p>}
+      {log.data && log.data.entries.length > 0 && (
+        <Table head={["When", "Agent ID", "Account", "Template", "Format", "Kit"]}>
+          {log.data.entries.map((e, i) => (
+            <tr key={`${e.at}-${i}`} className="border-t border-border">
+              <td className={`${td} text-muted-foreground`}>{new Date(e.at).toLocaleString()}</td>
+              <td className={td}>{e.agentId}</td>
+              <td className={`${td} break-all`}>{e.account}</td>
+              <td className={td}>{e.template}</td>
+              <td className={td}>{e.format}</td>
+              <td className={td}>{e.kitVersion}</td>
+            </tr>
+          ))}
+        </Table>
+      )}
+    </section>
+  )
+}
+
 export default function NopAdminPage() {
   const roster = useSWR<{ roster: RosterListEntry[] }>("/api/admin/enterprise/nop/roster", fetcher, { revalidateOnFocus: false })
   const flags = useSWR<{ flags: AgentFlag[] }>("/api/admin/enterprise/nop/flags", fetcher, { revalidateOnFocus: false })
@@ -151,6 +197,8 @@ export default function NopAdminPage() {
           </Table>
         )}
       </section>
+
+      <RenderLog />
 
       <section className="mt-10">
         <h2 className="text-lg">Roster</h2>

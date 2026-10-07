@@ -22,10 +22,9 @@ export default async function DashboardPage() {
   const session = await getSessionIdentity({ cookies: cookieStore })
   const isAdmin = session?.sub === ADMIN_SUB
 
-  // NOP agents can't use the SMB dashboard (every generation route refuses
-  // them), so until the NOP agent dashboard exists they land on their agent
-  // profile. Only accounts holding an Agent ID; everyone else is unaffected.
-  if (session && !isAdmin && (await isNopAgentAccount(session.sub))) redirect("/enterprise/nop/profile")
+  // NOP agents have their own dashboard (every SMB generation route refuses
+  // them). Only accounts holding an Agent ID; everyone else is unaffected.
+  if (session && !isAdmin && (await isNopAgentAccount(session.sub))) redirect("/enterprise/nop/dashboard")
 
   return (
     <main className="min-h-screen bg-background text-foreground">

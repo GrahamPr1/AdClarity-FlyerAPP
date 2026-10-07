@@ -42,7 +42,6 @@ export const NOP_STRING_WHERE: Record<NopStringKey, { where: string; note?: stri
   "reg.registering": { where: "Register step 4, button while saving", note: REGISTRARSE },
   "reg.not_me": { where: "Register step 4, secondary button" },
   "reg.done": { where: "Register, final screen" },
-  "reg.view_profile": { where: "Register, final screen link" },
   "display.name": { where: "Register step 4 and profile, field label" },
   "display.phone": { where: "Register step 4 and profile, field label" },
   "display.phone_placeholder": { where: "Register step 4 and profile, phone placeholder", note: "Format, not words; same in both languages." },

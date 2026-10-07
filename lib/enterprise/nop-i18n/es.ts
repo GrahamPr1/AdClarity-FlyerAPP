@@ -50,7 +50,6 @@ export const es: Record<NopStringKey, string> = {
   "reg.registering": "Registrando…",
   "reg.not_me": "No soy yo",
   "reg.done": "Esta cuenta está registrada con el ID de agente {agentId}.",
-  "reg.view_profile": "Ver su perfil de agente →",
 
   // ---- Display fields ----
   "display.name": "Nombre en sus volantes",
