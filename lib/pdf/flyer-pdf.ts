@@ -108,7 +108,7 @@ let cached: Browser | null = null
  * feel broken. Pages are still created and closed per render so one request
  * can never see another's document.
  */
-async function getBrowser(): Promise<Browser> {
+export async function getBrowser(): Promise<Browser> {
   if (cached?.isConnected()) return cached
 
   const { chromium } = await import("playwright-core")
