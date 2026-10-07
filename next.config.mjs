@@ -62,9 +62,22 @@ const nextConfig = {
     // The NOP renderer reads Basic Benefits' kit by path at runtime
     // (masters, Poppins TTFs, logo, content.json, digital/ thumbnails), which
     // a bundler can't follow. Without these the routes fail on Vercel only.
-    "/api/enterprise/nop/render/[template]": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets,digital}/**", "./enterprise/nop/kit-v1.1.1/content.json"],
-    "/api/enterprise/nop/thumbnail/[template]": ["./enterprise/nop/kit-v1.1.1/digital/**"],
-    "/api/admin/enterprise/nop/render-check": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets}/**", "./enterprise/nop/kit-v1.1.1/content.json"],
+    //
+    // It also lists playwright-core and @sparticuz/chromium whole. Measured
+    // 2026-10-07 on this Turbopack build: serverExternalPackages alone traced
+    // 86 playwright-core files WITHOUT browsers.json and none of
+    // @sparticuz/chromium, and the preview failed with "Cannot find module
+    // .../playwright-core/browsers.json". With these globs the route's
+    // .nft.json gains browsers.json and chromium's bin/*.br. (So the note
+    // above about node_modules globs not matching does not hold here.)
+    //
+    // Keys are GLOBS matched against the route: "[template]" is a character
+    // class, not the literal folder name, so a dynamic route's key must
+    // escape its brackets or the entry silently never applies. Measured: the
+    // unescaped key got none of these files; the escaped one gets them all.
+    "/api/enterprise/nop/render/\\[template\\]": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets,digital}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    "/api/enterprise/nop/thumbnail/\\[template\\]": ["./enterprise/nop/kit-v1.1.1/digital/**"],
+    "/api/admin/enterprise/nop/render-check": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
   },
 
   // Vanity paths people type or that appear in old links. Permanent, because
