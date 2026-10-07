@@ -1,0 +1,147 @@
+import type { NopStringKey } from "./en"
+
+// Spanish, formal "usted". Terminology follows Basic Benefits' own Spanish
+// masters (enterprise/nop/kit-v1.1.1/html/*_ES.html): "ID de agente",
+// "Correo", "inscribirse"/"inscripción" for a CUSTOMER enrolling in the plan.
+// An AGENT signing up on OneFlyer is "registrarse", a different action.
+// "Neighborhood Outreach Program" stays in English, as in the masters.
+//
+// Typed as a Record over en's keys: a missing or extra key fails tsc.
+
+export const es: Record<NopStringKey, string> = {
+  // ---- Page chrome ----
+  "page.back_dashboard": "← Panel",
+  "page.sign_out": "Cerrar sesión",
+  "register.meta_title": "Registro de agentes",
+  "register.title": "Regístrese como agente del programa",
+  "register.intro": "Su ID de agente vincula cada volante y código QR con usted, así que confirmamos que es suyo antes de asociarlo a esta cuenta.",
+  "profile.meta_title": "Perfil de agente",
+  "profile.title": "Su perfil de agente",
+  "profile.intro": "Su ID de agente y los datos del programa provienen del administrador de su programa. Usted puede editar el nombre, el teléfono y el correo que aparecen en sus volantes.",
+
+  // ---- Language toggle ----
+  "lang.group": "Language / Idioma",
+  "lang.en": "English / Inglés",
+  "lang.es": "Español / Spanish",
+
+  // ---- Shared ----
+  "common.loading": "Cargando…",
+  "common.network": "No pudimos comunicarnos con el servidor. Revise su conexión e inténtelo de nuevo.",
+  "common.generic": "Algo salió mal.",
+
+  // ---- Registration steps ----
+  "reg.id_label": "ID de agente",
+  "reg.id_placeholder": "Asignado por su programa",
+  "reg.continue": "Continuar",
+  "reg.checking": "Verificando…",
+  "reg.email_intro": "ID de agente {agentId}. Ingrese el correo que el administrador de su programa tiene registrado para usted. Le enviaremos un código a ese correo.",
+  "reg.email_label": "Correo de verificación",
+  "reg.send_code": "Enviar código",
+  "reg.sending": "Enviando…",
+  "reg.change_id": "Cambiar ID de agente",
+  "reg.code_sent_to": "Enviamos un código de 6 dígitos a {sentTo}. Vence en 15 minutos.",
+  "reg.code_sent": "Enviamos un código de 6 dígitos. Vence en 15 minutos.",
+  "reg.code_label": "Código de verificación",
+  "reg.verify": "Verificar",
+  "reg.start_over": "Empezar de nuevo",
+  "reg.confirm_line": "Se está registrando como {name}, ID de agente {agentId}.",
+  "reg.confirm_help": "Así aparecerá usted en sus volantes. Puede cambiar estos datos más adelante. Nunca cambian su ID de agente ni los datos que su programa tiene registrados.",
+  "reg.confirm_submit": "Confirmar y registrarse",
+  "reg.registering": "Registrando…",
+  "reg.not_me": "No soy yo",
+  "reg.done": "Esta cuenta está registrada con el ID de agente {agentId}.",
+  "reg.view_profile": "Ver su perfil de agente →",
+
+  // ---- Display fields ----
+  "display.name": "Nombre en sus volantes",
+  "display.phone": "Teléfono en sus volantes",
+  "display.phone_placeholder": "(XXX) XXX-XXXX",
+  "display.email": "Correo en sus volantes",
+
+  // ---- Profile ----
+  "profile.not_registered": "Esta cuenta no está registrada como agente.",
+  "profile.register_link": "Regístrese con su ID de agente",
+  "profile.agent_id": "ID de agente",
+  "profile.company": "Empresa",
+  "profile.referral": "Código de referido",
+  "profile.enrollment_link": "Enlace de inscripción",
+  "profile.status": "Estado",
+  "status.active": "activo",
+  "status.pending": "pendiente",
+  "status.suspended": "suspendido",
+  "status.terminated": "dado de baja",
+  "status.not_on_roster": "no figura en la lista del programa",
+  "profile.save": "Guardar",
+  "profile.saving": "Guardando…",
+  "profile.saved": "Guardado.",
+  "profile.save_failed": "No se pudo guardar. Inténtelo de nuevo.",
+
+  // ---- Server messages: registration ----
+  "err.id_format": "El ID de agente tiene de 1 a 10 dígitos.",
+  "err.not_recognized": "ID de agente no reconocido. Comuníquese con el administrador de su programa.",
+  "err.inactive": "Este ID de agente no se puede registrar en este momento. Comuníquese con el administrador de su programa.",
+  "err.taken": "Este ID de agente ya está registrado en otra cuenta. Se notificó al administrador de su programa.",
+  "err.email_mismatch": "Ese correo no coincide con nuestros registros para este ID de agente. Se notificó al administrador de su programa.",
+  "err.account_registered": "Esta cuenta ya está registrada con el ID de agente {agentId}.",
+  "err.expired": "Su código venció o su registro expiró por inactividad. Ingrese de nuevo su ID de agente.",
+  "err.too_many": "Demasiados códigos incorrectos. Empiece de nuevo.",
+  "err.wrong_code": "Ese código no es correcto. Revise el correo e inténtelo de nuevo.",
+  "err.send_failed": "No pudimos enviar el código. Inténtelo de nuevo en un momento.",
+  "err.rate_limited": "Demasiados intentos. Espere unos minutos e inténtelo de nuevo.",
+
+  // ---- Server messages: display-field validation ----
+  "val.name_required": "Ingrese el nombre que aparecerá en sus volantes.",
+  "val.name_long": "El nombre debe tener menos de 80 caracteres.",
+  "val.phone": "Ingrese un número de teléfono de EE. UU. de 10 dígitos.",
+  "val.email": "Ingrese un correo electrónico válido.",
+
+  // ---- Generation block ----
+  "gen.blocked": "Los volantes del NOP se crean a partir de plantillas aprobadas — próximamente",
+
+  // ---- Verification email ----
+  "email.subject": "Su código de verificación del {program}: {code}",
+  "email.intro": "Su código de verificación de OneFlyer para el {program} es:",
+  "email.expires": "Vence en 15 minutos. Si usted no intentó registrarse, puede ignorar este correo.",
+
+  // ---- Sign-in / sign-up ----
+  "auth.home_label": "OneFlyer: volver a la página de inicio",
+  "auth.heading_login": "Iniciar sesión",
+  "auth.heading_signup": "Cree su cuenta",
+  "auth.heading_forgot": "Restablezca su contraseña",
+  "auth.sub_login": "Inicie sesión con su correo y contraseña para ver sus volantes.",
+  "auth.sub_signup": "Cree un correo y una contraseña para guardar sus volantes.",
+  "auth.sub_signup_start": "Un paso rápido y pasará directamente a su primera campaña. Necesitamos una cuenta para guardar sus volantes y que solo usted pueda verlos.",
+  "auth.sub_forgot": "Le enviaremos por correo un enlace para crear una nueva.",
+  "auth.email_label": "Correo",
+  "auth.email_placeholder": "usted@empresa.com",
+  "auth.password_label": "Contraseña",
+  "auth.forgot_link": "¿Olvidó su contraseña?",
+  "auth.login_btn": "Iniciar sesión",
+  "auth.logging_in": "Iniciando sesión…",
+  "auth.no_account": "¿No tiene una cuenta? Regístrese",
+  "auth.pw_placeholder": "Al menos 8 caracteres",
+  "auth.pw_req_empty": "Debe tener al menos 8 caracteres.",
+  "auth.pw_req_ok": "Longitud suficiente.",
+  "auth.pw_req_more_one": "Falta 1 carácter.",
+  "auth.pw_req_more": "Faltan {n} caracteres.",
+  "auth.confirm_pw": "Confirme la contraseña",
+  "auth.create_btn": "Crear cuenta",
+  "auth.creating": "Creando cuenta…",
+  "auth.have_account": "¿Ya tiene una cuenta? Inicie sesión",
+  "auth.reset_btn": "Enviarme un enlace para restablecerla",
+  "auth.sending": "Enviando…",
+  "auth.back_login": "← Volver a iniciar sesión",
+  "auth.reset_notice": "Si ese correo tiene una cuenta, le enviamos un enlace para crear una nueva contraseña. Revise su bandeja de entrada.",
+  "auth.admin_toggle": "¿Administrador del sitio? Inicie sesión con contraseña",
+  "auth.err_no_password": "Este correo aún no tiene contraseña. Use “¿Olvidó su contraseña?” para crear una.",
+  "auth.err_mismatch": "Correo o contraseña incorrectos.",
+  "auth.err_rate_limited": "Demasiados intentos de inicio de sesión. Espere unos minutos e inténtelo de nuevo.",
+  "auth.err_login_failed": "No pudimos iniciar su sesión en este momento. Su cuenta está bien; inténtelo de nuevo en un momento.",
+  "auth.err_network": "No se pudo conectar con el servidor. Revise su conexión e inténtelo de nuevo.",
+  "auth.err_pw_mismatch": "Las contraseñas no coinciden. Escríbalas de nuevo e inténtelo otra vez.",
+  "auth.err_exists": "Ya existe una cuenta con este correo. Inicie sesión.",
+  "auth.err_pw_short": "La contraseña debe tener al menos 8 caracteres.",
+  "auth.err_signup_failed": "No pudimos crear su cuenta en este momento. No se cobró ni se guardó nada; inténtelo de nuevo en un momento.",
+  "auth.err_reset_failed": "No se pudo enviar el correo para restablecer la contraseña. Inténtelo más tarde.",
+  "auth.err_generic": "Algo salió mal",
+}
