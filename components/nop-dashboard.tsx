@@ -26,9 +26,11 @@ function StatusBanner({ messageKey }: { messageKey: NopStringKey }) {
 
 export function NopDashboard({ active, statusKey }: { active: boolean; statusKey: NopStringKey | null }) {
   const { lang, t } = useNop()
-  // Which flyers to show. Starts at the page language but is its own
-  // choice: an agent reading English may hand out Spanish flyers.
-  const [flyerLang, setFlyerLang] = useState<NopLang>(lang)
+  // Which flyers to show. Follows the page language until the agent picks
+  // one, then it is their own choice: an agent reading English may hand
+  // out Spanish flyers, and switching the page language leaves it alone.
+  const [chosen, setFlyerLang] = useState<NopLang | null>(null)
+  const flyerLang = chosen ?? lang
   const code = flyerLang.toUpperCase()
 
   return (
