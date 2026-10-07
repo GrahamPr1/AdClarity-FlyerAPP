@@ -301,3 +301,59 @@ export async function renderBlankMaster(id: NopTemplateId, layout: "print" | "di
     await context.close()
   }
 }
+
+export interface MasterLayout {
+  png: Buffer
+  /** data-var zone boxes, in output pixels relative to the output's top-left. */
+  zones: Record<string, { x: number; y: number; width: number; height: number }>
+  /** One box per rendered line fragment of locked text, output pixels. */
+  lines: { text: string; x: number; y: number; width: number; height: number }[]
+}
+
+/**
+ * The blank master in the digital layout plus where every zone and text
+ * line landed — for checking the social format against field_map.json and
+ * the kit's digital/ reference. Not used to serve agents.
+ */
+export async function measureDigitalLayout(id: NopTemplateId): Promise<MasterLayout> {
+  const dsf = SOCIAL.w / DIGITAL_BASE_W
+  const { context, page } = await newPage(dsf)
+  try {
+    await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
+    await toDigitalLayout(page)
+    await assertFonts(page)
+    const clip = { x: TRIM.x, y: TRIM.y, width: DIGITAL_BASE_W, height: SOCIAL.h / dsf }
+    const png = await page.screenshot({ type: "png", clip })
+    const measured = await page.evaluate(
+      ({ ox, oy, k }) => {
+        const zones: Record<string, { x: number; y: number; width: number; height: number }> = {}
+        for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-var]"))) {
+          const r = el.getBoundingClientRect()
+          zones[el.dataset.var!] = { x: (r.x - ox) * k, y: (r.y - oy) * k, width: r.width * k, height: r.height * k }
+        }
+        const lines: { text: string; x: number; y: number; width: number; height: number }[] = []
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          const text = (n.textContent ?? "").trim()
+          if (!text || !n.parentElement || getComputedStyle(n.parentElement).visibility === "hidden") continue
+          // Only the visible characters: a box that includes the spaces
+          // around a short token ("·") picks up the neighbouring glyphs.
+          const raw = n.textContent ?? ""
+          const start = raw.length - raw.trimStart().length
+          const range = document.createRange()
+          range.setStart(n, start)
+          range.setEnd(n, start + raw.trim().length)
+          for (const r of Array.from(range.getClientRects())) {
+            if (r.width < 1 || r.height < 1) continue
+            lines.push({ text: text.slice(0, 40), x: (r.x - ox) * k, y: (r.y - oy) * k, width: r.width * k, height: r.height * k })
+          }
+        }
+        return { zones, lines }
+      },
+      { ox: TRIM.x, oy: TRIM.y, k: dsf },
+    )
+    return { png, ...measured }
+  } finally {
+    await context.close()
+  }
+}
