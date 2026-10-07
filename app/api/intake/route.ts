@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   // A NOP agent is refused before anything else, the same as the other AI
   // routes. The second check below covers admin submitting for an agent.
   if (session.sub !== ADMIN_SUB) {
-    const nopBlock = await nopAgentGenerationBlock(session.sub)
+    const nopBlock = await nopAgentGenerationBlock(session.sub, request)
     if (nopBlock) return nopBlock
   }
 
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden — you can only submit for your own signed-in email" }, { status: 403 })
   }
 
-  const nopBlock = await nopAgentGenerationBlock(email)
+  const nopBlock = await nopAgentGenerationBlock(email, request)
   if (nopBlock) return nopBlock
 
   // -------------------------------------------------------------------------

@@ -3,6 +3,7 @@ import { getAgentProfile, saveAgentProfile } from "@/lib/store"
 import { requireClientSession } from "@/lib/enterprise/agent-session"
 import { validateDisplayFields } from "@/lib/enterprise/nop-roster"
 import { canGenerate, getAccountAgentId, getRosterRecord } from "@/lib/enterprise/agents-store"
+import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 
 // GET   /api/enterprise/nop/agent-profile -> the agent's profile, with live roster status
 // PATCH /api/enterprise/nop/agent-profile { displayName, displayPhone, displayEmail }
@@ -42,7 +43,7 @@ export async function PATCH(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
-  const display = validateDisplayFields(body)
+  const display = validateDisplayFields(body, await nopLangForRequest(request, auth.email))
   if (!display.ok) return NextResponse.json({ error: "invalid_fields", fields: display.errors }, { status: 422 })
 
   const { savedAt: _savedAt, ...rest } = profile

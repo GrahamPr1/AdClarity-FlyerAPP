@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ADMIN_SUB, getSessionIdentity } from "@/lib/auth"
 import { checkRateLimit, clientIp } from "@/lib/rate-limit"
+import { tNop, type NopLang } from "./nop-i18n"
 
 /**
  * The signed-in client account for an agent-facing route, or the response to
@@ -19,7 +20,7 @@ export async function requireClientSession(request: NextRequest): Promise<{ emai
  * digit strings and step (a) must say whether one exists, so without this the
  * roster could be enumerated.
  */
-export async function registrationRateLimit(request: NextRequest, email: string, step: string): Promise<NextResponse | null> {
+export async function registrationRateLimit(request: NextRequest, email: string, step: string, lang: NopLang = "en"): Promise<NextResponse | null> {
   const [byAccount, byIp] = await Promise.all([
     checkRateLimit(`nop-reg:${step}:acct:${email}`, 10, 15 * 60),
     checkRateLimit(`nop-reg:${step}:ip:${clientIp(request.headers)}`, 30, 15 * 60),
@@ -27,7 +28,7 @@ export async function registrationRateLimit(request: NextRequest, email: string,
   const blocked = !byAccount.allowed ? byAccount : !byIp.allowed ? byIp : null
   if (!blocked) return null
   return NextResponse.json(
-    { error: "rate_limited", message: "Too many attempts. Wait a few minutes and try again." },
+    { error: "rate_limited", message: tNop(lang, "err.rate_limited") },
     { status: 429, headers: { "Retry-After": String(blocked.retryAfterSeconds) } },
   )
 }

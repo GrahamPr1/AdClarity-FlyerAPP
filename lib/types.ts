@@ -743,6 +743,8 @@ export interface AgentProfile {
   displayName?: string
   displayPhone?: string
   displayEmail?: string
+  /** The language the agent registered in, or last chose. Used when no nop_lang cookie is set. */
+  preferredLanguage?: "en" | "es"
 }
 
 export type AgentRosterStatus = "pending" | "active" | "suspended" | "terminated"

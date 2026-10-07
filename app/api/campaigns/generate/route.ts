@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   }
   const email = session.sub
 
-  const nopBlock = await nopAgentGenerationBlock(email)
+  const nopBlock = await nopAgentGenerationBlock(email, req)
   if (nopBlock) return nopBlock
 
   let body: { productId?: unknown; variations?: unknown; formatId?: unknown }

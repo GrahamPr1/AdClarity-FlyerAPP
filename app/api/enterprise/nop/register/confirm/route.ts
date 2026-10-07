@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { saveAgentProfile } from "@/lib/store"
 import { requireClientSession } from "@/lib/enterprise/agent-session"
 import { validateDisplayFields } from "@/lib/enterprise/nop-roster"
-import { AGENT_ID_INACTIVE, AGENT_ID_NOT_RECOGNIZED, AGENT_ID_TAKEN } from "@/lib/enterprise/registration-messages"
+import { tNop } from "@/lib/enterprise/nop-i18n"
+import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 import {
   addAgentFlag,
   buildAgentProfile,
@@ -20,10 +21,11 @@ export async function POST(request: NextRequest) {
   const auth = await requireClientSession(request)
   if ("response" in auth) return auth.response
   const { email: account } = auth
+  const lang = await nopLangForRequest(request)
 
   const state = await getRegistration(account)
   if (!state || state.step !== "verified") {
-    return NextResponse.json({ error: "no_registration", message: "Start again by entering your Agent ID." }, { status: 409 })
+    return NextResponse.json({ error: "no_registration", message: tNop(lang, "err.expired") }, { status: 409 })
   }
 
   let body: Record<string, unknown>
@@ -32,18 +34,18 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
-  const display = validateDisplayFields(body)
+  const display = validateDisplayFields(body, lang)
   if (!display.ok) return NextResponse.json({ error: "invalid_fields", fields: display.errors }, { status: 422 })
 
   // Re-read: the roster may have been re-imported since verification.
   const roster = await getRosterRecord(state.agentId)
   if (!roster) {
     await clearRegistration(account)
-    return NextResponse.json({ error: "not_recognized", message: AGENT_ID_NOT_RECOGNIZED }, { status: 404 })
+    return NextResponse.json({ error: "not_recognized", message: tNop(lang, "err.not_recognized") }, { status: 404 })
   }
   if (roster.status === "suspended" || roster.status === "terminated") {
     await clearRegistration(account)
-    return NextResponse.json({ error: "inactive", message: AGENT_ID_INACTIVE }, { status: 403 })
+    return NextResponse.json({ error: "inactive", message: tNop(lang, "err.inactive") }, { status: 403 })
   }
 
   const lock = await lockAgentId(roster.agentId, account)
@@ -51,15 +53,17 @@ export async function POST(request: NextRequest) {
     await clearRegistration(account)
     if (lock.reason === "id_taken") {
       await addAgentFlag({ type: "id_already_registered", agentId: roster.agentId, account, heldBy: lock.heldBy })
-      return NextResponse.json({ error: "id_taken", message: AGENT_ID_TAKEN }, { status: 409 })
+      return NextResponse.json({ error: "id_taken", message: tNop(lang, "err.taken") }, { status: 409 })
     }
     return NextResponse.json(
-      { error: "account_registered", message: `This account is already registered as Agent ID ${lock.agentId}.` },
+      { error: "account_registered", message: tNop(lang, "err.account_registered", { agentId: lock.agentId }) },
       { status: 409 },
     )
   }
 
-  await saveAgentProfile(account, buildAgentProfile(roster, display.values))
+  // The language they registered in becomes the default on any device
+  // until they choose otherwise (see nopLangForPage).
+  await saveAgentProfile(account, { ...buildAgentProfile(roster, display.values), preferredLanguage: lang })
   await clearRegistration(account)
   return NextResponse.json({ ok: true, agentId: roster.agentId })
 }

@@ -1,4 +1,5 @@
 import { Resend } from "resend"
+import { tNop, type NopLang } from "@/lib/enterprise/nop-i18n"
 
 /**
  * Where operational alerts go. Distinct from any customer-facing address:
@@ -182,7 +183,13 @@ export async function sendWaitlistConfirmation(
  * apart are easy to confuse, and only the real agent can read this inbox.
  * Never throws; returns false and logs on any failure.
  */
-export async function sendAgentVerificationCode(rosterEmail: string, code: string, programName: string): Promise<boolean> {
+export async function sendAgentVerificationCode(
+  rosterEmail: string,
+  code: string,
+  programName: string,
+  /** The language the agent is using at the moment they asked for the code. */
+  lang: NopLang = "en",
+): Promise<boolean> {
   const resend = getClient()
   if (!resend) {
     console.error("[email] RESEND_API_KEY is not configured — cannot send agent verification code.")
@@ -192,11 +199,13 @@ export async function sendAgentVerificationCode(rosterEmail: string, code: strin
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: rosterEmail,
-      subject: `Your ${programName} verification code: ${code}`,
+      subject: tNop(lang, "email.subject", { program: programName, code }),
       html: `
-        <p>Your OneFlyer verification code for the ${programName} is:</p>
-        <p style="font-size:24px;font-weight:600;letter-spacing:4px">${code}</p>
-        <p>It expires in 15 minutes. If you didn't try to register, you can ignore this email.</p>
+        <div lang="${lang}">
+          <p>${tNop(lang, "email.intro", { program: programName })}</p>
+          <p style="font-size:24px;font-weight:600;letter-spacing:4px">${code}</p>
+          <p>${tNop(lang, "email.expires")}</p>
+        </div>
       `,
     })
     if (error) {

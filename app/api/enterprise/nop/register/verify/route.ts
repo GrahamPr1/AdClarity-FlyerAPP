@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { registrationRateLimit, requireClientSession } from "@/lib/enterprise/agent-session"
-import { AGENT_ID_NOT_RECOGNIZED } from "@/lib/enterprise/registration-messages"
+import { tNop } from "@/lib/enterprise/nop-i18n"
+import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 import {
   MAX_CODE_ATTEMPTS,
   clearRegistration,
@@ -18,13 +19,14 @@ export async function POST(request: NextRequest) {
   const auth = await requireClientSession(request)
   if ("response" in auth) return auth.response
   const { email: account } = auth
+  const lang = await nopLangForRequest(request)
 
-  const limited = await registrationRateLimit(request, account, "verify")
+  const limited = await registrationRateLimit(request, account, "verify", lang)
   if (limited) return limited
 
   const state = await getRegistration(account)
   if (!state || state.step !== "code" || !state.codeHash) {
-    return NextResponse.json({ error: "no_registration", message: "Start again by entering your Agent ID." }, { status: 409 })
+    return NextResponse.json({ error: "no_registration", message: tNop(lang, "err.expired") }, { status: 409 })
   }
 
   let code: string
@@ -38,16 +40,16 @@ export async function POST(request: NextRequest) {
     const attempts = state.codeAttempts + 1
     if (attempts >= MAX_CODE_ATTEMPTS) {
       await clearRegistration(account)
-      return NextResponse.json({ error: "too_many_attempts", message: "Too many incorrect codes. Start again." }, { status: 429 })
+      return NextResponse.json({ error: "too_many_attempts", message: tNop(lang, "err.too_many") }, { status: 429 })
     }
     await setRegistration(account, { ...state, codeAttempts: attempts })
-    return NextResponse.json({ error: "wrong_code", message: "That code isn't right. Check the email and try again." }, { status: 400 })
+    return NextResponse.json({ error: "wrong_code", message: tNop(lang, "err.wrong_code") }, { status: 400 })
   }
 
   const roster = await getRosterRecord(state.agentId)
   if (!roster) {
     await clearRegistration(account)
-    return NextResponse.json({ error: "not_recognized", message: AGENT_ID_NOT_RECOGNIZED }, { status: 404 })
+    return NextResponse.json({ error: "not_recognized", message: tNop(lang, "err.not_recognized") }, { status: 404 })
   }
   await setRegistration(account, { agentId: state.agentId, step: "verified", codeAttempts: 0 })
   return NextResponse.json({

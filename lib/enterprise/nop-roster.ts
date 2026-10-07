@@ -1,5 +1,6 @@
 import kitContent from "@/enterprise/nop/kit-v1.1.1/content.json"
 import type { AgentRosterStatus, RosterRecord } from "@/lib/types"
+import { tNop, type NopLang } from "./nop-i18n"
 
 // Pure, dependency-free roster logic for the Neighborhood Outreach Program.
 //
@@ -11,8 +12,6 @@ export const NOP_ORG_NAME = kitContent.program.name
 
 /** Issued by NOP. Digits only, so a pasted "858980 " or "#858980" is not silently a different agent. */
 export const AGENT_ID_RE = /^\d{1,10}$/
-
-export const AGENT_ID_NOT_RECOGNIZED = "Agent ID not recognized. Contact your program administrator."
 
 export const ROSTER_STATUSES: readonly AgentRosterStatus[] = ["pending", "active", "suspended", "terminated"]
 
@@ -229,19 +228,20 @@ export interface DisplayFields {
  */
 export function validateDisplayFields(
   input: Record<string, unknown>,
+  lang: NopLang = "en",
 ): { ok: true; values: DisplayFields } | { ok: false; errors: Record<string, string> } {
   const str = (k: string) => (typeof input[k] === "string" ? (input[k] as string).trim() : "")
   const errors: Record<string, string> = {}
 
   const displayName = str("displayName")
-  if (!displayName) errors.displayName = "Enter the name to show on your flyers."
-  else if (displayName.length > 80) errors.displayName = "Keep the name under 80 characters."
+  if (!displayName) errors.displayName = tNop(lang, "val.name_required")
+  else if (displayName.length > 80) errors.displayName = tNop(lang, "val.name_long")
 
   const displayPhone = formatUsPhone(str("displayPhone"))
-  if (!displayPhone) errors.displayPhone = "Enter a 10-digit US phone number."
+  if (!displayPhone) errors.displayPhone = tNop(lang, "val.phone")
 
   const displayEmail = str("displayEmail")
-  if (!isValidEmail(displayEmail)) errors.displayEmail = "Enter a valid email address."
+  if (!isValidEmail(displayEmail)) errors.displayEmail = tNop(lang, "val.email")
 
   if (Object.keys(errors).length > 0) return { ok: false, errors }
   return { ok: true, values: { displayName, displayPhone: displayPhone!, displayEmail: normalizeEmail(displayEmail) } }

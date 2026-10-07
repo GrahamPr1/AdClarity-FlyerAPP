@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   }
   const email = session.sub
 
-  const nopBlock = await nopAgentGenerationBlock(email)
+  const nopBlock = await nopAgentGenerationBlock(email, request)
   if (nopBlock) return nopBlock
 
   const rate = await checkGoalRateLimit(email, "execute")
