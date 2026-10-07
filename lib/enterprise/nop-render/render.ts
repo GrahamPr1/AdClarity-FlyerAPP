@@ -363,3 +363,63 @@ export async function measureDigitalLayout(id: NopTemplateId): Promise<MasterLay
     await context.close()
   }
 }
+
+export interface NopFlyerInspection {
+  zones: { field: string; text: string; fontSize: number; scrollWidth: number; clientWidth: number; lines: number }[]
+  /** data-var zones (or their text) intersecting qr_zone. Must be empty. */
+  qrOverlaps: string[]
+  /** data-var zones (or their text) intersecting the LOCKED "Scan to enroll" caption. Must be empty. */
+  captionOverlaps: string[]
+  tooWide: string[]
+}
+
+/**
+ * Runs the agent pipeline (inject, fonts, fit) and reports the measured
+ * result instead of a file — for the acceptance tests. Not used to serve agents.
+ */
+export async function inspectNopFlyer(id: NopTemplateId, agent: NopAgentValues): Promise<NopFlyerInspection> {
+  const content = readKitContent()
+  const { context, page } = await newPage(1)
+  try {
+    await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
+    await inject(page, textValues(content, id, agent), readKitFileBase64(content.default_logo), await qrSvg(enrollUrl(content, agent.agentId)))
+    await assertFonts(page)
+    const tooWide = await fitAndCheck(page)
+    const measured = await page.evaluate(() => {
+      const zones = Array.from(document.querySelectorAll<HTMLElement>("[data-var]"))
+        .filter((box) => box.querySelector("span.sc-interp"))
+        .map((box) => {
+          const slot = box.querySelector("span.sc-interp")!
+          const styled = box.querySelector<HTMLElement>(":scope > span")!
+          const range = document.createRange()
+          range.selectNodeContents(slot)
+          const lines = new Set(Array.from(range.getClientRects()).filter((r) => r.width > 0).map((r) => Math.round(r.top))).size
+          return { field: box.dataset.var!, text: slot.textContent ?? "", fontSize: parseFloat(getComputedStyle(styled).fontSize), scrollWidth: box.scrollWidth, clientWidth: box.clientWidth, lines }
+        })
+      const qr = document.querySelector('[data-var="qr_zone"]')!.getBoundingClientRect()
+      const caption = Array.from(document.querySelectorAll<HTMLElement>("body *")).find(
+        (el) => el.children.length === 0 && /^(Scan to enroll|Escanee para inscribirse)$/.test((el.textContent ?? "").trim()),
+      )
+      const cap = caption?.getBoundingClientRect()
+      const qrOverlaps: string[] = []
+      const captionOverlaps: string[] = caption ? [] : ["caption not found"]
+      for (const box of Array.from(document.querySelectorAll<HTMLElement>("[data-var]"))) {
+        const f = box.dataset.var!
+        if (f === "qr_zone" || f === "qr_code") continue
+        const rects = [box.getBoundingClientRect()]
+        const slot = box.querySelector("span.sc-interp")
+        if (slot) { const r = document.createRange(); r.selectNodeContents(slot); rects.push(...Array.from(r.getClientRects())) }
+        const img = box.querySelector("img")
+        if (img) rects.push(img.getBoundingClientRect())
+        // Inline, not a named helper: some bundlers wrap named functions in a
+        // helper that doesn't exist inside the page.
+        if (rects.some((a) => a.width > 0 && a.left < qr.right && qr.left < a.right && a.top < qr.bottom && qr.top < a.bottom)) qrOverlaps.push(f)
+        if (cap && rects.some((a) => a.width > 0 && a.left < cap.right && cap.left < a.right && a.top < cap.bottom && cap.top < a.bottom)) captionOverlaps.push(f)
+      }
+      return { zones, qrOverlaps, captionOverlaps }
+    })
+    return { ...measured, tooWide }
+  } finally {
+    await context.close()
+  }
+}
