@@ -132,7 +132,7 @@ export const es: Record<NopStringKey, string> = {
   "auth.sending": "Enviando…",
   "auth.back_login": "← Volver a iniciar sesión",
   "auth.reset_notice": "Si ese correo tiene una cuenta, le enviamos un enlace para crear una nueva contraseña. Revise su bandeja de entrada.",
-  "auth.admin_toggle": "¿Administrador del sitio? Inicie sesión con contraseña",
+  "auth.admin_toggle": "¿Administrador? Inicie sesión con contraseña",
   "auth.err_no_password": "Este correo aún no tiene contraseña. Use “¿Olvidó su contraseña?” para crear una.",
   "auth.err_mismatch": "Correo o contraseña incorrectos.",
   "auth.err_rate_limited": "Demasiados intentos de inicio de sesión. Espere unos minutos e inténtelo de nuevo.",

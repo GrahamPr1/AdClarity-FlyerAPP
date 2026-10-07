@@ -8,9 +8,9 @@ import { useNop } from "@/components/nop-i18n"
 const field =
   "w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
 const primary =
-  "rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors"
+  "whitespace-nowrap rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors"
 const secondary =
-  "rounded-lg border border-border px-4 py-2.5 text-sm transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-60"
+  "whitespace-nowrap rounded-lg border border-border px-4 py-2.5 text-sm transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-60"
 
 type Display = { displayName: string; displayPhone: string; displayEmail: string }
 
@@ -151,7 +151,7 @@ export function NopRegisterFlow() {
           <Field id="verifyEmail" label={t("reg.email_label")}>
             <input id="verifyEmail" type="email" className={field} value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button type="submit" disabled={busy || !email.trim()} className={primary}>
               {busy ? t("reg.sending") : t("reg.send_code")}
             </button>
@@ -184,7 +184,7 @@ export function NopRegisterFlow() {
           <Field id="code" label={t("reg.code_label")}>
             <input id="code" inputMode="numeric" autoComplete="one-time-code" className={field} value={code} onChange={(e) => setCode(e.target.value)} />
           </Field>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button type="submit" disabled={busy || !code.trim()} className={primary}>
               {busy ? t("reg.checking") : t("reg.verify")}
             </button>
@@ -223,7 +223,7 @@ export function NopRegisterFlow() {
             {t("reg.confirm_help")}
           </p>
           <DisplayInputs value={step.display} onChange={(display) => setStep({ ...step, display })} errors={fieldErrors} />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button type="submit" disabled={busy} className={primary}>
               {busy ? t("reg.registering") : t("reg.confirm_submit")}
             </button>
