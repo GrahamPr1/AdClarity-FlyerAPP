@@ -59,6 +59,12 @@ const nextConfig = {
   // package into the function.
   outputFileTracingIncludes: {
     "/api/flyers/[id]/pdf": ["./lib/pdf/fonts/**"],
+    // The NOP renderer reads Basic Benefits' kit by path at runtime
+    // (masters, Poppins TTFs, logo, content.json, digital/ thumbnails), which
+    // a bundler can't follow. Without these the routes fail on Vercel only.
+    "/api/enterprise/nop/render/[template]": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets,digital}/**", "./enterprise/nop/kit-v1.1.1/content.json"],
+    "/api/enterprise/nop/thumbnail/[template]": ["./enterprise/nop/kit-v1.1.1/digital/**"],
+    "/api/admin/enterprise/nop/render-check": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets}/**", "./enterprise/nop/kit-v1.1.1/content.json"],
   },
 
   // Vanity paths people type or that appear in old links. Permanent, because
