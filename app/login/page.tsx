@@ -4,6 +4,35 @@ import { Suspense, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { trackEvent } from "@/lib/analytics"
+import { NOP_LANG_COOKIE, langFromAcceptLanguage, parseNopLang, tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
+import { NopLangProvider, NopLanguageToggle } from "@/components/nop-i18n"
+
+/**
+ * NOP agents reach this page before any NOP page (the register link sends a
+ * signed-out agent here), so it speaks their language — but ONLY for them.
+ * Returns null for everyone else, and then every string below is the
+ * original English literal, untouched.
+ *
+ * A NOP visitor is someone with a nop_lang cookie (they chose a language on
+ * a NOP page) or someone headed back to a NOP page. With no choice yet, the
+ * browser's preferred language decides, as on the NOP pages themselves.
+ * Read in the browser: this page's content only renders client-side (it
+ * sits under a Suspense boundary for useSearchParams), so there is no
+ * server HTML for it to disagree with.
+ */
+function nopVisitorLang(next: string): NopLang | null {
+  if (typeof document === "undefined") return null
+  const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${NOP_LANG_COOKIE}=([^;]*)`))
+  const chosen = parseNopLang(m ? decodeURIComponent(m[1]) : null)
+  if (chosen) return chosen
+  if (!next.startsWith("/enterprise/nop")) return null
+  return langFromAcceptLanguage(navigator.languages?.length ? navigator.languages.join(",") : navigator.language)
+}
+
+/** The Spanish string for a NOP Spanish visitor; otherwise the original English, unchanged. */
+function pick(es: boolean, key: NopStringKey, english: string): string {
+  return es ? tNop("es", key) : english
+}
 
 function AdminLoginForm() {
   const [password, setPassword] = useState("")
@@ -62,14 +91,14 @@ function AdminLoginForm() {
 
 type ClientMode = "login" | "signup" | "forgot"
 
-function EmailField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function EmailField({ value, onChange, es = false }: { value: string; onChange: (v: string) => void; es?: boolean }) {
   return (
     <div>
-      <label htmlFor="email" className="block text-sm font-medium mb-1.5">Email</label>
+      <label htmlFor="email" className="block text-sm font-medium mb-1.5">{pick(es, "auth.email_label", "Email")}</label>
       <input id="email" type="email" required autoFocus value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-xl border border-[var(--white-border)] bg-[var(--white-glass)] px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-[var(--white-glass-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
-        placeholder="you@business.com" />
+        placeholder={pick(es, "auth.email_placeholder", "you@business.com")} />
     </div>
   )
 }
@@ -78,11 +107,16 @@ function ClientLoginForm({
   next,
   mode,
   onModeChange,
+  nopLang = null,
 }: {
   next: string
   mode: ClientMode
   onModeChange: (mode: ClientMode) => void
+  /** Set only for NOP visitors (see nopVisitorLang). */
+  nopLang?: NopLang | null
 }) {
+  const es = nopLang === "es"
+  const L = (key: NopStringKey, english: string) => pick(es, key, english)
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -116,7 +150,7 @@ function ClientLoginForm({
       })
     } catch {
       setWorking(false)
-      setError("Couldn't reach the server — check your connection and try again.")
+      setError(L("auth.err_network", "Couldn't reach the server — check your connection and try again."))
       return
     }
     const data = await res.json().catch(() => ({}) as { error?: string; message?: string })
@@ -127,6 +161,18 @@ function ClientLoginForm({
       // account that predates password auth — either way, the fix is the
       // same emailed link, so point them at it directly rather than
       // leaving them stuck on a login that can never succeed.
+      // A NOP Spanish visitor gets the same outcome in Spanish, keyed on the
+      // route's error code; the route itself is unchanged.
+      if (es) {
+        setError(
+          tNop("es", data.error === "no_password_set" ? "auth.err_no_password"
+            : data.error === "invalid_credentials" ? "auth.err_mismatch"
+            : data.error === "rate_limited" ? "auth.err_rate_limited"
+            : res.status === 401 ? "auth.err_mismatch"
+            : "auth.err_login_failed"),
+        )
+        return
+      }
       setError(
         data.message ??
           (data.error === "no_password_set"
@@ -146,7 +192,7 @@ function ClientLoginForm({
     e.preventDefault()
     setError("")
     if (password !== confirmPassword) {
-      setError("Those two passwords don't match — retype them and try again.")
+      setError(L("auth.err_pw_mismatch", "Those two passwords don't match — retype them and try again."))
       return
     }
     setWorking(true)
@@ -163,13 +209,21 @@ function ClientLoginForm({
       })
     } catch {
       setWorking(false)
-      setError("Couldn't reach the server — check your connection and try again.")
+      setError(L("auth.err_network", "Couldn't reach the server — check your connection and try again."))
       return
     }
     const data = await res.json().catch(() => ({}) as { error?: string })
 
     if (!res.ok) {
       setWorking(false)
+      if (es) {
+        setError(
+          tNop("es", res.status === 409 ? "auth.err_exists"
+            : res.status === 422 && /password/i.test(data.error ?? "") ? "auth.err_pw_short"
+            : "auth.err_signup_failed"),
+        )
+        return
+      }
       setError(
         data.error ??
           "We couldn't create your account just now. Nothing was charged or saved — please try again in a moment.",
@@ -197,23 +251,23 @@ function ClientLoginForm({
     setWorking(false)
 
     if (!res.ok) {
-      setError(data.error ?? "Something went wrong")
+      setError(es ? tNop("es", res.status === 502 ? "auth.err_reset_failed" : "auth.err_generic") : data.error ?? "Something went wrong")
       return
     }
-    setNotice("If that email has an account, a link to set a new password is on its way — check your inbox.")
+    setNotice(L("auth.reset_notice", "If that email has an account, a link to set a new password is on its way — check your inbox."))
   }
 
   if (mode === "signup") {
     return (
       <>
         <form onSubmit={handleSignup} className="mt-6 flex flex-col gap-4">
-          <EmailField value={email} onChange={setEmail} />
+          <EmailField value={email} onChange={setEmail} es={es} />
           <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-1.5">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium mb-1.5">{L("auth.password_label", "Password")}</label>
             <input id="password" type="password" required minLength={8} value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl border border-[var(--white-border)] bg-[var(--white-glass)] px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-[var(--white-glass-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35"
-              placeholder="At least 8 characters"
+              placeholder={L("auth.pw_placeholder", "At least 8 characters")}
               aria-describedby="password-requirements" />
             {/* Stated up front rather than only surfacing as a rejected
                 submit — the rule is trivial, and finding it out by failing is
@@ -221,14 +275,16 @@ function ClientLoginForm({
             <p id="password-requirements"
               className={`mt-1.5 text-xs ${password.length === 0 ? "text-muted-foreground" : password.length >= 8 ? "text-emerald-700" : "text-amber-700 dark:text-amber-300"}`}>
               {password.length === 0
-                ? "Must be at least 8 characters."
+                ? L("auth.pw_req_empty", "Must be at least 8 characters.")
                 : password.length >= 8
-                  ? "Long enough."
-                  : `${8 - password.length} more character${8 - password.length === 1 ? "" : "s"} needed.`}
+                  ? L("auth.pw_req_ok", "Long enough.")
+                  : es
+                    ? 8 - password.length === 1 ? tNop("es", "auth.pw_req_more_one") : tNop("es", "auth.pw_req_more", { n: 8 - password.length })
+                    : `${8 - password.length} more character${8 - password.length === 1 ? "" : "s"} needed.`}
             </p>
           </div>
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1.5">Confirm password</label>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1.5">{L("auth.confirm_pw", "Confirm password")}</label>
             <input id="confirmPassword" type="password" required minLength={8} value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full rounded-xl border border-[var(--white-border)] bg-[var(--white-glass)] px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 backdrop-blur-sm transition-all focus:border-[var(--brand-teal-bright)] focus:bg-[var(--white-glass-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal-bright)]/35" />
@@ -236,12 +292,12 @@ function ClientLoginForm({
           {error && <p role="alert" className="text-sm text-[var(--destructive)]">{error}</p>}
           <button type="submit" disabled={working}
             className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
-            {working ? "Creating account…" : "Create account"}
+            {working ? L("auth.creating", "Creating account…") : L("auth.create_btn", "Create account")}
           </button>
         </form>
         <button onClick={() => switchMode("login")} type="button"
           className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
-          Already have an account? Log in
+          {L("auth.have_account", "Already have an account? Log in")}
         </button>
       </>
     )
@@ -251,17 +307,17 @@ function ClientLoginForm({
     return (
       <>
         <form onSubmit={handleForgot} className="mt-6 flex flex-col gap-4">
-          <EmailField value={email} onChange={setEmail} />
+          <EmailField value={email} onChange={setEmail} es={es} />
           {error && <p role="alert" className="text-sm text-[var(--destructive)]">{error}</p>}
           {notice && <p className="text-sm text-[var(--brand-teal-bright)]">{notice}</p>}
           <button type="submit" disabled={working || !email}
             className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
-            {working ? "Sending…" : "Email me a reset link"}
+            {working ? L("auth.sending", "Sending…") : L("auth.reset_btn", "Email me a reset link")}
           </button>
         </form>
         <button onClick={() => switchMode("login")} type="button"
           className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
-          ← Back to login
+          {L("auth.back_login", "← Back to login")}
         </button>
       </>
     )
@@ -270,13 +326,13 @@ function ClientLoginForm({
   return (
     <>
       <form onSubmit={handleLogin} className="mt-6 flex flex-col gap-4">
-        <EmailField value={email} onChange={setEmail} />
+        <EmailField value={email} onChange={setEmail} es={es} />
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="password" className="block text-sm font-medium">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium">{L("auth.password_label", "Password")}</label>
             <button type="button" onClick={() => switchMode("forgot")}
               className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
-              Forgot password?
+              {L("auth.forgot_link", "Forgot password?")}
             </button>
           </div>
           <input id="password" type="password" required value={password}
@@ -287,17 +343,27 @@ function ClientLoginForm({
         {error && <p role="alert" className="text-sm text-[var(--destructive)]">{error}</p>}
         <button type="submit" disabled={working || !email || !password}
           className="w-full py-3 rounded-full bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] text-sm font-medium shadow-[var(--shadow-soft)] hover:bg-[var(--brand-teal)] hover:shadow-[var(--shadow-lift)] disabled:opacity-60 transition-all">
-          {working ? "Signing you in…" : "Log in"}
+          {working ? L("auth.logging_in", "Signing you in…") : L("auth.login_btn", "Log in")}
         </button>
       </form>
       {/* Goes to /onboarding rather than flipping this form to signup mode:
           someone with no account wants to start a campaign, and /onboarding
           bounces them through account creation on the way with `next` set —
           so they land where they were actually trying to go. */}
-      <a href="/onboarding"
-        className="mt-4 block w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
-        Don&apos;t have an account? Sign up
-      </a>
+      {nopLang ? (
+        // A NOP visitor signs up right here and keeps `next`, so they land
+        // back in agent registration — /onboarding would drop it and send
+        // them into the business-flyer questions instead.
+        <button type="button" onClick={() => switchMode("signup")}
+          className="mt-4 block w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
+          {L("auth.no_account", "Don't have an account? Sign up")}
+        </button>
+      ) : (
+        <a href="/onboarding"
+          className="mt-4 block w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Don&apos;t have an account? Sign up
+        </a>
+      )}
     </>
   )
 }
@@ -318,26 +384,29 @@ function LoginPageInner() {
   // action hidden behind a small "New here?" link underneath.
   const wantsToStart = next.startsWith("/onboarding")
   const [clientMode, setClientMode] = useState<ClientMode>(wantsToStart ? "signup" : "login")
+  // null for everyone but NOP visitors; see nopVisitorLang.
+  const [nopLang, setNopLang] = useState<NopLang | null>(() => nopVisitorLang(next))
+  const es = nopLang === "es"
 
   const heading =
     mode === "admin"
       ? "Admin Login"
       : clientMode === "signup"
-        ? "Create your account"
+        ? pick(es, "auth.heading_signup", "Create your account")
         : clientMode === "forgot"
-          ? "Reset your password"
-          : "Client Login"
+          ? pick(es, "auth.heading_forgot", "Reset your password")
+          : pick(es, "auth.heading_login", "Client Login")
 
   const subheading =
     mode === "admin"
       ? "Sign in with the site admin password."
       : clientMode === "signup"
         ? wantsToStart
-          ? "One quick step, then you're straight into your first campaign. We need an account so your flyers are saved and only you can see them."
-          : "Set up an email and password to save your flyers."
+          ? pick(es, "auth.sub_signup_start", "One quick step, then you're straight into your first campaign. We need an account so your flyers are saved and only you can see them.")
+          : pick(es, "auth.sub_signup", "Set up an email and password to save your flyers.")
         : clientMode === "forgot"
-          ? "We'll email you a link to set a new one."
-          : "Log in with your email and password to see your own flyers."
+          ? pick(es, "auth.sub_forgot", "We'll email you a link to set a new one.")
+          : pick(es, "auth.sub_login", "Log in with your email and password to see your own flyers.")
 
   return (
     // Liquid-glass auth screen. The reference used a 5000x3333 JPG for the
@@ -369,7 +438,7 @@ function LoginPageInner() {
         <div className="flex justify-center mb-8">
           <Link
             href="/"
-            aria-label="OneFlyer — back to homepage"
+            aria-label={pick(es, "auth.home_label", "OneFlyer — back to homepage")}
             className="inline-flex items-center gap-2 rounded-md px-2 py-1 -mx-2 text-lg transition-colors hover:text-[var(--brand-teal-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-teal-bright)]"
             style={{ fontFamily: "var(--font-heading)" }}
           >
@@ -377,19 +446,27 @@ function LoginPageInner() {
             OneFlyer
           </Link>
         </div>
+        {/* NOP visitors only. The provider also sets <html lang> for them. */}
+        {nopLang && (
+          <NopLangProvider lang={nopLang}>
+            <div className="mb-6 flex justify-center">
+              <NopLanguageToggle onChange={setNopLang} />
+            </div>
+          </NopLangProvider>
+        )}
         <div className="glass-card hover-lift rounded-3xl p-7">
           <h1 className="text-2xl">{heading}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">{subheading}</p>
 
           {mode === "client" ? (
-            <ClientLoginForm next={next} mode={clientMode} onModeChange={setClientMode} />
+            <ClientLoginForm next={next} mode={clientMode} onModeChange={setClientMode} nopLang={nopLang} />
           ) : (
             <AdminLoginForm />
           )}
 
           <button onClick={() => setMode(mode === "client" ? "admin" : "client")} type="button"
             className="mt-5 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
-            {mode === "client" ? "Site admin? Sign in with password" : "← Back to client login"}
+            {mode === "client" ? pick(es, "auth.admin_toggle", "Site admin? Sign in with password") : "← Back to client login"}
           </button>
         </div>
       </div>
