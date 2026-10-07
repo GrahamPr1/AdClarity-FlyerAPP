@@ -29,23 +29,43 @@ function getClient(): Resend | null {
  * logging the real reason server-side for diagnosis, without leaking
  * internal configuration state to whoever clicked "forgot password".
  */
-export async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<boolean> {
+export async function sendPasswordResetEmail(
+  email: string,
+  resetUrl: string,
+  /** Set only for NOP visitors (see nopLangForPasswordReset). Everyone else gets the original email below, untouched. */
+  nopLang: NopLang | null = null,
+): Promise<boolean> {
   const resend = getClient()
   if (!resend) {
     console.error("[email] RESEND_API_KEY is not configured — cannot send password reset email.")
     return false
   }
 
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: email,
-      subject: "Reset your OneFlyer password",
-      html: `
+  const message = nopLang
+    ? {
+        subject: tNop(nopLang, "reset_email.subject"),
+        html: `
+        <div lang="${nopLang}">
+          <p>${tNop(nopLang, "reset_email.intro")}</p>
+          <p><a href="${resetUrl}">${resetUrl}</a></p>
+          <p>${tNop(nopLang, "reset_email.expires")}</p>
+        </div>
+      `,
+      }
+    : {
+        subject: "Reset your OneFlyer password",
+        html: `
         <p>Click the link below to set a new password for your OneFlyer account.</p>
         <p><a href="${resetUrl}">${resetUrl}</a></p>
         <p>This link expires in 30 minutes and can only be used once. If you didn't request this, you can safely ignore this email.</p>
       `,
+      }
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: email,
+      ...message,
     })
     if (error) {
       console.error("[email] Resend rejected the password reset email:", error.message)

@@ -144,4 +144,18 @@ export const es: Record<NopStringKey, string> = {
   "auth.err_signup_failed": "No pudimos crear su cuenta en este momento. No se cobró ni se guardó nada; inténtelo de nuevo en un momento.",
   "auth.err_reset_failed": "No se pudo enviar el correo para restablecer la contraseña. Inténtelo más tarde.",
   "auth.err_generic": "Algo salió mal",
+
+  // ---- Password reset ----
+  "reset_email.subject": "Restablezca su contraseña de OneFlyer",
+  "reset_email.intro": "Haga clic en el siguiente enlace para crear una nueva contraseña para su cuenta de OneFlyer.",
+  "reset_email.expires": "Este enlace vence en 30 minutos y solo se puede usar una vez. Si usted no lo solicitó, puede ignorar este correo.",
+  "reset.heading": "Cree una nueva contraseña",
+  "reset.sub": "Elija la contraseña que usará para iniciar sesión de ahora en adelante.",
+  "reset.new_pw": "Nueva contraseña",
+  "reset.confirm_pw": "Confirme la nueva contraseña",
+  "reset.submit": "Guardar nueva contraseña",
+  "reset.saving": "Guardando…",
+  "reset.err_mismatch": "Las contraseñas no coinciden.",
+  "reset.err_missing": "A este enlace le falta información. Solicite uno nuevo desde la página de inicio de sesión.",
+  "reset.err_invalid": "Este enlace no es válido o ya venció. Solicite uno nuevo.",
 }

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server"
 import { cookies, headers } from "next/headers"
 import { getAgentProfile } from "@/lib/store"
+import { getAccountAgentId } from "@/lib/enterprise/agents-store"
 import { NOP_LANG_COOKIE, parseNopLang, resolveNopLang, type NopLang, type NopLangSource } from "./index"
 
 // Server side of NOP language choice. The saved preference is only looked
@@ -24,4 +25,18 @@ export async function nopLangForPage(account: string | null): Promise<{ lang: No
   const cookie = (await cookies()).get(NOP_LANG_COOKIE)?.value ?? null
   if (parseNopLang(cookie)) return resolveNopLang({ cookie })
   return resolveNopLang({ preferred: await preferredFor(account), acceptLanguage: (await headers()).get("accept-language") })
+}
+
+/**
+ * For the password-reset email: the language for a NOP visitor, or null for
+ * everyone else (who then get the original English email, untouched). A NOP
+ * visitor has a nop_lang cookie, or the email belongs to a registered agent.
+ * The answer never changes the route's response, so it can't reveal whether
+ * an address has an account.
+ */
+export async function nopLangForPasswordReset(request: NextRequest, email: string): Promise<NopLang | null> {
+  const fromCookie = parseNopLang(request.cookies.get(NOP_LANG_COOKIE)?.value)
+  if (fromCookie) return fromCookie
+  if (!(await getAccountAgentId(email))) return null
+  return resolveNopLang({ preferred: await preferredFor(email), acceptLanguage: request.headers.get("accept-language") }).lang
 }

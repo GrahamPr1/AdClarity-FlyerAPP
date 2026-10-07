@@ -143,6 +143,20 @@ export const en = {
   "auth.err_signup_failed": "We couldn't create your account just now. Nothing was charged or saved — please try again in a moment.",
   "auth.err_reset_failed": "Couldn't send the reset email right now — please try again later.",
   "auth.err_generic": "Something went wrong",
+
+  // ---- Password reset (NOP visitors only; English = the original literals) ----
+  "reset_email.subject": "Reset your OneFlyer password",
+  "reset_email.intro": "Click the link below to set a new password for your OneFlyer account.",
+  "reset_email.expires": "This link expires in 30 minutes and can only be used once. If you didn't request this, you can safely ignore this email.",
+  "reset.heading": "Set a new password",
+  "reset.sub": "Choose a password you'll use to log in from now on.",
+  "reset.new_pw": "New password",
+  "reset.confirm_pw": "Confirm new password",
+  "reset.submit": "Set new password",
+  "reset.saving": "Saving…",
+  "reset.err_mismatch": "Passwords don't match.",
+  "reset.err_missing": "This reset link is missing required information — please request a new one from the login page.",
+  "reset.err_invalid": "This reset link is invalid or has expired — request a new one.",
 } as const
 
 export type NopStringKey = keyof typeof en

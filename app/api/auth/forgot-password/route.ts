@@ -3,6 +3,7 @@ import { issuePasswordResetToken } from "@/lib/store"
 import { sendPasswordResetEmail } from "@/lib/email"
 import { getSiteUrl } from "@/lib/site-url"
 import { checkRateLimit, clientIp } from "@/lib/rate-limit"
+import { nopLangForPasswordReset } from "@/lib/enterprise/nop-i18n/server"
 
 // POST /api/auth/forgot-password
 // Emails a one-time reset link (see issuePasswordResetToken in lib/store.ts)
@@ -43,8 +44,13 @@ export async function POST(request: NextRequest) {
   }
 
   const token = await issuePasswordResetToken(email)
-  const resetUrl = `${getSiteUrl()}/reset-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`
-  const sent = await sendPasswordResetEmail(email, resetUrl)
+  // NOP visitors only: the email and the page it links to in their
+  // language. `lang` rides on the link so the page is right even when it's
+  // opened in another browser. For everyone else nopLang is null and the
+  // link and email are exactly as before.
+  const nopLang = await nopLangForPasswordReset(request, email)
+  const resetUrl = `${getSiteUrl()}/reset-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}${nopLang ? `&lang=${nopLang}` : ""}`
+  const sent = await sendPasswordResetEmail(email, resetUrl, nopLang)
 
   if (!sent) {
     // The real cause (missing RESEND_API_KEY, a Resend-side error, etc.) is
