@@ -1,6 +1,8 @@
 import { Suspense } from "react"
 import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
+import { isNopAgentAccount } from "@/lib/enterprise/agents-store"
 import { DashboardClient } from "@/components/dashboard-client"
 import { AdminDashboard } from "@/components/admin-dashboard"
 
@@ -19,6 +21,11 @@ export default async function DashboardPage() {
   const cookieStore = await cookies()
   const session = await getSessionIdentity({ cookies: cookieStore })
   const isAdmin = session?.sub === ADMIN_SUB
+
+  // NOP agents can't use the SMB dashboard (every generation route refuses
+  // them), so until the NOP agent dashboard exists they land on their agent
+  // profile. Only accounts holding an Agent ID; everyone else is unaffected.
+  if (session && !isAdmin && (await isNopAgentAccount(session.sub))) redirect("/enterprise/nop/profile")
 
   return (
     <main className="min-h-screen bg-background text-foreground">
