@@ -152,12 +152,18 @@ async function fitAndCheck(page: Page): Promise<string[]> {
       }
 
       // Every text zone, fitted or fixed-size: anything still wider than
-      // its box would print clipped.
+      // its box would print clipped, and every field is single-line, so
+      // text that wrapped onto a second line fails too. (Not a height
+      // check: a line box can be taller than its zone with every glyph
+      // still inside it.)
       const tooWide: string[] = []
       for (const slot of Array.from(document.querySelectorAll("[data-var] span.sc-interp"))) {
         const box = slot.closest<HTMLElement>("[data-var]")!
         if (!(slot.textContent ?? "").trim()) continue
-        if (box.scrollWidth > box.clientWidth || box.scrollHeight > box.clientHeight + 1) tooWide.push(box.dataset.var!)
+        const range = document.createRange()
+        range.selectNodeContents(slot)
+        const lineTops = new Set(Array.from(range.getClientRects()).filter((r) => r.width > 0).map((r) => Math.round(r.top)))
+        if (box.scrollWidth > box.clientWidth || lineTops.size > 1) tooWide.push(box.dataset.var!)
       }
       return tooWide
   })
