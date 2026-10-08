@@ -52,13 +52,24 @@ const nextConfig = {
   // them, and without them every PDF comes out in the container's single
   // default face.
   //
-  // NOTE: these globs do NOT match anything under node_modules on a
-  // Turbopack build — measured, in four spellings. The two packages that
-  // also read their own files by path are handled by
-  // serverExternalPackages above, which is what actually copies a whole
-  // package into the function.
+  // CORRECTION (2026-10-07): an earlier note here said node_modules globs
+  // never match on Turbopack and that serverExternalPackages copies both
+  // packages whole. Neither held. The globs were never applied because the
+  // route key "[id]" was an unescaped glob character class; with the key
+  // escaped they match, and they are what ships browsers.json and
+  // Chromium's binaries. serverExternalPackages is still needed (it keeps
+  // the packages out of the bundle) but does not ship them on its own.
   outputFileTracingIncludes: {
-    "/api/flyers/[id]/pdf": ["./lib/pdf/fonts/**"],
+    // Keys are GLOBS matched against the route: an unescaped "[id]" is a
+    // character class, so this entry silently never applied. Measured
+    // (2026-10-07): the route's .nft.json had 86 playwright-core files and
+    // no browsers.json, and none of @sparticuz/chromium — production failed
+    // every download with "Cannot find module
+    // /var/task/node_modules/playwright-core/browsers.json". With the key
+    // escaped, both packages and the fonts are traced into the function.
+    // (So serverExternalPackages alone does not ship them whole, and
+    // node_modules globs DO match here — see the note above.)
+    "/api/flyers/\\[id\\]/pdf": ["./lib/pdf/fonts/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
   },
 
   // Vanity paths people type or that appear in old links. Permanent, because

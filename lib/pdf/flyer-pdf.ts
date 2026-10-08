@@ -101,36 +101,41 @@ async function fallbackPageSize(
 let cached: Browser | null = null
 
 /**
- * One browser per warm instance.
+ * A browser for ONE render, and how to give it back.
  *
- * Fluid Compute reuses an instance across requests, and a Chromium cold
- * start is several seconds — paying it per download would make the button
- * feel broken. Pages are still created and closed per render so one request
- * can never see another's document.
+ * On Vercel (Linux) every render launches its own Chromium and closes it.
+ * @sparticuz/chromium runs with --single-process, and in that mode a shared
+ * browser does not survive a closed context: measured on a Vercel preview
+ * (2026-10-07), the first render on an instance succeeded and the next one
+ * on the same warm instance hung until the function timed out, alternately
+ * — so "one browser per warm instance" failed every second download. A
+ * fresh launch costs ~2–3s, well inside maxDuration.
+ *
+ * On a developer's Mac, Playwright's own (multi-process) Chromium is shared
+ * across renders as before; pages are still created and closed per render
+ * so one request can never see another's document.
  */
-async function getBrowser(): Promise<Browser> {
-  if (cached?.isConnected()) return cached
-
+export async function acquireBrowser(): Promise<{ browser: Browser; release: () => Promise<void> }> {
   const { chromium } = await import("playwright-core")
 
   // @sparticuz/chromium is a Linux x64 build; on a developer's Mac we use
   // the Chromium that Playwright already installed for the browser tests.
-  const onLambda = process.platform === "linux"
-  if (onLambda) {
+  if (process.platform === "linux") {
     // BEFORE launch: the child reads FONTCONFIG_PATH at startup, and the
     // container ships only one font without this. See lib/pdf/fonts.ts.
     const fonts = configureFonts()
     if (!fonts.applied) console.warn(`[pdf] font substitution not applied: ${fonts.reason}`)
     const sparticuz = (await import("@sparticuz/chromium")).default
-    cached = await chromium.launch({
+    const browser = await chromium.launch({
       args: sparticuz.args,
       executablePath: await sparticuz.executablePath(),
       headless: true,
     })
-  } else {
-    cached = await chromium.launch({ headless: true })
+    return { browser, release: () => browser.close().catch(() => undefined) }
   }
-  return cached
+
+  if (!cached?.isConnected()) cached = await chromium.launch({ headless: true })
+  return { browser: cached, release: async () => {} }
 }
 
 export interface RenderedPdf {
@@ -141,7 +146,7 @@ export interface RenderedPdf {
 
 export async function renderFlyerPdf(html: string): Promise<RenderedPdf> {
   const t0 = Date.now()
-  const browser = await getBrowser()
+  const { browser, release } = await acquireBrowser()
   // A fresh context per render: no cookies, no storage, nothing carried
   // between one client's flyer and the next.
   const context = await browser.newContext()
@@ -186,7 +191,8 @@ export async function renderFlyerPdf(html: string): Promise<RenderedPdf> {
     })
     return { pdf, ms: Date.now() - t0 }
   } finally {
-    await context.close()
+    await context.close().catch(() => undefined)
+    await release()
   }
 }
 
