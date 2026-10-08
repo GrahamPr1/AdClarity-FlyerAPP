@@ -70,6 +70,14 @@ const nextConfig = {
     // (So serverExternalPackages alone does not ship them whole, and
     // node_modules globs DO match here — see the note above.)
     "/api/flyers/\\[id\\]/pdf": ["./lib/pdf/fonts/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    // The NOP renderer reads Basic Benefits' kit by path at runtime
+    // (masters, Poppins TTFs, logo, content.json, digital/ thumbnails), which
+    // a bundler can't follow, and needs the same two packages as the PDF
+    // route above for the same reasons. Dynamic-route keys escape their
+    // brackets, as above, or the entry silently never applies.
+    "/api/enterprise/nop/render/\\[template\\]": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets,digital}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    "/api/enterprise/nop/thumbnail/\\[template\\]": ["./enterprise/nop/kit-v1.1.1/digital/**"],
+    "/api/admin/enterprise/nop/render-check": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
   },
 
   // Vanity paths people type or that appear in old links. Permanent, because
