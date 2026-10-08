@@ -35,7 +35,7 @@ export default async function Page() {
       intro={tNop(lang, "dash.intro")}
       headerAction={
         <>
-          <Link href="/enterprise/nop/profile" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link href="/enterprise/nop/profile" className="inline-flex min-h-11 min-w-11 items-center justify-center text-sm text-muted-foreground transition-colors hover:text-foreground">
             {tNop(lang, "dash.profile_link")}
           </Link>
           <NopSignOut />

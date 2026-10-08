@@ -941,6 +941,7 @@ export default function Page() {
             <span className="text-xs uppercase tracking-widest text-muted-foreground">Resources</span>
             <a href="/about" className="text-sm text-muted-foreground transition-colors hover:text-[var(--brand-teal-bright)]">About</a>
             <a href="/contact" className="text-sm text-muted-foreground transition-colors hover:text-[var(--brand-teal-bright)]">Contact</a>
+            <a href="/agent" className="text-sm text-muted-foreground transition-colors hover:text-[var(--brand-teal-bright)]">Agents / Agentes</a>
             <a href="#faq" className="text-sm text-muted-foreground transition-colors hover:text-[var(--brand-teal-bright)]">FAQ</a>
             <a href="#see-it" className="text-sm text-muted-foreground transition-colors hover:text-[var(--brand-teal-bright)]">See Examples</a>
             <a href="mailto:Gpearl1006@gmail.com" className="text-sm text-muted-foreground transition-colors hover:text-[var(--brand-teal-bright)]">Get Help</a>

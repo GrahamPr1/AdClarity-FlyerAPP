@@ -32,7 +32,7 @@ export default async function Page() {
       headerAction={
         <>
           {registered && (
-            <Link href="/enterprise/nop/dashboard" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/enterprise/nop/dashboard" className="inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground">
               {tNop(lang, "flyer.back")}
             </Link>
           )}

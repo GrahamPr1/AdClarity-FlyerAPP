@@ -1,5 +1,4 @@
 import { Redis } from "@upstash/redis"
-import { sha256Hex } from "@/lib/auth"
 import type { AgentFlag, AgentProfile, EnterpriseOrg, RosterRecord } from "@/lib/types"
 import { deleteAgentProfile, getAgentProfile, getEnterpriseOrg, saveAgentProfile, saveEnterpriseOrg } from "@/lib/store"
 import { NOP_ORG_ID, NOP_ORG_NAME, isGenerationStatus, qrDestinationFor } from "./nop-roster"
@@ -12,7 +11,7 @@ import { NOP_ORG_ID, NOP_ORG_NAME, isGenerationStatus, qrDestinationFor } from "
 //   roster:{org}:ids            set of every imported agentId
 //   agent-id:{agentId}          account email that owns the ID — SET NX only
 //   agent-account:{email}       the agentId that account owns (one per account)
-//   agent-reg:{email}           registration in progress, 15 min TTL
+//   (registration in progress lives in access-store.ts, keyed by flow)
 //   agent-flags:{org}           blocked attempts, newest first
 //
 // Own client, the same as lib/rate-limit.ts, rather than growing store.ts.
@@ -25,11 +24,10 @@ const rosterKey = (org: string, agentId: string) => `roster:${org}:${agentId}`
 const rosterIdsKey = (org: string) => `roster:${org}:ids`
 const agentIdKey = (agentId: string) => `agent-id:${agentId}`
 const agentAccountKey = (email: string) => `agent-account:${email}`
-const registrationKey = (email: string) => `agent-reg:${email}`
 const flagsKey = (org: string) => `agent-flags:${org}`
+/** Roster email -> Agent ID(s), rebuilt on every import. Used only by code sign-in. */
+const rosterEmailKey = (org: string, email: string) => `roster:${org}:email:${email}`
 
-export const REGISTRATION_TTL_SECONDS = 15 * 60
-export const MAX_CODE_ATTEMPTS = 5
 
 // ---- Roster -----------------------------------------------------------------
 
@@ -46,17 +44,37 @@ export async function ensureNopOrg(): Promise<EnterpriseOrg> {
  * canGenerate reads this record at call time. Agents absent from the file are
  * left as they were — removing someone is a status change, not an omission.
  */
-export async function importRoster(rows: Omit<RosterRecord, "importedAt">[]): Promise<{ created: number; updated: number }> {
+export interface RosterEmailChange {
+  agentId: string
+  from: string
+  to: string
+}
+
+export async function importRoster(
+  rows: Omit<RosterRecord, "importedAt">[],
+): Promise<{ created: number; updated: number; emailChanges: RosterEmailChange[] }> {
   await ensureNopOrg()
   const importedAt = new Date().toISOString()
   let created = 0
   let updated = 0
+  const emailChanges: RosterEmailChange[] = []
   for (const row of rows) {
     const record: RosterRecord = { ...row, importedAt }
+    const previous = await getRosterRecord(row.agentId)
     const isNew = (await redis.sadd(rosterIdsKey(NOP_ORG_ID), row.agentId)) === 1
     await redis.set(rosterKey(NOP_ORG_ID, row.agentId), record)
     if (isNew) created++
     else updated++
+
+    // Email index for code sign-in. A changed roster email takes effect at
+    // once: the old address is dropped, so codes only ever go to the CURRENT
+    // one, and the change is flagged for the admin.
+    if (previous && previous.rosterEmail !== row.rosterEmail) {
+      await redis.srem(rosterEmailKey(NOP_ORG_ID, previous.rosterEmail), row.agentId)
+      emailChanges.push({ agentId: row.agentId, from: previous.rosterEmail, to: row.rosterEmail })
+      await addAgentFlag({ type: "roster_email_changed", agentId: row.agentId, account: "(roster import)", fromEmail: previous.rosterEmail, toEmail: row.rosterEmail })
+    }
+    await redis.sadd(rosterEmailKey(NOP_ORG_ID, row.rosterEmail), row.agentId)
 
     // Keep the registered agent's copies of system fields in step. Status is
     // deliberately not copied; it is only ever read from the roster.
@@ -68,7 +86,19 @@ export async function importRoster(rows: Omit<RosterRecord, "importedAt">[]): Pr
       }
     }
   }
-  return { created, updated }
+  return { created, updated, emailChanges }
+}
+
+/**
+ * The single Agent ID whose CURRENT roster email this is, or null (none,
+ * or ambiguous). Double-checked against the record itself, so a stale index
+ * entry can never send a code to an old address.
+ */
+export async function agentIdForRosterEmail(email: string): Promise<string | null> {
+  const ids = (await redis.smembers(rosterEmailKey(NOP_ORG_ID, email))).map(String)
+  const current: string[] = []
+  for (const id of ids) if ((await getRosterRecord(id))?.rosterEmail === email) current.push(id)
+  return current.length === 1 ? current[0] : null
 }
 
 export async function getRosterRecord(agentId: string): Promise<RosterRecord | null> {
@@ -218,32 +248,6 @@ export async function isNopAgentAccount(email: string): Promise<boolean> {
 export async function canGenerate(agent: Pick<AgentProfile, "agentId"> | null | undefined): Promise<boolean> {
   if (!agent?.agentId) return false
   return isGenerationStatus(await getRosterRecord(agent.agentId))
-}
-
-// ---- Registration in progress -----------------------------------------------
-
-export interface RegistrationState {
-  agentId: string
-  step: "email" | "code" | "verified"
-  codeHash?: string
-  codeAttempts: number
-}
-
-/** Codes are stored only as this hash, bound to the account and the Agent ID. */
-export function hashVerificationCode(account: string, agentId: string, code: string): Promise<string> {
-  return sha256Hex(`${account}:${agentId}:${code}`)
-}
-
-export async function getRegistration(email: string): Promise<RegistrationState | null> {
-  return (await redis.get<RegistrationState>(registrationKey(email))) ?? null
-}
-
-export async function setRegistration(email: string, state: RegistrationState): Promise<void> {
-  await redis.set(registrationKey(email), state, { ex: REGISTRATION_TTL_SECONDS })
-}
-
-export async function clearRegistration(email: string): Promise<void> {
-  await redis.del(registrationKey(email))
 }
 
 // ---- Flags ------------------------------------------------------------------

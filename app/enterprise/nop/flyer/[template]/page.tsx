@@ -35,7 +35,7 @@ export default async function Page({ params }: { params: Promise<{ template: str
       title={`${tNop(lang, `pkg.${pkg}` as NopStringKey)} · ${tNop(lang, `pkg.${pkg}_name` as NopStringKey)}`}
       intro={`${tNop(lang, "dash.flyer_lang")}: ${tNop(lang, flyerLang === "EN" ? "dash.flyer_lang_en" : "dash.flyer_lang_es")}`}
       headerAction={
-        <Link href="/enterprise/nop/dashboard" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+        <Link href="/enterprise/nop/dashboard" className="inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground">
           {tNop(lang, "flyer.back")}
         </Link>
       }

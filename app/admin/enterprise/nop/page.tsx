@@ -13,7 +13,7 @@ const btn = "rounded-lg border border-border px-3 py-1.5 text-xs font-medium tra
 const th = "px-4 py-3 font-medium"
 const td = "px-4 py-3 align-top"
 
-type ImportReport = { created: number; updated: number; rejected: RosterRowRejection[]; flagged: RosterRowFlag[] }
+type ImportReport = { created: number; updated: number; rejected: RosterRowRejection[]; flagged: RosterRowFlag[]; emailChanges?: { agentId: string; from: string; to: string }[] }
 
 function Table({ head, children, min = "48rem" }: { head: string[]; children: React.ReactNode; min?: string }) {
   return (
@@ -156,6 +156,15 @@ export default function NopAdminPage() {
         {report && (
           <div data-testid="import-report" className="mt-5 text-sm">
             <p>{report.created} created, {report.updated} updated, {report.rejected.length} rejected, {report.flagged.length} flagged.</p>
+            {report.emailChanges && report.emailChanges.length > 0 && (
+              <Table head={["Agent ID", "Roster email changed from", "To (codes now go here only)"]} min="36rem">
+                {report.emailChanges.map((c) => (
+                  <tr key={c.agentId} className="border-t border-border">
+                    <td className={td}>{c.agentId}</td><td className={`${td} break-all`}>{c.from}</td><td className={`${td} break-all`}>{c.to}</td>
+                  </tr>
+                ))}
+              </Table>
+            )}
             {report.rejected.length > 0 && (
               <Table head={["Line", "Agent ID", "Rejected because"]} min="36rem">
                 {report.rejected.map((r) => (
@@ -188,10 +197,15 @@ export default function NopAdminPage() {
             {flags.data.flags.map((f) => (
               <tr key={f.id} className="border-t border-border">
                 <td className={`${td} text-muted-foreground`}>{new Date(f.at).toLocaleString()}</td>
-                <td className={td}>{f.type === "email_mismatch" ? "Email mismatch" : "ID already registered"}</td>
+                <td className={td}>{{ email_mismatch: "Email mismatch", id_already_registered: "ID already registered", business_account_conflict: "Roster email is a business account", roster_email_changed: "Roster email changed" }[f.type]}</td>
                 <td className={td}>{f.agentId}</td>
                 <td className={`${td} break-all`}>{f.account}</td>
-                <td className={`${td} break-all`}>{f.type === "email_mismatch" ? `typed ${f.attemptedEmail}` : `held by ${f.heldBy}`}</td>
+                <td className={`${td} break-all`}>
+                  {f.type === "email_mismatch" ? `typed ${f.attemptedEmail}`
+                    : f.type === "id_already_registered" ? `held by ${f.heldBy}`
+                    : f.type === "roster_email_changed" ? `${f.fromEmail} → ${f.toEmail}`
+                    : `${f.attemptedEmail ?? ""} already has a business account; not attached`}
+                </td>
               </tr>
             ))}
           </Table>

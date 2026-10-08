@@ -6,6 +6,7 @@ import { isNopTemplate, readKitContent } from "@/lib/enterprise/nop-render/kit"
 import { NopRenderError, renderNopFlyer, type NopFormat } from "@/lib/enterprise/nop-render/render"
 import { loadNopAgent, nopStatusMessageKey } from "@/lib/enterprise/nop-render/agent-context"
 import { logNopRender } from "@/lib/enterprise/nop-render/log"
+import { getCachedThumb, setCachedThumb, thumbCacheKey } from "@/lib/enterprise/nop-render/thumb-cache"
 
 // GET /api/enterprise/nop/render/{NOP_P2_ES}?format=preview|print|home|social
 //
@@ -18,7 +19,7 @@ import { logNopRender } from "@/lib/enterprise/nop-render/log"
 export const maxDuration = 60
 export const dynamic = "force-dynamic"
 
-const FORMATS: readonly NopFormat[] = ["preview", "print", "home", "social"]
+const FORMATS: readonly NopFormat[] = ["preview", "print", "home", "social", "thumb"]
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ template: string }> }) {
   const auth = await requireClientSession(request)
@@ -39,18 +40,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     )
   }
 
+  const values = {
+    agentId: agent.agentId,
+    displayName: agent.profile.displayName ?? agent.profile.name,
+    displayPhone: agent.profile.displayPhone ?? agent.profile.phone,
+    displayEmail: agent.profile.displayEmail ?? agent.profile.email,
+  }
+
+  // Dashboard thumbnails: served from the 7-day cache when every input is
+  // unchanged; only a fresh render is logged (format "thumb").
+  const thumbKey = format === "thumb" ? thumbCacheKey(template, values) : null
+  if (thumbKey) {
+    const cached = await getCachedThumb(thumbKey)
+    if (cached) {
+      return new NextResponse(new Uint8Array(cached), {
+        headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, no-store", "X-Thumb-Cache": "hit" },
+      })
+    }
+  }
+
   let rendered
   try {
-    rendered = await renderNopFlyer(
-      template,
-      {
-        agentId: agent.agentId,
-        displayName: agent.profile.displayName ?? agent.profile.name,
-        displayPhone: agent.profile.displayPhone ?? agent.profile.phone,
-        displayEmail: agent.profile.displayEmail ?? agent.profile.email,
-      },
-      format,
-    )
+    rendered = await renderNopFlyer(template, values, format)
   } catch (err) {
     if (err instanceof NopRenderError && err.code === "field_too_long") {
       const fieldKey = `render.field_${err.field}` as NopStringKey
@@ -62,6 +73,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   await logNopRender({ agentId: agent.agentId, account: auth.email, template, format, kitVersion: readKitContent().program.kit_version })
+  if (thumbKey) {
+    await setCachedThumb(thumbKey, rendered.body)
+    return new NextResponse(new Uint8Array(rendered.body), {
+      headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, no-store", "X-Thumb-Cache": "miss", "X-Render-Ms": String(rendered.ms) },
+    })
+  }
 
   const suffix = format === "home" ? (lang === "es" ? "_casa" : "_home") : format === "social" ? (lang === "es" ? "_redes" : "_social") : ""
   const ext = rendered.contentType === "application/pdf" ? "pdf" : "png"
