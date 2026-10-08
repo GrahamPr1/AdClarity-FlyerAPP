@@ -769,7 +769,14 @@ export interface RosterRecord {
 /** A blocked registration attempt surfaced to the org admin. */
 export interface AgentFlag {
   id: string
-  type: "email_mismatch" | "id_already_registered"
+  /**
+   * email_mismatch / id_already_registered: blocked registration attempts.
+   * business_account_conflict: the roster email already belongs to a
+   *   OneFlyer business account, so the ID can't be attached to it.
+   * roster_email_changed: a re-import changed an agent's roster email; the
+   *   old address stops working for code sign-in.
+   */
+  type: "email_mismatch" | "id_already_registered" | "business_account_conflict" | "roster_email_changed"
   agentId: string
   /** The OneFlyer account that made the attempt. */
   account: string
@@ -777,6 +784,9 @@ export interface AgentFlag {
   attemptedEmail?: string
   /** id_already_registered: who holds it. */
   heldBy?: string
+  /** roster_email_changed: the previous and new roster emails. */
+  fromEmail?: string
+  toEmail?: string
   at: string
 }
 

@@ -41,10 +41,11 @@ export async function POST(request: NextRequest) {
   if (parsed.fileErrors.length > 0) {
     return NextResponse.json({ error: "file_invalid", fileErrors: parsed.fileErrors }, { status: 422 })
   }
-  const { created, updated } = await importRoster(parsed.accepted)
+  const { created, updated, emailChanges } = await importRoster(parsed.accepted)
   return NextResponse.json({
     created,
     updated,
+    emailChanges,
     rejected: parsed.rejected,
     flagged: parsed.flagged,
   })
