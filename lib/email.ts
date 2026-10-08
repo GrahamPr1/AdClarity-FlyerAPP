@@ -209,6 +209,8 @@ export async function sendAgentVerificationCode(
   programName: string,
   /** The language the agent is using at the moment they asked for the code. */
   lang: NopLang = "en",
+  /** "signin" for a returning agent's code; "register" (default) for a first-time one. */
+  purpose: "register" | "signin" = "register",
 ): Promise<boolean> {
   const resend = getClient()
   if (!resend) {
@@ -219,12 +221,12 @@ export async function sendAgentVerificationCode(
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: rosterEmail,
-      subject: tNop(lang, "email.subject", { program: programName, code }),
+      subject: tNop(lang, purpose === "signin" ? "email.subject_signin" : "email.subject", { program: programName, code }),
       html: `
         <div lang="${lang}">
-          <p>${tNop(lang, "email.intro", { program: programName })}</p>
+          <p>${tNop(lang, purpose === "signin" ? "email.intro_signin" : "email.intro", { program: programName })}</p>
           <p style="font-size:24px;font-weight:600;letter-spacing:4px">${code}</p>
-          <p>${tNop(lang, "email.expires")}</p>
+          <p>${tNop(lang, purpose === "signin" ? "email.expires_signin" : "email.expires")}</p>
         </div>
       `,
     })
