@@ -24,7 +24,8 @@ import { decodeQrFromPng } from "./qr-gate"
 //   2. every Poppins weight the text uses is actually loaded;
 //   3. the QR decodes to exactly the agent's enrollment URL.
 
-export type NopFormat = "preview" | "print" | "home" | "social"
+/** "thumb" is the dashboard card image: a small JPEG of the print layout. */
+export type NopFormat = "preview" | "print" | "home" | "social" | "thumb"
 export const NOP_DOWNLOAD_FORMATS = ["print", "home", "social"] as const
 
 export interface NopAgentValues {
@@ -45,7 +46,7 @@ export class NopRenderError extends Error {
 
 export interface NopRendered {
   body: Buffer
-  contentType: "application/pdf" | "image/png"
+  contentType: "application/pdf" | "image/png" | "image/jpeg"
   /** What the QR decoded to (already checked equal to the expected URL). */
   qr: string
   ms: number
@@ -56,6 +57,8 @@ const TRIM = { x: 12, y: 12, w: 816, h: 1056 }
 /** Digital design base width: the masters' layout, 845 wide instead of 816. */
 const DIGITAL_BASE_W = 845
 const SOCIAL = { w: 1080, h: 1350 }
+/** Dashboard thumbnails: 612x792, the smallest scale at which the QR gate still decodes reliably (see tests). */
+const THUMB_DSF = 0.75
 
 /** The master with its @font-face URLs swapped for the same kit TTFs, inlined. Nothing else changes. */
 function masterWithInlineFonts(id: NopTemplateId): string {
@@ -253,7 +256,7 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
   const t0 = Date.now()
   const content = readKitContent()
   const expected = enrollUrl(content, agent.agentId)
-  const dsf = format === "social" ? SOCIAL.w / DIGITAL_BASE_W : format === "preview" ? 1 : 2
+  const dsf = format === "social" ? SOCIAL.w / DIGITAL_BASE_W : format === "preview" ? 1 : format === "thumb" ? THUMB_DSF : 2
   const { page, close } = await newPage(dsf)
   try {
     await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
@@ -267,6 +270,15 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
       throw new NopRenderError("field_too_long", `Too long to fit even at the minimum size: ${tooWide.join(", ")}`, tooWide[0])
     }
     await page.evaluate(() => Promise.all(Array.from(document.images).map((i) => i.decode().catch(() => undefined))))
+
+    if (format === "thumb") {
+      // The gate reads a lossless PNG of the QR from this same page state;
+      // the card gets a JPEG of the trim (a fraction of the PNG's size).
+      const qr = decodeQrFromPng(await page.screenshot({ type: "png", clip: await qrRegion(page) }))
+      gate(qr, expected)
+      const jpeg = await page.screenshot({ type: "jpeg", quality: 82, clip: { x: TRIM.x, y: TRIM.y, width: TRIM.w, height: TRIM.h } })
+      return { body: jpeg, contentType: "image/jpeg", qr: qr!, ms: Date.now() - t0 }
+    }
 
     if (format === "preview" || format === "social") {
       const clip = format === "social"
