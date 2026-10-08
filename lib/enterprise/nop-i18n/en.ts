@@ -9,11 +9,7 @@
 
 export const en = {
   // ---- Page chrome ----
-  "page.back_dashboard": "← Dashboard",
   "page.sign_out": "Sign out",
-  "register.meta_title": "Agent registration",
-  "register.title": "Register as a program agent",
-  "register.intro": "Your Agent ID ties every flyer and QR code to you, so we confirm it's yours before linking it to this account.",
   "profile.meta_title": "Agent profile",
   "profile.title": "Your agent profile",
   "profile.intro": "Your Agent ID and program details come from your program administrator. The name, phone and email on your flyers are yours to edit.",
@@ -31,15 +27,10 @@ export const en = {
   // ---- Registration steps ----
   "reg.id_label": "Agent ID",
   "reg.id_placeholder": "Issued by your program",
-  "reg.continue": "Continue",
   "reg.checking": "Checking…",
-  "reg.email_intro": "Agent ID {agentId}. Enter the email your program administrator has on file for you. We'll send a code there.",
-  "reg.email_label": "Verification email",
   "reg.send_code": "Send code",
   "reg.sending": "Sending…",
-  "reg.change_id": "Change Agent ID",
   "reg.code_sent_to": "We sent a 6-digit code to {sentTo}. It expires in 15 minutes.",
-  "reg.code_sent": "We sent a 6-digit code. It expires in 15 minutes.",
   "reg.code_label": "Verification code",
   "reg.verify": "Verify",
   "reg.start_over": "Start over",
@@ -48,7 +39,6 @@ export const en = {
   "reg.confirm_submit": "Confirm and register",
   "reg.registering": "Registering…",
   "reg.not_me": "That's not me",
-  "reg.done": "This account is registered as Agent ID {agentId}.",
 
   // ---- Display fields (registration and profile) ----
   "display.name": "Name on your flyers",
@@ -165,7 +155,6 @@ export const en = {
   "dash.flyer_lang": "Flyer language",
   "dash.flyer_lang_en": "English",
   "dash.flyer_lang_es": "Spanish",
-  "dash.preview_btn": "Preview",
   "dash.status_pending": "Your account is waiting for approval from your program administrator. You can look through the flyers, but previews and downloads open once your account is active.",
   "dash.status_suspended": "Your account is suspended, so previews and downloads are unavailable. Contact your program administrator.",
   "dash.status_terminated": "Your account is no longer active in the program, so previews and downloads are unavailable.",
@@ -196,7 +185,6 @@ export const en = {
   "render.field_agent_email": "email",
   "render.field_agent_phone": "phone number",
   "render.failed": "We couldn't create this flyer right now. Try again in a moment.",
-  "reg.view_dashboard": "Go to your flyers →",
 
   // ---- Passwordless agent access (/agent) ----
   "agent.meta_title": "Agent access",

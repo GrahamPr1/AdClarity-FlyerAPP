@@ -1,5 +1,4 @@
 import { Redis } from "@upstash/redis"
-import { sha256Hex } from "@/lib/auth"
 import type { AgentFlag, AgentProfile, EnterpriseOrg, RosterRecord } from "@/lib/types"
 import { deleteAgentProfile, getAgentProfile, getEnterpriseOrg, saveAgentProfile, saveEnterpriseOrg } from "@/lib/store"
 import { NOP_ORG_ID, NOP_ORG_NAME, isGenerationStatus, qrDestinationFor } from "./nop-roster"
@@ -12,7 +11,7 @@ import { NOP_ORG_ID, NOP_ORG_NAME, isGenerationStatus, qrDestinationFor } from "
 //   roster:{org}:ids            set of every imported agentId
 //   agent-id:{agentId}          account email that owns the ID — SET NX only
 //   agent-account:{email}       the agentId that account owns (one per account)
-//   agent-reg:{email}           registration in progress, 15 min TTL
+//   (registration in progress lives in access-store.ts, keyed by flow)
 //   agent-flags:{org}           blocked attempts, newest first
 //
 // Own client, the same as lib/rate-limit.ts, rather than growing store.ts.
@@ -25,13 +24,10 @@ const rosterKey = (org: string, agentId: string) => `roster:${org}:${agentId}`
 const rosterIdsKey = (org: string) => `roster:${org}:ids`
 const agentIdKey = (agentId: string) => `agent-id:${agentId}`
 const agentAccountKey = (email: string) => `agent-account:${email}`
-const registrationKey = (email: string) => `agent-reg:${email}`
 const flagsKey = (org: string) => `agent-flags:${org}`
 /** Roster email -> Agent ID(s), rebuilt on every import. Used only by code sign-in. */
 const rosterEmailKey = (org: string, email: string) => `roster:${org}:email:${email}`
 
-export const REGISTRATION_TTL_SECONDS = 15 * 60
-export const MAX_CODE_ATTEMPTS = 5
 
 // ---- Roster -----------------------------------------------------------------
 
@@ -252,32 +248,6 @@ export async function isNopAgentAccount(email: string): Promise<boolean> {
 export async function canGenerate(agent: Pick<AgentProfile, "agentId"> | null | undefined): Promise<boolean> {
   if (!agent?.agentId) return false
   return isGenerationStatus(await getRosterRecord(agent.agentId))
-}
-
-// ---- Registration in progress -----------------------------------------------
-
-export interface RegistrationState {
-  agentId: string
-  step: "email" | "code" | "verified"
-  codeHash?: string
-  codeAttempts: number
-}
-
-/** Codes are stored only as this hash, bound to the account and the Agent ID. */
-export function hashVerificationCode(account: string, agentId: string, code: string): Promise<string> {
-  return sha256Hex(`${account}:${agentId}:${code}`)
-}
-
-export async function getRegistration(email: string): Promise<RegistrationState | null> {
-  return (await redis.get<RegistrationState>(registrationKey(email))) ?? null
-}
-
-export async function setRegistration(email: string, state: RegistrationState): Promise<void> {
-  await redis.set(registrationKey(email), state, { ex: REGISTRATION_TTL_SECONDS })
-}
-
-export async function clearRegistration(email: string): Promise<void> {
-  await redis.del(registrationKey(email))
 }
 
 // ---- Flags ------------------------------------------------------------------

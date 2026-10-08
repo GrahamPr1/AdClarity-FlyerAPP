@@ -10,11 +10,7 @@ import type { NopStringKey } from "./en"
 
 export const es: Record<NopStringKey, string> = {
   // ---- Page chrome ----
-  "page.back_dashboard": "← Panel",
   "page.sign_out": "Cerrar sesión",
-  "register.meta_title": "Registro de agentes",
-  "register.title": "Regístrese como agente del programa",
-  "register.intro": "Su ID de agente vincula cada volante y código QR con usted, así que confirmamos que es suyo antes de asociarlo a esta cuenta.",
   "profile.meta_title": "Perfil de agente",
   "profile.title": "Su perfil de agente",
   "profile.intro": "Su ID de agente y los datos del programa provienen del administrador de su programa. Usted puede editar el nombre, el teléfono y el correo que aparecen en sus volantes.",
@@ -32,15 +28,10 @@ export const es: Record<NopStringKey, string> = {
   // ---- Registration steps ----
   "reg.id_label": "ID de agente",
   "reg.id_placeholder": "Asignado por su programa",
-  "reg.continue": "Continuar",
   "reg.checking": "Verificando…",
-  "reg.email_intro": "ID de agente {agentId}. Ingrese el correo que el administrador de su programa tiene registrado para usted. Le enviaremos un código a ese correo.",
-  "reg.email_label": "Correo de verificación",
   "reg.send_code": "Enviar código",
   "reg.sending": "Enviando…",
-  "reg.change_id": "Cambiar ID de agente",
   "reg.code_sent_to": "Enviamos un código de 6 dígitos a {sentTo}. Vence en 15 minutos.",
-  "reg.code_sent": "Enviamos un código de 6 dígitos. Vence en 15 minutos.",
   "reg.code_label": "Código de verificación",
   "reg.verify": "Verificar",
   "reg.start_over": "Empezar de nuevo",
@@ -49,7 +40,6 @@ export const es: Record<NopStringKey, string> = {
   "reg.confirm_submit": "Confirmar y registrarse",
   "reg.registering": "Registrando…",
   "reg.not_me": "No soy yo",
-  "reg.done": "Esta cuenta está registrada con el ID de agente {agentId}.",
 
   // ---- Display fields ----
   "display.name": "Nombre en sus volantes",
@@ -166,7 +156,6 @@ export const es: Record<NopStringKey, string> = {
   "dash.flyer_lang": "Idioma del volante",
   "dash.flyer_lang_en": "Inglés",
   "dash.flyer_lang_es": "Español",
-  "dash.preview_btn": "Vista previa",
   "dash.status_pending": "Su cuenta está esperando la aprobación del administrador de su programa. Puede ver los volantes, pero la vista previa y las descargas se habilitarán cuando su cuenta esté activa.",
   "dash.status_suspended": "Su cuenta está suspendida, por lo que la vista previa y las descargas no están disponibles. Comuníquese con el administrador de su programa.",
   "dash.status_terminated": "Su cuenta ya no está activa en el programa, por lo que la vista previa y las descargas no están disponibles.",
@@ -197,7 +186,6 @@ export const es: Record<NopStringKey, string> = {
   "render.field_agent_email": "correo",
   "render.field_agent_phone": "número de teléfono",
   "render.failed": "No pudimos crear este volante en este momento. Inténtelo de nuevo en un momento.",
-  "reg.view_dashboard": "Ir a sus volantes →",
 
   // ---- Passwordless agent access (/agent) ----
   "agent.meta_title": "Acceso para agentes",
