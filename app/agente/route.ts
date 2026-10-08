@@ -3,8 +3,9 @@ import { NOP_LANG_COOKIE, NOP_LANG_COOKIE_MAX_AGE } from "@/lib/enterprise/nop-i
 
 // oneflyer.org/agente: the Spanish front door. Chooses Spanish (the same
 // cookie the EN/ES toggle sets) and shows /agent.
-export function GET(request: NextRequest) {
-  const res = NextResponse.redirect(new URL("/agent", request.url))
+export function GET(_request: NextRequest) {
+  // Relative Location: correct behind any proxy, whatever host it was asked on.
+  const res = new NextResponse(null, { status: 307, headers: { Location: "/agent" } })
   res.cookies.set(NOP_LANG_COOKIE, "es", {
     httpOnly: false,
     secure: process.env.NODE_ENV === "production",

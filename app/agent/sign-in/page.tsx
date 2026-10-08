@@ -26,7 +26,7 @@ export default async function Page() {
       source={source}
       title={tNop(lang, "signin.title")}
       intro={tNop(lang, "signin.intro")}
-      headerAction={<Link href="/agent" className="text-sm text-muted-foreground transition-colors hover:text-foreground">{tNop(lang, "page.back_agent")}</Link>}
+      headerAction={<Link href="/agent" className="inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground">{tNop(lang, "page.back_agent")}</Link>}
     >
       <NopSignIn />
     </NopPageShell>

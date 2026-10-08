@@ -41,7 +41,7 @@ export default async function Page() {
             </Link>
           </>
         )}
-        <Link href="/login" className="mt-4 text-center text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/login" className="mt-4 flex min-h-11 items-center justify-center text-center text-sm text-muted-foreground hover:text-foreground">
           {t("agent.business_note")}
         </Link>
       </div>

@@ -237,7 +237,7 @@ export function NopFlyerPreview({ template, active, statusKey, agentName }: { te
         </section>
       )}
 
-      <Link href="/enterprise/nop/profile" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
+      <Link href="/enterprise/nop/profile" className="inline-flex min-h-11 items-center text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
         {t("flyer.edit_details")}
       </Link>
     </div>

@@ -44,7 +44,7 @@ export function NopPageShell({
             </div>
           </div>
           {/* Program name stays English, as in Basic Benefits' Spanish masters. */}
-          <p lang="en" className="text-xs uppercase tracking-widest text-muted-foreground/70">{NOP_ORG_NAME}</p>
+          <p lang="en" className="text-xs uppercase tracking-widest text-muted-foreground">{NOP_ORG_NAME}</p>
           <h1 className="mt-2 text-2xl">{title}</h1>
           <p className="mt-2 mb-8 text-sm text-muted-foreground">{intro}</p>
           {children}

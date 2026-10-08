@@ -1,16 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { cloneElement, isValidElement, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useNop } from "@/components/nop-i18n"
 
 export const field =
-  "w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
+  "min-h-11 w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
 export const primary =
-  "whitespace-nowrap rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors"
+  "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors"
 export const secondary =
-  "whitespace-nowrap rounded-lg border border-border px-4 py-2.5 text-sm transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-60"
+  "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg border border-border px-4 py-2.5 text-sm transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-60"
 
 export type Display = { displayName: string; displayPhone: string; displayEmail: string }
 
@@ -20,14 +20,26 @@ export async function post(url: string, body: unknown, method = "POST") {
   return { ok: res.ok, data }
 }
 
+/** A standalone text link with a 44px tap target. */
+export const textLink = "inline-flex min-h-11 items-center"
+
+/**
+ * Label + control + error. The error is announced as it appears
+ * (role=alert) and tied to the control (aria-describedby, aria-invalid), so
+ * a screen reader also reads it when the field is focused again.
+ */
 export function Field({ id, label, children, error }: { id: string; label: string; children: React.ReactNode; error?: string }) {
+  const errorId = `${id}-error`
+  const control = isValidElement<Record<string, unknown>>(children) && error
+    ? cloneElement(children, { "aria-invalid": true, "aria-describedby": errorId })
+    : children
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 block text-sm font-medium">
         {label}
       </label>
-      {children}
-      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {control}
+      {error && <p id={errorId} role="alert" className="mt-1 text-xs text-red-700 dark:text-red-400">{error}</p>}
     </div>
   )
 }

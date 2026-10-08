@@ -27,7 +27,7 @@ export default async function Page() {
       source={source}
       title={tNop(lang, "start.title")}
       intro={tNop(lang, "start.intro")}
-      headerAction={<Link href="/agent" className="text-sm text-muted-foreground transition-colors hover:text-foreground">{tNop(lang, "page.back_agent")}</Link>}
+      headerAction={<Link href="/agent" className="inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground">{tNop(lang, "page.back_agent")}</Link>}
     >
       <NopGetStarted />
     </NopPageShell>

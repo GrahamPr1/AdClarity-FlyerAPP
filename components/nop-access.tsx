@@ -186,10 +186,10 @@ export function NopGetStarted() {
           {error && !error.field && (
             <div className="flex flex-col gap-2">
               <ErrorLine message={error.message} />
-              {error.signIn && <Link href="/agent/sign-in" className="text-sm font-medium text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">{t("agent.sign_in")}</Link>}
+              {error.signIn && <Link href="/agent/sign-in" className="inline-flex min-h-11 items-center text-sm font-medium text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">{t("agent.sign_in")}</Link>}
             </div>
           )}
-          <Link href="/agent/sign-in" className="text-sm text-muted-foreground hover:text-foreground">{t("agent.sign_in")}</Link>
+          <Link href="/agent/sign-in" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">{t("agent.sign_in")}</Link>
         </form>
       )}
 
@@ -294,9 +294,9 @@ export function NopSignIn() {
             {busy ? t("reg.sending") : t("reg.send_code")}
           </button>
           {error && !error.field && <ErrorLine message={error.message} />}
-          <div className="flex flex-col gap-2 text-sm">
-            <Link href="/agent/start" className="text-muted-foreground hover:text-foreground">{t("agent.get_started")}</Link>
-            <Link href="/login?next=/enterprise/nop/dashboard" className="text-muted-foreground hover:text-foreground">{t("signin.password_option")}</Link>
+          <div className="flex flex-col text-sm">
+            <Link href="/agent/start" className="inline-flex min-h-11 items-center text-muted-foreground hover:text-foreground">{t("agent.get_started")}</Link>
+            <Link href="/login?next=/enterprise/nop/dashboard" className="inline-flex min-h-11 items-center text-muted-foreground hover:text-foreground">{t("signin.password_option")}</Link>
           </div>
         </form>
       ) : (
