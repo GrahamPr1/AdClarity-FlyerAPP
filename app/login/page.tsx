@@ -468,6 +468,12 @@ function LoginPageInner() {
             className="mt-5 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
             {mode === "client" ? pick(es, "auth.admin_toggle", "Site admin? Sign in with password") : "← Back to client login"}
           </button>
+          {/* Program agents sign in with a code at /agent, not here. */}
+          {mode === "client" && (
+            <a href="/agent" className="mt-3 block w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
+              {pick(es, "auth.agent_link", "Neighborhood Outreach Program agent? Sign in here")}
+            </a>
+          )}
         </div>
       </div>
     </div>

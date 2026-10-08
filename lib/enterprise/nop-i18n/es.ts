@@ -235,4 +235,5 @@ export const es: Record<NopStringKey, string> = {
   "dash.thumb_failed": "Vista previa no disponible. Abra el volante para intentarlo de nuevo.",
   "dash.open_flyer": "Abrir {name}",
   "auth.agent_link": "¿Agente del Neighborhood Outreach Program? Inicie sesión aquí",
+  "page.back_agent": "← Acceso para agentes",
 }

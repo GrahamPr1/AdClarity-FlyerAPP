@@ -48,6 +48,12 @@ export function MobileNav() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Neighborhood Outreach Program agents' front door. Bilingual on
+                purpose; deliberately quiet so it doesn't compete with the
+                business CTA. */}
+            <a href="/agent" className="hidden lg:inline text-[13px] text-muted-foreground transition-colors duration-200 hover:text-foreground">
+              Agents / Agentes
+            </a>
             {signedIn ? (
               <AccountMenu />
             ) : (
@@ -112,6 +118,13 @@ export function MobileNav() {
                 {l.label}
               </a>
             ))}
+            <a
+              href="/agent"
+              onClick={close}
+              className="px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:bg-[var(--surface-sunken)] rounded-xl transition-colors"
+            >
+              Agents / Agentes
+            </a>
             {signedIn ? (
               <AccountMenu variant="stacked" />
             ) : (

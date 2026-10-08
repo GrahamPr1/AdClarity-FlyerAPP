@@ -207,4 +207,5 @@ export const NOP_STRING_WHERE: Record<NopStringKey, { where: string; note?: stri
   "dash.thumb_failed": { where: "Dashboard card, thumbnail failed to render" },
   "dash.open_flyer": { where: "Dashboard card, thumbnail link (screen readers)" },
   "auth.agent_link": { where: "/login, small link to /agent (shown to everyone)", note: "Program name kept in English." },
+  "page.back_agent": { where: "/agent/start and /agent/sign-in header link back to /agent" },
 }

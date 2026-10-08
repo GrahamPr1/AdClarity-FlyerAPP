@@ -5,22 +5,22 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useNop } from "@/components/nop-i18n"
 
-const field =
+export const field =
   "w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
-const primary =
+export const primary =
   "whitespace-nowrap rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors"
-const secondary =
+export const secondary =
   "whitespace-nowrap rounded-lg border border-border px-4 py-2.5 text-sm transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-60"
 
-type Display = { displayName: string; displayPhone: string; displayEmail: string }
+export type Display = { displayName: string; displayPhone: string; displayEmail: string }
 
-async function post(url: string, body: unknown, method = "POST") {
+export async function post(url: string, body: unknown, method = "POST") {
   const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
   const data = await res.json().catch(() => ({}))
   return { ok: res.ok, data }
 }
 
-function Field({ id, label, children, error }: { id: string; label: string; children: React.ReactNode; error?: string }) {
+export function Field({ id, label, children, error }: { id: string; label: string; children: React.ReactNode; error?: string }) {
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 block text-sm font-medium">
@@ -32,7 +32,7 @@ function Field({ id, label, children, error }: { id: string; label: string; chil
   )
 }
 
-function DisplayInputs({ value, onChange, errors }: { value: Display; onChange: (v: Display) => void; errors: Record<string, string> }) {
+export function DisplayInputs({ value, onChange, errors }: { value: Display; onChange: (v: Display) => void; errors: Record<string, string> }) {
   const { t } = useNop()
   return (
     <div className="flex flex-col gap-4">
@@ -365,7 +365,7 @@ export function NopSignOut() {
       onClick={async () => {
         setBusy(true)
         await fetch("/api/auth/logout", { method: "POST" }).catch(() => {})
-        router.push("/login?next=/enterprise/nop/profile")
+        router.push("/agent")
         router.refresh()
       }}
       className="min-h-11 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"

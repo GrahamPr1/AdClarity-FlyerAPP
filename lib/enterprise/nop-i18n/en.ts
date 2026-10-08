@@ -234,6 +234,7 @@ export const en = {
   "dash.thumb_failed": "Preview unavailable. Open the flyer to try again.",
   "dash.open_flyer": "Open {name}",
   "auth.agent_link": "Neighborhood Outreach Program agent? Sign in here",
+  "page.back_agent": "← Agent access",
 } as const
 
 export type NopStringKey = keyof typeof en
