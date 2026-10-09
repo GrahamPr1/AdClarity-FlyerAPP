@@ -94,9 +94,11 @@ export async function sendPasswordResetEmail(
 export async function sendOperationalAlert(
   subject: string,
   bodyLines: string[],
+  /** Overrides ALERT_EMAIL (the health check sends to HEALTHCHECK_ALERT_EMAIL). */
+  to: string | undefined = ALERT_RECIPIENT,
 ): Promise<{ sent: boolean; reason?: string }> {
-  if (!ALERT_RECIPIENT) {
-    return { sent: false, reason: "ALERT_EMAIL is not configured" }
+  if (!to) {
+    return { sent: false, reason: "No alert recipient is configured" }
   }
   const resend = getClient()
   if (!resend) {
@@ -108,7 +110,7 @@ export async function sendOperationalAlert(
   try {
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
-      to: ALERT_RECIPIENT,
+      to,
       subject,
       html: `
         <div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5">
@@ -116,7 +118,7 @@ export async function sendOperationalAlert(
           ${bodyLines.map((l) => `<p style="margin:0 0 8px">${escape(l)}</p>`).join("")}
           <hr style="margin:16px 0;border:none;border-top:1px solid #ddd">
           <p style="margin:0;color:#666;font-size:12px">
-            Automated alert from OneFlyer. Sent because ALERT_EMAIL is configured.
+            Automated alert from OneFlyer.
           </p>
         </div>
       `,
@@ -237,6 +239,51 @@ export async function sendAgentVerificationCode(
     return true
   } catch (err) {
     console.error("[email] Failed to send agent verification email:", err instanceof Error ? err.message : err)
+    return false
+  }
+}
+
+/**
+ * Sign-in code for a Neighborhood Outreach Program org admin (Basic Benefits
+ * staff). English: the admin console is not agent-facing. Never throws;
+ * returns false and logs on any failure.
+ */
+export async function sendOrgAdminCode(email: string, code: string, programName: string): Promise<boolean> {
+  return sendSimple(email, `Your ${programName} admin sign-in code: ${code}`, [
+    `Use this code to sign in to the ${programName} admin console on OneFlyer:`,
+    `<p style="font-size:24px;font-weight:600;letter-spacing:4px">${code}</p>`,
+    "It expires in 15 minutes and works once. If you didn't ask for it, you can ignore this email.",
+  ], "org-admin code")
+}
+
+/** Invitation for a new NOP org admin, with the sign-in link. Never throws. */
+export async function sendOrgAdminInvite(email: string, programName: string, signInUrl: string): Promise<boolean> {
+  return sendSimple(email, `You've been added as a ${programName} admin on OneFlyer`, [
+    `You can now manage the ${programName} roster, flagged registrations, Agent ID locks, flyer prices and the flyer generation log on OneFlyer.`,
+    `Sign in with your email address (no password; we email you a code): <a href="${signInUrl}">${signInUrl}</a>`,
+  ], "org-admin invite")
+}
+
+async function sendSimple(to: string, subject: string, paragraphs: string[], what: string): Promise<boolean> {
+  const resend = getClient()
+  if (!resend) {
+    console.error(`[email] RESEND_API_KEY is not configured — cannot send ${what}.`)
+    return false
+  }
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to,
+      subject,
+      html: `<div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5">${paragraphs.map((p) => (p.startsWith("<p") ? p : `<p>${p}</p>`)).join("")}</div>`,
+    })
+    if (error) {
+      console.error(`[email] Resend rejected the ${what}:`, error.message)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error(`[email] Failed to send ${what}:`, err instanceof Error ? err.message : err)
     return false
   }
 }

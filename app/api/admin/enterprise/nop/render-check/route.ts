@@ -3,10 +3,13 @@ import { getSessionIdentity } from "@/lib/auth"
 import { isAdminSession } from "@/lib/admin"
 import { isNopTemplate } from "@/lib/enterprise/nop-render/kit"
 import { NopRenderError, renderNopFlyer, type NopFormat } from "@/lib/enterprise/nop-render/render"
+import { RENDER_CHECK_AGENT } from "@/lib/enterprise/nop-render/test-agent"
+import { consumeHealthToken } from "@/lib/health/health-token"
 
 // GET /api/admin/enterprise/nop/render-check?template=NOP_P2_EN&format=print
 //
-// Admin-only, kept permanently: renders a template through the exact agent
+// Site owner only (plus the daily health check's single-use token for one
+// template/format; see lib/health/health-token.ts), kept permanently: renders a template through the exact agent
 // pipeline (fonts, fitting, QR gate) with a fixed test agent, so the output
 // can be checked on any deployment — e.g. `pdffonts` on a Vercel preview to
 // prove Poppins is embedded on the real runtime. Needs no roster or agent
@@ -15,25 +18,20 @@ import { NopRenderError, renderNopFlyer, type NopFormat } from "@/lib/enterprise
 export const maxDuration = 60
 export const dynamic = "force-dynamic"
 
-const TEST_AGENT = {
-  agentId: "858980",
-  displayName: "Render Check Agent",
-  displayPhone: "(270) 555-0100",
-  displayEmail: "render-check@oneflyer.org",
-}
 
 export async function GET(request: NextRequest) {
-  const session = await getSessionIdentity(request)
-  if (!(await isAdminSession(session?.sub))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
   const url = new URL(request.url)
   const template = url.searchParams.get("template") ?? "NOP_P2_EN"
   const format = (url.searchParams.get("format") ?? "print") as NopFormat
+  // The site owner, or the daily health check with a token for exactly this template and format.
+  const session = await getSessionIdentity(request)
+  const allowed = (await isAdminSession(session?.sub)) || (await consumeHealthToken(request, { route: "nop-render-check", template, format }))
+  if (!allowed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!isNopTemplate(template)) return NextResponse.json({ error: "unknown template" }, { status: 422 })
   if (!["preview", "print", "home", "social"].includes(format)) return NextResponse.json({ error: "unknown format" }, { status: 422 })
 
   try {
-    const r = await renderNopFlyer(template, TEST_AGENT, format)
+    const r = await renderNopFlyer(template, RENDER_CHECK_AGENT, format)
     return new NextResponse(new Uint8Array(r.body), {
       headers: {
         "Content-Type": r.contentType,

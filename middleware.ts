@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth"
+import { verifySessionToken, verifyScopedToken, SESSION_COOKIE } from "@/lib/auth"
+// Constants only: lib/enterprise/org-admins.ts uses Redis, which middleware must not import.
+import { ORG_ADMIN_COOKIE, ORG_ADMIN_PURPOSE } from "@/lib/enterprise/org-admin-constants"
 
 export async function middleware(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value
@@ -36,6 +38,16 @@ export async function middleware(req: NextRequest) {
     // then does it again, forever. That would take the login page down
     // completely, which is the one page an unauthenticated visitor needs.
     return NextResponse.next()
+  }
+
+  // The NOP admin console is also open to NOP org admins, who have their own
+  // session cookie and no dashboard session; its layout does the full check
+  // (a current org admin, or the site owner). Its sign-in page is public.
+  const path = req.nextUrl.pathname
+  if (path === "/admin/enterprise/nop/sign-in") return NextResponse.next()
+  if (path === "/admin/enterprise/nop" || path.startsWith("/admin/enterprise/nop/")) {
+    if (session || (await verifyScopedToken(ORG_ADMIN_PURPOSE, req.cookies.get(ORG_ADMIN_COOKIE)?.value))) return NextResponse.next()
+    return NextResponse.redirect(new URL("/admin/enterprise/nop/sign-in", req.url))
   }
 
   if (!session) {

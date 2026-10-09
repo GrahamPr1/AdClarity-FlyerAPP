@@ -11,10 +11,8 @@ import path from "node:path"
 
 export const KIT_DIR = path.join(process.cwd(), "enterprise", "nop", "kit-v1.1.1")
 
-export const NOP_TEMPLATES = [
-  "NOP_P1_EN", "NOP_P1_ES", "NOP_P2_EN", "NOP_P2_ES", "NOP_P3_EN", "NOP_P3_ES", "NOP_ALL_EN", "NOP_ALL_ES",
-] as const
-export type NopTemplateId = (typeof NOP_TEMPLATES)[number]
+import { NOP_TEMPLATES, type NopTemplateId } from "./templates"
+export { NOP_TEMPLATES, type NopTemplateId }
 
 export function isNopTemplate(v: string): v is NopTemplateId {
   return (NOP_TEMPLATES as readonly string[]).includes(v)

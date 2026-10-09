@@ -1010,7 +1010,7 @@ export async function setClientBusinessCategory(email: string, category: Busines
   return { ...client, businessCategory: category, isRealEstate: deriveIsRealEstate(category) }
 }
 
-// Grants/revokes access to /admin/* (see app/admin/layout.tsx) for a real
+// Grants/revokes access to /admin/* (see app/admin/(owner)/layout.tsx) for a real
 // client account, on top of the always-admin ADMIN_SUB site-owner login.
 // Only ever called from POST /api/admin/set-admin, itself gated to the
 // ADMIN_SUB session — deliberately not self-service, so an isAdmin account

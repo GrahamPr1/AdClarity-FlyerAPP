@@ -116,6 +116,39 @@ export async function verifySessionToken(token: string | undefined): Promise<Ses
   return payload
 }
 
+// ---- Purpose-scoped tokens -------------------------------------------------
+//
+// Same format as a session token, but the signature covers "<purpose>|" +
+// payload, so a token minted for one purpose can never verify as another,
+// nor as a session token (whose signature covers the payload alone) — and a
+// session token can never verify as one of these. Used for the NOP org-admin
+// session and the health check's single-use credential.
+
+export type ScopedClaims = Record<string, string>
+
+export async function createScopedToken(purpose: string, claims: ScopedClaims, ttlSeconds: number): Promise<string> {
+  const payloadStr = Buffer.from(JSON.stringify({ ...claims, purpose, exp: Date.now() + ttlSeconds * 1000 })).toString("base64url")
+  return `${payloadStr}.${await hmac(`${purpose}|${payloadStr}`, getSecret())}`
+}
+
+/** The token's claims when it was minted for exactly this purpose and hasn't expired, else null. Edge-runtime safe. */
+export async function verifyScopedToken(purpose: string, token: string | undefined | null): Promise<ScopedClaims | null> {
+  if (!token) return null
+  const [payloadStr, signature, extra] = token.split(".")
+  if (!payloadStr || !signature || extra !== undefined) return null
+  if ((await hmac(`${purpose}|${payloadStr}`, getSecret())) !== signature) return null
+  let payload: Record<string, unknown>
+  try {
+    payload = JSON.parse(Buffer.from(payloadStr, "base64url").toString("utf-8"))
+  } catch {
+    return null
+  }
+  if (payload.purpose !== purpose || typeof payload.exp !== "number" || Date.now() > payload.exp) return null
+  const claims: ScopedClaims = {}
+  for (const [k, v] of Object.entries(payload)) if (typeof v === "string") claims[k] = v
+  return claims
+}
+
 /**
  * Checks the dashboard session cookie on an API request — the same check
  * middleware.ts does for page navigation, but middleware's matcher only

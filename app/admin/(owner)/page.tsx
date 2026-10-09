@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { AdminHealthPanel } from "@/components/admin-health"
 
 // Placeholder landing page — real content (the combined overview) gets
 // built out in phase 5, once phases 2-4 (users, cost, revenue) exist for
@@ -30,6 +31,7 @@ export default function AdminPage() {
           NOP Agents →
         </Link>
       </div>
+      <AdminHealthPanel />
     </div>
   )
 }

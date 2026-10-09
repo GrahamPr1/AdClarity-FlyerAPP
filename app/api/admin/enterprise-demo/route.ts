@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity } from "@/lib/auth"
 import { isAdminSession } from "@/lib/admin"
-import { loadEnterpriseDemoData } from "@/app/admin/enterprise-demo/data"
+import { loadEnterpriseDemoData } from "@/app/admin/(owner)/enterprise-demo/data"
 
 /**
  * GET /api/admin/enterprise-demo?email=...

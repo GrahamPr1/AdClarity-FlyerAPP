@@ -25,7 +25,8 @@ export const DAILY_CODES_PER_EMAIL = 10
 export const DAILY_CODES_PER_AGENT_ID = 10
 
 export interface FlowState {
-  kind: "register" | "signin"
+  /** org-admin: a NOP org admin signing in to the admin console (see lib/enterprise/org-admins.ts). */
+  kind: "register" | "signin" | "org-admin"
   /** register: the Agent ID being claimed. signin: the ID the account holds. */
   agentId?: string
   /** The inbox the code went to (always the CURRENT roster email for register). */
@@ -90,17 +91,17 @@ export async function deleteFlow(id: string): Promise<void> {
 const today = () => new Date().toISOString().slice(0, 10)
 
 /**
- * Reserves one send against the daily caps for this inbox and Agent ID.
- * Returns false (and reserves nothing) when either cap is already reached.
+ * Reserves one send against the daily caps for this inbox and, for agents,
+ * this Agent ID (org-admin codes have no Agent ID: the inbox cap alone).
+ * Returns false (and reserves nothing) when a cap is already reached.
  */
-export async function reserveDailySend(email: string, agentId: string): Promise<boolean> {
+export async function reserveDailySend(email: string, agentId: string | null): Promise<boolean> {
   const d = today()
-  const ek = `nop-code-day:email:${email}:${d}`
-  const ak = `nop-code-day:agent:${agentId}:${d}`
-  const [e, a] = await Promise.all([redis.incr(ek), redis.incr(ak)])
-  await Promise.all([redis.expire(ek, 2 * 86400), redis.expire(ak, 2 * 86400)])
-  if (e > DAILY_CODES_PER_EMAIL || a > DAILY_CODES_PER_AGENT_ID) {
-    await Promise.all([redis.decr(ek), redis.decr(ak)])
+  const keys = [`nop-code-day:email:${email}:${d}`, ...(agentId ? [`nop-code-day:agent:${agentId}:${d}`] : [])]
+  const counts = await Promise.all(keys.map((k) => redis.incr(k)))
+  await Promise.all(keys.map((k) => redis.expire(k, 2 * 86400)))
+  if (counts[0] > DAILY_CODES_PER_EMAIL || (counts[1] ?? 0) > DAILY_CODES_PER_AGENT_ID) {
+    await Promise.all(keys.map((k) => redis.decr(k)))
     return false
   }
   return true

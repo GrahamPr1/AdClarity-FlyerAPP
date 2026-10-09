@@ -11,7 +11,8 @@ export const secureCookies = () => process.env.NODE_ENV === "production"
 export async function readFlow(request: NextRequest): Promise<{ id: string; state: FlowState } | null> {
   const id = request.cookies.get(FLOW_COOKIE)?.value
   const state = await getFlow(id)
-  return id && state ? { id, state } : null
+  // Agent routes only: an org-admin sign-in flow is never valid here.
+  return id && state && state.kind !== "org-admin" ? { id, state } : null
 }
 
 export function setFlowCookie(res: NextResponse, id: string) {

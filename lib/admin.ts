@@ -1,7 +1,7 @@
 import { ADMIN_SUB } from "./auth"
 import { getClient } from "./store"
 
-// Shared by app/admin/layout.tsx (page access) and every /api/admin/*
+// Shared by app/admin/(owner)/layout.tsx (page access) and every /api/admin/*
 // route (data access) — a valid session isn't necessarily an admin one.
 // Lives in its own file rather than lib/auth.ts to avoid a circular import:
 // lib/store.ts already imports sha256Hex from lib/auth.ts, so lib/auth.ts

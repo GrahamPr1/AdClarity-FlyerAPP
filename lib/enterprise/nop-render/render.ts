@@ -1,6 +1,7 @@
 import type { BrowserContext, Page } from "playwright-core"
 import QRCode from "qrcode"
 import { acquireBrowser } from "@/lib/pdf/flyer-pdf"
+import { getLiveContent, type LiveContent } from "./content-store"
 import {
   enrollUrl,
   priceValues,
@@ -50,6 +51,8 @@ export interface NopRendered {
   /** What the QR decoded to (already checked equal to the expected URL). */
   qr: string
   ms: number
+  /** The content version (prices, effective date) it was rendered with. */
+  contentVersion: string
 }
 
 // Geometry from the masters and field_map.json "conversion".
@@ -250,11 +253,14 @@ function gate(decoded: string | null, expected: string) {
 
 /**
  * Renders one template for one agent in one format. Throws NopRenderError
- * on any gate failure; never returns a file that failed one.
+ * on any gate failure; never returns a file that failed one. Uses the live
+ * content version unless given one (a route that also logs or caches
+ * passes the version it resolved, so all three agree; a draft preview
+ * passes the draft).
  */
-export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, format: NopFormat): Promise<NopRendered> {
+export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, format: NopFormat, live?: LiveContent): Promise<NopRendered> {
   const t0 = Date.now()
-  const content = readKitContent()
+  const { content, version: contentVersion } = live ?? (await getLiveContent())
   const expected = enrollUrl(content, agent.agentId)
   const dsf = format === "social" ? SOCIAL.w / DIGITAL_BASE_W : format === "preview" ? 1 : format === "thumb" ? THUMB_DSF : 2
   const { page, close } = await newPage(dsf)
@@ -277,7 +283,7 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
       const qr = decodeQrFromPng(await page.screenshot({ type: "png", clip: await qrRegion(page) }))
       gate(qr, expected)
       const jpeg = await page.screenshot({ type: "jpeg", quality: 82, clip: { x: TRIM.x, y: TRIM.y, width: TRIM.w, height: TRIM.h } })
-      return { body: jpeg, contentType: "image/jpeg", qr: qr!, ms: Date.now() - t0 }
+      return { body: jpeg, contentType: "image/jpeg", qr: qr!, ms: Date.now() - t0, contentVersion }
     }
 
     if (format === "preview" || format === "social") {
@@ -287,7 +293,7 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
       const png = await page.screenshot({ type: "png", clip })
       const qr = decodeQrFromPng(png)
       gate(qr, expected)
-      return { body: png, contentType: "image/png", qr: qr!, ms: Date.now() - t0 }
+      return { body: png, contentType: "image/png", qr: qr!, ms: Date.now() - t0, contentVersion }
     }
 
     // PDFs: decode the QR from the exact page state being printed (print
@@ -299,7 +305,7 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
     const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true })
     const pages = (pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length
     if (pages !== 1) throw new NopRenderError("master_invalid", `${format} PDF has ${pages} pages, expected 1`)
-    return { body: pdf, contentType: "application/pdf", qr: qr!, ms: Date.now() - t0 }
+    return { body: pdf, contentType: "application/pdf", qr: qr!, ms: Date.now() - t0, contentVersion }
   } finally {
     await close()
   }

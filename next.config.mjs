@@ -78,6 +78,13 @@ const nextConfig = {
     "/api/enterprise/nop/render/\\[template\\]": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets,digital}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
     "/api/enterprise/nop/thumbnail/\\[template\\]": ["./enterprise/nop/kit-v1.1.1/digital/**"],
     "/api/admin/enterprise/nop/render-check": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    // Content uploads render all 8 templates with the draft (same needs as
+    // render-check); the other content routes read the bundled content.json
+    // by path as the schema and the fallback version.
+    "/api/admin/enterprise/nop/content/preview": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    "/api/admin/enterprise/nop/content": ["./enterprise/nop/kit-v1.1.1/content.json"],
+    "/api/admin/enterprise/nop/content/publish": ["./enterprise/nop/kit-v1.1.1/content.json"],
+    "/api/admin/enterprise/nop/content/rollback": ["./enterprise/nop/kit-v1.1.1/content.json"],
   },
 
   // Vanity paths people type or that appear in old links. Permanent, because

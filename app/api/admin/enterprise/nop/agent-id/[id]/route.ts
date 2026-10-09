@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getSessionIdentity } from "@/lib/auth"
-import { isAdminSession } from "@/lib/admin"
-import { getClientPasswordHash } from "@/lib/store"
+import { oneFlyerAccountExists } from "@/lib/enterprise/access-store"
+import { recordNopAdminAction, requireNopConsole } from "@/lib/enterprise/org-admins"
 import { AGENT_ID_RE, normalizeEmail } from "@/lib/enterprise/nop-roster"
 import { adminReassignAgentId, adminUnlockAgentId } from "@/lib/enterprise/agents-store"
 
@@ -14,8 +13,8 @@ import { adminReassignAgentId, adminUnlockAgentId } from "@/lib/enterprise/agent
 // changed since the page loaded the action is refused rather than applied to
 // a lock the admin never saw.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSessionIdentity(request)
-  if (!(await isAdminSession(session?.sub))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const who = await requireNopConsole(request)
+  if ("response" in who) return who.response
 
   const { id } = await params
   if (!AGENT_ID_RE.test(id)) return NextResponse.json({ error: "Invalid Agent ID" }, { status: 422 })
@@ -34,7 +33,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (body.action === "unlock") {
     const out = await adminUnlockAgentId(id, expectedOwner)
     if (!out.ok) return NextResponse.json(stale, { status: 409 })
-    console.log(`[nop] admin ${session!.sub} unlocked agent ${id} from ${expectedOwner}`)
+    console.log(`[nop] ${who.actor} unlocked agent ${id} from ${expectedOwner}`)
+    await recordNopAdminAction(who.actor, "agent_id_unlock", `${id} from ${expectedOwner}`)
     return NextResponse.json({ ok: true })
   }
 
@@ -43,8 +43,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!to) return NextResponse.json({ error: "Enter the account to reassign to." }, { status: 422 })
     if (to === expectedOwner) return NextResponse.json({ error: "That account already holds this Agent ID." }, { status: 422 })
     // Only to an account that exists: a typo here would otherwise lock the
-    // ID to an address nobody can sign in as.
-    if (!(await getClientPasswordHash(to))) {
+    // ID to an address nobody can sign in as. Agent accounts are
+    // passwordless, so "exists" is any OneFlyer account record, not a password.
+    if (!(await oneFlyerAccountExists(to))) {
       return NextResponse.json({ error: "No OneFlyer account exists for that email." }, { status: 404 })
     }
     const out = await adminReassignAgentId(id, expectedOwner, to)
@@ -53,7 +54,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (out.reason === "no_roster_record") return NextResponse.json({ error: "This Agent ID is not on the roster." }, { status: 404 })
       return NextResponse.json(stale, { status: 409 })
     }
-    console.log(`[nop] admin ${session!.sub} reassigned agent ${id} from ${expectedOwner} to ${to}`)
+    console.log(`[nop] ${who.actor} reassigned agent ${id} from ${expectedOwner} to ${to}`)
+    await recordNopAdminAction(who.actor, "agent_id_reassign", `${id} from ${expectedOwner} to ${to}`)
     return NextResponse.json({ ok: true })
   }
 

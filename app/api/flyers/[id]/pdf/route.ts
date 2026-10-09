@@ -3,6 +3,7 @@ import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getDeliverablesForEmail, recordFlyerExport } from "@/lib/store"
 import { ensurePageSize, ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
 import { renderFlyerPdf } from "@/lib/pdf/flyer-pdf"
+import { consumeHealthToken } from "@/lib/health/health-token"
 import { decodeFlyerHtml } from "@/lib/flyer-data-url"
 
 /**
@@ -25,15 +26,19 @@ export const maxDuration = 60
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSessionIdentity(request)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
   const { id } = await params
   const url = new URL(request.url)
   const variant = url.searchParams.get("variant") === "instagram" ? "instagram" : "print"
-
   const requestedEmail = url.searchParams.get("email")?.trim().toLowerCase()
-  const email = session.sub === ADMIN_SUB ? requestedEmail : session.sub
+
+  // The daily health check: a single-use token for exactly this flyer of
+  // exactly this account (lib/health/health-token.ts). Not recorded as an export.
+  const health = requestedEmail
+    ? await consumeHealthToken(request, { route: "business-pdf", email: requestedEmail, flyerId: id, variant })
+    : null
+  const session = health ? null : await getSessionIdentity(request)
+  if (!health && !session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const email = health ? requestedEmail : session!.sub === ADMIN_SUB ? requestedEmail : session!.sub
   if (!email) return NextResponse.json({ error: "Missing required parameter: email" }, { status: 422 })
 
   const deliverables = await getDeliverablesForEmail(email)
@@ -64,7 +69,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // export. Admin sessions are excluded: the site owner opening a client's
   // flyer is not that client getting their asset out of the product, and
   // counting it would put a tick on their journey they did not earn.
-  if (session.sub !== ADMIN_SUB) await recordFlyerExport(email, id, "pdf")
+  if (session && session.sub !== ADMIN_SUB) await recordFlyerExport(email, id, "pdf")
 
   return new NextResponse(new Uint8Array(rendered.pdf), {
     status: 200,

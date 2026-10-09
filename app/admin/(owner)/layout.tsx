@@ -3,7 +3,9 @@ import { redirect } from "next/navigation"
 import { getSessionIdentity } from "@/lib/auth"
 import { isAdminSession } from "@/lib/admin"
 
-// Gates every /admin/* route. middleware.ts already requires a valid
+// Gates every /admin/* page except the NOP console (app/admin/enterprise/nop,
+// which has its own layout so NOP org admins can use it and nothing else).
+// The (owner) route group changes no URLs. middleware.ts already requires a valid
 // session to reach here at all (see its matcher); this is the finer-grained
 // check on top — a valid session isn't necessarily an ADMIN one. A fresh
 // Redis lookup (see isAdminSession), not something baked into the session

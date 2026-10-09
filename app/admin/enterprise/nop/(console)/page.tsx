@@ -6,6 +6,8 @@ import useSWR from "swr"
 import type { AgentFlag } from "@/lib/types"
 import type { RosterListEntry } from "@/lib/enterprise/agents-store"
 import type { RosterRowFlag, RosterRowRejection } from "@/lib/enterprise/nop-roster"
+import { ContentAdmin, OrgAdminsAdmin } from "@/components/nop-console-sections"
+import { OrgAdminSignOut } from "@/components/nop-org-admin"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -63,7 +65,7 @@ function LockActions({ entry, onDone }: { entry: RosterListEntry; onDone: () => 
   )
 }
 
-type RenderLogEntry = { agentId: string; account: string; template: string; format: string; kitVersion: string; at: string }
+type RenderLogEntry = { agentId: string; account: string; template: string; format: string; kitVersion: string; contentVersion?: string; at: string }
 
 /**
  * Every flyer file an agent was given, previews included — the compliance
@@ -92,7 +94,7 @@ function RenderLog() {
       </form>
       {log.data && <p className="mt-3 text-sm text-muted-foreground">{log.data.total} entr{log.data.total === 1 ? "y" : "ies"}{log.data.total > log.data.entries.length ? `, newest ${log.data.entries.length} shown` : ""}.</p>}
       {log.data && log.data.entries.length > 0 && (
-        <Table head={["When", "Agent ID", "Account", "Template", "Format", "Kit"]}>
+        <Table head={["When", "Agent ID", "Account", "Template", "Format", "Kit", "Content"]}>
           {log.data.entries.map((e, i) => (
             <tr key={`${e.at}-${i}`} className="border-t border-border">
               <td className={`${td} text-muted-foreground`}>{new Date(e.at).toLocaleString()}</td>
@@ -101,6 +103,7 @@ function RenderLog() {
               <td className={td}>{e.template}</td>
               <td className={td}>{e.format}</td>
               <td className={td}>{e.kitVersion}</td>
+              <td className={td}>{e.contentVersion ?? `bundled-${e.kitVersion}`}</td>
             </tr>
           ))}
         </Table>
@@ -110,6 +113,7 @@ function RenderLog() {
 }
 
 export default function NopAdminPage() {
+  const who = useSWR<{ actor: string; isOwner: boolean }>("/api/admin/enterprise/nop/whoami", fetcher, { revalidateOnFocus: false })
   const roster = useSWR<{ roster: RosterListEntry[] }>("/api/admin/enterprise/nop/roster", fetcher, { revalidateOnFocus: false })
   const flags = useSWR<{ flags: AgentFlag[] }>("/api/admin/enterprise/nop/flags", fetcher, { revalidateOnFocus: false })
   const [csv, setCsv] = useState("")
@@ -135,7 +139,13 @@ export default function NopAdminPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
-      <Link href="/admin" className="text-sm text-muted-foreground transition-colors hover:text-foreground">← Admin</Link>
+      {who.data?.isOwner && <Link href="/admin" className="text-sm text-muted-foreground transition-colors hover:text-foreground">← Admin</Link>}
+      {who.data && !who.data.isOwner && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground" data-testid="org-admin-who">Signed in as {who.data.actor}</p>
+          <OrgAdminSignOut />
+        </div>
+      )}
       <h1 className="mt-4 text-2xl">Neighborhood Outreach Program — agents</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Import the roster NOP issues. Re-importing updates existing agents, and a status change applies on the next
@@ -212,6 +222,8 @@ export default function NopAdminPage() {
         )}
       </section>
 
+      <ContentAdmin />
+
       <RenderLog />
 
       <section className="mt-10">
@@ -236,6 +248,8 @@ export default function NopAdminPage() {
           </Table>
         )}
       </section>
+
+      {who.data?.isOwner && <OrgAdminsAdmin />}
     </div>
   )
 }

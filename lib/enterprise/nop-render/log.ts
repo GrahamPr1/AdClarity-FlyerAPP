@@ -23,6 +23,13 @@ export interface NopRenderLogEntry {
   template: string
   format: NopFormat
   kitVersion: string
+  /**
+   * The content version (prices, effective date) the file was rendered
+   * with: "c{n}" for an uploaded version, "bundled-{kit}" for the content.json
+   * shipped with the code. Absent on entries written before versioning,
+   * which all used the bundled content.
+   */
+  contentVersion?: string
   /** ISO timestamp. */
   at: string
 }
@@ -44,12 +51,12 @@ export async function countNopRenders(agentId?: string): Promise<number> {
   return redis.llen(agentId ? agentKey(agentId) : GLOBAL_KEY)
 }
 
-const CSV_COLUMNS = ["timestamp", "agent_id", "account", "template", "format", "kit_version"] as const
+const CSV_COLUMNS = ["timestamp", "agent_id", "account", "template", "format", "kit_version", "content_version"] as const
 
 /** RFC 4180 CSV of the log, oldest first (the order an auditor reads it). */
 export function nopRenderLogCsv(entries: NopRenderLogEntry[]): string {
   const q = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
   const rows = [CSV_COLUMNS.join(",")]
-  for (const e of [...entries].reverse()) rows.push([e.at, e.agentId, e.account, e.template, e.format, e.kitVersion].map((v) => q(String(v))).join(","))
+  for (const e of [...entries].reverse()) rows.push([e.at, e.agentId, e.account, e.template, e.format, e.kitVersion, e.contentVersion ?? `bundled-${e.kitVersion}`].map((v) => q(String(v))).join(","))
   return rows.join("\r\n") + "\r\n"
 }

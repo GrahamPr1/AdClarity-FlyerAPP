@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireClientSession } from "@/lib/enterprise/agent-session"
 import { tNop, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
-import { isNopTemplate, readKitContent } from "@/lib/enterprise/nop-render/kit"
+import { isNopTemplate } from "@/lib/enterprise/nop-render/kit"
+import { getLiveContent } from "@/lib/enterprise/nop-render/content-store"
 import { NopRenderError, renderNopFlyer, type NopFormat } from "@/lib/enterprise/nop-render/render"
 import { loadNopAgent, nopStatusMessageKey } from "@/lib/enterprise/nop-render/agent-context"
 import { logNopRender } from "@/lib/enterprise/nop-render/log"
@@ -49,7 +50,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   // Dashboard thumbnails: served from the 7-day cache when every input is
   // unchanged; only a fresh render is logged (format "thumb").
-  const thumbKey = format === "thumb" ? thumbCacheKey(template, values) : null
+  // One content version for the whole request: render, cache key and log agree.
+  const live = await getLiveContent()
+  const thumbKey = format === "thumb" ? thumbCacheKey(template, values, live) : null
   if (thumbKey) {
     const cached = await getCachedThumb(thumbKey)
     if (cached) {
@@ -61,7 +64,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   let rendered
   try {
-    rendered = await renderNopFlyer(template, values, format)
+    rendered = await renderNopFlyer(template, values, format, live)
   } catch (err) {
     if (err instanceof NopRenderError && err.code === "field_too_long") {
       const fieldKey = `render.field_${err.field}` as NopStringKey
@@ -72,7 +75,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "render_failed", message: tNop(lang, "render.failed") }, { status: 500 })
   }
 
-  await logNopRender({ agentId: agent.agentId, account: auth.email, template, format, kitVersion: readKitContent().program.kit_version })
+  await logNopRender({
+    agentId: agent.agentId, account: auth.email, template, format,
+    kitVersion: live.content.program.kit_version, contentVersion: rendered.contentVersion,
+  })
   if (thumbKey) {
     await setCachedThumb(thumbKey, rendered.body)
     return new NextResponse(new Uint8Array(rendered.body), {
