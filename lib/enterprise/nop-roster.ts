@@ -71,6 +71,11 @@ export function isPlaceholder(v: string): boolean {
   return false
 }
 
+/** Blank, NA or N/A: the agent has no referral code. */
+export function isNoReferralCode(v: string): boolean {
+  return /^(n\/?a)?$/i.test(v.trim())
+}
+
 /**
  * Minimal RFC 4180 parser: quoted fields, doubled quotes, commas and newlines
  * inside quotes, CRLF. Not a dependency for the sake of ~30 lines.
@@ -156,12 +161,23 @@ export function validateRosterCsv(text: string): RosterParseResult {
   const seen = new Set<string>()
   rows.slice(1).forEach((cells, i) => {
     const line = i + 2
-    const get = (col: (typeof COLUMNS)[number]) => (cells[index[col]] ?? "").trim()
+    const raw = (col: (typeof COLUMNS)[number]) => (cells[index[col]] ?? "").trim()
+    // referral_code is on no flyer, so "no code" (blank, NA, N/A) is stored
+    // empty. enrollment_url is never used for the QR or the flyer: blank is
+    // accepted (and flagged below), a missing scheme is assumed https.
+    const get = (col: (typeof COLUMNS)[number]) => {
+      const v = raw(col)
+      if (col === "referral_code" && isNoReferralCode(v)) return ""
+      if (col === "enrollment_url" && v !== "" && !/^[a-z][a-z0-9+.-]*:\/\//i.test(v) && !isPlaceholder(v)) return `https://${v}`
+      return v
+    }
+    const optional = (col: (typeof COLUMNS)[number]) =>
+      (col === "referral_code" && get(col) === "") || (col === "enrollment_url" && get(col) === "")
     const agentId = get("agent_id")
     const reasons: string[] = []
 
     for (const col of COLUMNS) {
-      if (isPlaceholder(get(col))) reasons.push(`${col} is empty or a placeholder ("${get(col)}")`)
+      if (!optional(col) && isPlaceholder(get(col))) reasons.push(`${col} is empty or a placeholder ("${get(col)}")`)
     }
     const filled = (col: (typeof COLUMNS)[number]) => !isPlaceholder(get(col))
 
@@ -175,10 +191,9 @@ export function validateRosterCsv(text: string): RosterParseResult {
     if (filled("status") && !ROSTER_STATUSES.includes(status as AgentRosterStatus)) {
       reasons.push(`status must be one of ${ROSTER_STATUSES.join(", ")}`)
     }
-    let url: URL | null = null
     if (filled("enrollment_url")) {
       try {
-        url = new URL(get("enrollment_url"))
+        new URL(get("enrollment_url"))
       } catch {
         reasons.push("enrollment_url is not a valid URL")
       }
@@ -195,9 +210,12 @@ export function validateRosterCsv(text: string): RosterParseResult {
 
     const enrollmentUrl = get("enrollment_url")
     const expected = expectedEnrollmentUrl(agentId)
-    const urlMismatch = url !== null && enrollmentUrl !== expected
-    if (urlMismatch) {
-      result.flagged.push({ line, agentId, reason: `enrollment_url is "${enrollmentUrl}", expected "${expected}"` })
+    const urlMismatch = enrollmentUrl !== expected
+    if (enrollmentUrl === "") {
+      result.flagged.push({ line, agentId, reason: `enrollment_url is blank, expected "${expected}"` })
+    } else if (urlMismatch) {
+      const typed = raw("enrollment_url") === enrollmentUrl ? "" : ` (given as "${raw("enrollment_url")}")`
+      result.flagged.push({ line, agentId, reason: `enrollment_url is "${enrollmentUrl}"${typed}, expected "${expected}"` })
     }
 
     result.accepted.push({

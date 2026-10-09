@@ -227,7 +227,7 @@ export default function NopAdminPage() {
                 <td className={`${td} break-all`}>{r.rosterEmail}</td>
                 <td className={`${td} capitalize`}>{r.status}</td>
                 <td className={`${td} break-all`}>
-                  {r.enrollmentUrl}
+                  {r.enrollmentUrl || <span className="text-muted-foreground">(blank)</span>}
                   {r.enrollmentUrlMismatch && <div className="text-xs text-amber-700 dark:text-amber-300">Doesn&apos;t match the Agent ID</div>}
                 </td>
                 <td className={td}><LockActions entry={r} onDone={() => { void roster.mutate(); void flags.mutate() }} /></td>

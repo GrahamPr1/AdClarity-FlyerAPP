@@ -111,7 +111,7 @@ export function NopProfileForm() {
       <dl data-testid="nop-system-fields" className="rounded-2xl border border-border bg-card p-6 text-sm">
         {row(t("profile.agent_id"), data.profile.agentId)}
         {row(t("profile.company"), data.profile.companyName)}
-        {row(t("profile.referral"), data.profile.referralCode)}
+        {data.profile.referralCode && row(t("profile.referral"), data.profile.referralCode)}
         {row(t("profile.enrollment_link"), data.profile.qrDestination)}
         {row(t("profile.status"), statusLabel(t, data.status))}
       </dl>

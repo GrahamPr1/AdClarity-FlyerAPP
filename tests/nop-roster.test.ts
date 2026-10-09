@@ -106,6 +106,53 @@ describe("roster validation", () => {
     expect(r.flagged[0]).toMatchObject({ line: 2, agentId: "858980" })
   })
 
+  it.each(["", "NA", "na", "N/A", " n/a "])("accepts referral_code %j as no code and stores it empty", (v) => {
+    const r = validateRosterCsv(`${HEADER}\n${row({ referral_code: v })}`)
+    expect(r.rejected).toEqual([])
+    expect(r.accepted[0].referralCode).toBe("")
+    expect(r.flagged).toEqual([])
+  })
+
+  it("still rejects other referral_code placeholders", () => {
+    for (const v of ["[REFERRAL CODE]", "TBD"]) {
+      const r = validateRosterCsv(`${HEADER}\n${row({ referral_code: v })}`)
+      expect(r.rejected[0].reasons.join("|")).toMatch(/referral_code/)
+    }
+  })
+
+  it("accepts a blank enrollment_url and flags it", () => {
+    const r = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "" })}`)
+    expect(r.accepted).toHaveLength(1)
+    expect(r.accepted[0]).toMatchObject({ enrollmentUrl: "", enrollmentUrlMismatch: true })
+    expect(r.flagged[0].reason).toMatch(/enrollment_url is blank/)
+  })
+
+  it("assumes https:// for an enrollment_url without a scheme", () => {
+    const ok = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "neighbor.basicbenefits.com/858980" })}`)
+    expect(ok.accepted[0]).toMatchObject({ enrollmentUrl: "https://neighbor.basicbenefits.com/858980", enrollmentUrlMismatch: false })
+    expect(ok.flagged).toEqual([])
+
+    const other = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "join.basicbenefits.com" })}`)
+    expect(other.accepted[0]).toMatchObject({ enrollmentUrl: "https://join.basicbenefits.com", enrollmentUrlMismatch: true })
+    expect(other.flagged[0].reason).toContain('(given as "join.basicbenefits.com")')
+  })
+
+  it("accepts Basic Benefits' updated sample rows (NA referral, bare join URL, 10-digit phone), flagged", () => {
+    const csv =
+      `${HEADER},test_case\r\n` +
+      `858980,Quinn's Test Group,Quinn Pearl,quinn.pearl@basicbenefits.com,5029998888,NA,join.basicbenefits.com,active,"Happy path, with a comma"\r\n` +
+      `858981,Brandi's Test Group,Brandi Ray,brandi.ray@basicbenefits.com,5028889999,NA,join.basicbenefits.com,active,"Second agent"\r\n`
+    const r = validateRosterCsv(csv)
+    expect(r.rejected).toEqual([])
+    expect(r.accepted.map((a) => [a.agentId, a.rosterPhone, a.referralCode])).toEqual([
+      ["858980", "(502) 999-8888", ""],
+      ["858981", "(502) 888-9999", ""],
+    ])
+    expect(r.flagged.map((f) => f.agentId)).toEqual(["858980", "858981"])
+    // The QR destination never comes from the roster.
+    expect(qrDestinationFor("858980")).toBe("https://neighbor.basicbenefits.com/858980")
+  })
+
   it("refuses a file missing a required column", () => {
     const r = validateRosterCsv("agent_id,agent_name\n1,x")
     expect(r.fileErrors.length).toBeGreaterThan(0)
