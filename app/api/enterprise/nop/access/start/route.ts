@@ -3,7 +3,8 @@ import { sendAgentVerificationCode } from "@/lib/email"
 import { AGENT_ID_RE, NOP_ORG_NAME, isValidEmail, maskEmail, normalizeEmail } from "@/lib/enterprise/nop-roster"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 import { addAgentFlag, getAccountAgentId, getAgentIdOwner, getRosterRecord } from "@/lib/enterprise/agents-store"
-import { createFlow, hashCode, newCode, newFlowId, oneFlyerAccountExists, reserveDailySend } from "@/lib/enterprise/access-store"
+import { createFlow, hashCode, newCode, newFlowId, reserveDailySend } from "@/lib/enterprise/access-store"
+import { businessAccountBlocks } from "@/lib/enterprise/account-conversion"
 import { accessRateLimit, fail, setFlowCookie } from "@/lib/enterprise/access-http"
 
 // POST /api/enterprise/nop/access/start { agentId, email }
@@ -49,10 +50,12 @@ export async function POST(request: NextRequest) {
   }
 
   // The agent's account will be this email. An existing BUSINESS account
-  // there must not get the ID: it would lose SMB generation.
+  // there must not get the ID: it would lose SMB generation. An admin can
+  // convert an unpaid one (lib/enterprise/account-conversion.ts); then this
+  // passes and registration proceeds normally.
   const existingId = await getAccountAgentId(roster.rosterEmail)
   if (existingId) return fail(lang, 409, "account_registered", "err.account_registered", { agentId: existingId })
-  if (await oneFlyerAccountExists(roster.rosterEmail)) {
+  if (await businessAccountBlocks(roster.rosterEmail)) {
     await addAgentFlag({ type: "business_account_conflict", agentId, account: roster.rosterEmail, attemptedEmail: roster.rosterEmail })
     return fail(lang, 409, "business_account", "err.business_account")
   }

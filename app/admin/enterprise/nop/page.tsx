@@ -6,6 +6,7 @@ import useSWR from "swr"
 import type { AgentFlag } from "@/lib/types"
 import type { RosterListEntry } from "@/lib/enterprise/agents-store"
 import type { RosterRowFlag, RosterRowRejection } from "@/lib/enterprise/nop-roster"
+import { ConvertAdmin } from "@/components/nop-convert-admin"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -204,13 +205,15 @@ export default function NopAdminPage() {
                   {f.type === "email_mismatch" ? `typed ${f.attemptedEmail}`
                     : f.type === "id_already_registered" ? `held by ${f.heldBy}`
                     : f.type === "roster_email_changed" ? `${f.fromEmail} → ${f.toEmail}`
-                    : `${f.attemptedEmail ?? ""} already has a business account; not attached`}
+                    : `${f.attemptedEmail ?? ""} already has a business account; not attached (see "blocked by a business account" below)`}
                 </td>
               </tr>
             ))}
           </Table>
         )}
       </section>
+
+      <ConvertAdmin />
 
       <RenderLog />
 

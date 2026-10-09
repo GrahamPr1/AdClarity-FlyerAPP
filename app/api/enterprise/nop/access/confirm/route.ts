@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { businessAccountBlocks } from "@/lib/enterprise/account-conversion"
 import { recordClientCreatedAtIfUnset, saveAgentProfile } from "@/lib/store"
 import { validateDisplayFields } from "@/lib/enterprise/nop-roster"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 import { addAgentFlag, buildAgentProfile, getAccountAgentId, getRosterRecord, lockAgentId } from "@/lib/enterprise/agents-store"
-import { deleteFlow, oneFlyerAccountExists } from "@/lib/enterprise/access-store"
+import { deleteFlow } from "@/lib/enterprise/access-store"
 import { clearFlowCookie, fail, readFlow, setSessionCookie } from "@/lib/enterprise/access-http"
 
 // POST /api/enterprise/nop/access/confirm { displayName, displayPhone, displayEmail }
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
   const account = roster.rosterEmail
   const held = await getAccountAgentId(account)
   if (held) return end(fail(lang, 409, "account_registered", "err.account_registered", { agentId: held }))
-  if (await oneFlyerAccountExists(account)) {
+  if (await businessAccountBlocks(account)) {
     await addAgentFlag({ type: "business_account_conflict", agentId: roster.agentId, account, attemptedEmail: account })
     return end(fail(lang, 409, "business_account", "err.business_account"))
   }
