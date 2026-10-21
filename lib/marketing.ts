@@ -250,7 +250,7 @@ export const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Basic and Pro are month-to-month with no contract, and every flyer you've already made stays yours to download and use whether or not you keep subscribing. If you just need a break rather than an exit, you can pause instead — pausing stops your plan without deleting your account, your brand profile, or your flyer history, so resuming later doesn't mean starting over.",
+    a: "Yes. Basic and Pro have no contract — cancel online whenever you like and the plan runs to the end of the month or year you've paid for. Every flyer you've already made stays yours to download and use whether or not you keep subscribing. If you just need a break rather than an exit, you can pause instead — pausing stops your plan without deleting your account, your brand profile, or your flyer history, so resuming later doesn't mean starting over.",
   },
   {
     q: "Who is OneFlyer for?",

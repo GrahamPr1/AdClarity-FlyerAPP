@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { Plan, PlanId } from "@/lib/types"
 import { PLAN_GUARANTEE, PLAN_EXPLAINER, PLAN_LIMITS, ANNUAL_DISCOUNT_PERCENT } from "@/lib/types"
-import { PLANS } from "@/lib/plans"
+import { PLANS, renewalDisclosure } from "@/lib/plans"
 import { Reveal } from "@/components/reveal"
 
 type Billing = "monthly" | "annual"
@@ -143,6 +143,9 @@ function PlanCard({
           >
             {isLoading ? "Redirecting…" : plan.ctaLabel}
           </button>
+        )}
+        {isPaid && (
+          <p className="mt-2 text-center text-xs text-muted-foreground">{renewalDisclosure(billing)}</p>
         )}
 
         {/* Plan note */}

@@ -3,12 +3,14 @@ import { PLAN_LIMITS } from "@/lib/types"
 
 export const metadata = { title: "Terms of Service" }
 
-// Deliberately states the current, real state of the product — including that
-// billing is not yet live and that flyers download as HTML. Claiming
-// otherwise would be the kind of over-statement this page exists to avoid.
+// Deliberately states the real state of the product, written against the code:
+// Stripe subscriptions (lib/billing.ts — renewal, failed-payment retries and
+// the free-tier fallback), the usage window (lib/usage-window.ts — resets on
+// the billing date only once that period is paid), and flyer downloads.
+// Claiming more than the product does is what this page exists to avoid.
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Service" updated="25 August 2026">
+    <LegalPage title="Terms of Service" updated="21 October 2026">
       <p>
         These terms cover your use of OneFlyer. Plain language on purpose — if something here is
         unclear, ask us rather than guessing.
@@ -33,13 +35,28 @@ export default function TermsPage() {
       <H2>Plans and limits</H2>
       <p>
         Free includes {PLAN_LIMITS.trial} campaigns. Basic includes {PLAN_LIMITS.basic} per month
-        and Pro includes {PLAN_LIMITS.pro} per month. Limits are enforced on a rolling 30-day
-        window from when your period started, and unused campaigns do not roll over.
+        and Pro includes {PLAN_LIMITS.pro} per month. On a paid plan your monthly allowance resets
+        on your billing date, once that period&apos;s payment has gone through; on a yearly plan it
+        resets on the same date every month of the year. On the free tier it resets every 30 days.
+        Unused campaigns don&apos;t roll over.
       </p>
       <p>
-        <strong>Billing is not live yet.</strong> No card is collected and nothing is charged. Paid
-        plans are currently enabled manually. When Stripe billing is switched on, existing account
-        holders will be told before any charge is made.
+        <strong>Paying for a plan.</strong> Basic and Pro are subscriptions, billed in advance
+        through Stripe, monthly or yearly. Prices are shown before tax; any sales tax that applies
+        where you are is calculated from your billing address and shown at checkout before you
+        pay. We never see or store your full card number — Stripe holds it.
+      </p>
+      <p>
+        <strong>Renewal.</strong> Your subscription renews automatically at the end of each
+        billing period, monthly or yearly, at the plan&apos;s current price, until you cancel.
+        If we change a price, we&apos;ll email you at least 30 days before it applies to you.
+        Cancel anytime online from <strong>Profile → Manage billing</strong>; you keep your plan
+        until the end of the period you&apos;ve already paid for.
+      </p>
+      <p>
+        <strong>If a payment fails.</strong> We retry it, and your plan stays active while we do.
+        If it still can&apos;t be collected, your account moves to the free tier. You keep
+        everything you&apos;ve made, and can resubscribe any time.
       </p>
 
       <H2>What you own</H2>
@@ -94,7 +111,7 @@ export default function TermsPage() {
       <p>
         OneFlyer is provided as-is. We&apos;re not liable for lost business, lost profits, or
         printing costs. Where liability can&apos;t be excluded, it&apos;s limited to what you paid
-        us in the previous three months — which, while billing is off, is nothing.
+        us in the previous 12 months.
       </p>
 
       <H2>Ending it</H2>

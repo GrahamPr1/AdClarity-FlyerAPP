@@ -6,8 +6,11 @@
 > completed checkout now stamps `convertedAt`. Billing is visible to admins at
 > the top of `/admin` (members, activity log, Free-Pro audit).
 >
-> Graham is handling the "Before you flip it" emails below and the Terms /
-> Refund wording (`docs/legal-drafts/billing-live-DRAFT.md`) himself.
+> Graham is handling the "Before you flip it" emails below himself. The Terms
+> and Cancellation & Refund pages are updated on this branch for live billing
+> (decisions recorded in `docs/legal-drafts/billing-live-DRAFT.md`), as is the
+> Privacy Policy — they go live with the merge. Stripe's renewal-reminder and
+> receipt emails are switched on in the live Dashboard by Graham.
 >
 > ## Live launch checklist
 >
@@ -41,6 +44,17 @@
 >    outside production.
 > 6. Check `/admin/billing/audit` and decide what to do about any account on a
 >    paid plan with no subscription and no logged override.
+> 7. **Annual refunds are manual — make it a routine.** The refund policy
+>    promises: cancel within 14 days of paying for a year and we refund the
+>    full year *and end the plan*. Nothing automates this. When **"Annual
+>    refund due"** appears in Needs-attention on `/admin`:
+>    1. In the Stripe Dashboard, refund that payment **in full**.
+>    2. Then cancel the subscription **immediately** (not at period end) —
+>       a Portal cancellation only ends it at the end of the year.
+>
+>    The flag clears when the full refund's `charge.refunded` arrives; the
+>    immediate cancellation sends `customer.subscription.deleted`, which moves
+>    the account to the free tier. A partial refund leaves the flag up.
 
 # Reverting Early Access to real Stripe checkout
 

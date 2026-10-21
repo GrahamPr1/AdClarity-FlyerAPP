@@ -364,6 +364,10 @@ export interface MemberBilling {
   lastPaymentAmount: number | null
   /** Cents — the tax part of lastPaymentAmount. */
   lastPaymentTax: number | null
+  /** Stripe's ID for what paid the latest invoice — a PaymentIntent (pi_…) or, for older charges, a Charge (ch_…). Lets a later charge.refunded be matched to THIS payment. */
+  lastPaymentRef: string | null
+  /** ISO — set when the latest payment is refunded in full; cleared by the next payment. */
+  lastPaymentRefundedAt: string | null
   /** Two-letter state from the billing address (US). The address itself is never stored. */
   billingState: string | null
 

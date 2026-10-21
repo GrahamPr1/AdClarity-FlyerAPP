@@ -8,6 +8,7 @@ import { BillingNav, StatCard, date, fetcher, money, pct } from "./billing-ui"
 const KIND_LABELS: Record<AttentionItem["kind"], string> = {
   past_due: "Past due",
   payment_failed: "Payment failed",
+  annual_refund_due: "Annual refund due",
   dispute: "Dispute",
   admin_override: "Admin override",
 }

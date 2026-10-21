@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { PLANS } from "@/lib/plans"
-import { computeOverview, freePaidPlanAudit, memberStatus, membersCsv, needsAttention, stripeCustomerUrl, toMemberRow } from "@/lib/billing-admin"
+import { annualRefundDue, computeOverview, freePaidPlanAudit, memberStatus, membersCsv, needsAttention, stripeCustomerUrl, toMemberRow } from "@/lib/billing-admin"
 import type { BillingEventSummary, ClientRecord, MemberBilling, PlanId } from "@/lib/types"
 
 const NOW = Date.parse("2026-10-21T12:00:00Z")
@@ -22,6 +22,8 @@ function billing(over: Partial<MemberBilling> = {}): MemberBilling {
     lastPaymentDate: null,
     lastPaymentAmount: null,
     lastPaymentTax: null,
+    lastPaymentRef: null,
+    lastPaymentRefundedAt: null,
     billingState: "KY",
     failedPaymentCount: 0,
     refundCount: 0,
@@ -153,6 +155,40 @@ describe("needs attention", () => {
   it("keeps payment-failed members who aren't past due", () => {
     const failed = needsAttention([client("one-off-fail@x", "basic", billing({ failedPaymentCount: 1 }))], [])
     expect(failed.map((i) => i.kind)).toEqual(["payment_failed"])
+  })
+})
+
+describe("annual refund due", () => {
+  const paidAt = "2026-10-01T10:00:00Z"
+  const annual = (over: Partial<MemberBilling>) =>
+    billing({ interval: "annual", plan: "pro", unitAmount: 37440, lastPaymentDate: paidAt, lastPaymentAmount: 39686, lastPaymentRef: "pi_year", cancelAtPeriodEnd: true, ...over })
+  const kinds = (b: MemberBilling) => needsAttention([client("annual@x", "pro", b)], []).map((i) => i.kind)
+
+  it("flags an annual member who cancels inside 14 days of paying", () => {
+    const b = annual({ canceledAt: "2026-10-10T09:00:00Z" })
+    expect(annualRefundDue(b)).toBe(true)
+    expect(kinds(b)).toContain("annual_refund_due")
+  })
+
+  it("counts the 14th day as inside the window", () => {
+    expect(annualRefundDue(annual({ canceledAt: "2026-10-15T10:00:00Z" }))).toBe(true)
+  })
+
+  it("does not flag a cancellation after 14 days", () => {
+    const b = annual({ canceledAt: "2026-10-15T10:00:01Z" })
+    expect(annualRefundDue(b)).toBe(false)
+    expect(kinds(b)).not.toContain("annual_refund_due")
+  })
+
+  it("drops off once that payment is refunded", () => {
+    const b = annual({ canceledAt: "2026-10-10T09:00:00Z", lastPaymentRefundedAt: "2026-10-11T12:00:00Z" })
+    expect(annualRefundDue(b)).toBe(false)
+    expect(kinds(b)).not.toContain("annual_refund_due")
+  })
+
+  it("never flags monthly plans, or an annual member who hasn't cancelled", () => {
+    expect(annualRefundDue(annual({ interval: "monthly", canceledAt: "2026-10-10T09:00:00Z" }))).toBe(false)
+    expect(annualRefundDue(annual({ canceledAt: null, cancelAtPeriodEnd: false }))).toBe(false)
   })
 })
 

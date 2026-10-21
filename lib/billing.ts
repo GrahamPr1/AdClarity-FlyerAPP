@@ -1,4 +1,5 @@
 import type Stripe from "stripe"
+import { renewalDisclosure } from "./plans"
 import { getStripe, isEntitledStatus, planForPriceId, priceIdFor, subscriptionPeriod, type PaidPlanId } from "./stripe"
 import {
   appendBillingEvent,
@@ -94,6 +95,9 @@ export async function createCheckoutSession(
     billing_address_collection: "required",
     customer_update: { address: "auto", name: "auto" },
     subscription_data: { metadata: { [EMAIL_METADATA_KEY]: email, oneflyer_plan: plan } },
+    // The auto-renewal disclosure, shown right above the Subscribe button —
+    // the same sentence as under the pricing CTAs.
+    custom_text: { submit: { message: renewalDisclosure(interval) } },
     metadata: { [EMAIL_METADATA_KEY]: email, oneflyer_plan: plan, oneflyer_interval: interval },
     success_url: `${origin}/dashboard?checkout=success`,
     cancel_url: `${origin}/#pricing`,
@@ -264,6 +268,19 @@ export function subscriptionIdForInvoice(invoice: Stripe.Invoice): string | null
   return typeof sub === "string" ? sub : sub.id
 }
 
+/**
+ * What paid an invoice: its PaymentIntent, or a bare Charge for payments
+ * without one. Under basil an invoice no longer carries `charge` itself — the
+ * link is the InvoicePayment.
+ */
+async function paymentRefForInvoice(invoiceId: string): Promise<string | null> {
+  const payments = await getStripe().invoicePayments.list({ invoice: invoiceId, limit: 10 })
+  const paid = payments.data.find((p) => p.status === "paid") ?? payments.data[0]
+  const ref = paid?.payment.payment_intent ?? paid?.payment.charge
+  if (!ref) return null
+  return typeof ref === "string" ? ref : ref.id
+}
+
 const invoiceTax = (invoice: Stripe.Invoice) => (invoice.total_taxes ?? []).reduce((sum, t) => sum + t.amount, 0)
 
 // ---- Event processing ---------------------------------------------------------
@@ -333,6 +350,10 @@ export async function processStripeEvent(event: Stripe.Event): Promise<BillingEv
               lastPaymentDate: paidAt,
               lastPaymentAmount: invoice.amount_paid,
               lastPaymentTax: tax,
+              // A new payment: remember what paid it, and that it hasn't been
+              // refunded — the "Annual refund due" flag keys off both.
+              lastPaymentRef: await paymentRefForInvoice(invoice.id!),
+              lastPaymentRefundedAt: null,
               ...(state ? { billingState: state } : {}),
             })
             await resetBillingCounter(email, "failedPaymentCount")
@@ -357,7 +378,16 @@ export async function processStripeEvent(event: Stripe.Event): Promise<BillingEv
     case "charge.refunded": {
       const charge = event.data.object
       const email = await emailForCustomer(charge.customer)
-      if (email) await countBillingEvent(email, "refundCount", event.id)
+      if (email) {
+        await countBillingEvent(email, "refundCount", event.id)
+        // A FULL refund of the member's latest payment clears "Annual refund
+        // due". A partial refund doesn't: the policy promises the full year.
+        const billing = await getMemberBilling(email)
+        const pi = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id
+        if (charge.refunded && billing?.lastPaymentRef && (billing.lastPaymentRef === charge.id || billing.lastPaymentRef === pi)) {
+          await updateMemberBilling(email, { lastPaymentRefundedAt: base.at })
+        }
+      }
       return {
         ...base,
         email,

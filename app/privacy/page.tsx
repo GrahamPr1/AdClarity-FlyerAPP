@@ -46,7 +46,7 @@ export default function PrivacyPage() {
           any dispute; and, if you cancel in the billing portal, when you cancelled and the
           reason or feedback option you choose there (anything you type into its comment box
           stays with Stripe). We also keep Stripe&apos;s reference numbers for your customer
-          record and subscription, a record of any plan change our team makes by hand, and a
+          record, subscription and latest payment, a record of any plan change our team makes by hand, and a
           short log of recent billing events. This is used to run your account, provide support
           and meet our tax obligations. Payment card details stay with Stripe.
         </li>

@@ -90,6 +90,20 @@ export const PLANS: Plan[] = [
   },
 ]
 
+/**
+ * The auto-renewal disclosure shown next to every paid "buy" button: under the
+ * Basic and Pro pricing CTAs, and above Stripe Checkout's Subscribe button
+ * (custom_text in lib/billing.ts). One function so the two can't drift apart.
+ *
+ * "In a few clicks", not a number: cancelling from /profile is Manage billing
+ * → Cancel subscription → Continue → confirm in the Stripe Customer Portal.
+ * Auto-renewal rules scrutinise exactly this sentence, so it must stay true
+ * if the portal flow changes.
+ */
+export function renewalDisclosure(interval: "monthly" | "annual"): string {
+  return `Renews automatically ${interval === "annual" ? "yearly" : "monthly"} until you cancel. Cancel anytime online in a few clicks.`
+}
+
 export function getPlan(id: string | null | undefined): Plan | undefined {
   return PLANS.find((p) => p.id === id)
 }

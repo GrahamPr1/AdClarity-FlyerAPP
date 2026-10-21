@@ -87,6 +87,7 @@ export default function BillingMemberDetailPage() {
             <Card title="Payments">
               <Field label="Paid since">{date(b?.paidSince)}</Field>
               <Field label="Last payment">{b?.lastPaymentDate ? `${money(b.lastPaymentAmount)} on ${date(b.lastPaymentDate)}` : null}</Field>
+              <Field label="Last payment refunded">{b?.lastPaymentDate ? (b.lastPaymentRefundedAt ? `Yes, ${date(b.lastPaymentRefundedAt)}` : "No") : null}</Field>
               <Field label="Tax in last payment">{b?.lastPaymentTax != null ? money(b.lastPaymentTax) : null}</Field>
               <Field label="Billing state">{b?.billingState}</Field>
               <Field label="Failed payments (since last success)">{b?.failedPaymentCount ?? 0}</Field>

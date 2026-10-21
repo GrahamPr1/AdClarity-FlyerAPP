@@ -1,4 +1,13 @@
-# ⚠️ DRAFT — NOT PUBLISHED — needs Graham's review before any of this goes live
+# ⚠️ DRAFT — superseded: decisions applied on `stripe-billing` (2026-10-21)
+
+> **Status.** Graham's decisions on every [CHECK] below have been applied to
+> `app/terms/page.tsx` and `app/refund-policy/page.tsx`: 30 days' email
+> notice of price changes, renewal at the plan's current price, a 12-month
+> liability cap, paused invoices voided, a 14-day full refund on yearly plans,
+> and an auto-renewal disclosure under the paid pricing CTAs and on Stripe
+> Checkout. The pages go live with the stripe-billing merge, in the same
+> deploy as the live keys. This file is kept as the record of the options
+> considered; the pages are the source of truth.
 
 Proposed changes to **Terms of Service** (`app/terms/page.tsx`) and the
 **Cancellation & Refund Policy** (`app/refund-policy/page.tsx`) now that Stripe

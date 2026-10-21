@@ -1132,6 +1132,8 @@ const EMPTY_BILLING: MemberBilling = {
   lastPaymentDate: null,
   lastPaymentAmount: null,
   lastPaymentTax: null,
+  lastPaymentRef: null,
+  lastPaymentRefundedAt: null,
   billingState: null,
   failedPaymentCount: 0,
   refundCount: 0,

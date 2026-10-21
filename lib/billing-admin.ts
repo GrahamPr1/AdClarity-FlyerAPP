@@ -166,10 +166,28 @@ export function computeOverview(input: {
 // ---- Needs attention ----------------------------------------------------------
 
 export interface AttentionItem {
-  kind: "past_due" | "payment_failed" | "dispute" | "admin_override"
+  kind: "past_due" | "payment_failed" | "annual_refund_due" | "dispute" | "admin_override"
   email: string | null
   detail: string
   at: string | null
+}
+
+/** The refund policy: cancel within this long of paying for a year and the year is refunded in full. */
+export const ANNUAL_REFUND_WINDOW_DAYS = 14
+
+/**
+ * True when an annual member asked to cancel within the refund window of
+ * their most recent payment and that payment hasn't been refunded in full.
+ *
+ * Refunds are issued by hand in the Stripe Dashboard (with the subscription
+ * cancelled immediately — see REVERT_TO_STRIPE.md); nothing automates them.
+ * This is the reminder. It clears when charge.refunded arrives for that
+ * payment, or if they withdraw the cancellation (Stripe clears canceled_at).
+ */
+export function annualRefundDue(b: MemberBilling | null): boolean {
+  if (!b || b.interval !== "annual" || !b.canceledAt || !b.lastPaymentDate || b.lastPaymentRefundedAt) return false
+  const sincePayment = Date.parse(b.canceledAt) - Date.parse(b.lastPaymentDate)
+  return sincePayment >= 0 && sincePayment <= ANNUAL_REFUND_WINDOW_DAYS * DAY_MS
 }
 
 export function needsAttention(clients: ClientRecord[], disputes: DisputeRecord[]): AttentionItem[] {
@@ -184,6 +202,15 @@ export function needsAttention(clients: ClientRecord[], disputes: DisputeRecord[
       // e.g. a one-off invoice, or the first failure before Stripe's status
       // catches up. Worth a look; not the same as past_due.
       items.push({ kind: "payment_failed", email: c.email, detail: `${b.failedPaymentCount} failed payment(s) since the last successful one`, at: b.syncedAt })
+    }
+    if (annualRefundDue(b)) {
+      const days = Math.floor((Date.parse(b.canceledAt!) - Date.parse(b.lastPaymentDate!)) / DAY_MS)
+      items.push({
+        kind: "annual_refund_due",
+        email: c.email,
+        detail: `Cancelled ${days} day(s) after paying $${((b.lastPaymentAmount ?? 0) / 100).toFixed(2)} for a year — refund that payment in full in Stripe and cancel the subscription immediately`,
+        at: b.canceledAt,
+      })
     }
     if (b.planSource === "admin_override") {
       items.push({ kind: "admin_override", email: c.email, detail: `Plan set to ${b.overridePlan ?? c.plan} by ${b.overrideBy ?? "admin"}`, at: b.overrideAt })
