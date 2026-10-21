@@ -1,3 +1,45 @@
+> **Status (2026-10-21): the code revert below is DONE, in sandbox.** Paid CTAs
+> go to `/checkout` (Stripe Checkout); the plan is set only by the webhook
+> (`app/api/stripe/webhook`). The modal, the badge, the dashboard banner and
+> the `NEXT_PUBLIC_EARLY_ACCESS` toggle (`lib/early-access.ts`) are gone. The
+> waitlist data, `/admin/waitlist` and the API routes are kept, and a
+> completed checkout now stamps `convertedAt`. Billing is visible to admins at
+> the top of `/admin` (members, activity log, Free-Pro audit).
+>
+> Graham is handling the "Before you flip it" emails below and the Terms /
+> Refund wording (`docs/legal-drafts/billing-live-DRAFT.md`) himself.
+>
+> ## Live launch checklist
+>
+> 1. **Live products and prices**, created by hand in the live Dashboard
+>    (`npm run stripe:setup` refuses live keys): Basic $19/mo and $182.40/yr,
+>    Pro $39/mo and $374.40/yr, all **tax-exclusive**, USD.
+> 2. **Live Customer Portal configuration**: payment method update, invoice
+>    history, cancel **at period end** with cancellation reasons, plan switching
+>    between the four live prices. Note its `bpc_` ID.
+> 3. **Stripe Tax**: real head office address and real registrations (the
+>    sandbox has a placeholder address and a sandbox-only Kentucky
+>    registration). Without a registration, tax computes $0 everywhere.
+> 4. **Webhook endpoint** `https://<domain>/api/stripe/webhook`, subscribed to
+>    **all eight** events the handler processes:
+>    - `checkout.session.completed`
+>    - `customer.subscription.created`
+>    - `customer.subscription.updated`
+>    - `customer.subscription.deleted`
+>    - `invoice.paid`
+>    - `invoice.payment_failed`
+>    - `charge.refunded`
+>    - `charge.dispute.created`
+>
+>    Missing any of the first six breaks plans or usage resets; missing the
+>    last two leaves refunds and disputes off the admin pages.
+> 5. **Production env vars**: `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
+>    `STRIPE_WEBHOOK_SECRET` (from that endpoint), the four `STRIPE_PRICE_*`,
+>    `STRIPE_PORTAL_CONFIGURATION_ID`. `lib/stripe.ts` refuses a live key
+>    outside production.
+> 6. Check `/admin/billing/audit` and decide what to do about any account on a
+>    paid plan with no subscription and no logged override.
+
 # Reverting Early Access to real Stripe checkout
 
 The paid pricing CTAs currently open an Early Access modal instead of a

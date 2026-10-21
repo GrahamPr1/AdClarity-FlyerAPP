@@ -1,8 +1,8 @@
 import Link from "next/link"
+import { BillingOverview } from "@/components/admin/billing-overview"
 
-// Placeholder landing page — real content (the combined overview) gets
-// built out in phase 5, once phases 2-4 (users, cost, revenue) exist for
-// it to summarize. Links to the drill-downs as they're built.
+// Admin landing page. Billing comes first (counts, estimated MRR, and what
+// needs a human), then links to the other drill-downs.
 export default function AdminPage() {
   return (
     <div className="px-6 md:px-10 lg:px-16 py-10 max-w-6xl mx-auto">
@@ -10,9 +10,8 @@ export default function AdminPage() {
         <h1 className="text-2xl md:text-3xl tracking-tight">OneFlyer Admin</h1>
         <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to dashboard</Link>
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">
-        The combined overview lands here once cost and revenue views exist. For now:
-      </p>
+      <BillingOverview />
+      <h2 className="mt-12 text-xl">Everything else</h2>
       <div className="mt-4 flex flex-wrap gap-4">
         <Link href="/admin/users" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
           View Users →
