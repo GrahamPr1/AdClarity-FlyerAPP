@@ -3,6 +3,7 @@ import { FooterAccountLinks } from "@/components/account-menu"
 import { RevealText } from "@/components/reveal-text"
 import { Reveal } from "@/components/reveal"
 import { PricingCards } from "@/components/pricing-cards"
+import { isCheckoutEnabled } from "@/lib/checkout-switch"
 import { HeroFlyer3D } from "@/components/flyer-3d"
 import { QrMock } from "@/components/asset-previews"
 import {
@@ -586,7 +587,7 @@ export default function Page() {
               </Reveal>
             </div>
 
-            <PricingCards />
+            <PricingCards checkoutEnabled={isCheckoutEnabled()} />
 
             <Reveal delay={160}>
               <div className="mt-10 flex flex-col items-center gap-3">

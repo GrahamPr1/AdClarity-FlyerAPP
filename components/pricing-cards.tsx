@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import type { Plan, PlanId } from "@/lib/types"
 import { PLAN_GUARANTEE, PLAN_EXPLAINER, PLAN_LIMITS, ANNUAL_DISCOUNT_PERCENT } from "@/lib/types"
 import { PLANS, renewalDisclosure } from "@/lib/plans"
+import { CHECKOUT_UNAVAILABLE_MESSAGE } from "@/lib/checkout-switch"
 import { Reveal } from "@/components/reveal"
 
 type Billing = "monthly" | "annual"
@@ -40,12 +41,14 @@ function PlanCard({
   plan,
   billing,
   onSubscribe,
+  checkoutEnabled,
   loadingId,
   delay,
 }: {
   plan: Plan
   billing: Billing
   onSubscribe: (id: PlanId) => void
+  checkoutEnabled: boolean
   loadingId: PlanId | null
   delay: number
 }) {
@@ -120,7 +123,17 @@ function PlanCard({
           </p>
         )}
 
-        {plan.ctaHref ? (
+        {isPaid && !checkoutEnabled ? (
+          // Kill switch (CHECKOUT_ENABLED=false). Not a button: there is
+          // nothing to click through to, and a disabled-looking button that
+          // still navigates would be worse than a plain sentence.
+          <p
+            role="status"
+            className="mt-6 w-full rounded-full border border-border py-3.5 text-center text-sm font-medium text-muted-foreground"
+          >
+            {CHECKOUT_UNAVAILABLE_MESSAGE}
+          </p>
+        ) : plan.ctaHref ? (
           <a
             href={plan.ctaHref}
             className={`mt-6 w-full py-3.5 rounded-full text-sm font-medium text-center transition-colors ${
@@ -144,7 +157,7 @@ function PlanCard({
             {isLoading ? "Redirecting…" : plan.ctaLabel}
           </button>
         )}
-        {isPaid && (
+        {isPaid && checkoutEnabled && (
           <p className="mt-2 text-center text-xs text-muted-foreground">{renewalDisclosure(billing)}</p>
         )}
 
@@ -179,7 +192,8 @@ function PlanCard({
   )
 }
 
-export function PricingCards() {
+/** checkoutEnabled: the CHECKOUT_ENABLED kill switch, read on the server (lib/checkout-switch.ts). Defaults to on. */
+export function PricingCards({ checkoutEnabled = true }: { checkoutEnabled?: boolean }) {
   const router = useRouter()
   const [loadingId, setLoadingId] = useState<PlanId | null>(null)
   const [billing, setBilling] = useState<Billing>("monthly")
@@ -234,6 +248,7 @@ export function PricingCards() {
             plan={plan}
             billing={billing}
             onSubscribe={handleSubscribe}
+            checkoutEnabled={checkoutEnabled}
             loadingId={loadingId}
             delay={i * 80}
           />

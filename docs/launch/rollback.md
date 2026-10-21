@@ -22,15 +22,46 @@ If anything else deploys to production before launch, re-check with
 `vercel ls --prod` and update this table — the target is **whatever is serving
 oneflyer.org immediately before the merge deploy**.
 
-## Decide in one minute: roll back, or not?
+## Try first: Step 0 — turn checkout off (≈1–2 minutes, nothing reverted)
 
-Roll back if paying is broken or wrong for real people:
+If the problem is in **paying** (checkout won't open, wrong amount or tax,
+payments not granting plans) and the rest of the site is fine, switch off new
+paid sign-ups instead of rolling everything back:
+
+1. Vercel → project **oneflyer** → Settings → Environment Variables → add
+   `CHECKOUT_ENABLED` = `false`, **Production** only (or edit it if it exists).
+2. Deployments → the current production deployment → ⋮ → **Redeploy**. Env
+   changes only apply to a new deployment, and redeploying rebuilds the
+   pricing page and `/checkout` together, so they can't disagree.
+3. Check https://oneflyer.org/#pricing. Basic and Pro now say **"Paid plans
+   are briefly unavailable — check back soon"** instead of a button, and the
+   free trial still works.
+
+What keeps working: existing subscribers keep their plans; the Customer Portal
+(card updates, plan changes, cancellation) and pause/resume; and the Stripe
+webhook, so renewals, refunds and cancellations still sync. A subscriber who
+opens a checkout link is sent to the Portal as usual. Only **new** Checkout
+Sessions are refused, before any Stripe customer is created.
+
+To turn it back on: set `CHECKOUT_ENABLED=true` (or delete the variable;
+unset means on), then **Redeploy**.
+
+If a redeploy itself is the risk (the build is broken, or the site is down),
+skip to Step 1.
+
+## Decide in one minute: Step 0, or roll back?
+
+Use **Step 0** if paying is broken or wrong but the rest of the site works:
 - checkout won't open, or charges the wrong amount or tax
-- payments go through but plans aren't granted (webhook failing)
-- people get Pro/Basic without paying
-- the site itself is down
+- payments go through but plans aren't granted (webhook failing). Step 0
+  stops new ones while you fix it; the webhook stays live.
 
-Don't roll back for an admin-page bug or a cosmetic issue — fix forward.
+**Roll back (Step 1)** if Step 0 isn't enough:
+- people get Pro/Basic without paying through some other path
+- the site itself is broken or down
+- anything outside billing that the merge broke
+
+Don't do either for an admin-page bug or a cosmetic issue — fix forward.
 
 ## Step 1 — Instant Rollback (≈1 minute, no rebuild)
 
@@ -125,10 +156,7 @@ That promotes the new build and turns auto-promotion back on.
 - Stripe Dashboard settings (live products, portal config, tax): these are
   harmless while the old site is up, so leave them in place.
 
-## Gap worth knowing about
+## The kill switch in one line
 
-There is no checkout kill switch: the old `NEXT_PUBLIC_EARLY_ACCESS` toggle was
-removed with the revert to Stripe. Turning off just checkout, without rolling
-back the whole site, would need a code change. If you want one before launch
-(e.g. an env var that sends paid CTAs back to the waitlist), it's a small
-addition. Ask.
+`CHECKOUT_ENABLED=false` + Redeploy stops new paid sign-ups and nothing else.
+Code: `lib/checkout-switch.ts`; tests: `tests/checkout-switch.test.ts`.

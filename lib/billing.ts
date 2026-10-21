@@ -1,5 +1,6 @@
 import type Stripe from "stripe"
 import { renewalDisclosure } from "./plans"
+import { isCheckoutEnabled } from "./checkout-switch"
 import { getStripe, isEntitledStatus, planForPriceId, priceIdFor, subscriptionPeriod, type PaidPlanId } from "./stripe"
 import {
   appendBillingEvent,
@@ -61,7 +62,7 @@ export async function getOrCreateStripeCustomer(client: ClientRecord): Promise<s
   return customer.id
 }
 
-export type CheckoutResult = { kind: "checkout"; url: string } | { kind: "already_subscribed" }
+export type CheckoutResult = { kind: "checkout"; url: string } | { kind: "already_subscribed" } | { kind: "unavailable" }
 
 /**
  * A subscription-mode Checkout Session for one paid plan.
@@ -80,6 +81,11 @@ export async function createCheckoutSession(
   if (client.billing?.status && isEntitledStatus(client.billing.status as Stripe.Subscription.Status)) {
     return { kind: "already_subscribed" }
   }
+  // Kill switch (lib/checkout-switch.ts). Checked AFTER the subscriber check
+  // on purpose: an existing subscriber is still sent to the Portal to manage
+  // their plan. Only creating a NEW session is refused — before any Stripe
+  // customer is created.
+  if (!isCheckoutEnabled()) return { kind: "unavailable" }
 
   const customer = await getOrCreateStripeCustomer(client)
   const session = await getStripe().checkout.sessions.create({

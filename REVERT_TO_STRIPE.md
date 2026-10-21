@@ -48,6 +48,10 @@
 >    `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is not read by the app. `lib/stripe.ts`
 >    refuses a live key outside production. Verify with
 >    `vercel env pull --environment=production` + `npm run env:check`.
+>    Leave `CHECKOUT_ENABLED` **unset** at launch (unset = on). It is the
+>    checkout kill switch: `false` + Redeploy stops new paid sign-ups and
+>    keeps subscribers, the Portal and webhooks working. See
+>    `docs/launch/rollback.md`, Step 0.
 > 6. Check `/admin/billing/audit` and decide what to do about any account on a
 >    paid plan with no subscription and no logged override.
 > 7. **Annual refunds are manual — make it a routine.** The refund policy

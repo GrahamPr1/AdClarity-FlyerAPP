@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
   try {
     const result = await createCheckoutSession(session.sub, plan, interval, origin)
     if (result.kind === "checkout") return NextResponse.redirect(result.url, 303)
+    // CHECKOUT_ENABLED is off: back to pricing, where the CTAs say why.
+    if (result.kind === "unavailable") return NextResponse.redirect(new URL("/#pricing", request.url))
 
     // Already subscribed: switching plans happens in the portal, never via a
     // second checkout (which would bill them twice).
