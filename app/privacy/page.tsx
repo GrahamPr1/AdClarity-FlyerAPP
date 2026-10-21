@@ -7,7 +7,9 @@ export const metadata = { title: "Privacy Policy" }
 // (app/api/onboarding/upload-photo), Anthropic (lib/agent-pipeline), Resend
 // (lib/email.ts), Stripe (lib/billing.ts — card entry happens only on
 // Stripe-hosted Checkout and the Customer Portal; MemberBilling holds no card
-// fields), Unsplash (lib/unsplash.ts — only the search keywords built
+// fields. The "Billing" item under What we collect lists MemberBilling,
+// BillingEventSummary and DisputeRecord in lib/types.ts field by field —
+// keep it in step if those change), Unsplash (lib/unsplash.ts — only the search keywords built
 // by buildSearchQuery / buildSpecificSearchQuery leave the server, and the
 // chosen photo is hotlinked from Unsplash's CDN, as its API guidelines
 // require), and the QR redeem page (app/r/[code]).
@@ -34,6 +36,19 @@ export default function PrivacyPage() {
         <li>
           <strong>Files you upload.</strong> Photos you add to a campaign. Stored privately and
           served through our own server rather than from a public bucket.
+        </li>
+        <li>
+          <strong>Billing, if you pay for a plan.</strong> Your plan, billing interval (monthly or
+          annual) and subscription status, including whether billing is paused or set to end;
+          your billing period and renewal dates; the dates and amounts of your payments and the
+          tax charged on them; the state from your billing address, not the address itself;
+          counts of failed payments, refunds and disputes, and the amount, reason and status of
+          any dispute; and, if you cancel in the billing portal, when you cancelled and the
+          reason or feedback option you choose there (anything you type into its comment box
+          stays with Stripe). We also keep Stripe&apos;s reference numbers for your customer
+          record and subscription, a record of any plan change our team makes by hand, and a
+          short log of recent billing events. This is used to run your account, provide support
+          and meet our tax obligations. Payment card details stay with Stripe.
         </li>
         <li>
           <strong>Your website, if you ask us to read it.</strong> The website-scan step fetches
