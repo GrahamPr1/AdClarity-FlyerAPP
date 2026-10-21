@@ -5,10 +5,15 @@ export const metadata = { title: "Privacy Policy" }
 // Written against what the code actually does, not a template. Every claim
 // here is traceable: Upstash Redis (lib/store.ts), Vercel Blob
 // (app/api/onboarding/upload-photo), Anthropic (lib/agent-pipeline), Resend
-// (lib/email.ts), and the QR redeem page (app/r/[code]).
+// (lib/email.ts), Stripe (lib/billing.ts — card entry happens only on
+// Stripe-hosted Checkout and the Customer Portal; MemberBilling holds no card
+// fields), Unsplash (lib/unsplash.ts — only the search keywords built
+// by buildSearchQuery / buildSpecificSearchQuery leave the server, and the
+// chosen photo is hotlinked from Unsplash's CDN, as its API guidelines
+// require), and the QR redeem page (app/r/[code]).
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="27 August 2026">
+    <LegalPage title="Privacy Policy" updated="21 October 2026">
       <p>
         OneFlyer is run by a small team. This page describes what we actually store and who
         actually sees it — not what a generic template says a company might do.
@@ -64,8 +69,8 @@ export default function PrivacyPage() {
       <H2>What we don&apos;t collect</H2>
       <p>
         No advertising trackers, no ad retargeting, no selling or renting of your data to anyone,
-        ever. We do not collect payment card details — when billing goes live it will be handled
-        by Stripe, and card numbers will go to Stripe rather than to us.
+        ever. Payments are processed by Stripe: you enter your card on Stripe&apos;s own checkout
+        and billing pages, so we never see or store full card numbers.
       </p>
 
       <H2>Who processes it</H2>
@@ -86,6 +91,15 @@ export default function PrivacyPage() {
         <li>
           <strong>Google Analytics</strong> — which pages get visited and where people drop off.
           See the Analytics section above for what is and isn&apos;t sent.
+        </li>
+        <li>
+          <strong>Unsplash</strong> — stock photography. When a flyer has no photo of your own,
+          we search Unsplash for a matching stock photo using up to three keywords taken from
+          your business&apos;s industry, its main service and the promotion — for example
+          &ldquo;roof replacement&rdquo;. We send only those keywords — never your account, contact
+          or business-name details, and nothing you upload. A photo we use is shown from
+          Unsplash&apos;s servers, so a browser displaying that flyer loads the image from
+          Unsplash, as it would any image hosted elsewhere on the web.
         </li>
         <li>
           <strong>Higgsfield</strong> — only if you are on Pro and explicitly opt in to
