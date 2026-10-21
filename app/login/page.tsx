@@ -382,7 +382,10 @@ function LoginPageInner() {
   // them on the login form meant the highest-intent click on the whole site
   // landed on a password field for an account they don't have, with the real
   // action hidden behind a small "New here?" link underneath.
-  const wantsToStart = next.startsWith("/onboarding")
+  // Same for a paid pricing CTA (/checkout): most people clicking "Get the Pro
+  // Plan" don't have an account yet, and signup mode keeps `next`, so they go
+  // on to Stripe Checkout once the account exists.
+  const wantsToStart = next.startsWith("/onboarding") || next.startsWith("/checkout")
   const [clientMode, setClientMode] = useState<ClientMode>(wantsToStart ? "signup" : "login")
   // null for everyone but NOP visitors; see nopVisitorLang.
   const [nopLang, setNopLang] = useState<NopLang | null>(() => nopVisitorLang(next))

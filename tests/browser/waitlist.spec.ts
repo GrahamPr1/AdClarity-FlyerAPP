@@ -2,50 +2,23 @@ import { test, expect } from "@playwright/test"
 import { stateFile } from "./auth-paths"
 
 /**
- * Early Access replaces checkout while Stripe isn't connected.
- *
- * The properties worth pinning: joining never changes a plan, a non-admin
- * client cannot read the list (the UI hiding a link is not access control),
- * and the success copy only claims "we've started you on the free tier" to
- * someone who actually has an account.
+ * Early Access USED to replace checkout while Stripe wasn't connected. It has
+ * been reverted (REVERT_TO_STRIPE.md): the paid CTAs now go to /checkout, and
+ * the modal is gone. The waitlist DATA is deliberately kept — POST
+ * /api/waitlist, /admin/waitlist and the CSV export all stay live — so the
+ * properties still worth pinning are the data ones below: joining never
+ * changes a plan, and a non-admin client cannot read the list.
  */
 const BASE = "http://localhost:3000"
 
-test("paid tiers offer Early Access, not a fake checkout", async ({ page }) => {
+test("paid tiers go to checkout (via sign-up), not an Early Access modal", async ({ page }) => {
   await page.goto(`${BASE}/#pricing`, { waitUntil: "networkidle" })
-  await expect(page.getByRole("button", { name: /Join Basic Early Access/i })).toBeVisible()
-  await expect(page.getByRole("button", { name: /Join Pro Early Access/i })).toBeVisible()
-  // Free tier untouched — it works today, so it still just goes.
-  await expect(page.getByRole("link", { name: /Start Free|Create My First Campaign/i }).first()).toBeVisible()
-  expect(await page.getByText(/Billing coming soon/i).count()).toBe(2)
-})
-
-test("anonymous join gets honest copy — no claim of an account", async ({ page }, testInfo) => {
-  await page.goto(`${BASE}/#pricing`, { waitUntil: "networkidle" })
-  await page.getByRole("button", { name: /Join Pro Early Access/i }).click()
-  await expect(page.getByRole("dialog")).toBeVisible()
-  // Unique per run and per engine: a fixed address makes the SECOND run hit
-  // the duplicate path, where the heading reads "already on the list" and this
-  // assertion misses. Test isolation, not a product issue.
-  await page.getByLabel("Email").fill(`browser.anon.${testInfo.project.name}.${Date.now()}@example.com`)
-  await page.getByRole("button", { name: /^Join Early Access$/i }).click()
-  await expect(page.getByText(/You're on the list/i)).toBeVisible({ timeout: 20000 })
-  // Must NOT tell an anonymous visitor we started them on anything.
-  await expect(page.getByText(/We've started you on the free tier/i)).toHaveCount(0)
-  await expect(page.getByRole("link", { name: /Start free now/i })).toBeVisible()
-})
-
-test("modal fits a phone without overflowing", async ({ browser }) => {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
-  const page = await ctx.newPage()
-  await page.goto(`${BASE}/#pricing`, { waitUntil: "networkidle" })
-  await page.getByRole("button", { name: /Join Pro Early Access/i }).click()
-  await expect(page.getByRole("dialog")).toBeVisible()
-  const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }))
-  expect(o.sw, "modal must not cause horizontal overflow").toBeLessThanOrEqual(o.cw + 1)
-  const box = await page.getByRole("dialog").boundingBox()
-  expect(box!.height, "dialog must fit the viewport").toBeLessThanOrEqual(844)
-  await ctx.close()
+  await expect(page.getByRole("button", { name: /Early Access/i })).toHaveCount(0)
+  expect(await page.getByText(/Billing coming soon/i).count()).toBe(0)
+  await page.getByRole("button", { name: "Get the Pro Plan" }).click()
+  // Signed out: /checkout bounces to sign-up with the plan carried in ?next=.
+  await page.waitForURL(/\/login\?next=%2Fcheckout%3Fplan%3Dpro%26interval%3Dmonthly/)
+  await expect(page.getByRole("heading", { name: /Create your account/i })).toBeVisible()
 })
 
 test.describe("a signed-in NON-admin client", () => {

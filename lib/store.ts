@@ -1,6 +1,9 @@
 import { Redis } from "@upstash/redis"
 import type { CampaignRecord, BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, AgentProfile, CampaignSource, ContentAsset, EnterpriseOrg, PendingGoalCampaign, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats, ThemePreference} from "./types"
 import { PLAN_LIMITS } from "./types"
+import type { BillingEventSummary, DisputeRecord, MemberBilling } from "./types"
+import { BILLING_EVENT_LOG_LIMIT } from "./types"
+import { usageWindow, RESET_PERIOD_MS } from "./usage-window"
 import { getPlan } from "./plans"
 import { getAppEnvironment, verdictForMarker } from "./env"
 import { escapeRedisGlob } from "./redis-glob"
@@ -290,7 +293,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
 
   const client = await getClient(email)
   const planId: PlanId = client?.plan ?? "trial"
-  const periodStart = client?.periodStart ?? Date.now()
+  const periodEnd = client?.periodEnd ?? Date.now() + RESET_PERIOD_MS
 
   const printRequests = await getPrintRequestsForEmail(email)
   const generationStage = await getGenerationStage(email)
@@ -304,8 +307,18 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
     planName: getPlan(planId)?.name ?? "Free Trial",
     flyersCreated: client?.flyersCreated ?? 0,
     flyersLimit: PLAN_LIMITS[planId],
-    flyersResetAt: new Date(periodStart + RESET_PERIOD_MS).toISOString(),
+    flyersResetAt: new Date(periodEnd).toISOString(),
+    // Only a real subscription can be past due; everyone else keeps the
+    // stored default.
+    ...(client?.billing && (client.billing.status === "past_due" || client.billing.status === "unpaid")
+      ? { billingStatus: "Past due" as const }
+      : {}),
     pausedAt: client?.pausedAt ?? null,
+    hasBillingAccount: !!client?.stripeCustomerId,
+    subscriptionEndsAt:
+      client?.billing?.cancelAtPeriodEnd && client.billing.currentPeriodEnd && client.billing.status !== "canceled"
+        ? new Date(client.billing.currentPeriodEnd).toISOString()
+        : null,
     generationStage,
     waitlist,
     printRequests,
@@ -332,6 +345,8 @@ export async function getDeliverables(): Promise<Deliverables> {
       flyersLimit: PLAN_LIMITS.trial,
       flyersResetAt: new Date(Date.now() + RESET_PERIOD_MS).toISOString(),
       pausedAt: null,
+      hasBillingAccount: false,
+      subscriptionEndsAt: null,
       generationStage: null,
       waitlist: [],
       printRequests: [],
@@ -740,8 +755,6 @@ export async function deletePendingGoalCampaign(email: string, planId: string): 
 // concurrent requests from the same client, which matters for a real usage
 // limit.
 
-const RESET_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
-
 function planKey(email: string) {
   return `client:${email}:plan`
 }
@@ -782,6 +795,19 @@ function lastCampaignAtKey(email: string) {
   return `client:${email}:lastCampaignAt`
 }
 
+// Stripe billing. The customer ID lives on the client record like every other
+// per-account field; the reverse key answers "whose customer is this?" for
+// webhook events, which only carry the customer ID.
+function stripeCustomerIdKey(email: string) {
+  return `client:${email}:stripeCustomerId`
+}
+function billingKey(email: string) {
+  return `client:${email}:billing`
+}
+function stripeCustomerEmailKey(customerId: string) {
+  return `stripe:customer:${customerId}`
+}
+
 function deriveIsRealEstate(category: BusinessCategory): boolean {
   return category === "Real Estate / Wholesaling"
 }
@@ -800,10 +826,18 @@ async function getClientExtras(
 ): Promise<
   Pick<
     ClientRecord,
-    "businessCategory" | "isRealEstate" | "isAdmin" | "businessName" | "createdAt" | "lifetimeFlyersCreated" | "lastCampaignAt" | "pausedAt"
+    | "businessCategory"
+    | "isRealEstate"
+    | "isAdmin"
+    | "businessName"
+    | "createdAt"
+    | "lifetimeFlyersCreated"
+    | "lastCampaignAt"
+    | "pausedAt"
+    | "stripeCustomerId"
   >
 > {
-  const [businessCategory, isAdmin, businessName, createdAt, lifetimeFlyersCreated, lastCampaignAt, pausedAt] = await Promise.all([
+  const [businessCategory, isAdmin, businessName, createdAt, lifetimeFlyersCreated, lastCampaignAt, pausedAt, stripeCustomerId] = await Promise.all([
     redis.get<BusinessCategory>(businessCategoryKey(email)),
     redis.get<boolean>(isAdminKey(email)),
     redis.get<string>(businessNameKey(email)),
@@ -811,6 +845,7 @@ async function getClientExtras(
     redis.get<number>(lifetimeCountKey(email)),
     redis.get<string>(lastCampaignAtKey(email)),
     redis.get<string>(pausedAtKey(email)),
+    redis.get<string>(stripeCustomerIdKey(email)),
   ])
   return {
     businessCategory: businessCategory ?? "Other",
@@ -824,6 +859,7 @@ async function getClientExtras(
     lifetimeFlyersCreated: lifetimeFlyersCreated ?? 0,
     lastCampaignAt: lastCampaignAt ?? null,
     pausedAt: pausedAt ?? null,
+    stripeCustomerId: stripeCustomerId ?? null,
   }
 }
 
@@ -952,31 +988,61 @@ export async function setClientBusinessName(email: string, businessName: string)
 }
 
 /**
- * Lazily rolls a client into a fresh 30-day period (resetting flyersCreated
- * to 0) if their current one has expired — checked on read rather than via
- * a cron, since Redis has no scheduled-job primitive here. Also backfills
- * periodStart for records created before this existed, treating "unknown
- * start" as "start now" rather than assuming they're already overdue.
+ * Lazily moves a client into their current usage window (see
+ * lib/usage-window.ts), resetting flyersCreated to 0 when the window has moved
+ * on — checked on read rather than via a cron, since Redis has no
+ * scheduled-job primitive here. For a paid subscriber the window follows the
+ * Stripe billing period the webhook last synced; otherwise it is a rolling
+ * 30 days. Also backfills periodStart for records created before it existed,
+ * treating "unknown start" as "start now".
+ *
+ * GETSET makes the reset happen once: of two concurrent reads that both see
+ * the window move, only the one that actually swaps periodStart zeroes the
+ * counter, so a reservation landing between them isn't wiped twice.
  */
-async function rollPeriodIfExpired(email: string, flyersCreated: number, periodStart: number | null): Promise<{ flyersCreated: number; periodStart: number }> {
-  const now = Date.now()
-  if (periodStart !== null && now - periodStart < RESET_PERIOD_MS) {
-    return { flyersCreated, periodStart }
+async function applyUsageWindow(
+  email: string,
+  plan: PlanId,
+  flyersCreated: number,
+  storedStart: number | null,
+  billing: MemberBilling | null,
+): Promise<{ flyersCreated: number; periodStart: number; periodEnd: number }> {
+  const window = usageWindow(Date.now(), plan, storedStart, billing)
+  if (window.start === storedStart) {
+    return { flyersCreated, periodStart: window.start, periodEnd: window.end }
+  }
+  const previous = await redis.getset<number>(periodStartKey(email), window.start)
+  if (previous === window.start) {
+    // Another request already rolled this window; read its count, don't reset again.
+    const current = (await redis.get<number>(countKey(email))) ?? 0
+    return { flyersCreated: current, periodStart: window.start, periodEnd: window.end }
   }
   await redis.set(countKey(email), 0)
-  await redis.set(periodStartKey(email), now)
-  return { flyersCreated: 0, periodStart: now }
+  return { flyersCreated: 0, periodStart: window.start, periodEnd: window.end }
+}
+
+async function readClient(email: string, plan: PlanId): Promise<ClientRecord> {
+  const [storedCount, storedPeriodStart, billing] = await Promise.all([
+    redis.get<number>(countKey(email)),
+    redis.get<number>(periodStartKey(email)),
+    getMemberBilling(email),
+  ])
+  const { flyersCreated, periodStart, periodEnd } = await applyUsageWindow(
+    email,
+    plan,
+    storedCount ?? 0,
+    storedPeriodStart ?? null,
+    billing,
+  )
+  const extras = await getClientExtras(email)
+  return { email, plan, flyersCreated, periodStart, periodEnd, billing, ...extras }
 }
 
 /** Returns null if this email has no record yet — use getOrCreateClient to upsert. */
 export async function getClient(email: string): Promise<ClientRecord | null> {
   const plan = await redis.get<PlanId>(planKey(email))
   if (!plan) return null
-  const storedCount = (await redis.get<number>(countKey(email))) ?? 0
-  const storedPeriodStart = await redis.get<number>(periodStartKey(email))
-  const { flyersCreated, periodStart } = await rollPeriodIfExpired(email, storedCount, storedPeriodStart ?? null)
-  const extras = await getClientExtras(email)
-  return { email, plan, flyersCreated, periodStart, ...extras }
+  return readClient(email, plan)
 }
 
 export async function getOrCreateClient(email: string): Promise<ClientRecord> {
@@ -985,19 +1051,223 @@ export async function getOrCreateClient(email: string): Promise<ClientRecord> {
   const periodStart = Date.now()
   await redis.set(planKey(email), "trial")
   await redis.set(periodStartKey(email), periodStart)
-  return { email, plan: "trial", flyersCreated: 0, periodStart, businessCategory: "Other", isRealEstate: false, isAdmin: false, businessName: null, createdAt: null, lifetimeFlyersCreated: 0, lastCampaignAt: null, pausedAt: null }
+  return {
+    email,
+    plan: "trial",
+    flyersCreated: 0,
+    periodStart,
+    periodEnd: periodStart + RESET_PERIOD_MS,
+    businessCategory: "Other",
+    isRealEstate: false,
+    isAdmin: false,
+    businessName: null,
+    createdAt: null,
+    lifetimeFlyersCreated: 0,
+    lastCampaignAt: null,
+    pausedAt: null,
+    stripeCustomerId: null,
+    billing: null,
+  }
 }
 
-// Real enforcement only ever changes here — never inferred from an
-// IntakeSubmission's planId (see the note on PlanId in lib/types.ts). Doesn't
-// touch the usage period — upgrading/downgrading doesn't grant an early reset.
+// The ONE writer of a client's enforcement plan. Called by the Stripe webhook
+// (lib/billing.ts — the subscription is the source of truth for paid plans),
+// by the admin override route, and by the dev-only seed scripts. Never
+// inferred from an IntakeSubmission's planId or a URL (see the note on PlanId
+// in lib/types.ts).
+//
+// Doesn't itself grant an early reset: the usage window is recomputed from
+// the plan and subscription on read, so a new subscriber's window moves to
+// their Stripe period (resetting the count), while a Basic → Pro switch inside
+// the same period keeps the count and just raises the cap.
 export async function setClientPlan(email: string, plan: PlanId): Promise<ClientRecord> {
   await redis.set(planKey(email), plan)
-  const storedCount = (await redis.get<number>(countKey(email))) ?? 0
-  const storedPeriodStart = await redis.get<number>(periodStartKey(email))
-  const { flyersCreated, periodStart } = await rollPeriodIfExpired(email, storedCount, storedPeriodStart ?? null)
-  const extras = await getClientExtras(email)
-  return { email, plan, flyersCreated, periodStart, ...extras }
+  return readClient(email, plan)
+}
+
+// ---- Stripe billing state -------------------------------------------------
+
+/** Links a Stripe Customer to a client, both ways. */
+export async function setClientStripeCustomerId(email: string, customerId: string): Promise<void> {
+  await Promise.all([
+    redis.set(stripeCustomerIdKey(email), customerId),
+    redis.set(stripeCustomerEmailKey(customerId), email),
+  ])
+}
+
+export async function getEmailForStripeCustomer(customerId: string): Promise<string | null> {
+  return (await redis.get<string>(stripeCustomerEmailKey(customerId))) ?? null
+}
+
+// ---- Member billing record (a Redis hash) ----------------------------------
+//
+// A hash, not a JSON blob, for the same reason flyersCreated is its own key:
+// webhooks for one member routinely land together (checkout.session.completed,
+// invoice.paid and customer.subscription.created within a second), and a
+// read-modify-write of one blob would let them overwrite each other. Each
+// writer touches only its own fields.
+//
+// Counters are SETS of the Stripe IDs that produced them, counted with SCARD.
+// That makes them idempotent on their own: if a webhook handler fails after
+// counting and Stripe retries the event, SADD of the same ID changes nothing,
+// where an INCR would have counted the same refund twice.
+
+const BILLING_COUNTERS = ["failedPaymentCount", "refundCount", "disputeCount"] as const
+const BILLING_BOOLEANS = ["cancelAtPeriodEnd", "collectionPaused", "currentPeriodPaid"] as const
+type BillingCounter = (typeof BILLING_COUNTERS)[number]
+
+const EMPTY_BILLING: MemberBilling = {
+  stripeSubscriptionId: null,
+  priceId: null,
+  plan: null,
+  interval: null,
+  unitAmount: null,
+  status: null,
+  currentPeriodStart: null,
+  currentPeriodEnd: null,
+  cancelAtPeriodEnd: false,
+  collectionPaused: false,
+  currentPeriodPaid: true,
+  paidSince: null,
+  lastPaymentDate: null,
+  lastPaymentAmount: null,
+  lastPaymentTax: null,
+  billingState: null,
+  failedPaymentCount: 0,
+  refundCount: 0,
+  disputeCount: 0,
+  lastDisputeAt: null,
+  cancellationReason: null,
+  cancellationFeedback: null,
+  canceledAt: null,
+  endedAt: null,
+  planSource: null,
+  overrideBy: null,
+  overrideAt: null,
+  overridePlan: null,
+  syncedAt: null,
+}
+
+function billingCounterKey(email: string, counter: BillingCounter) {
+  return `client:${email}:billing:${counter}`
+}
+
+/** Null when the member has no billing record at all. */
+export async function getMemberBilling(email: string): Promise<MemberBilling | null> {
+  const [raw, ...counts] = await Promise.all([
+    redis.hgetall<Record<string, unknown>>(billingKey(email)),
+    ...BILLING_COUNTERS.map((c) => redis.scard(billingCounterKey(email, c))),
+  ])
+  const hasFields = !!raw && Object.keys(raw).length > 0
+  if (!hasFields && counts.every((n) => !n)) return null
+  const out: Record<string, unknown> = { ...EMPTY_BILLING }
+  BILLING_COUNTERS.forEach((c, i) => (out[c] = counts[i] ?? 0))
+  for (const [field, value] of Object.entries(raw ?? {})) {
+    if (!(field in EMPTY_BILLING) || (BILLING_COUNTERS as readonly string[]).includes(field)) continue
+    if ((BILLING_BOOLEANS as readonly string[]).includes(field)) out[field] = value === true || value === "true"
+    else if (field === "currentPeriodStart" || field === "currentPeriodEnd" || field === "unitAmount" || field === "lastPaymentAmount" || field === "lastPaymentTax") out[field] = value === null ? null : Number(value)
+    else out[field] = value === null ? null : String(value)
+  }
+  return out as unknown as MemberBilling
+}
+
+/**
+ * Writes the given fields only. null deletes a field (reads fall back to the
+ * empty default), so a cleared value never lingers as the string "null".
+ * Counters are not written here — see countBillingEvent / resetBillingCounter.
+ */
+export async function updateMemberBilling(email: string, fields: Partial<MemberBilling>): Promise<void> {
+  const set: Record<string, string | number | boolean> = {}
+  const del: string[] = []
+  for (const [field, value] of Object.entries(fields)) {
+    if (value === undefined || (BILLING_COUNTERS as readonly string[]).includes(field)) continue
+    if (value === null) del.push(field)
+    else set[field] = value as string | number | boolean
+  }
+  await Promise.all([
+    Object.keys(set).length ? redis.hset(billingKey(email), set) : null,
+    del.length ? redis.hdel(billingKey(email), ...del) : null,
+  ])
+}
+
+/** Sets a field only if it has never been set — paidSince is "first payment", never overwritten. */
+export async function setMemberBillingFieldIfUnset(email: string, field: keyof MemberBilling, value: string): Promise<void> {
+  await redis.hsetnx(billingKey(email), field, value)
+}
+
+/** Counts `sourceId` (a Stripe event/dispute ID) once, however many times it's delivered. */
+export async function countBillingEvent(email: string, counter: BillingCounter, sourceId: string): Promise<void> {
+  await redis.sadd(billingCounterKey(email, counter), sourceId)
+}
+
+export async function resetBillingCounter(email: string, counter: BillingCounter): Promise<void> {
+  await redis.del(billingCounterKey(email, counter))
+}
+
+// ---- Billing activity log --------------------------------------------------
+//
+// Newest first, capped: LPUSH then LTRIM in one pipeline, so the list can
+// never sit above the cap between the two. Summaries only (see
+// BillingEventSummary) — the admin page links to Stripe for anything deeper.
+
+const BILLING_EVENTS_KEY = "billing:events"
+
+export async function appendBillingEvent(summary: BillingEventSummary): Promise<void> {
+  const p = redis.pipeline()
+  p.lpush(BILLING_EVENTS_KEY, JSON.stringify(summary))
+  p.ltrim(BILLING_EVENTS_KEY, 0, BILLING_EVENT_LOG_LIMIT - 1)
+  await p.exec()
+}
+
+export async function listBillingEvents(): Promise<BillingEventSummary[]> {
+  const raw = await redis.lrange<BillingEventSummary | string>(BILLING_EVENTS_KEY, 0, BILLING_EVENT_LOG_LIMIT - 1)
+  return raw.map((r) => (typeof r === "string" ? (JSON.parse(r) as BillingEventSummary) : r))
+}
+
+// ---- Disputes ----------------------------------------------------------------
+
+const DISPUTES_KEY = "billing:disputes"
+
+export async function recordDispute(dispute: DisputeRecord): Promise<void> {
+  await redis.hset(DISPUTES_KEY, { [dispute.id]: JSON.stringify(dispute) })
+}
+
+export async function listDisputes(): Promise<DisputeRecord[]> {
+  const raw = (await redis.hgetall<Record<string, DisputeRecord | string>>(DISPUTES_KEY)) ?? {}
+  return Object.values(raw)
+    .map((r) => (typeof r === "string" ? (JSON.parse(r) as DisputeRecord) : r))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+}
+
+// Webhook idempotency. Stripe delivers at-least-once and `stripe events
+// resend` replays the same event ID, so each ID is claimed with SET NX before
+// any work happens.
+//
+// Two states, so a crash can't eat an event: the claim is "processing" with a
+// short TTL — if the function dies mid-handler the claim expires and Stripe's
+// retry gets through. Only a handler that finishes flips it to "done", kept
+// for 30 days (Stripe retries for up to 3).
+const STRIPE_EVENT_PROCESSING_TTL_SECONDS = 5 * 60
+const STRIPE_EVENT_DONE_TTL_SECONDS = 30 * 24 * 60 * 60
+
+function stripeEventKey(eventId: string) {
+  return `stripe:event:${eventId}`
+}
+
+/** "claimed" — go ahead. "done" — already applied, skip. "in_progress" — another delivery is mid-flight; ask Stripe to retry later. */
+export async function claimStripeEvent(eventId: string): Promise<"claimed" | "done" | "in_progress"> {
+  const ok = await redis.set(stripeEventKey(eventId), "processing", { nx: true, ex: STRIPE_EVENT_PROCESSING_TTL_SECONDS })
+  if (ok === "OK") return "claimed"
+  return (await redis.get<string>(stripeEventKey(eventId))) === "done" ? "done" : "in_progress"
+}
+
+export async function completeStripeEvent(eventId: string): Promise<void> {
+  await redis.set(stripeEventKey(eventId), "done", { ex: STRIPE_EVENT_DONE_TTL_SECONDS })
+}
+
+/** Drops the claim after a failed handler so Stripe's retry is processed rather than skipped. */
+export async function releaseStripeEvent(eventId: string): Promise<void> {
+  await redis.del(stripeEventKey(eventId))
 }
 
 // Set at signup (see IntakeSubmission.businessCategory, written by
@@ -1725,6 +1995,32 @@ export async function markWaitlistNotified(ids: string[]): Promise<{ updated: nu
     await Promise.all([
       redis.zadd<WaitlistEntry>(WAITLIST_KEY, { score, member: next }),
       redis.zadd<WaitlistEntry>(waitlistByEmailKey(entry.email), { score, member: next }),
+    ])
+    updated++
+  }
+  return { updated }
+}
+
+/**
+ * Stamps convertedAt on someone's Early Access entries once they actually
+ * subscribe — the conversion half of the cohort data REVERT_TO_STRIPE.md says
+ * to keep. Every entry for the email, not just the matching plan: someone who
+ * joined for Pro and bought Basic still converted. Idempotent like
+ * markWaitlistNotified — an existing timestamp is never rewritten.
+ */
+export async function markWaitlistConverted(email: string): Promise<{ updated: number }> {
+  const normalized = email.trim().toLowerCase()
+  const entries = await getWaitlistEntriesForEmail(normalized)
+  const now = new Date().toISOString()
+  let updated = 0
+  for (const entry of entries) {
+    if (entry.convertedAt) continue
+    const next: WaitlistEntry = { ...entry, convertedAt: now }
+    const score = Date.parse(entry.createdAt)
+    await Promise.all([redis.zrem(WAITLIST_KEY, entry), redis.zrem(waitlistByEmailKey(normalized), entry)])
+    await Promise.all([
+      redis.zadd<WaitlistEntry>(WAITLIST_KEY, { score, member: next }),
+      redis.zadd<WaitlistEntry>(waitlistByEmailKey(normalized), { score, member: next }),
     ])
     updated++
   }

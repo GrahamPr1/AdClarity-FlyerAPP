@@ -23,7 +23,8 @@
     "seed:enterprise-demo": "tsx scripts/seed-enterprise-demo.ts",
     "set-plan": "tsx scripts/set-plan.ts",
     "provision-account": "tsx scripts/provision-dev-account.ts",
-    "remove-audit-account": "tsx scripts/remove-audit-account.ts"
+    "remove-audit-account": "tsx scripts/remove-audit-account.ts",
+    "stripe:setup": "tsx scripts/stripe-sandbox-setup.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
@@ -87,6 +88,7 @@
     "resend": "^6.20.0",
     "robots-parser": "^3.0.1",
     "sonner": "^1.7.1",
+    "stripe": "18.3.0",
     "swr": "^2.4.2",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",

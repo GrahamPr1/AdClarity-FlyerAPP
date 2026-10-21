@@ -6,8 +6,6 @@ import type { Plan, PlanId } from "@/lib/types"
 import { PLAN_GUARANTEE, PLAN_EXPLAINER, PLAN_LIMITS, ANNUAL_DISCOUNT_PERCENT } from "@/lib/types"
 import { PLANS } from "@/lib/plans"
 import { Reveal } from "@/components/reveal"
-import { WaitlistModal } from "@/components/waitlist-modal"
-import { EARLY_ACCESS_ENABLED } from "@/lib/early-access"
 
 type Billing = "monthly" | "annual"
 
@@ -28,18 +26,26 @@ function CheckIcon() {
   )
 }
 
+/** Whole dollars stay "$19"; anything with cents always shows both digits ("$15.20", never "$15.2"). */
+function formatPrice(amount: number): string {
+  return Number.isInteger(amount) ? `$${amount.toLocaleString()}` : `$${amount.toFixed(2)}`
+}
+
+/** What the annual price actually charges — monthly × 12 less the annual discount, to the cent (the per-month figure shown is rounded). */
+function annualTotal(monthlyFee: number): number {
+  return Math.round(monthlyFee * 12 * (100 - ANNUAL_DISCOUNT_PERCENT)) / 100
+}
+
 function PlanCard({
   plan,
   billing,
   onSubscribe,
-  onJoinWaitlist,
   loadingId,
   delay,
 }: {
   plan: Plan
   billing: Billing
   onSubscribe: (id: PlanId) => void
-  onJoinWaitlist: (id: "basic" | "pro") => void
   loadingId: PlanId | null
   delay: number
 }) {
@@ -93,7 +99,7 @@ function PlanCard({
             <span className="text-lg font-medium text-muted-foreground/60 line-through">${plan.monthlyFee.toLocaleString()}</span>
           )}
           <span className="text-4xl font-bold tracking-tight">
-            {isPaid ? `$${displayedPrice.toLocaleString()}` : "Free"}
+            {isPaid ? formatPrice(displayedPrice) : "Free"}
           </span>
           {isPaid && <span className="text-sm text-muted-foreground">/ month</span>}
           {isPaid && billing === "annual" && (
@@ -105,38 +111,16 @@ function PlanCard({
         {perFlyerCost !== null && (
           <p className="mt-1 text-xs text-muted-foreground">~${perFlyerCost.toFixed(2)} per flyer</p>
         )}
-        {/* Sits under the price rather than in the header, so it can't overlap
-            the "Most Popular" badge on the Pro card. */}
-        {isPaid && EARLY_ACCESS_ENABLED && (
-          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-[var(--surface-soft)] px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
-            Billing coming soon
-          </span>
+        {/* The annual figure above is a monthly equivalent; this is what
+            the card is actually charged, so nobody meets a surprise total
+            at checkout. Tax, where it applies, is added on top there. */}
+        {isPaid && billing === "annual" && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Billed ${annualTotal(plan.monthlyFee).toFixed(2)} yearly
+          </p>
         )}
 
-        {/*
-         * STRIPE_REVERT — see REVERT_TO_STRIPE.md at the project root.
-         *
-         * Paid tiers open an Early Access modal instead of checkout, because
-         * there is no checkout: Stripe isn't connected and the price IDs are
-         * placeholders. A button labelled "Get the Pro Plan" that silently
-         * drops someone onto a free trial is the kind of thing that erodes
-         * trust before the first invoice.
-         *
-         * The free tier is untouched — it works today, so it still just goes.
-         */}
-        {isPaid && EARLY_ACCESS_ENABLED ? (
-          <button
-            onClick={() => onJoinWaitlist(plan.id as "basic" | "pro")}
-            className={`mt-6 w-full py-3.5 rounded-full text-sm font-medium transition-colors ${
-              highlighted
-                ? "bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] shadow-lg shadow-[color:var(--brand-teal)]/30"
-                : "border border-foreground/30 text-foreground hover:bg-[var(--brand-teal-bright)] hover:border-[var(--brand-teal-bright)] hover:text-[var(--primary-foreground)]"
-            }`}
-          >
-            Join {plan.name} Early Access
-          </button>
-        ) : plan.ctaHref ? (
+        {plan.ctaHref ? (
           <a
             href={plan.ctaHref}
             className={`mt-6 w-full py-3.5 rounded-full text-sm font-medium text-center transition-colors ${
@@ -197,45 +181,32 @@ export function PricingCards() {
   const [loadingId, setLoadingId] = useState<PlanId | null>(null)
   const [billing, setBilling] = useState<Billing>("monthly")
 
-  // Every tier routes straight to onboarding — no real checkout exists yet
-  // (it's being built separately), so nothing here should imply a payment
-  // flow happened. Basic/Pro will eventually go through a Stripe Checkout
-  // session first (plan.stripeMonthlyPriceId / stripeAnnualPriceId) before
-  // landing here — the monthly/annual toggle above is display-only until
-  // then, since real enforcement only ever tracks a plan tier, not a
-  // billing interval (see PlanId in lib/types.ts).
-  // Which paid plan's Early Access modal is open, if any.
-  const [waitlistPlan, setWaitlistPlan] = useState<"basic" | "pro" | null>(null)
-  // Pre-fills the modal for a signed-in visitor, and decides which success
-  // copy they see — we only claim "we've started you on the free tier" to
-  // someone who actually has an account.
-  const [signedInEmail, setSignedInEmail] = useState<string | null>(null)
+  // Paid tiers go to Stripe Checkout for the interval picked on the toggle
+  // (app/checkout/route.ts — signs the visitor in or up first if needed).
+  // Nothing is granted by this click: the plan arrives via the Stripe webhook
+  // once payment is confirmed. The free trial needs no checkout and goes
+  // straight to onboarding, as it always has.
+  // Coming back from Stripe with the browser's back button restores this
+  // page from the bfcache with the button still stuck on "Redirecting…".
   useEffect(() => {
-    fetch("/api/deliverables")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setSignedInEmail(d?.email ?? null))
-      .catch(() => {})
+    const reset = () => setLoadingId(null)
+    window.addEventListener("pageshow", reset)
+    return () => window.removeEventListener("pageshow", reset)
   }, [])
 
   function handleSubscribe(planId: PlanId) {
     setLoadingId(planId)
-    router.push(`/onboarding?plan=${planId}`)
+    if (planId === "trial") {
+      router.push("/onboarding?plan=trial")
+      return
+    }
+    // A full navigation, not router.push: /checkout answers with a redirect
+    // off-site to Stripe.
+    window.location.assign(`/checkout?plan=${planId}&interval=${billing}`)
   }
-
-  const openPlan = waitlistPlan ? PLANS.find((p) => p.id === waitlistPlan) : null
 
   return (
     <>
-      {openPlan && (
-        <WaitlistModal
-          plan={openPlan.id as "basic" | "pro"}
-          planLabel={openPlan.name}
-          monthlyFee={openPlan.monthlyFee}
-          annualMonthlyFee={openPlan.annualMonthlyFee}
-          signedInEmail={signedInEmail}
-          onClose={() => setWaitlistPlan(null)}
-        />
-      )}
       <div className="flex justify-center mb-8">
         <div className="inline-flex items-center rounded-full border border-border bg-card p-1">
           {(["monthly", "annual"] as const).map((option) => (
@@ -260,7 +231,6 @@ export function PricingCards() {
             plan={plan}
             billing={billing}
             onSubscribe={handleSubscribe}
-            onJoinWaitlist={setWaitlistPlan}
             loadingId={loadingId}
             delay={i * 80}
           />

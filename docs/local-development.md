@@ -110,6 +110,39 @@ Start `redis-server` itself if it isn't already running:
 redis-server --port 6379 --bind 127.0.0.1 --save '' --appendonly no --daemonize yes
 ```
 
+## Stripe billing (sandbox)
+
+Checkout, the Customer Portal and pause all talk to the Stripe **sandbox**
+locally. The webhook is what actually grants a plan, so it has to reach your
+dev server:
+
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook \
+  --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed,charge.refunded,charge.dispute.created
+```
+
+Those eight are every event the handler processes (the same list the live
+endpoint needs — see REVERT_TO_STRIPE.md). Leave it running.
+
+Its signing secret is stable per machine and must match
+`STRIPE_WEBHOOK_SECRET` in `.env.local` (`stripe listen --print-secret`). If
+the listener dies with "expired OAuth token", run `stripe login` again.
+
+Prices and the portal configuration are created once with
+`npm run stripe:setup` (sandbox keys only; safe to re-run). Pay with
+`4242 4242 4242 4242`, any future expiry, any CVC. To exercise renewals and
+cancellation at period end, use a Stripe test clock.
+
+The sandbox has a placeholder head office address and a sandbox-only
+Kentucky tax registration, so a Kentucky billing address is taxed at 6% and
+any other state at $0.
+
+`stripe trigger invoice.payment_failed` creates a one-off invoice on a new
+customer, not a subscription renewal: it exercises failed-payment counting
+(map it to an account with `--override "customer:metadata[oneflyer_email]=<email>"`)
+but cannot make a subscription past_due. For that, fail a renewal on a test
+clock with `pm_card_chargeCustomerFail`.
+
 ## Checking which database you're on
 
 ```bash

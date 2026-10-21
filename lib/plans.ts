@@ -3,7 +3,10 @@ import { PLAN_LIMITS, ANNUAL_DISCOUNT_PERCENT } from "./types"
 
 // Derived, not hand-typed, per plan below — see ANNUAL_DISCOUNT_PERCENT's
 // own note on why this can't just be a second literal number per plan.
-const annualMonthlyFee = (monthlyFee: number) => Math.round(monthlyFee * (1 - ANNUAL_DISCOUNT_PERCENT / 100))
+// To the cent, not rounded to the dollar: $19 less 20% is $15.20/mo, and that
+// is exactly what the annual price charges ($182.40 / 12). Rounding it to $15
+// advertised less than the card is actually billed.
+const annualMonthlyFee = (monthlyFee: number) => Math.round(monthlyFee * (100 - ANNUAL_DISCOUNT_PERCENT)) / 100
 
 // Real enforcement uses PLAN_LIMITS directly (see lib/types.ts) so this
 // marketing copy can't drift out of sync with what's actually enforced.
@@ -46,8 +49,6 @@ export const PLANS: Plan[] = [
     ],
     note: "No contract — cancel anytime, keep every flyer you've made.",
     outcome: "A steady set of on-brand materials — and proof they're working.",
-    stripeMonthlyPriceId: "price_basic_monthly_placeholder",
-    stripeAnnualPriceId: "price_basic_annual_placeholder",
     ctaLabel: "Start Creating Flyers",
   },
   {
@@ -77,8 +78,6 @@ export const PLANS: Plan[] = [
     note: "The only tier that can generate its own imagery — for trades without a photo library, that's the difference between a flyer with a picture and one without.",
     outcome: "Twice the output, and a photo on every flyer even when you don't have one to hand.",
     mostPopular: true,
-    stripeMonthlyPriceId: "price_pro_monthly_placeholder",
-    stripeAnnualPriceId: "price_pro_annual_placeholder",
     ctaLabel: "Get the Pro Plan",
   },
 ]

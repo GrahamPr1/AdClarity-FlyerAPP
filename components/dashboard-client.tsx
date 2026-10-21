@@ -17,7 +17,6 @@ import type {
 } from "@/lib/types"
 import { BUSINESS_CATEGORIES } from "@/lib/types"
 import type { FlyerTrackingBreakdown } from "@/lib/types"
-import { EARLY_ACCESS_ENABLED } from "@/lib/early-access"
 import { FormFillSection } from "@/components/form-fill-section"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { trackEvent } from "@/lib/analytics"
@@ -750,6 +749,11 @@ export function DashboardClient() {
   // who just finished a six-step form was shown the "Let's make your first
   // flyer" empty state, as though their submission had vanished.
   const justOnboarded = searchParams.get("onboarded") === "1"
+  // Stripe Checkout's success_url. The plan itself arrives by webhook, usually
+  // a second or two behind the redirect, so until it does this page polls and
+  // says what's happening instead of showing "Free Trial" to someone who has
+  // just paid.
+  const justPaid = searchParams.get("checkout") === "success"
   // Poll while the agent pipeline still has flyer work in flight (none seeded
   // yet, or any not yet "Ready") so Pending -> In Progress -> Ready shows up
   // without a manual refresh. Stops once all seeded flyers are Ready.
@@ -761,6 +765,7 @@ export function DashboardClient() {
   const { data, isLoading, mutate } = useSWR<Deliverables>("/api/deliverables", fetcher, {
     refreshInterval: (latest) => {
       if (!latest) return 3000
+      if (justPaid && latest.planId === "trial") return 2000
       // Ready and Failed are both terminal — stop polling once nothing is
       // actively generating. A retry flips a flyer back to "In Progress"
       // server-side, so the explicit mutate() in handleRetry re-triggers
@@ -988,18 +993,10 @@ export function DashboardClient() {
             </div>
           </div>
 
-          {/* They asked to be told when billing opens. Shown so it's clear
-              the request was recorded and that nothing is being charged —
-              STRIPE_REVERT, see REVERT_TO_STRIPE.md. */}
-          {EARLY_ACCESS_ENABLED && data.waitlist?.length > 0 && (
-            <div className="mt-8 rounded-xl border border-border bg-[var(--surface-soft)] px-4 py-3">
-              {data.waitlist.map((w) => (
-                <p key={w.id} className="text-sm text-muted-foreground">
-                  You selected{" "}
-                  <span className="font-medium text-foreground capitalize">{w.desiredPlan}</span>{" "}
-                  ({w.billingInterval}) — we&apos;ll email you when checkout is ready.
-                </p>
-              ))}
+          {justPaid && data.planId === "trial" && (
+            <div role="status" className="mt-8 flex items-center gap-3 rounded-xl border border-[var(--brand-teal)]/40 bg-[var(--brand-teal-tint)] px-4 py-3">
+              <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-border border-t-[var(--brand-teal-bright)]" />
+              <span className="text-sm font-medium">Payment received — switching on your new plan…</span>
             </div>
           )}
 

@@ -15,10 +15,11 @@ import type { MarketingGoal } from "./agent-pipeline/schemas/goal"
 // record (see ClientRecord below). Picking a tier on the marketing page
 // (via the onboarding ?plan= query string) is only ever a REQUEST — it does
 // NOT by itself grant that plan. A client's real enforcement plan only ever
-// changes via the admin route (POST /api/admin/set-plan), never inferred
-// from an IntakeSubmission's planId — there's no real Stripe billing wired
-// up yet, so trusting a client-selected value for enforcement would let
-// anyone grant themselves Basic/Pro just by editing the URL.
+// changes via the Stripe webhook (app/api/stripe/webhook — the subscription's
+// status is the source of truth), or an admin override (POST
+// /api/admin/set-plan). Never inferred from an IntakeSubmission's planId or a
+// URL — trusting a client-selected value would let anyone grant themselves
+// Basic/Pro just by editing the URL.
 export type PlanId = "trial" | "basic" | "pro"
 
 /**
@@ -46,11 +47,11 @@ export const DEFAULT_THEME: ThemePreference = "light"
 // (lib/plans.ts), so the two can't drift out of sync the way the old
 // marketing numbers did before this existed.
 //
-// These reset every 30 days from each client's own tracked period start
-// (see ClientRecord.periodStart) — a real, enforced rolling window, not
-// just a display label. Anchored to our own clock rather than a Stripe
-// billing period since no real Stripe subscription exists yet; once it
-// does, periodStart can be re-anchored to Stripe's current_period_start.
+// These reset on each client's usage window (see ClientRecord.periodStart and
+// lib/usage-window.ts) — a real, enforced window, not just a display label.
+// For a paid Stripe subscriber the window is anchored to the subscription's
+// billing period (monthly steps within it for annual plans); for everyone
+// else it is a rolling 30 days on our own clock.
 export const PLAN_LIMITS: Record<PlanId, number> = {
   trial: 3,
   basic: 25,
@@ -101,10 +102,6 @@ export interface Plan {
   /** A short outcome-focused line reinforcing the result they get */
   outcome: string
   mostPopular?: boolean
-  /** Placeholder Stripe price ID — wire this to a real price once a Stripe account exists. Unused for the free trial tier. */
-  stripeMonthlyPriceId?: string
-  /** Placeholder Stripe price ID for the annual billing interval — same treatment as stripeMonthlyPriceId, wire once Stripe exists. Unused for the free trial tier. */
-  stripeAnnualPriceId?: string
   ctaLabel: string
   /**
    * If set, the CTA renders as a plain link to this href instead of
@@ -321,6 +318,109 @@ export interface ClientRecord {
    * break" has an answer that isn't "cancel and lose everything".
    */
   pausedAt: string | null
+  /** Epoch ms when the current usage window ends. For a paid Stripe subscriber this is the Stripe billing period boundary (or the next monthly step inside an annual period); otherwise periodStart + 30 days. See lib/usage-window.ts. */
+  periodEnd: number
+  /** Stripe Customer this account checks out as. Null until their first checkout. */
+  stripeCustomerId: string | null
+  /** This account's billing record (lib/billing.ts writes it from Stripe webhooks; /api/admin/set-plan records overrides on it). Null for anyone who has never touched billing. */
+  billing: MemberBilling | null
+}
+
+/**
+ * Everything the app knows about one member's billing, mirrored from Stripe
+ * into a Redis HASH (client:<email>:billing) so reads — the dashboard, the
+ * usage window, the admin pages — never call Stripe.
+ *
+ * Stripe stays the source of truth: the subscription half is overwritten
+ * from a freshly fetched subscription on every event. The counters are
+ * HINCRBY'd field by field, so two webhooks landing at once can't overwrite
+ * each other's counts.
+ *
+ * Deliberately NOT here: card details, full addresses, raw Stripe payloads.
+ * billingState is the state alone, kept because it decides who is taxed.
+ */
+export interface MemberBilling {
+  stripeSubscriptionId: string | null
+  priceId: string | null
+  plan: Extract<PlanId, "basic" | "pro"> | null
+  interval: BillingInterval | null
+  /** Pre-tax price in cents per interval — what MRR is estimated from. */
+  unitAmount: number | null
+  /** Stripe's subscription status verbatim — active, past_due, canceled, unpaid, incomplete, … ("paused" billing is collectionPaused, not a status). */
+  status: string | null
+  /** Epoch ms — Stripe's current billing period. */
+  currentPeriodStart: number | null
+  currentPeriodEnd: number | null
+  cancelAtPeriodEnd: boolean
+  /** True while Stripe's pause_collection is set — billing is paused. */
+  collectionPaused: boolean
+  /** Whether the invoice that opened the current period has been paid. A new period's usage allowance waits for this (see lib/usage-window.ts). */
+  currentPeriodPaid: boolean
+
+  /** ISO — first successful payment. Never overwritten. */
+  paidSince: string | null
+  lastPaymentDate: string | null
+  /** Cents, tax included — what the card was charged. */
+  lastPaymentAmount: number | null
+  /** Cents — the tax part of lastPaymentAmount. */
+  lastPaymentTax: number | null
+  /** Two-letter state from the billing address (US). The address itself is never stored. */
+  billingState: string | null
+
+  /** Failed payments since the last successful one. */
+  failedPaymentCount: number
+  refundCount: number
+  disputeCount: number
+  lastDisputeAt: string | null
+
+  /** From Stripe's cancellation_details — e.g. reason "cancellation_requested", feedback "too_expensive". */
+  cancellationReason: string | null
+  cancellationFeedback: string | null
+  /** ISO — when cancellation was requested (Stripe's canceled_at). */
+  canceledAt: string | null
+  /** ISO — when the subscription actually ended. */
+  endedAt: string | null
+
+  /** Who set the CURRENT plan: the Stripe webhook, or an admin override. */
+  planSource: "stripe" | "admin_override" | null
+  overrideBy: string | null
+  overrideAt: string | null
+  overridePlan: PlanId | null
+
+  syncedAt: string | null
+}
+
+/**
+ * One line in the admin billing activity log (Redis list billing:events,
+ * capped at BILLING_EVENT_LOG_LIMIT). A summary, never a payload: no card
+ * data, no addresses, no line items.
+ */
+export interface BillingEventSummary {
+  at: string
+  type: string
+  eventId: string | null
+  email: string | null
+  plan: PlanId | null
+  /** Cents. */
+  amount: number | null
+  /** Cents. */
+  tax: number | null
+  status: string | null
+  /** Two-letter billing state, when the event carries one — so tax collected can be summed per state. */
+  state: string | null
+}
+
+export const BILLING_EVENT_LOG_LIMIT = 500
+
+/** A dispute as the admin pages need it. Opened-only: closing isn't tracked (no charge.dispute.closed handler). */
+export interface DisputeRecord {
+  id: string
+  email: string | null
+  chargeId: string | null
+  amount: number
+  reason: string
+  status: string
+  createdAt: string
 }
 
 // ---- Deliverables / dashboard --------------------------------------------
@@ -531,6 +631,10 @@ export interface Deliverables {
   flyersResetAt: string
   /** Mirrors ClientRecord.pausedAt so the dashboard and profile can show account state without a second round trip. Null when active. */
   pausedAt: string | null
+  /** True once this account has a Stripe customer — i.e. there is a Customer Portal to send them to. */
+  hasBillingAccount: boolean
+  /** ISO date a cancelled-at-period-end subscription stops, so the account page can say so. Null otherwise. */
+  subscriptionEndsAt: string | null
   /** Which pipeline step is running right now, in words a customer understands. Null when nothing is generating. */
   generationStage: string | null
   /** Early Access entries this client has joined. Empty for most people. */

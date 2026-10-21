@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import useSWR from "swr"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -17,7 +18,12 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
  * fear that stops people pausing is that it's cancellation by another name.
  */
 export function AccountStatus() {
-  const { data, mutate, isLoading } = useSWR<{ pausedAt?: string | null; planName?: string }>(
+  const { data, mutate, isLoading } = useSWR<{
+    pausedAt?: string | null
+    planName?: string
+    hasBillingAccount?: boolean
+    subscriptionEndsAt?: string | null
+  }>(
     "/api/deliverables",
     fetcher,
     { revalidateOnFocus: false },
@@ -27,6 +33,29 @@ export function AccountStatus() {
   const [confirming, setConfirming] = useState(false)
 
   const paused = !!data?.pausedAt
+  const [openingPortal, setOpeningPortal] = useState(false)
+  // /checkout lands here with ?billing=error when Stripe couldn't be reached.
+  const checkoutFailed = useSearchParams().get("billing") === "error"
+
+  // Card, plan switch, cancellation and invoices all live in Stripe's
+  // Customer Portal. Whatever changes there comes back via the webhook.
+  async function openBillingPortal() {
+    setOpeningPortal(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json.url) {
+        setError(json.error ?? "Couldn't open billing right now.")
+        setOpeningPortal(false)
+        return
+      }
+      window.location.assign(json.url)
+    } catch {
+      setError("Couldn't open billing right now.")
+      setOpeningPortal(false)
+    }
+  }
 
   async function setPaused(next: boolean) {
     setBusy(true)
@@ -118,18 +147,49 @@ export function AccountStatus() {
             </button>
           </div>
           <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
-            Want to close the account entirely instead? Email{" "}
+            {data?.hasBillingAccount
+              ? "Want to cancel your plan instead? Use Manage billing below — you keep access until the end of the period you've paid for. "
+              : null}
+            To close the account entirely, email{" "}
             <a href="mailto:support@oneflyer.org" className="text-[var(--brand-teal-bright)] hover:underline">
               support@oneflyer.org
             </a>{" "}
-            and we&apos;ll handle it. We say it that way because self-serve cancellation isn&apos;t
-            wired up yet — see our{" "}
+            and we&apos;ll handle it — see our{" "}
             <a href="/refund-policy" className="text-[var(--brand-teal-bright)] hover:underline">
               cancellation policy
             </a>{" "}
             for exactly what happens to your data.
           </p>
         </div>
+      )}
+
+      {!isLoading && data?.hasBillingAccount && (
+        <div className="mt-6 border-t border-border pt-5">
+          <h3 className="text-sm font-medium">Billing</h3>
+          {data.subscriptionEndsAt && (
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Your {data.planName} plan is cancelled and ends on{" "}
+              {new Date(data.subscriptionEndsAt).toLocaleDateString()}. You can keep using it until then.
+            </p>
+          )}
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Update your card, switch plans, download invoices or cancel.
+          </p>
+          <button
+            type="button"
+            disabled={openingPortal}
+            onClick={openBillingPortal}
+            className="mt-3 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-50"
+          >
+            {openingPortal ? "Opening…" : "Manage billing"}
+          </button>
+        </div>
+      )}
+
+      {checkoutFailed && !error && (
+        <p role="alert" className="mt-3 text-sm text-red-400">
+          We couldn&apos;t start checkout. Nothing was charged — please try again in a moment.
+        </p>
       )}
 
       {error && (

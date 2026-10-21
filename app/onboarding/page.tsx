@@ -4,9 +4,6 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { CreateFlyerFlow } from "@/components/create-flyer-flow"
-import { getOrCreateClient, setClientPlan } from "@/lib/store"
-import type { PlanId } from "@/lib/types"
-import { isPlanUpgrade } from "@/lib/types"
 
 export const metadata = {
   // Just the page name: the root layout supplies the " — OneFlyer" suffix
@@ -15,45 +12,24 @@ export const metadata = {
   title: "Onboarding",
 }
 
-const VALID_PLAN_IDS: PlanId[] = ["trial", "basic", "pro"]
-
 // middleware.ts already blocks an unauthenticated request from ever
 // reaching this page — this re-checks anyway (defensive, cheap) and,
 // unlike middleware, also knows the actual identity: onboarding is a
 // client-only flow, so an admin session (no real "own" email) is sent to
 // their own dashboard instead of a client's signup form.
-export default async function OnboardingPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ plan?: string }>
-}) {
+export default async function OnboardingPage() {
   const cookieStore = await cookies()
   const session = await getSessionIdentity({ cookies: cookieStore })
 
   if (!session) redirect("/login?next=/onboarding")
   if (session.sub === ADMIN_SUB) redirect("/dashboard")
 
-  // Pricing-card clicks land here as /onboarding?plan=basic|pro — there's no
-  // Stripe checkout wired up yet (see lib/plans.ts's stripeMonthlyPriceId
-  // stub), so until that exists, arriving here with a plan picked IS the
-  // real enforcement action: apply it now rather than silently discarding
-  // the param and leaving the account on whatever it already was.
-  //
-  // UPGRADES ONLY. This previously applied any plan the URL named, which made
-  // a plain GET to /onboarding?plan=trial silently revoke a paid tier. That is
-  // not a hypothetical: with Early Access on, the free-trial card is the only
-  // live pricing CTA, so "Start Free Trial" — or a bookmark, a shared link, a
-  // back-button — would quietly undo an admin's upgrade, and the account would
-  // read Free Trial again with no record of why.
-  //
-  // A ?plan= in a URL is a request to pick a plan up, never authority to take
-  // one away. Downgrades are a deliberate act and belong to the admin path
-  // (POST /api/admin/set-plan), which is session-guarded and attributable.
-  const { plan } = await searchParams
-  if (plan && (VALID_PLAN_IDS as string[]).includes(plan)) {
-    const client = await getOrCreateClient(session.sub)
-    if (isPlanUpgrade(client.plan, plan as PlanId)) await setClientPlan(session.sub, plan as PlanId)
-  }
+  // ?plan= is ignored here now that billing is live. It used to grant the
+  // plan it named (upgrades only), because there was no checkout to send
+  // anyone to. A paid plan now comes only from a confirmed Stripe
+  // subscription (app/api/stripe/webhook) — a URL can't grant one. The paid
+  // pricing CTAs go to /checkout instead; old links with ?plan= still land
+  // here harmlessly, as a plain onboarding.
 
   return (
     <main className="min-h-screen bg-background text-foreground px-6 py-16 md:py-24">
