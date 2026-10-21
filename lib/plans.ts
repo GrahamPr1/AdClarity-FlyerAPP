@@ -59,8 +59,16 @@ export const PLANS: Plan[] = [
     monthlyFee: 39,
     annualMonthlyFee: annualMonthlyFee(39),
     // Pro's differentiators are the ones actually enforced server-side: twice
-    // the monthly allowance, and AI-generated photos (planAllowsAiPhotos in
-    // lib/agent-pipeline/plan-features.ts is Pro-only and gated for real).
+    // the monthly allowance, and an AI-generated image as a FALLBACK
+    // (planAllowsAiPhotos in lib/agent-pipeline/plan-features.ts is Pro-only
+    // and gated for real, on top of the client's opt-in).
+    //
+    // Photos themselves are NOT Pro-only, so the copy must not imply they
+    // are: every tier gets a matching Unsplash stock photo when the client
+    // has none of their own (stockPhotosEnabled). Generation runs only when
+    // Unsplash has nothing on-topic, and can still come back empty — in which
+    // case the flyer uses a photo-free design. Hence no "photo on every
+    // flyer" promise. See buildPhotoPool in lib/agent-pipeline/pipeline.ts.
     //
     // This tier previously sold "a saved Business Profile that fills out any
     // form for you" in its description, a feature line, the note AND the
@@ -69,14 +77,14 @@ export const PLANS: Plan[] = [
     // Trial already has it. Meanwhile the one genuinely exclusive feature
     // wasn't mentioned anywhere. Charging for something everyone gets, while
     // hiding what they'd actually be paying for, is the wrong way round.
-    description: "Everything in Basic, plus AI-generated photos and double the monthly campaigns.",
+    description: "Everything in Basic, plus double the monthly campaigns and AI-generated images when no stock photo fits.",
     features: [
       `${PLAN_LIMITS.pro} flyers every month — double Basic`,
       "Everything in Basic",
-      "AI-generated photos for flyers when you have none of your own",
+      "AI-generated images when neither your photos nor our stock library has a match (opt-in)",
     ],
-    note: "The only tier that can generate its own imagery — for trades without a photo library, that's the difference between a flyer with a picture and one without.",
-    outcome: "Twice the output, and a photo on every flyer even when you don't have one to hand.",
+    note: "Every plan uses your photos first, then a matching stock photo. Pro adds an AI-generated image for when the stock library has nothing that fits — useful for niche trades.",
+    outcome: "Twice the output, and a better chance of a picture on every flyer — even for work stock libraries don't cover.",
     mostPopular: true,
     ctaLabel: "Get the Pro Plan",
   },

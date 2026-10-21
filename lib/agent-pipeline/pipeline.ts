@@ -318,11 +318,12 @@ function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerRequest): st
  *
  * Unsplash is primary because it returns real photographs at no per-image
  * cost; Higgsfield generates a bespoke image but bills credits per call, so
- * it now runs only when Unsplash has nothing on-topic. Both sit behind the
- * SAME gate as before — Pro plan AND the client's explicit wantsAiPhotos
- * opt-in — so this change alters which source is tried, never who gets
- * photos. (Worth revisiting: that opt-in is worded as "AI-generated photos",
- * which no longer describes an Unsplash stock photo.)
+ * it runs only when Unsplash has nothing on-topic. The two sources are gated
+ * separately (see lib/agent-pipeline/plan-features.ts): stock photos are on
+ * for EVERY tier with no opt-in (stockPhotosEnabled), while generation needs
+ * the Pro plan AND the client's explicit wantsAiPhotos opt-in
+ * (aiPhotosEnabled). The opt-in is worded to match: "If no stock photo
+ * fits, let AI generate an illustrative image instead".
  *
  * Never throws. A miss at every level just means fewer photos in the pool,
  * and the Flyer Agent's CSS-only design already handles that well — which is

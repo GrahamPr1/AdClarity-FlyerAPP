@@ -201,7 +201,7 @@ export interface IntakeSubmission {
   existingMaterialsUrl?: string
   /** Real Blob URLs — unlike logoFileName/existingMaterialsFileName, these are actually uploaded (see /api/onboarding/upload-photo), not just filenames. */
   flyerPhotoUrls?: string[]
-  /** Explicit opt-in to AI-generated stock photos when a flyer has no client photo to use — Pro-only, real server-side gate (see hasProPhotoGeneration in lib/agent-pipeline/pipeline.ts). Never inferred from silence. */
+  /** Explicit opt-in to an AI-generated image when a flyer has neither a client photo nor a matching Unsplash stock photo (stock photos need no opt-in, on any tier) — Pro-only, real server-side gate (see aiPhotosEnabled in lib/agent-pipeline/plan-features.ts). Never inferred from silence. */
   wantsAiPhotos?: boolean
   /** Which kind of document to produce — see lib/agent-pipeline/formats.ts. Absent means "flyer", which is what every campaign predating formats was. */
   formatId?: string

@@ -682,11 +682,11 @@ export function OnboardingForm({
                         disabled={realPlanId !== "pro"}
                         onChange={(e) => set("wantsAiPhotos", e.target.checked)}
                         className="w-4 h-4 accent-[var(--brand-teal-bright)] disabled:opacity-50" />
-                      Let AI generate photos for flyers that don&apos;t have one of your own
+                      If no stock photo fits, let AI generate an illustrative image instead
                     </label>
                     {realPlanId !== null && realPlanId !== "pro" && (
                       <p className="mt-1.5 text-xs text-muted-foreground">
-                        <Link href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">Upgrade to Pro</Link> to unlock AI-generated photos.
+                        <Link href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">Upgrade to Pro</Link> to add AI-generated images when no stock photo fits.
                       </p>
                     )}
                   </div>
