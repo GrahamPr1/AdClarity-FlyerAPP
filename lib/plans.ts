@@ -1,12 +1,15 @@
 import type { Plan } from "./types"
-import { PLAN_LIMITS, ANNUAL_DISCOUNT_PERCENT } from "./types"
+import { PLAN_LIMITS } from "./types"
 
-// Derived, not hand-typed, per plan below — see ANNUAL_DISCOUNT_PERCENT's
-// own note on why this can't just be a second literal number per plan.
-// To the cent, not rounded to the dollar: $19 less 20% is $15.20/mo, and that
-// is exactly what the annual price charges ($182.40 / 12). Rounding it to $15
-// advertised less than the card is actually billed.
-const annualMonthlyFee = (monthlyFee: number) => Math.round(monthlyFee * (100 - ANNUAL_DISCOUNT_PERCENT)) / 100
+// Annual prices are stated per plan, in whole dollars, and must equal the
+// annual Stripe Prices exactly (STRIPE_PRICE_*_ANNUAL). The monthly equivalent
+// and the savings percentage are DERIVED from them, never typed separately, so
+// the pricing page can't advertise a figure the card isn't charged.
+//
+// There is deliberately no single "annual discount" constant: the saving is
+// different per plan ($180 vs $228 for Basic is 21%; $360 vs $468 for Pro is
+// 23%), and a shared "20%" would be wrong for both.
+const annualMonthlyFee = (annualFee: number) => Math.round((annualFee / 12) * 100) / 100
 
 // Real enforcement uses PLAN_LIMITS directly (see lib/types.ts) so this
 // marketing copy can't drift out of sync with what's actually enforced.
@@ -27,6 +30,7 @@ export const PLANS: Plan[] = [
     name: "Free Trial",
     tagline: "See real, on-brand flyers before you commit to anything.",
     monthlyFee: 0,
+    annualFee: 0,
     annualMonthlyFee: 0,
     description: "Try the full AI design engine with a few flyers on us — no credit card required.",
     features: [`${PLAN_LIMITS.trial} flyers free`, "No credit card required"],
@@ -39,7 +43,8 @@ export const PLANS: Plan[] = [
     name: "Basic",
     tagline: "For businesses that want to know a flyer actually worked.",
     monthlyFee: 19,
-    annualMonthlyFee: annualMonthlyFee(19),
+    annualFee: 180,
+    annualMonthlyFee: annualMonthlyFee(180),
     description: "Everything in Trial, plus scan tracking, multi-channel content, and print requests.",
     features: [
       `${PLAN_LIMITS.basic} flyers every month`,
@@ -57,7 +62,8 @@ export const PLANS: Plan[] = [
     tagline: "For businesses that want the most flyers and the least paperwork.",
     badge: "Most Popular",
     monthlyFee: 39,
-    annualMonthlyFee: annualMonthlyFee(39),
+    annualFee: 360,
+    annualMonthlyFee: annualMonthlyFee(360),
     // Pro's differentiators are the ones actually enforced server-side: twice
     // the monthly allowance, and an AI-generated image as a FALLBACK
     // (planAllowsAiPhotos in lib/agent-pipeline/plan-features.ts is Pro-only
@@ -102,6 +108,22 @@ export const PLANS: Plan[] = [
  */
 export function renewalDisclosure(interval: "monthly" | "annual"): string {
   return `Renews automatically ${interval === "annual" ? "yearly" : "monthly"} until you cancel. Cancel anytime online in a few clicks.`
+}
+
+/**
+ * How much the yearly price saves against twelve monthly payments, as a whole
+ * percentage ROUNDED DOWN — so the "Save X%" claim can only ever understate.
+ * Basic: 1 − 180/228 = 21.05% → 21. Pro: 1 − 360/468 = 23.08% → 23.
+ */
+export function annualSavingsPercent(plan: Pick<Plan, "monthlyFee" | "annualFee">): number {
+  const yearOfMonthly = plan.monthlyFee * 12
+  if (!yearOfMonthly || !plan.annualFee) return 0
+  return Math.floor(((yearOfMonthly - plan.annualFee) / yearOfMonthly) * 100)
+}
+
+/** The best saving on offer — what "save up to X%" on the toggle may truthfully claim. */
+export function maxAnnualSavingsPercent(): number {
+  return Math.max(0, ...PLANS.map(annualSavingsPercent))
 }
 
 export function getPlan(id: string | null | undefined): Plan | undefined {

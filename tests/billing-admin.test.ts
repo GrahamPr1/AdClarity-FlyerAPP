@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { PLANS } from "@/lib/plans"
+import { PLANS, annualSavingsPercent, maxAnnualSavingsPercent } from "@/lib/plans"
 import { annualRefundDue, computeOverview, freePaidPlanAudit, memberStatus, membersCsv, needsAttention, stripeCustomerUrl, toMemberRow } from "@/lib/billing-admin"
 import type { BillingEventSummary, ClientRecord, MemberBilling, PlanId } from "@/lib/types"
 
@@ -65,8 +65,8 @@ function client(email: string, plan: PlanId, b: MemberBilling | null): ClientRec
 const members = [
   client("basic-monthly@x", "basic", billing()), // 1900
   client("pro-monthly@x", "pro", billing({ plan: "pro", unitAmount: 3900 })), // 3900
-  client("basic-annual@x", "basic", billing({ interval: "annual", unitAmount: 18240 })), // 1520
-  client("pro-annual-pastdue@x", "pro", billing({ plan: "pro", interval: "annual", unitAmount: 37440, status: "past_due", failedPaymentCount: 1 })), // 3120
+  client("basic-annual@x", "basic", billing({ interval: "annual", unitAmount: 18000 })), // 1500
+  client("pro-annual-pastdue@x", "pro", billing({ plan: "pro", interval: "annual", unitAmount: 36000, status: "past_due", failedPaymentCount: 1 })), // 3120
   client("paused@x", "pro", billing({ plan: "pro", unitAmount: 3900, collectionPaused: true })), // excluded from MRR
   client("canceled-recent@x", "trial", billing({ status: "canceled", endedAt: "2026-10-10T00:00:00Z" })),
   client("canceled-old@x", "trial", billing({ status: "canceled", endedAt: "2026-08-01T00:00:00Z" })),
@@ -76,14 +76,28 @@ const members = [
 ]
 
 describe("annual pricing display", () => {
-  it("shows the exact monthly equivalent — $15.20 and $31.20, not rounded", () => {
-    expect(PLANS.find((p) => p.id === "basic")!.annualMonthlyFee).toBe(15.2)
-    expect(PLANS.find((p) => p.id === "pro")!.annualMonthlyFee).toBe(31.2)
+  const basic = PLANS.find((p) => p.id === "basic")!
+  const pro = PLANS.find((p) => p.id === "pro")!
+
+  it("charges $180 and $360 a year, shown as $15 and $30 a month", () => {
+    expect([basic.annualFee, pro.annualFee]).toEqual([180, 360])
+    expect([basic.annualMonthlyFee, pro.annualMonthlyFee]).toEqual([15, 30])
   })
 
-  it("× 12 equals exactly what the annual Stripe price charges", () => {
-    expect(Math.round(PLANS.find((p) => p.id === "basic")!.annualMonthlyFee * 12 * 100)).toBe(18240)
-    expect(Math.round(PLANS.find((p) => p.id === "pro")!.annualMonthlyFee * 12 * 100)).toBe(37440)
+  it("monthly equivalent × 12 equals exactly the annual Stripe price", () => {
+    expect(Math.round(basic.annualMonthlyFee * 12 * 100)).toBe(18000)
+    expect(Math.round(pro.annualMonthlyFee * 12 * 100)).toBe(36000)
+  })
+
+  it("claims the true saving per plan, rounded down — 21% and 23%, never a flat 20%", () => {
+    expect(annualSavingsPercent(basic)).toBe(21) // 1 − 180/228 = 21.05%
+    expect(annualSavingsPercent(pro)).toBe(23) // 1 − 360/468 = 23.08%
+    expect(maxAnnualSavingsPercent()).toBe(23)
+    expect(annualSavingsPercent(PLANS.find((p) => p.id === "trial")!)).toBe(0)
+  })
+
+  it("never overstates: rounding down means 21.9% shows as 21", () => {
+    expect(annualSavingsPercent({ monthlyFee: 10, annualFee: 93.72 })).toBe(21)
   })
 })
 
@@ -116,8 +130,8 @@ describe("billing overview", () => {
     expect(o.paidMembers).toBe(5)
   })
 
-  it("estimates MRR by hand: 1900 + 3900 + 18240/12 + 37440/12, paused excluded", () => {
-    expect(o.estimatedMrrCents).toBe(1900 + 3900 + 1520 + 3120)
+  it("estimates MRR by hand: 1900 + 3900 + 18000/12 + 36000/12, paused excluded", () => {
+    expect(o.estimatedMrrCents).toBe(1900 + 3900 + 1500 + 3000)
   })
 
   it("sums Kentucky tax from this month's invoice.paid events only", () => {
@@ -161,7 +175,7 @@ describe("needs attention", () => {
 describe("annual refund due", () => {
   const paidAt = "2026-10-01T10:00:00Z"
   const annual = (over: Partial<MemberBilling>) =>
-    billing({ interval: "annual", plan: "pro", unitAmount: 37440, lastPaymentDate: paidAt, lastPaymentAmount: 39686, lastPaymentRef: "pi_year", cancelAtPeriodEnd: true, ...over })
+    billing({ interval: "annual", plan: "pro", unitAmount: 36000, lastPaymentDate: paidAt, lastPaymentAmount: 38160, lastPaymentRef: "pi_year", cancelAtPeriodEnd: true, ...over })
   const kinds = (b: MemberBilling) => needsAttention([client("annual@x", "pro", b)], []).map((i) => i.kind)
 
   it("flags an annual member who cancels inside 14 days of paying", () => {

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { Plan, PlanId } from "@/lib/types"
-import { PLAN_GUARANTEE, PLAN_EXPLAINER, PLAN_LIMITS, ANNUAL_DISCOUNT_PERCENT } from "@/lib/types"
-import { PLANS, renewalDisclosure } from "@/lib/plans"
+import { PLAN_GUARANTEE, PLAN_EXPLAINER, PLAN_LIMITS } from "@/lib/types"
+import { PLANS, annualSavingsPercent, maxAnnualSavingsPercent, renewalDisclosure } from "@/lib/plans"
 import { CHECKOUT_UNAVAILABLE_MESSAGE } from "@/lib/checkout-switch"
 import { Reveal } from "@/components/reveal"
 
@@ -27,14 +27,9 @@ function CheckIcon() {
   )
 }
 
-/** Whole dollars stay "$19"; anything with cents always shows both digits ("$15.20", never "$15.2"). */
+/** Whole dollars stay "$19"; anything with cents always shows both digits ("$9.50", never "$9.5"). */
 function formatPrice(amount: number): string {
   return Number.isInteger(amount) ? `$${amount.toLocaleString()}` : `$${amount.toFixed(2)}`
-}
-
-/** What the annual price actually charges — monthly × 12 less the annual discount, to the cent (the per-month figure shown is rounded). */
-function annualTotal(monthlyFee: number): number {
-  return Math.round(monthlyFee * 12 * (100 - ANNUAL_DISCOUNT_PERCENT)) / 100
 }
 
 function PlanCard({
@@ -107,7 +102,7 @@ function PlanCard({
           {isPaid && <span className="text-sm text-muted-foreground">/ month</span>}
           {isPaid && billing === "annual" && (
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)]">
-              Save {ANNUAL_DISCOUNT_PERCENT}%
+              Save {annualSavingsPercent(plan)}%
             </span>
           )}
         </div>
@@ -119,7 +114,7 @@ function PlanCard({
             at checkout. Tax, where it applies, is added on top there. */}
         {isPaid && billing === "annual" && (
           <p className="mt-1 text-xs text-muted-foreground">
-            Billed ${annualTotal(plan.monthlyFee).toFixed(2)} yearly
+            Billed {formatPrice(plan.annualFee)} yearly
           </p>
         )}
 
@@ -235,7 +230,7 @@ export function PricingCards({ checkoutEnabled = true }: { checkoutEnabled?: boo
                 billing === option ? "bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)]" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {option === "monthly" ? "Monthly" : `Annual — save ${ANNUAL_DISCOUNT_PERCENT}%`}
+              {option === "monthly" ? "Monthly" : `Annual — save up to ${maxAnnualSavingsPercent()}%`}
             </button>
           ))}
         </div>

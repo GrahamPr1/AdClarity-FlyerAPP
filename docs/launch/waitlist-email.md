@@ -3,8 +3,9 @@
 The Early Access modal promised each person: *"We'll email you with a checkout
 link when {Plan} billing goes live"* and *"nothing is charged now"*. This email
 keeps that promise and nothing more. There is no waitlist discount: the annual
-price is the same 20% saving published on the pricing page to everyone, so the
-email must not present it as a perk for joining early.
+prices are the same ones published on the pricing page to everyone (saving 21%
+on Basic and 23% on Pro against paying monthly), so the email must not present
+them as a perk for joining early.
 
 ## When and how to send
 
@@ -29,9 +30,9 @@ through sign-in or sign-up first and then straight on to checkout.
 | Plan / billing | Link | Price shown at checkout |
 |---|---|---|
 | Basic, monthly | https://oneflyer.org/checkout?plan=basic&interval=monthly | $19/month |
-| Basic, annual | https://oneflyer.org/checkout?plan=basic&interval=annual | $182.40/year ($15.20/month) |
+| Basic, annual | https://oneflyer.org/checkout?plan=basic&interval=annual | $180/year ($15/month) |
 | Pro, monthly | https://oneflyer.org/checkout?plan=pro&interval=monthly | $39/month |
-| Pro, annual | https://oneflyer.org/checkout?plan=pro&interval=annual | $374.40/year ($31.20/month) |
+| Pro, annual | https://oneflyer.org/checkout?plan=pro&interval=annual | $360/year ($30/month) |
 
 Prices are before tax; sales tax is added at checkout where it applies.
 

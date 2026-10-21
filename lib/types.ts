@@ -78,12 +78,6 @@ export function isPlanUpgrade(current: PlanId, next: PlanId): boolean {
   return PLAN_RANK[next] > PLAN_RANK[current]
 }
 
-// Single source of truth for the annual-billing discount shown on the
-// pricing page — the displayed "Save X%" badge and every plan's
-// annualMonthlyFee (see lib/plans.ts) both read this, so changing the
-// discount later never means hunting down multiple hand-typed numbers.
-export const ANNUAL_DISCOUNT_PERCENT = 20
-
 export interface Plan {
   id: PlanId
   name: string
@@ -93,7 +87,9 @@ export interface Plan {
   badge?: string
   /** Recurring monthly fee in whole dollars. 0 for the free trial tier. */
   monthlyFee: number
-  /** Monthly-equivalent price when billed annually — always monthlyFee * (1 - ANNUAL_DISCOUNT_PERCENT / 100), computed once in lib/plans.ts rather than hand-typed per plan, so it can't drift if monthlyFee or the discount changes. 0 for the free trial tier. */
+  /** What the yearly plan actually charges, in dollars, before tax — must equal the annual Stripe Price exactly. 0 for the free trial tier. */
+  annualFee: number
+  /** annualFee / 12, derived in lib/plans.ts — the monthly-equivalent figure shown when the annual toggle is on. 0 for the free trial tier. */
   annualMonthlyFee: number
   description: string
   features: string[]
@@ -519,9 +515,8 @@ export interface FlyerDeliverable {
 //
 // Captures real intent to pay while Stripe isn't connected. Joining NEVER
 // changes a client's plan — see the note on ClientRecord.plan. There is no
-// discount code field on purpose: the annual option reflects the existing
-// ANNUAL_DISCOUNT_PERCENT already priced across the site, and no additional
-// incentive is being offered here.
+// discount code field on purpose: the annual option reflects the published
+// annual prices (lib/plans.ts), and no additional incentive is offered here.
 export type BillingInterval = "monthly" | "annual"
 
 export interface WaitlistEntry {

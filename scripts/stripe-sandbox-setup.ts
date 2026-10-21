@@ -10,7 +10,8 @@
  * Safe to re-run. Prices are found by lookup_key and only created when
  * missing; the portal configuration is found by metadata and updated in
  * place. Stripe prices are immutable, so a changed amount needs a new
- * lookup_key here, not an edit.
+ * lookup_key here (bump its version), not an edit — and any older OneFlyer
+ * price for that plan/interval is then archived, so exactly one stays active.
  *
  * Prices are tax-EXCLUSIVE: the advertised $19 / $39 is before tax, and
  * Stripe Tax adds tax on top at checkout where the account is registered.
@@ -19,9 +20,11 @@ import "./load-env"
 import Stripe from "stripe"
 import { STRIPE_API_VERSION } from "../lib/stripe"
 
+// Must match lib/plans.ts (monthlyFee / annualFee) to the cent.
+// v2 annual: repriced to $180 / $360 (from $182.40 / $374.40).
 const PLANS = [
-  { plan: "basic", productName: "OneFlyer Basic", monthly: 1900, annual: 18240 },
-  { plan: "pro", productName: "OneFlyer Pro", monthly: 3900, annual: 37440 },
+  { plan: "basic", productName: "OneFlyer Basic", monthly: { amount: 1900, version: 1 }, annual: { amount: 18000, version: 2 } },
+  { plan: "pro", productName: "OneFlyer Pro", monthly: { amount: 3900, version: 1 }, annual: { amount: 36000, version: 2 } },
 ] as const
 
 async function main() {
@@ -36,8 +39,8 @@ async function main() {
   for (const p of PLANS) {
     const product = await findOrCreateProduct(stripe, p.plan, p.productName)
     const ids: string[] = []
-    for (const [interval, amount] of [["monthly", p.monthly], ["annual", p.annual]] as const) {
-      const lookupKey = `oneflyer_${p.plan}_${interval}_v1`
+    for (const [interval, { amount, version }] of [["monthly", p.monthly], ["annual", p.annual]] as const) {
+      const lookupKey = `oneflyer_${p.plan}_${interval}_v${version}`
       const existing = (await stripe.prices.list({ lookup_keys: [lookupKey], limit: 1 })).data[0]
       const price =
         existing ??
@@ -54,6 +57,7 @@ async function main() {
       console.log(`${existing ? "exists " : "created"}  ${lookupKey}  ${price.id}  $${(price.unit_amount! / 100).toFixed(2)}`)
       env.push(`STRIPE_PRICE_${p.plan.toUpperCase()}_${interval.toUpperCase()}=${price.id}`)
       ids.push(price.id)
+      await archiveSuperseded(stripe, product.id, p.plan, interval, price.id)
     }
     portalProducts.push({ product: product.id, prices: ids })
   }
@@ -62,6 +66,15 @@ async function main() {
   env.push(`STRIPE_PORTAL_CONFIGURATION_ID=${portal.id}`)
 
   console.log("\n# Add to .env.local:\n" + env.join("\n"))
+}
+
+/** Archives any other active OneFlyer price for this plan + interval (an older version). */
+async function archiveSuperseded(stripe: Stripe, productId: string, plan: string, interval: string, keepId: string) {
+  for await (const old of stripe.prices.list({ product: productId, active: true, limit: 100 })) {
+    if (old.id === keepId || !old.lookup_key?.startsWith(`oneflyer_${plan}_${interval}_v`)) continue
+    await stripe.prices.update(old.id, { active: false })
+    console.log(`archived ${old.lookup_key}  ${old.id}  $${(old.unit_amount! / 100).toFixed(2)}`)
+  }
 }
 
 async function findOrCreateProduct(stripe: Stripe, plan: string, name: string): Promise<Stripe.Product> {

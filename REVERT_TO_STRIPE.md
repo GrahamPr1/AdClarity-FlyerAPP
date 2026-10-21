@@ -15,8 +15,10 @@
 > ## Live launch checklist
 >
 > 1. **Live products and prices**, created by hand in the live Dashboard
->    (`npm run stripe:setup` refuses live keys): Basic $19/mo and $182.40/yr,
->    Pro $39/mo and $374.40/yr, all **tax-exclusive**, USD.
+>    (`npm run stripe:setup` refuses live keys): Basic $19/mo and $180/yr,
+>    Pro $39/mo and $360/yr, all **tax-exclusive**, USD. They must match
+>    `lib/plans.ts` (`monthlyFee` / `annualFee`) exactly. The pricing page shows
+>    those figures and the per-plan savings (21% / 23%), not the Stripe amounts.
 > 2. **Live Customer Portal configuration**: payment method update, invoice
 >    history, cancel **at period end** with cancellation reasons, plan switching
 >    between the four live prices. Note its `bpc_` ID.
