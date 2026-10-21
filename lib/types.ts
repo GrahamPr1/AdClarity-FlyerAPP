@@ -412,16 +412,22 @@ export interface BillingEventSummary {
 
 export const BILLING_EVENT_LOG_LIMIT = 500
 
-/** A dispute as the admin pages need it. Opened-only: closing isn't tracked (no charge.dispute.closed handler). */
+/** A dispute as the admin pages need it. Written on charge.dispute.created, updated on charge.dispute.closed. */
 export interface DisputeRecord {
   id: string
   email: string | null
   chargeId: string | null
   amount: number
   reason: string
+  /** Stripe's dispute status — needs_response, under_review, won, lost, warning_closed, … */
   status: string
   createdAt: string
+  /** ISO — set once Stripe closes the dispute. Closed disputes drop off Needs-attention. */
+  closedAt: string | null
 }
+
+/** Dispute statuses after which there is nothing left to do. */
+export const CLOSED_DISPUTE_STATUSES: ReadonlySet<string> = new Set(["won", "lost", "warning_closed", "prevented"])
 
 // ---- Deliverables / dashboard --------------------------------------------
 

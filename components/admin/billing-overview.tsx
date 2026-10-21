@@ -45,7 +45,7 @@ export function BillingOverview() {
             <StatCard
               label="Estimated MRR"
               value={money(data.overview.estimatedMrrCents)}
-              note="Estimate, pre-tax, annual ÷ 12, paused excluded — Stripe Dashboard is the source of truth."
+              note="Estimate, pre-tax, annual ÷ 12. Includes members cancelling at period end; paused excluded. Stripe Dashboard is the source of truth."
             />
             <StatCard
               label="Kentucky tax this month"

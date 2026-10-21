@@ -6,6 +6,7 @@ import {
   getClient,
   getEmailForStripeCustomer,
   getMemberBilling,
+  getDispute,
   getOrCreateClient,
   markWaitlistConverted,
   recordDispute,
@@ -16,7 +17,8 @@ import {
   setMemberBillingFieldIfUnset,
   updateMemberBilling,
 } from "./store"
-import type { BillingEventSummary, BillingInterval, ClientRecord, MemberBilling, PlanId } from "./types"
+import type { BillingEventSummary, BillingInterval, ClientRecord, DisputeRecord, MemberBilling, PlanId } from "./types"
+import { CLOSED_DISPUTE_STATUSES } from "./types"
 
 // ---------------------------------------------------------------------------
 // Self-serve billing: Stripe Checkout in, Stripe webhook back.
@@ -30,6 +32,11 @@ import type { BillingEventSummary, BillingInterval, ClientRecord, MemberBilling,
 //
 // Everything else here (payments, refunds, disputes) only records facts on
 // the member's billing record for the admin pages. None of it changes a plan.
+//
+// Handled events (the Stripe endpoint must subscribe to all nine):
+// checkout.session.completed, customer.subscription.created / updated /
+// deleted, invoice.paid, invoice.payment_failed, charge.refunded,
+// charge.dispute.created, charge.dispute.closed.
 // ---------------------------------------------------------------------------
 
 /** Metadata key linking Stripe objects back to the account. */
@@ -362,25 +369,51 @@ export async function processStripeEvent(event: Stripe.Event): Promise<BillingEv
       }
     }
 
-    case "charge.dispute.created": {
+    case "charge.dispute.created":
+    case "charge.dispute.closed": {
       const dispute = event.data.object
-      const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
-      const charge = typeof dispute.charge === "string" ? await getStripe().charges.retrieve(chargeId) : dispute.charge
-      const email = await emailForCustomer(charge.customer)
-      const createdAt = iso(dispute.created) ?? base.at
-      if (email) {
-        await countBillingEvent(email, "disputeCount", dispute.id)
-        await updateMemberBilling(email, { lastDisputeAt: createdAt })
+      const record = await upsertDispute(dispute, event.type === "charge.dispute.closed" ? base.at : null)
+      if (record.email && event.type === "charge.dispute.created") {
+        await countBillingEvent(record.email, "disputeCount", dispute.id)
+        await updateMemberBilling(record.email, { lastDisputeAt: record.createdAt })
       }
-      // Recorded even when no member matches — a dispute is money at risk
-      // either way, and the admin page shows unmatched ones too.
-      await recordDispute({ id: dispute.id, email, chargeId, amount: dispute.amount, reason: dispute.reason, status: dispute.status, createdAt })
-      return { ...base, email, plan: null, amount: dispute.amount, tax: null, status: `${dispute.status} (${dispute.reason})`, state: null }
+      return { ...base, email: record.email, plan: null, amount: dispute.amount, tax: null, status: `${record.status} (${dispute.reason})`, state: null }
     }
 
     default:
       return null
   }
+}
+
+/**
+ * Writes the dispute's admin record, created or closed. Recorded even when no
+ * member matches — a dispute is money at risk either way, and Needs-attention
+ * shows unmatched ones too.
+ *
+ * Order-safe: if "closed" is processed before "created" (Stripe doesn't
+ * guarantee order), the late "created" must not reopen it.
+ */
+async function upsertDispute(dispute: Stripe.Dispute, closedAt: string | null): Promise<DisputeRecord> {
+  const existing = await getDispute(dispute.id)
+  const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
+  let email = existing?.email ?? null
+  if (!existing) {
+    const charge = typeof dispute.charge === "string" ? await getStripe().charges.retrieve(chargeId) : dispute.charge
+    email = await emailForCustomer(charge.customer)
+  }
+  const alreadyClosed = !!existing?.closedAt
+  const record: DisputeRecord = {
+    id: dispute.id,
+    email,
+    chargeId,
+    amount: dispute.amount,
+    reason: dispute.reason,
+    status: alreadyClosed ? existing!.status : dispute.status,
+    createdAt: existing?.createdAt ?? iso(dispute.created) ?? new Date().toISOString(),
+    closedAt: existing?.closedAt ?? closedAt ?? (CLOSED_DISPUTE_STATUSES.has(dispute.status) ? new Date().toISOString() : null),
+  }
+  await recordDispute(record)
+  return record
 }
 
 /** Logs an admin plan override on the member record and in the activity log. */

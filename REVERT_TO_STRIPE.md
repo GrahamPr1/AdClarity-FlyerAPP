@@ -21,7 +21,7 @@
 >    sandbox has a placeholder address and a sandbox-only Kentucky
 >    registration). Without a registration, tax computes $0 everywhere.
 > 4. **Webhook endpoint** `https://<domain>/api/stripe/webhook`, subscribed to
->    **all eight** events the handler processes:
+>    **all nine** events the handler processes:
 >    - `checkout.session.completed`
 >    - `customer.subscription.created`
 >    - `customer.subscription.updated`
@@ -30,9 +30,11 @@
 >    - `invoice.payment_failed`
 >    - `charge.refunded`
 >    - `charge.dispute.created`
+>    - `charge.dispute.closed`
 >
->    Missing any of the first six breaks plans or usage resets; missing the
->    last two leaves refunds and disputes off the admin pages.
+>    Missing any of the first six breaks plans or usage resets. Missing the
+>    refund/dispute events leaves them off the admin pages, and without
+>    `charge.dispute.closed` a resolved dispute stays in Needs-attention.
 > 5. **Production env vars**: `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
 >    `STRIPE_WEBHOOK_SECRET` (from that endpoint), the four `STRIPE_PRICE_*`,
 >    `STRIPE_PORTAL_CONFIGURATION_ID`. `lib/stripe.ts` refuses a live key

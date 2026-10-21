@@ -131,7 +131,10 @@ describe("billing overview", () => {
 
 describe("needs attention", () => {
   const items = needsAttention(members, [
-    { id: "dp_1", email: null, chargeId: "ch_1", amount: 2000, reason: "fraudulent", status: "needs_response", createdAt: "2026-10-21T00:00:00Z" },
+    { id: "dp_1", email: null, chargeId: "ch_1", amount: 2000, reason: "fraudulent", status: "needs_response", createdAt: "2026-10-21T00:00:00Z", closedAt: null },
+    { id: "dp_won", email: "basic-monthly@x", chargeId: "ch_2", amount: 1900, reason: "fraudulent", status: "won", createdAt: "2026-10-01T00:00:00Z", closedAt: "2026-10-15T00:00:00Z" },
+    { id: "dp_lost", email: "pro-monthly@x", chargeId: "ch_3", amount: 3900, reason: "general", status: "lost", createdAt: "2026-10-01T00:00:00Z", closedAt: "2026-10-15T00:00:00Z" },
+    { id: "dp_inq", email: "pro-monthly@x", chargeId: "ch_4", amount: 3900, reason: "general", status: "warning_closed", createdAt: "2026-10-01T00:00:00Z", closedAt: null },
   ])
   it("lists past_due members, disputes (even unmatched) and admin overrides", () => {
     const kinds = items.map((i) => `${i.kind}:${i.email}`)
@@ -139,6 +142,17 @@ describe("needs attention", () => {
     expect(kinds).toContain("dispute:null")
     expect(kinds).toContain("admin_override:override@x")
     expect(kinds.filter((k) => k.startsWith("past_due"))).toHaveLength(1)
+  })
+
+  it("drops closed disputes (won, lost, warning_closed) and keeps open ones", () => {
+    const disputes = items.filter((i) => i.kind === "dispute")
+    expect(disputes).toHaveLength(1)
+    expect(disputes[0].detail).toContain("dp_1")
+  })
+
+  it("keeps payment-failed members who aren't past due", () => {
+    const failed = needsAttention([client("one-off-fail@x", "basic", billing({ failedPaymentCount: 1 }))], [])
+    expect(failed.map((i) => i.kind)).toEqual(["payment_failed"])
   })
 })
 

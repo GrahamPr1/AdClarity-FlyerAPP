@@ -118,10 +118,10 @@ dev server:
 
 ```bash
 stripe listen --forward-to localhost:3000/api/stripe/webhook \
-  --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed,charge.refunded,charge.dispute.created
+  --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed,charge.refunded,charge.dispute.created,charge.dispute.closed
 ```
 
-Those eight are every event the handler processes (the same list the live
+Those nine are every event the handler processes (the same list the live
 endpoint needs — see REVERT_TO_STRIPE.md). Leave it running.
 
 Its signing secret is stable per machine and must match

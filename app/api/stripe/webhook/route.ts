@@ -18,7 +18,8 @@ import { appendBillingEvent, claimStripeEvent, completeStripeEvent, releaseStrip
 //
 // Handled: checkout.session.completed, customer.subscription.created /
 // updated / deleted, invoice.paid, invoice.payment_failed, charge.refunded,
-// charge.dispute.created. The Stripe endpoint must subscribe to all eight.
+// charge.dispute.created, charge.dispute.closed. The Stripe endpoint must
+// subscribe to all nine.
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 

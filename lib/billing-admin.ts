@@ -1,5 +1,5 @@
 import type { BillingEventSummary, BillingInterval, ClientRecord, DisputeRecord, MemberBilling, PlanId } from "./types"
-import { PLAN_LIMITS } from "./types"
+import { CLOSED_DISPUTE_STATUSES, PLAN_LIMITS } from "./types"
 
 // ---------------------------------------------------------------------------
 // What the admin billing pages show, computed from what's already in Redis.
@@ -88,7 +88,7 @@ export interface BillingOverview {
   paused: number
   canceledLast30Days: number
   freeTrial: number
-  /** Cents per month, pre-tax. Active + past_due subscriptions; annual ÷ 12; paused excluded (nothing is being billed). */
+  /** Cents per month, pre-tax. Active + past_due subscriptions, INCLUDING ones cancelling at period end (still billed until then); annual ÷ 12; paused excluded (nothing is being billed). */
   estimatedMrrCents: number
   /** Cents. Sum of tax on invoice.paid events with a KY billing state, this calendar month (UTC), from the capped activity log. */
   kentuckyTaxThisMonthCents: number
@@ -189,11 +189,12 @@ export function needsAttention(clients: ClientRecord[], disputes: DisputeRecord[
       items.push({ kind: "admin_override", email: c.email, detail: `Plan set to ${b.overridePlan ?? c.plan} by ${b.overrideBy ?? "admin"}`, at: b.overrideAt })
     }
   }
-  for (const d of disputes) {
+  // Closed disputes (won, lost, warning closed) need nothing more and drop off.
+  for (const d of disputes.filter((d) => !d.closedAt && !CLOSED_DISPUTE_STATUSES.has(d.status))) {
     items.push({
       kind: "dispute",
       email: d.email,
-      detail: `Dispute ${d.id}: $${(d.amount / 100).toFixed(2)}, ${d.reason}, opened as ${d.status} — check its current status in Stripe`,
+      detail: `Dispute ${d.id}: $${(d.amount / 100).toFixed(2)}, ${d.reason}, ${d.status.replace(/_/g, " ")} — respond in Stripe`,
       at: d.createdAt,
     })
   }

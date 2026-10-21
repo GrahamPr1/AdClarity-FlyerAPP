@@ -1228,6 +1228,12 @@ export async function listBillingEvents(): Promise<BillingEventSummary[]> {
 
 const DISPUTES_KEY = "billing:disputes"
 
+export async function getDispute(id: string): Promise<DisputeRecord | null> {
+  const raw = await redis.hget<DisputeRecord | string>(DISPUTES_KEY, id)
+  if (!raw) return null
+  return typeof raw === "string" ? (JSON.parse(raw) as DisputeRecord) : raw
+}
+
 export async function recordDispute(dispute: DisputeRecord): Promise<void> {
   await redis.hset(DISPUTES_KEY, { [dispute.id]: JSON.stringify(dispute) })
 }
