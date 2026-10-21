@@ -58,7 +58,12 @@ export async function POST(request: NextRequest) {
     const summary = await processStripeEvent(event)
     if (summary) await appendBillingEvent(summary)
     await completeStripeEvent(event.id)
-    console.log(`[stripe webhook] ${event.type} ${event.id}:`, summary ? `${summary.email ?? "no member"} ${summary.status ?? ""}` : "ignored")
+    // No member email or other customer data in logs — the admin activity log
+    // (/admin/billing/activity) is where an event is matched to a person.
+    console.log(
+      `[stripe webhook] ${event.type} ${event.id}:`,
+      summary ? `${summary.email ? "member" : "no member"} plan=${summary.plan ?? "-"} status=${summary.status ?? "-"}` : "ignored",
+    )
     return NextResponse.json({ received: true })
   } catch (err) {
     await releaseStripeEvent(event.id)

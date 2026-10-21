@@ -96,7 +96,25 @@ const REQUIRED = ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "SESSION
  * uploads each fail closed with their own handled errors rather than
  * preventing boot.
  */
-const OPTIONAL = ["ANTHROPIC_API_KEY", "RESEND_API_KEY", "BLOB_READ_WRITE_TOKEN", "DASHBOARD_PASSWORD", "NEXT_PUBLIC_SITE_URL"] as const
+const OPTIONAL = [
+  "ANTHROPIC_API_KEY",
+  "RESEND_API_KEY",
+  "BLOB_READ_WRITE_TOKEN",
+  "DASHBOARD_PASSWORD",
+  "NEXT_PUBLIC_SITE_URL",
+  // Billing (lib/stripe.ts, lib/billing.ts). The app boots without them and
+  // billing fails closed — /checkout falls back to /profile?billing=error and
+  // the webhook answers 500 — but a production deploy with the paid CTAs live
+  // and any of these missing cannot take payment. Listed so `npm run
+  // env:check` against pulled production env names what's absent.
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_PRICE_BASIC_MONTHLY",
+  "STRIPE_PRICE_BASIC_ANNUAL",
+  "STRIPE_PRICE_PRO_MONTHLY",
+  "STRIPE_PRICE_PRO_ANNUAL",
+  "STRIPE_PORTAL_CONFIGURATION_ID",
+] as const
 
 export interface EnvReport {
   environment: AppEnvironment

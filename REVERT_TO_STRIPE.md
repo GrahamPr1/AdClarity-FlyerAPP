@@ -22,7 +22,10 @@
 >    between the four live prices. Note its `bpc_` ID.
 > 3. **Stripe Tax**: real head office address and real registrations (the
 >    sandbox has a placeholder address and a sandbox-only Kentucky
->    registration). Without a registration, tax computes $0 everywhere.
+>    registration). **Without a head office address, Checkout refuses to open
+>    at all** ("You must have a valid head office address to enable automatic
+>    tax calculation") — every paid CTA fails. With an address but no
+>    registration, Checkout works and tax computes $0 everywhere.
 > 4. **Webhook endpoint** `https://<domain>/api/stripe/webhook`, subscribed to
 >    **all nine** events the handler processes:
 >    - `checkout.session.completed`
@@ -38,10 +41,13 @@
 >    Missing any of the first six breaks plans or usage resets. Missing the
 >    refund/dispute events leaves them off the admin pages, and without
 >    `charge.dispute.closed` a resolved dispute stays in Needs-attention.
-> 5. **Production env vars**: `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
->    `STRIPE_WEBHOOK_SECRET` (from that endpoint), the four `STRIPE_PRICE_*`,
->    `STRIPE_PORTAL_CONFIGURATION_ID`. `lib/stripe.ts` refuses a live key
->    outside production.
+> 5. **Production env vars** (Production scope only — never Preview):
+>    `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (from that endpoint), the four
+>    `STRIPE_PRICE_*`, `STRIPE_PORTAL_CONFIGURATION_ID`. Set them BEFORE the
+>    merge deploys — the merge switches the paid CTAs to checkout.
+>    `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is not read by the app. `lib/stripe.ts`
+>    refuses a live key outside production. Verify with
+>    `vercel env pull --environment=production` + `npm run env:check`.
 > 6. Check `/admin/billing/audit` and decide what to do about any account on a
 >    paid plan with no subscription and no logged override.
 > 7. **Annual refunds are manual — make it a routine.** The refund policy
