@@ -11,7 +11,6 @@ describe("PDF render allow-list — allowed", () => {
     "https://fonts.gstatic.com/s/inter/v13/abc.woff2",
     "https://images.unsplash.com/photo-123?ixid=x&w=1080",
     "https://abc123.public.blob.vercel-storage.com/onboarding-photos/logo.png",
-    "https://cdn.higgsfield.ai/results/img.webp",
     "https://ad-clarity-landing-page.vercel.app/api/photos/onboarding-photos/uuid-logo.png",
     "https://oneflyer.org/api/photos/onboarding-photos/uuid.jpg",
     "data:image/png;base64,iVBORw0KGgo=",
@@ -25,6 +24,7 @@ describe("PDF render allow-list — allowed", () => {
 describe("PDF render allow-list — blocked", () => {
   it.each([
     ["a client website logo (arbitrary host)", "https://millerheating.example/wp-content/logo.png"],
+    ["a Higgsfield URL (AI photos are rehosted into Blob now)", "https://cdn.higgsfield.ai/results/img.webp"],
     ["our site, any path other than /api/photos/", "https://oneflyer.org/api/admin/users"],
     ["our site, the webhook", "https://oneflyer.org/api/stripe/webhook"],
     ["our site, path traversal out of /api/photos/", "https://oneflyer.org/api/photos/../admin/users"],

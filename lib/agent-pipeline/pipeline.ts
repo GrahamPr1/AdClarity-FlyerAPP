@@ -1,4 +1,5 @@
 import type { IntakeSubmission, PlanId } from "@/lib/types"
+import { rehostExternalImage } from "@/lib/rehost-image"
 import { getAppEnvironment } from "@/lib/env"
 import { safeLogoUrl } from "@/lib/logo-url"
 import { setClientFontChoice, getClientFontChoice, markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile, setGenerationStage } from "@/lib/store"
@@ -387,9 +388,14 @@ async function buildPhotoPool(
         return null
       }
       const generated = await generateImage({ context, prompt: buildAiPhotoPrompt(intake, request) })
-      if (generated) {
+      // Higgsfield returns a URL on ITS host. Copy the image into our Blob
+      // store at generation time so the flyer (and its PDF) never depends on
+      // that host; if the copy fails, the flyer goes without the photo.
+      const ownCopy = generated ? await rehostExternalImage(generated.url, "ai-photo") : null
+      if (generated && !ownCopy) console.log(`[photo-pool] ${context}: AI image generated but could not be stored — CSS-only design.`)
+      if (ownCopy) {
         return {
-          photo: { url: generated.url, caption: `AI-generated, illustrative — suggested for: ${request.purpose}` },
+          photo: { url: ownCopy, caption: `AI-generated, illustrative — suggested for: ${request.purpose}` },
           unsplash: null,
         }
       }

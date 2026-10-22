@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { rehostExternalImage } from "@/lib/rehost-image"
 import { safeLogoUrl } from "@/lib/logo-url"
 import { getAppEnvironment } from "@/lib/env"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
@@ -67,10 +68,19 @@ export async function PUT(req: NextRequest) {
 
   // The logo lands in <img src> on every generated document; only a plain
   // https URL is accepted (lib/logo-url.ts). An empty value still clears it.
+  // An external logo is copied into our own Blob store (lib/rehost-image.ts)
+  // and THAT is saved; if it can't be fetched safely, no logo is saved —
+  // never the raw external URL.
+  let logoNotStored = false
   if (body.brand && "logoUrl" in body.brand) {
     const rawLogo = str(body.brand.logoUrl, 2000)
     if (rawLogo !== null && !safeLogoUrl(rawLogo, { allowDevLocalhost: getAppEnvironment() === "development" })) {
       return NextResponse.json({ error: "invalid_logo_url", message: "The logo must be an https:// link." }, { status: 400 })
+    }
+    if (rawLogo !== null) {
+      const rehosted = await rehostExternalImage(rawLogo, "logo")
+      logoNotStored = rehosted === null
+      body.brand.logoUrl = rehosted
     }
   }
 
@@ -123,7 +133,9 @@ export async function PUT(req: NextRequest) {
   if (next.businessName) await setClientBusinessName(session.sub, next.businessName)
 
   return NextResponse.json(
-    { profile: next, completeness: profileCompleteness(next) },
+    // logoNotStored: an external logo couldn't be fetched safely, so none was
+    // saved — the UI can ask for an upload instead.
+    { profile: next, completeness: profileCompleteness(next), ...(logoNotStored ? { logoNotStored: true } : {}) },
     { headers: { "Cache-Control": "no-store" } },
   )
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { rehostExternalImage } from "@/lib/rehost-image"
 import { safeLogoUrl } from "@/lib/logo-url"
 import { getAppEnvironment } from "@/lib/env"
 import { waitUntil } from "@vercel/functions"
@@ -66,6 +67,13 @@ export async function POST(request: NextRequest) {
   }
   if (body.logoUrl !== undefined && body.logoUrl !== null && typeof body.logoUrl !== "string") {
     return NextResponse.json({ error: "invalid_logo_url", message: "The logo must be an https:// link." }, { status: 422 })
+  }
+  // An external logo URL is copied into our own Blob store and THAT reaches
+  // the flyer (lib/rehost-image.ts). Uploads already live there and are kept
+  // as-is. If an external one can't be fetched safely, the campaign goes
+  // ahead with no logo rather than the raw URL.
+  if (typeof body.logoUrl === "string" && body.logoUrl.trim()) {
+    body.logoUrl = (await rehostExternalImage(body.logoUrl.trim(), "logo")) ?? undefined
   }
 
   if (!BUSINESS_CATEGORIES.includes(body.businessCategory)) {

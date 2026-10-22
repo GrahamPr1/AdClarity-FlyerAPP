@@ -17,12 +17,12 @@
  *   - Vercel Blob directly (*.blob.vercel-storage.com), for any document that
  *     references a Blob URL as-is.
  *   - Unsplash stock photos: images.unsplash.com.
- *   - Higgsfield AI images: *.higgsfield.ai. (If Higgsfield serves results
- *     from another CDN host, the render log names it as blocked — add it here.)
  *
- * Not allowed, on purpose: logos scraped from a client's own website (any
- * host). Those still show on screen but not in the PDF, until scanned logos
- * are copied into Blob.
+ * Not on the list, on purpose: Higgsfield AI images and logos from a client's
+ * own website (submitted or scanned). Those are copied into our Blob store
+ * when they arrive (lib/rehost-image.ts), so documents reference them via
+ * /api/photos/ above. Anything still pointing at the original host — e.g. a
+ * flyer made before rehosting, not yet migrated — is blocked here.
  *
  * `data:` URLs (the QR code, inline images) never reach the network and aren't
  * routed, so they always work.
@@ -35,7 +35,7 @@ export const PDF_ALLOWED_HOSTS = [
 ] as const
 
 /** Host suffixes: any subdomain is allowed (".blob.vercel-storage.com" matches "abc.public.blob.vercel-storage.com"). */
-export const PDF_ALLOWED_HOST_SUFFIXES = [".blob.vercel-storage.com", ".higgsfield.ai"] as const
+export const PDF_ALLOWED_HOST_SUFFIXES = [".blob.vercel-storage.com"] as const
 
 /** Our own hosts, where only the photo route may be fetched. */
 export const PHOTO_ROUTE_PREFIX = "/api/photos/"

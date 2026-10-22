@@ -1,4 +1,5 @@
 import { crawlWebsite, type CrawlProgress } from "./scraper"
+import { rehostExternalImage } from "@/lib/rehost-image"
 import { emptyBusinessProfile, type BusinessProfile } from "@/lib/business-profile"
 import { normalizeWebsiteUrl } from "@/lib/url-normalize"
 import { buildPageReports } from "./page-report"
@@ -91,6 +92,12 @@ export async function scrapeSiteForIntake(
   onProgress?: (p: CrawlProgress) => void,
 ): Promise<ScrapeSiteResult> {
   const crawlResult = await crawlWebsite(url, onProgress)
+  // The scanned logo lives on the client's own site; copy it into our Blob
+  // store so documents (and their PDFs) never depend on that host. Failure
+  // means no logo, never the raw URL (lib/rehost-image.ts).
+  if (!("error" in crawlResult) && crawlResult.logoUrl) {
+    crawlResult.logoUrl = await rehostExternalImage(crawlResult.logoUrl, "logo")
+  }
   if ("error" in crawlResult) {
     const reason = crawlResult.error as ScrapeFailureReason
     return { scraped: false, reason, message: SCRAPE_FAILURE_MESSAGES[reason] }
