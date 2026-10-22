@@ -1,32 +1,41 @@
-# Launch-day rollback — back to the pre-billing site, fast
+# Production rollback — fast
 
-## What "launch" changes
+Production is Vercel project **oneflyer**: https://oneflyer.org, plus the
+`ad-clarity-landing-page.vercel.app` alias that every printed QR code points
+at (that alias must always stay public — see "Never do" below). `main` deploys
+to production on push.
 
-Launch = merging `stripe-billing` into `main` (which deploys to production on
-Vercel project **oneflyer**, https://oneflyer.org), with the live Stripe env
-vars already set on Production. The merge switches the paid pricing CTAs from
-the Early Access modal to Stripe Checkout, adds the webhook, and publishes the
-billing-era Terms, Refund and Privacy pages.
-
-## The rollback target — record it before you merge
-
-The last pre-billing production deployment, checked 2026-10-21:
+## The rollback target
 
 | | |
 |---|---|
-| Deployment | `https://oneflyer-4zq5cpgrs-grahampr1s-projects.vercel.app` |
-| Built | Fri 9 Oct 2026, 13:07 ET |
-| Commit | `be94df5` (tip of `main` before the merge) |
+| Deployment ID | `dpl_4opw5psP8oQPmegzjPJLdm8X5V13` |
+| Deployment URL | `https://oneflyer-e4vs4ca4q-grahampr1s-projects.vercel.app` |
+| Built | Thu 22 Oct 2026, 10:13 ET |
+| Commit | `27b36e7` — billing live, Next.js 16.4.1 / React 19.2.9 / sharp 0.35.5 |
 
-If anything else deploys to production before launch, re-check with
-`vercel ls --prod` and update this table — the target is **whatever is serving
-oneflyer.org immediately before the merge deploy**.
+> ### ⚠️ Never roll back to anything older than this
+>
+> **Every production deployment before `dpl_4opw5psP8oQPmegzjPJLdm8X5V13` runs
+> Next.js 16.2.0, with critical, unauthenticated remote-code-execution
+> vulnerabilities** (Next.js GHSA-2464-fhr4-w9xw and GHSA-673q-mjm6-r5xr,
+> React GHSA-xqc2-xf4c-x3h3; see `docs/security/2026-10-svg-audit.md`).
+> That includes the pre-billing build `oneflyer-4zq5cpgrs` (`be94df5`) this
+> doc used to name, and the launch build `oneflyer-cb3jqtxmf` (`de1bec7`).
+> **They must not be used as rollback targets**, even briefly — rolling back
+> to one re-opens those holes on the live site.
+>
+> When a newer deployment has been verified good, move this table forward to
+> it. The target is always the newest deployment you have verified, never an
+> older one.
 
-## Try first: Step 0 — turn checkout off (≈1–2 minutes, nothing reverted)
+Rolling back to this target does **not** remove billing — it *is* a billing
+build. To stop people paying, use Step 0.
+
+## Step 0 — try first: turn checkout off (≈1–2 minutes, nothing reverted)
 
 If the problem is in **paying** (checkout won't open, wrong amount or tax,
-payments not granting plans) and the rest of the site is fine, switch off new
-paid sign-ups instead of rolling everything back:
+payments not granting plans) and the rest of the site is fine:
 
 1. Vercel → project **oneflyer** → Settings → Environment Variables → add
    `CHECKOUT_ENABLED` = `false`, **Production** only (or edit it if it exists).
@@ -47,114 +56,91 @@ To turn it back on: set `CHECKOUT_ENABLED=true` (or delete the variable;
 unset means on), then **Redeploy**.
 
 If a redeploy itself is the risk (the build is broken, or the site is down),
-skip to Step 1.
+go to Step 1.
 
-## Decide in one minute: Step 0, or roll back?
+## Decide in one minute: Step 0, Step 1, or fix forward?
 
-Use **Step 0** if paying is broken or wrong but the rest of the site works:
-- checkout won't open, or charges the wrong amount or tax
-- payments go through but plans aren't granted (webhook failing). Step 0
-  stops new ones while you fix it; the webhook stays live.
+- **Step 0** — paying is broken or wrong but the rest of the site works.
+- **Step 1** — a deploy newer than the target broke the site (down, errors,
+  wrong behaviour outside billing), or Step 0 isn't enough.
+- **Fix forward** — an admin-page bug or a cosmetic issue.
 
-**Roll back (Step 1)** if Step 0 isn't enough:
-- people get Pro/Basic without paying through some other path
-- the site itself is broken or down
-- anything outside billing that the merge broke
-
-Don't do either for an admin-page bug or a cosmetic issue — fix forward.
-
-## Step 1 — Instant Rollback (≈1 minute, no rebuild)
+## Step 1 — Instant Rollback to the target (≈1 minute, no rebuild)
 
 Either:
 
 - **Dashboard:** Vercel → project **oneflyer** → production deployment tile →
-  **Instant Rollback** → pick the target above ("Choose another deployment" if
-  it isn't offered) → Continue → **Confirm Rollback**. Or: Deployments → the
-  target's ⋮ menu → **Instant Rollback**.
-- **CLI:** `vercel rollback https://oneflyer-4zq5cpgrs-grahampr1s-projects.vercel.app`
-  then `vercel rollback status` until it reports done.
+  **Instant Rollback** → pick `oneflyer-e4vs4ca4q` ("Choose another
+  deployment" if it isn't offered) → Continue → **Confirm Rollback**.
+  **Check the deployment ID before confirming** — do not pick anything older.
+- **CLI:** `vercel rollback https://oneflyer-e4vs4ca4q-grahampr1s-projects.vercel.app`
+  then `vercel rollback status` until it reports done. (The deployment's own
+  `*.vercel.app` URL is behind Vercel Authentication now; the CLI is already
+  signed in, so this still works.)
 
-Then confirm on https://oneflyer.org (hard refresh):
-- the pricing cards show **"Join Basic Early Access" / "Join Pro Early
-  Access"** and "Billing coming soon" — the pre-billing site
-- `/terms` says "Billing is not live yet"
+Then confirm, logged out:
+- https://oneflyer.org loads, and pricing shows the checkout buttons (or the
+  "briefly unavailable" message if Step 0 is on)
+- `https://ad-clarity-landing-page.vercel.app/r/<any-code>` reaches the app
+  (not a Vercel login page) — printed QR codes depend on it
+- in the browser console on oneflyer.org, `next.version` is `16.4.1` or newer
 
-Instant Rollback reuses that old build exactly, including the env vars baked
-in at the time, so the Stripe env vars you added don't affect it. Leave them
-set for the roll-forward.
+Instant Rollback reuses that build exactly, including the env vars baked in
+when it was built. If you changed an env var since (e.g. `CHECKOUT_ENABLED`),
+the rolled-back build does not see the change — redeploy to apply it.
 
 **After an Instant Rollback, Vercel stops auto-promoting new production
-deploys** until you promote one by hand. Per Vercel's docs, "new pushes to your
-production branch won't replace the rolled-back deployment". That's what you
-want: a push to `main` won't silently undo the rollback.
+deploys** until you promote one by hand ("new pushes to your production branch
+won't replace the rolled-back deployment"). A push to `main` won't silently
+undo the rollback.
 
 **Plan caveat:** on the Hobby plan, Instant Rollback only reaches the
-*immediately previous* production deployment. Pro and Enterprise can pick any
-earlier one. So on launch day, **don't push a hotfix to `main` before deciding
-whether to roll back**. A hotfix deploy would make the pre-billing build no
-longer "previous". If it happens anyway, `vercel promote <target URL above>`
-promotes that deployment directly, which has the same effect.
+*immediately previous* production deployment; Pro and Enterprise can pick any
+earlier one. If the target isn't offered, `vercel promote <target URL>`
+promotes it directly, with the same effect.
 
-## Step 2 — Stop the bleeding in Stripe (only what applies)
-
-The rolled-back site has no `/api/stripe/webhook`, so Stripe's deliveries get a
-404. **Leave the webhook endpoint enabled.** Stripe retries failed live
-deliveries for up to 3 days. If you roll forward within that window, the
-queued events are processed then, and nothing is lost. If Stripe emails that
-the endpoint is failing, that's expected during the rollback.
-
-Then look at who paid during the window — Stripe Dashboard → Customers /
-Subscriptions created since the merge:
-
-- **Their plan stays as granted.** The plan the webhook set is an ordinary
-  Redis key the old code reads, so paying customers keep Basic/Pro on the
-  rolled-back site. Nothing to do for them unless the plan is wrong. If it
-  is, use `/admin/users` or `POST /api/admin/set-plan` on the old site.
-- **Their subscription keeps billing in Stripe.** If the rollback will last
-  more than a day or two, or you can't serve them, either pause collection on
-  their subscriptions in the Dashboard, or refund and cancel them.
-- **Tell them.** The rolled-back legal pages say billing isn't live while
-  they've just paid. A short, honest email ("we've paused new sign-ups while we
-  fix X; your plan is active; nothing else is charged until we're back") is
-  better than silence.
-
-## Step 3 — Undo the merge in git (no force-push)
+## Step 2 — Undo the bad change in git (no force-push)
 
 So the next deploy doesn't bring the broken code straight back:
 
 ```bash
 git checkout main && git pull
-git revert -m 1 <merge-commit-sha>    # a new commit that undoes the merge
+git revert <bad-commit-sha>              # or: git revert -m 1 <merge-sha>
 git push origin main
 ```
 
 **Never force-push or reset `main`** (CLAUDE.md). Revert is a normal commit and
 keeps history intact. Because auto-promotion is paused after the rollback,
-this push builds but doesn't go live until you promote it. That's fine: the old
-deployment is already serving.
+this push builds but doesn't go live until you promote it.
 
-Fix the problem on `stripe-billing`. To re-launch, revert the revert
-(`git revert <revert-sha>`) or merge again, let it build, check it, then
-**Undo Rollback** on the production tile (or `vercel promote <deployment>`).
-That promotes the new build and turns auto-promotion back on.
+Fix the problem on a branch, check it on its Preview, then **Undo Rollback**
+on the production tile (or `vercel promote <deployment>`). That promotes the
+new build and turns auto-promotion back on. Once it's verified, move the
+target table above forward to it.
 
-## Data — safe in both directions
+## Never do
 
-- The billing code only **adds** Redis keys (`client:*:billing`,
-  `client:*:stripeCustomerId`, `billing:*`, `stripe:*`). The old code ignores
-  them. Rolling back deletes nothing, and rolling forward picks them up again.
-- Plans, usage counts and flyers use the same keys in both versions.
-- The Early Access waitlist data was never touched, and the old site's modal
-  works again immediately after the rollback.
+- **Roll back to a deployment older than the target** (critical RCEs — see the
+  warning above).
+- **Remove, redirect, or protect `ad-clarity-landing-page.vercel.app`.** It is
+  production's site URL today; every QR code ever printed encodes
+  `https://ad-clarity-landing-page.vercel.app/r/<code>`. Vercel Standard
+  Protection is on for the project and leaves it public because it's a
+  production domain — keep it that way.
+- Force-push `main`.
 
-## Things that can't be rolled back by Vercel
+## Data
 
-- Charges made in Stripe: refund them in the Dashboard if needed (Step 2).
-- Emails already sent, such as the waitlist launch email. So **send the
-  waitlist email only once launch has held for a while**
-  (`docs/launch/waitlist-email.md`).
-- Stripe Dashboard settings (live products, portal config, tax): these are
-  harmless while the old site is up, so leave them in place.
+Rolling back between billing-era builds changes no data: they read and write
+the same Redis keys. Stripe keeps working throughout — the webhook exists in
+every build from the launch onward, so nothing queues up or is lost.
+
+## Things a rollback can't undo
+
+- Charges made in Stripe: refund them in the Dashboard if needed.
+- Emails already sent (e.g. the waitlist launch email —
+  `docs/launch/waitlist-email.md`).
+- Stripe Dashboard settings (prices, portal config, tax registrations).
 
 ## The kill switch in one line
 
