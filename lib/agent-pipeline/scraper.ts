@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio"
 import robotsParser from "robots-parser"
 import { extractLogo, extractColorRoles, rolesToFlatColors } from "./brand-extract"
+import { safeLogoUrl } from "@/lib/logo-url"
 import type { BrandColorRoles } from "@/lib/types"
 
 // Pure-code crawling — no AI here. Fetches the homepage plus same-domain
@@ -235,7 +236,9 @@ export async function crawlWebsite(
     // roughly one site in five. Order matters here; do not move this below.
     if (next.depth === 0) {
       const logo = extractLogo($, next.url)
-      logoUrl = logo?.url ?? null
+      // Scanned logos are kept only when they're plain https URLs — a plain-
+      // http site logo is dropped rather than failing the scan (lib/logo-url.ts).
+      logoUrl = safeLogoUrl(logo?.url)
       logoReason = logo?.why ?? null
       colorRoles = extractColorRoles($)
       // Flat list stays the ranked roles, so the existing merge contract and

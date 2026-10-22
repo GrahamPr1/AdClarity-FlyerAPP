@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { safeLogoUrl } from "@/lib/logo-url"
+import { getAppEnvironment } from "@/lib/env"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { resolveBusinessProfile, persistBusinessProfile } from "@/lib/business-profile-resolve"
 import { profileCompleteness, type BusinessProfile } from "@/lib/business-profile"
@@ -61,6 +63,15 @@ export async function PUT(req: NextRequest) {
   const strArray = (v: unknown, max = 40): string[] | null => {
     if (!Array.isArray(v)) return null
     return v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean).slice(0, max)
+  }
+
+  // The logo lands in <img src> on every generated document; only a plain
+  // https URL is accepted (lib/logo-url.ts). An empty value still clears it.
+  if (body.brand && "logoUrl" in body.brand) {
+    const rawLogo = str(body.brand.logoUrl, 2000)
+    if (rawLogo !== null && !safeLogoUrl(rawLogo, { allowDevLocalhost: getAppEnvironment() === "development" })) {
+      return NextResponse.json({ error: "invalid_logo_url", message: "The logo must be an https:// link." }, { status: 400 })
+    }
   }
 
   const next: BusinessProfile = {

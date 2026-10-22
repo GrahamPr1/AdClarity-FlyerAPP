@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { safeLogoUrl } from "@/lib/logo-url"
+import { getAppEnvironment } from "@/lib/env"
 import { waitUntil } from "@vercel/functions"
 import type { IntakeSubmission } from "@/lib/types"
 import { PLAN_LIMITS, BUSINESS_CATEGORIES } from "@/lib/types"
@@ -58,6 +60,14 @@ export async function POST(request: NextRequest) {
   // A closed set, not free text — reject anything that isn't one of the
   // onboarding UI's own options rather than silently storing garbage a
   // hand-crafted request could send.
+  // Same rule as /api/profile: the logo goes into <img src> on the flyer.
+  if (typeof body.logoUrl === "string" && body.logoUrl.trim() && !safeLogoUrl(body.logoUrl, { allowDevLocalhost: getAppEnvironment() === "development" })) {
+    return NextResponse.json({ error: "invalid_logo_url", message: "The logo must be an https:// link." }, { status: 422 })
+  }
+  if (body.logoUrl !== undefined && body.logoUrl !== null && typeof body.logoUrl !== "string") {
+    return NextResponse.json({ error: "invalid_logo_url", message: "The logo must be an https:// link." }, { status: 422 })
+  }
+
   if (!BUSINESS_CATEGORIES.includes(body.businessCategory)) {
     return NextResponse.json({ error: `businessCategory must be one of: ${BUSINESS_CATEGORIES.join(", ")}` }, { status: 422 })
   }

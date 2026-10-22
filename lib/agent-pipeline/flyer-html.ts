@@ -1,4 +1,6 @@
 import * as cheerio from "cheerio"
+import { escapeHtmlAttr, safeLogoUrl } from "@/lib/logo-url"
+import { getAppEnvironment } from "@/lib/env"
 import type { FlyerSpecification } from "./schemas/flyer"
 import { CANVAS_PAGE_SIZE } from "./templates"
 
@@ -130,20 +132,26 @@ export const LOGO_PLACEHOLDER = "{{LOGO_SRC}}"
  * is completely unaffected.
  */
 export function substituteLogo(html: string, logoUrl: string | null): string {
-  if (!logoUrl) {
+  // Validated and attribute-escaped HERE, at the point of insertion, not just
+  // at the API boundary: profiles and intakes stored before validation
+  // existed still reach this function. Anything that isn't a plain https URL
+  // is treated as "no logo" (see lib/logo-url.ts).
+  const safe = safeLogoUrl(logoUrl, { allowDevLocalhost: getAppEnvironment() === "development" })
+  if (!safe) {
     // No logo: strip any token the model emitted anyway, so a literal
     // "{{LOGO_SRC}}" can never reach a printed flyer.
     return html.split(LOGO_PLACEHOLDER).join("")
   }
+  const attr = escapeHtmlAttr(safe)
   if (html.includes(LOGO_PLACEHOLDER)) {
-    return html.split(LOGO_PLACEHOLDER).join(logoUrl)
+    return html.split(LOGO_PLACEHOLDER).join(attr)
   }
   // Already present — do not add a second one. This is the refine path: it
   // re-runs over the CURRENT html, which by then holds a real logo rather
   // than the token, and a flyer that grows an extra logo per edit is worse
   // than one that never had it.
-  if (html.includes(logoUrl)) return html
-  return injectLogo(html, logoUrl)
+  if (html.includes(attr)) return html
+  return injectLogo(html, attr)
 }
 
 const LOGO_IMG_CLASS = "oneflyer-logo"
@@ -156,12 +164,13 @@ const LOGO_IMG_CLASS = "oneflyer-logo"
  * already balanced. A modest, correctly-placed logo beats a missing one; it
  * is not trying to out-design the agent.
  */
-function injectLogo(html: string, logoUrl: string): string {
+/** `logoAttr` is already validated and attribute-escaped (see substituteLogo). */
+function injectLogo(html: string, logoAttr: string): string {
   const style =
     `<style>.${LOGO_IMG_CLASS}{max-height:64px;max-width:220px;height:auto;width:auto;` +
     `display:block;margin:0 0 16px 0;object-fit:contain;` +
     `-webkit-print-color-adjust:exact;print-color-adjust:exact}</style>`
-  const img = `<img class="${LOGO_IMG_CLASS}" src="${logoUrl}" alt="" />`
+  const img = `<img class="${LOGO_IMG_CLASS}" src="${logoAttr}" alt="" />`
 
   const headIdx = html.toLowerCase().lastIndexOf("</head>")
   const withStyle = headIdx === -1 ? style + html : html.slice(0, headIdx) + style + html.slice(headIdx)
@@ -174,8 +183,9 @@ function injectLogo(html: string, logoUrl: string): string {
 
 /** True when the logo really is in the markup — used by tests and the pipeline log. */
 export function logoPresentIn(html: string, logoUrl: string | null): boolean {
-  if (!logoUrl) return true
-  return html.includes(logoUrl)
+  const safe = safeLogoUrl(logoUrl, { allowDevLocalhost: getAppEnvironment() === "development" })
+  if (!safe) return true // an unusable logo is never inserted, so nothing is "missing"
+  return html.includes(escapeHtmlAttr(safe))
 }
 
 export function substituteQr(html: string, qrDataUrl: string | null): string {

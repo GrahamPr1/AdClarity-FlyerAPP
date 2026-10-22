@@ -1,4 +1,6 @@
 import type { IntakeSubmission, PlanId } from "@/lib/types"
+import { getAppEnvironment } from "@/lib/env"
+import { safeLogoUrl } from "@/lib/logo-url"
 import { setClientFontChoice, getClientFontChoice, markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile, setGenerationStage } from "@/lib/store"
 import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
@@ -632,7 +634,7 @@ export function enforceTypedPrecedence(data: NormalizedIntake, submission: Intak
  * resolveBrandColors and substituteLogo in isolation.
  */
 export function stampClientPreferences(data: NormalizedIntake, submission: IntakeSubmission): void {
-  const uploadedLogo = submission.logoUrl?.trim()
+  const uploadedLogo = safeLogoUrl(submission.logoUrl, { allowDevLocalhost: getAppEnvironment() === "development" })
   if (uploadedLogo) data.brandAssets.logoUrl = uploadedLogo
 
   const resolved = resolveBrandColors({
