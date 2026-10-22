@@ -1,6 +1,20 @@
 import type { Browser } from "playwright-core"
 import { configureFonts, EXPECTED_SUBSTITUTES } from "./fonts"
 import { STYLE_FONT_STACKS } from "@/lib/brand-controls"
+import { getSiteUrl } from "@/lib/site-url"
+import { getAppEnvironment } from "@/lib/env"
+import { isAllowedPdfRequest, type PdfRequestPolicy } from "./request-policy"
+
+/** Our own hosts for the photo route: wherever the site URL points, plus the canonical domain. */
+function pdfRequestPolicy(): PdfRequestPolicy {
+  const siteHosts = new Set(["oneflyer.org", "www.oneflyer.org"])
+  try {
+    siteHosts.add(new URL(getSiteUrl()).host)
+  } catch {
+    // getSiteUrl always returns a URL; the canonical hosts still apply.
+  }
+  return { siteHosts: [...siteHosts], allowDevHttpLoopback: getAppEnvironment() === "development" }
+}
 
 /**
  * Renders a finished flyer to a print-ready PDF.
@@ -149,7 +163,28 @@ export async function renderFlyerPdf(html: string): Promise<RenderedPdf> {
   const { browser, release } = await acquireBrowser()
   // A fresh context per render: no cookies, no storage, nothing carried
   // between one client's flyer and the next.
-  const context = await browser.newContext()
+  //
+  // JavaScript OFF: the document is AI-generated, and nothing in a flyer
+  // needs script to print. Off, an injected <script> or SVG onload/onerror
+  // never runs. Playwright's own page.evaluate (used below for image decode,
+  // fonts and page size) still works — it isn't page script.
+  const context = await browser.newContext({ javaScriptEnabled: false })
+  // Every request the document makes is checked against an allow-list
+  // (lib/pdf/request-policy.ts) and anything else is aborted, so a URL in
+  // the HTML can't make our server fetch arbitrary hosts. Blocked hosts are
+  // logged by name only, never the full URL.
+  const policy = pdfRequestPolicy()
+  const blocked = new Set<string>()
+  await context.route("**/*", (route) => {
+    const request = route.request()
+    if (isAllowedPdfRequest(request.url(), request.method(), policy)) return route.continue()
+    try {
+      blocked.add(new URL(request.url()).host || request.url().slice(0, 16))
+    } catch {
+      blocked.add("(unparseable url)")
+    }
+    return route.abort("blockedbyclient")
+  })
   try {
     const page = await context.newPage()
     await page.setContent(html, { waitUntil: "load" })
@@ -189,6 +224,7 @@ export async function renderFlyerPdf(html: string): Promise<RenderedPdf> {
       // No displayHeaderFooter either — that is what would stamp a URL, a
       // date or "Page 1 of 2" onto a finished marketing asset.
     })
+    if (blocked.size) console.warn(`[pdf] blocked request host(s): ${[...blocked].join(", ")}`)
     return { pdf, ms: Date.now() - t0 }
   } finally {
     await context.close().catch(() => undefined)
