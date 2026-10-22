@@ -252,6 +252,11 @@ export default function EnterpriseDemoClient({
             {flyer.html ? (
               <iframe
                 title="Generated flyer"
+                // AI-generated HTML, shown inside an ADMIN session: sandbox=""
+                // gives it an opaque origin with no scripts, so nothing in it
+                // (a <script>, an SVG onload) can reach this origin's cookies
+                // or call admin APIs. Same treatment as the dashboard preview.
+                sandbox=""
                 srcDoc={flyer.html}
                 className="mt-3 w-full rounded-lg border border-border bg-white"
                 style={{ height: 1100, maxHeight: "70vh" }}
