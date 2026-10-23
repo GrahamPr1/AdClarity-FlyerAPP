@@ -3,6 +3,7 @@ import fs from "node:fs"
 import path from "node:path"
 import QRCode from "qrcode"
 import type { TrackingRecord } from "@/lib/types"
+import type { Redirect } from "next/dist/lib/load-custom-routes"
 
 /**
  * New QR codes point at https://oneflyer.org/r/<code>. Codes already printed
@@ -63,13 +64,24 @@ describe("codes already printed", () => {
     expect(await qrDataUrlForCode(code)).toBe(qrDataUrl)
   })
 
-  it("/r/ on the legacy host is never redirected: no next.config rule touches /r/ or matches on host", async () => {
+  // The old host's PAGES now redirect to oneflyer.org (legacy-redirects.mjs),
+  // so rules do match on host — but none may ever catch a QR scan. Checked by
+  // running every rule through Next's own route compiler, on every host a
+  // printed or new code can point at.
+  it("/r/ is never redirected, on the legacy host or any other: no next.config rule matches a scan", async () => {
     const { default: config } = await import("@/next.config.mjs")
-    const rules: { source: string; has?: { type: string }[] }[] = await config.redirects!()
-    for (const rule of rules) {
-      expect(rule.source === "/r" || rule.source.startsWith("/r/"), rule.source).toBe(false)
-      expect(rule.source.startsWith("/:"), rule.source).toBe(false)
-      expect(rule.has?.some((h) => h.type === "host") ?? false, rule.source).toBe(false)
+    const { buildCustomRoute } = await import("next/dist/lib/build-custom-route")
+    const rules = (await config.redirects!()) as Redirect[]
+    const paths = ["/r/OLD2345", "/r/OLD2345?src=flyer", "/api/tracking/OLD2345/click", "/api/photos/onboarding-photos/a.jpg"]
+    for (const host of ["ad-clarity-landing-page.vercel.app", "oneflyer.org", "oneflyer-git-x-grahampr1s-projects.vercel.app"]) {
+      for (const rule of rules) {
+        const route = buildCustomRoute("redirect", rule, ["/_next"]) as unknown as { regex: string }
+        const hostOk = !rule.has?.length || rule.has.every((h) => h.type !== "host" || new RegExp(`^${h.value ?? ""}$`).test(host))
+        for (const p of paths) {
+          const matched = hostOk && new RegExp(route.regex).test(p.split("?")[0])
+          expect(matched, `${rule.source} on ${host} caught ${p}`).toBe(false)
+        }
+      }
     }
   })
 
