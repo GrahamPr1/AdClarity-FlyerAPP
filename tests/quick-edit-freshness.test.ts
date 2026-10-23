@@ -89,7 +89,7 @@ describe("a quick edit reaches every place the flyer is shown", () => {
     expect(await before.text()).toContain("$89")
 
     const edit = await PATCH(req("/api/flyers/f1/edit", { method: "PATCH", body: { fields: { supporting: "21-point safety check for $79." } } }), ctx)
-    expect(edit.status).toBe(200)
+    expect(edit?.status).toBe(200)
 
     const view = await VIEW(req("/api/flyers/f1/view?v=1"), ctx)
     const html = await view.text()
@@ -136,7 +136,7 @@ describe("a quick edit reaches every place the flyer is shown", () => {
   it("undo restores the old text everywhere, including the offer page", async () => {
     await PATCH(req("/api/flyers/f1/edit", { method: "PATCH", body: { fields: { headline: "Winter Furnace Check" } } }), ctx)
     const undo = await POST(req("/api/flyers/f1/edit?action=revert", { method: "POST" }), ctx)
-    expect(undo.status).toBe(200)
+    expect(undo?.status).toBe(200)
     expect(await (await VIEW(req("/api/flyers/f1/view?v=1"), ctx)).text()).toContain("Fall Furnace Tune-Up")
     expect(await (await VIEW(req("/api/flyers/f1/view?v=1&variant=instagram"), ctx)).text()).toContain("Fall Furnace Tune-Up")
     expect(db.trackingUpdates.at(-1)?.patch.headline).toBe("Fall Furnace Tune-Up")
