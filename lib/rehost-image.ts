@@ -3,7 +3,7 @@ import https from "node:https"
 import type { IncomingMessage, ClientRequest, RequestOptions } from "node:http"
 import { isIP } from "node:net"
 import { put } from "@vercel/blob"
-import { getSiteUrl } from "./site-url"
+import { ownSiteHosts, photoUrl } from "./site-url"
 
 // ---------------------------------------------------------------------------
 // Rehosting external images into our own Blob store.
@@ -250,16 +250,11 @@ export async function fetchImageSafely(rawUrl: string, deps: FetchDeps = {}): Pr
 
 // ---- Rehosting ----------------------------------------------------------------
 
-/** Our own hosts: an image already served by /api/photos there is never refetched. */
-const OWN_HOSTS = new Set(["oneflyer.org", "www.oneflyer.org", "ad-clarity-landing-page.vercel.app"])
-
 /** True when the URL already points at our photo route (an upload or an earlier rehost). */
 export function isOwnPhotoUrl(rawUrl: string): boolean {
   try {
     const url = new URL(rawUrl)
-    const site = new URL(getSiteUrl())
-    const ours = OWN_HOSTS.has(url.host) || url.host === site.host
-    return ours && url.pathname.startsWith(`/api/photos/${PHOTO_PREFIX}`)
+    return ownSiteHosts().includes(url.host) && url.pathname.startsWith(`/api/photos/${PHOTO_PREFIX}`)
   } catch {
     return false
   }
@@ -290,5 +285,5 @@ export async function rehostExternalImage(rawUrl: string | null | undefined, pur
     console.error(`[rehost] ${purpose}: Blob write failed:`, err instanceof Error ? err.message : err)
     return null
   }
-  return `${getSiteUrl()}/api/photos/${pathname}`
+  return photoUrl(pathname)
 }

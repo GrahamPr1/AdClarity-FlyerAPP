@@ -11,9 +11,13 @@
  *
  *   - Google Fonts — AI-written documents link the stylesheet, which pulls
  *     the font files: fonts.googleapis.com + fonts.gstatic.com.
- *   - Uploaded photos and logos — private Blob files streamed by OUR route,
- *     `${getSiteUrl()}/api/photos/…`. Only that path, GET only, on our own
- *     hosts (the site URL's host, and oneflyer.org).
+ *   - Uploaded photos and logos — private Blob files behind OUR route,
+ *     `<our host>/api/photos/…`. Only that path, GET only, on our own hosts
+ *     (oneflyer.org, the legacy ad-clarity-landing-page.vercel.app, the site
+ *     URL's host and, on Preview, the deployment's own host). These are NOT
+ *     fetched over HTTP: the renderer answers them from Blob directly (see
+ *     ownPhotoRoutePath), so they work on a Preview behind Vercel
+ *     Authentication and never depend on which deployment a host points at.
  *   - Vercel Blob directly (*.blob.vercel-storage.com), for any document that
  *     references a Blob URL as-is.
  *   - Unsplash stock photos: images.unsplash.com.
@@ -48,6 +52,24 @@ export interface PdfRequestPolicy {
 }
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"])
+
+/**
+ * For an allowed request to our own photo route, the part after /api/photos/
+ * (still URL-encoded; lib/photo-store validates it). undefined for anything
+ * else, which the renderer passes to the network as usual.
+ */
+export function ownPhotoRoutePath(rawUrl: string, policy: PdfRequestPolicy): string | undefined {
+  let url: URL
+  try {
+    url = new URL(rawUrl)
+  } catch {
+    return undefined
+  }
+  const host = url.host.toLowerCase()
+  if (!policy.siteHosts.some((h) => h.toLowerCase() === host)) return undefined
+  if (!url.pathname.startsWith(PHOTO_ROUTE_PREFIX)) return undefined
+  return url.pathname.slice(PHOTO_ROUTE_PREFIX.length)
+}
 
 export function isAllowedPdfRequest(rawUrl: string, method: string, policy: PdfRequestPolicy): boolean {
   if (method.toUpperCase() !== "GET") return false

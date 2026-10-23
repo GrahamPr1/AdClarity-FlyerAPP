@@ -193,7 +193,11 @@ export interface IntakeSubmission {
    *
    *  Saved and retrievable, but NOT yet read by any generation stage — the
    *  onboarding field says so. Extracting brand data from it is the same
-   *  unbuilt work as the business-profile PDF. */
+   *  unbuilt work as the business-profile PDF.
+   *
+   *  May be on the legacy domain (stored before the move to oneflyer.org).
+   *  Pass it through toCurrentSiteUrl (lib/site-url.ts) before showing it to
+   *  a user: the route needs a session, and sessions are per-domain. */
   existingMaterialsUrl?: string
   /** Real Blob URLs — unlike logoFileName/existingMaterialsFileName, these are actually uploaded (see /api/onboarding/upload-photo), not just filenames. */
   flyerPhotoUrls?: string[]

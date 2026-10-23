@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { put } from "@vercel/blob"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getSiteUrl } from "@/lib/site-url"
+import { photoUrl } from "@/lib/site-url"
 
 const SUPPORTED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"])
 const MAX_FILE_BYTES = 10 * 1024 * 1024
@@ -63,6 +63,8 @@ export async function POST(request: NextRequest) {
   // against — a relative "/api/photos/..." src silently fails to load
   // inside it. Same reasoning as the QR code's redeem URL (see
   // lib/site-url.ts) — pinned to the real deployed domain, not
-  // request-relative.
-  return NextResponse.json({ ok: true, url: `${getSiteUrl()}/api/photos/${pathname}` })
+  // request-relative. On Preview, photoUrl uses the deployment's own host:
+  // Preview uploads live in the non-production Blob store, which the
+  // production domain can't serve.
+  return NextResponse.json({ ok: true, url: photoUrl(pathname) })
 }

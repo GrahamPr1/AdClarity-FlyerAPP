@@ -1,19 +1,18 @@
 import type { Browser } from "playwright-core"
 import { configureFonts, EXPECTED_SUBSTITUTES } from "./fonts"
 import { STYLE_FONT_STACKS } from "@/lib/brand-controls"
-import { getSiteUrl } from "@/lib/site-url"
+import { ownSiteHosts } from "@/lib/site-url"
 import { getAppEnvironment } from "@/lib/env"
-import { isAllowedPdfRequest, type PdfRequestPolicy } from "./request-policy"
+import { readPhotoBytes } from "@/lib/photo-store"
+import { isAllowedPdfRequest, ownPhotoRoutePath, type PdfRequestPolicy } from "./request-policy"
 
-/** Our own hosts for the photo route: wherever the site URL points, plus the canonical domain. */
+/**
+ * Our own hosts for the photo route: the canonical and legacy domains (the
+ * legacy one permanently — existing flyers reference it), the site URL's host
+ * and, on Preview, the deployment's own host.
+ */
 function pdfRequestPolicy(): PdfRequestPolicy {
-  const siteHosts = new Set(["oneflyer.org", "www.oneflyer.org"])
-  try {
-    siteHosts.add(new URL(getSiteUrl()).host)
-  } catch {
-    // getSiteUrl always returns a URL; the canonical hosts still apply.
-  }
-  return { siteHosts: [...siteHosts], allowDevHttpLoopback: getAppEnvironment() === "development" }
+  return { siteHosts: ownSiteHosts(), allowDevHttpLoopback: getAppEnvironment() === "development" }
 }
 
 /**
@@ -175,9 +174,20 @@ export async function renderFlyerPdf(html: string): Promise<RenderedPdf> {
   // logged by name only, never the full URL.
   const policy = pdfRequestPolicy()
   const blocked = new Set<string>()
-  await context.route("**/*", (route) => {
+  await context.route("**/*", async (route) => {
     const request = route.request()
-    if (isAllowedPdfRequest(request.url(), request.method(), policy)) return route.continue()
+    if (isAllowedPdfRequest(request.url(), request.method(), policy)) {
+      // Our own photos are read from Blob here rather than over HTTP: a
+      // Preview deployment sits behind Vercel Authentication (an HTTP fetch
+      // would get its login page), and this way an image never depends on
+      // which deployment a host currently points at. Same prefix rules as
+      // the public route (lib/photo-store).
+      const photoPath = ownPhotoRoutePath(request.url(), policy)
+      if (photoPath === undefined) return route.continue()
+      const photo = await readPhotoBytes(photoPath).catch(() => null)
+      if (!photo) return route.fulfill({ status: 404, contentType: "text/plain", body: "Not found" })
+      return route.fulfill({ status: 200, contentType: photo.contentType, body: photo.bytes })
+    }
     try {
       blocked.add(new URL(request.url()).host || request.url().slice(0, 16))
     } catch {
