@@ -6,6 +6,8 @@ import {
   savePreEditSnapshot,
   getPreEditSnapshot,
   clearPreEditSnapshot,
+  getTrackingRecord,
+  updateTrackingContentForFlyer,
 } from "@/lib/store"
 import { applyFieldEdits, readEditableFields, supportsDirectEdit } from "@/lib/agent-pipeline/flyer-edit"
 import { decodeFlyerHtml, encodeFlyerHtml } from "@/lib/flyer-data-url"
@@ -23,6 +25,34 @@ import { decodeFlyerHtml, encodeFlyerHtml } from "@/lib/flyer-data-url"
  * another account is simply not found.
  */
 export const dynamic = "force-dynamic"
+
+/**
+ * Carries an edit through to the QR offer page (/r/<code>), which shows its
+ * own copy of the headline, offer, CTA and phone — the flyer's original code
+ * and every per-channel code. Without this, a corrected price or phone number
+ * appeared on the flyer but not on the page its QR code opens.
+ *
+ * The offer page's "offer" is the agent's summary, not a field on the flyer.
+ * It follows the flyer's supporting text only when it was the same text to
+ * begin with; otherwise it isn't touched, rather than overwritten with
+ * something that was never the offer.
+ */
+const instagramSnapshotId = (flyerId: string) => `${flyerId}:instagram`
+
+async function syncOfferPage(flyerId: string, trackingCode: string | undefined, before: string, after: string) {
+  if (!trackingCode) return
+  const was = Object.fromEntries(readEditableFields(before).map((f) => [f.field, f.value]))
+  const now = Object.fromEntries(readEditableFields(after).map((f) => [f.field, f.value]))
+  const changed = (field: string) => (now[field] !== undefined && now[field] !== was[field] ? now[field] : undefined)
+  const record = await getTrackingRecord(trackingCode)
+  const supporting = changed("supporting")
+  await updateTrackingContentForFlyer(flyerId, trackingCode, {
+    headline: changed("headline"),
+    cta: changed("cta"),
+    phone: changed("phone"),
+    offer: supporting !== undefined && record?.offer?.trim() === was.supporting?.trim() ? supporting : undefined,
+  })
+}
 
 async function loadOwnFlyer(req: NextRequest, id: string) {
   const session = await getSessionIdentity({ cookies: req.cookies })
@@ -90,6 +120,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   const result = applyFieldEdits(html, clean)
+  // The square Instagram version is a second document with the same fields
+  // (template flyers) — edit it too, or "open full size" on it, and the
+  // Instagram PDF, keep showing the old text.
+  const instagramHtml = flyer.repurposed?.instagramDownloadUrl ? decodeFlyerHtml(flyer.repurposed.instagramDownloadUrl) : null
+  const instagram = instagramHtml && supportsDirectEdit(instagramHtml) ? applyFieldEdits(instagramHtml, clean) : null
+  const instagramChanged = !!instagram && instagram.applied.length > 0
 
   // Nothing applied: report why and change nothing. Snapshotting here would
   // overwrite a real undo point with an identical copy.
@@ -98,8 +134,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   // Snapshot BEFORE writing, so the undo target is the pre-edit document.
+  // The Instagram snapshot is cleared when this edit doesn't touch it, so an
+  // undo can never restore an older Instagram copy than the one showing.
   await savePreEditSnapshot(id, flyer.downloadUrl!)
-  await updateDeliverable(email, { type: "flyer", id, downloadUrl: encodeFlyerHtml(result.html) })
+  if (instagramChanged) await savePreEditSnapshot(instagramSnapshotId(id), flyer.repurposed!.instagramDownloadUrl!)
+  else await clearPreEditSnapshot(instagramSnapshotId(id))
+  await updateDeliverable(email, {
+    type: "flyer",
+    id,
+    downloadUrl: encodeFlyerHtml(result.html),
+    ...(instagramChanged ? { repurposed: { ...flyer.repurposed!, instagramDownloadUrl: encodeFlyerHtml(instagram!.html) } } : {}),
+  })
+  await syncOfferPage(id, flyer.trackingCode, html, result.html)
 
   return NextResponse.json({
     ok: true,
@@ -116,17 +162,27 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
   const loaded = await loadOwnFlyer(req, id)
   if ("error" in loaded) return loaded.error
-  const { email } = loaded
+  const { email, flyer } = loaded
 
   const snapshot = await getPreEditSnapshot(id)
   if (!snapshot) {
     return NextResponse.json({ error: "There's nothing to undo on this flyer." }, { status: 404 })
   }
 
-  await updateDeliverable(email, { type: "flyer", id, downloadUrl: snapshot })
+  const instagramSnapshot = await getPreEditSnapshot(instagramSnapshotId(id))
+  await updateDeliverable(email, {
+    type: "flyer",
+    id,
+    downloadUrl: snapshot,
+    ...(instagramSnapshot && flyer.repurposed ? { repurposed: { ...flyer.repurposed, instagramDownloadUrl: instagramSnapshot } } : {}),
+  })
+  const current = flyer.downloadUrl ? decodeFlyerHtml(flyer.downloadUrl) : null
+  const restored = decodeFlyerHtml(snapshot)
+  if (current && restored) await syncOfferPage(id, flyer.trackingCode, current, restored)
   // One level of undo, so the snapshot is consumed rather than left to
   // revert a second time to the same state.
   await clearPreEditSnapshot(id)
+  await clearPreEditSnapshot(instagramSnapshotId(id))
 
   return NextResponse.json({ ok: true, reverted: true })
 }

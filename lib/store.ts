@@ -1580,6 +1580,31 @@ export async function updateTrackingRecordContent(
   await redis.set(trackingRecordKey(code), { ...existing, ...content })
 }
 
+/**
+ * Updates the offer-page content of EVERY code that shows this flyer: its
+ * original code and each per-channel code (createChannelTrackingCode copies
+ * the parent's content into the child, so updating only the parent left the
+ * channel links showing the old offer). Fields left undefined are untouched.
+ * Returns the codes it updated.
+ */
+export async function updateTrackingContentForFlyer(
+  flyerId: string,
+  primaryCode: string | undefined,
+  patch: Partial<Pick<TrackingRecord, "headline" | "offer" | "cta" | "disclaimer" | "phone">>,
+): Promise<string[]> {
+  const changes = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined))
+  if (Object.keys(changes).length === 0) return []
+  const codes = [...new Set([...(primaryCode ? [primaryCode] : []), ...(await listFlyerChannelCodes(flyerId))])]
+  const updated: string[] = []
+  for (const code of codes) {
+    const existing = await getTrackingRecord(code)
+    if (!existing || existing.flyerId !== flyerId) continue
+    await redis.set(trackingRecordKey(code), { ...existing, ...changes })
+    updated.push(code)
+  }
+  return updated
+}
+
 /** Atomic — safe under concurrent scans of the same code. */
 export async function incrementTrackingScan(code: string): Promise<number> {
   return await redis.incr(trackingScansKey(code))

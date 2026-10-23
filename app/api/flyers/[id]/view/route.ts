@@ -26,6 +26,10 @@ import { decodeFlyerHtml } from "@/lib/flyer-data-url"
 // iframe for exactly that reason). `Content-Security-Policy: sandbox` gives
 // the response the same treatment: it's dropped into an opaque origin with
 // scripting disabled, so it renders and prints but cannot touch the session.
+
+// Always read the stored document — never a build-time or cached render.
+export const dynamic = "force-dynamic"
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionIdentity(request)
   if (!session) {
@@ -88,9 +92,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       // allow-scripts is still absent, so the generated HTML remains inert.
       "Content-Security-Policy": "sandbox allow-same-origin allow-modals;",
       "X-Content-Type-Options": "nosniff",
-      // A flyer's content is immutable once Ready, but it's private to one
-      // account, so it must never land in a shared/proxy cache.
-      "Cache-Control": "private, max-age=300",
+      // no-store, not max-age: a flyer is NOT immutable once Ready — direct
+      // edits and refinements rewrite it in place, at the same URL. With
+      // max-age=300 the browser served the pre-edit copy to a newly opened
+      // full-screen tab for five minutes after an edit. Same policy as the
+      // PDF route; private to one account, so never a shared cache either.
+      "Cache-Control": "private, no-store",
     },
   })
 }

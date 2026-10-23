@@ -1,5 +1,5 @@
 import QRCode from "qrcode"
-import { getTrackingRecord, addFlyerChannelCode, createTrackingRecord, updateTrackingRecordContent } from "@/lib/store"
+import { getTrackingRecord, addFlyerChannelCode, createTrackingRecord, updateTrackingContentForFlyer } from "@/lib/store"
 import { getSiteUrl } from "@/lib/site-url"
 import type { NormalizedIntake } from "./schemas/intake"
 import type { FlyerSpecification } from "./schemas/flyer"
@@ -94,7 +94,9 @@ export async function qrDataUrlForCode(code: string): Promise<string> {
 }
 
 export async function backfillTrackingContent(code: string, flyer: FlyerSpecification): Promise<void> {
-  await updateTrackingRecordContent(code, {
+  // All of the flyer's codes, not just this one: after a refinement the
+  // per-channel QR links must show the refined offer too.
+  await updateTrackingContentForFlyer(flyer.id, code, {
     headline: flyer.headline,
     offer: flyer.offer,
     cta: flyer.cta,
