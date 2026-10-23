@@ -165,9 +165,28 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
   )
 }
 
-function FormFillCard({ request }: { request: FormFillRequest }) {
+function FormFillCard({ request, onDeleted }: { request: FormFillRequest; onDeleted: () => void }) {
   const ready = request.status === "Ready"
   const failed = request.status === "Failed"
+  // Two steps, inline: a browser confirm() dialog is easy to click through
+  // and can't be styled to say what's being removed.
+  const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
+
+  async function handleDelete() {
+    setDeleting(true)
+    setDeleteError("")
+    const res = await fetch(`/api/form-fill/${request.id}`, { method: "DELETE" })
+    setDeleting(false)
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      setDeleteError(body?.error ?? "Couldn't delete this — please try again.")
+      return
+    }
+    setConfirming(false)
+    onDeleted()
+  }
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-3">
@@ -180,13 +199,39 @@ function FormFillCard({ request }: { request: FormFillRequest }) {
             {request.unfilledNotes.map((n, i) => <li key={i}>{n}</li>)}
           </ul>
         )}
+        {confirming && (
+          <p className="mt-1.5 text-xs text-muted-foreground leading-snug">
+            Delete this job and its filled PDF? This can&apos;t be undone.
+          </p>
+        )}
+        {deleteError && <p role="alert" className="mt-1.5 text-xs text-red-400/80 leading-snug">{deleteError}</p>}
       </div>
-      {ready && (
-        <a href={`/api/form-fill/download/${request.id}`}
-          className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] transition-colors">
-          Download
-        </a>
-      )}
+      <div className="shrink-0 flex items-center gap-2">
+        {ready && !confirming && (
+          <a href={`/api/form-fill/download/${request.id}`}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] transition-colors">
+            Download
+          </a>
+        )}
+        {(ready || failed) && !confirming && (
+          <button onClick={() => setConfirming(true)} aria-label={`Delete ${request.title}`}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-[var(--surface-sunken)] transition-colors">
+            Delete
+          </button>
+        )}
+        {confirming && (
+          <>
+            <button onClick={handleDelete} disabled={deleting}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--destructive)] text-white hover:opacity-90 disabled:opacity-60 transition-colors">
+              {deleting ? "Deleting…" : "Yes, delete"}
+            </button>
+            <button onClick={() => { setConfirming(false); setDeleteError("") }} disabled={deleting}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-[var(--surface-sunken)] disabled:opacity-60 transition-colors">
+              Cancel
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -311,7 +356,7 @@ export function FormFillSection() {
 
       {data?.requests && data.requests.length > 0 && (
         <div className="mt-5 flex flex-col gap-3">
-          {data.requests.map((r) => <FormFillCard key={r.id} request={r} />)}
+          {data.requests.map((r) => <FormFillCard key={r.id} request={r} onDeleted={() => void mutate()} />)}
         </div>
       )}
     </div>

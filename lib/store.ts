@@ -568,6 +568,19 @@ export async function updateFormFillRequest(
   await redis.set(formFillsKey(email), next)
 }
 
+/**
+ * Removes one form-fill job from the owner's list. Returns the removed record
+ * (so the caller can delete its files), or null if this account has no such
+ * job. Ownership is the key itself: it only ever reads `email`'s own list.
+ */
+export async function deleteFormFillRequest(email: string, id: string): Promise<FormFillRequest | null> {
+  const current = await readFormFills(email)
+  const match = current.find((r) => r.id === id)
+  if (!match) return null
+  await redis.set(formFillsKey(email), current.filter((r) => r.id !== id))
+  return match
+}
+
 // ---- Business profile (Pro-only) -------------------------------------------
 //
 // A saved default info source for form-fill, so a client doesn't have to
