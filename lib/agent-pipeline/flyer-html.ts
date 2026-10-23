@@ -477,9 +477,21 @@ function escapeHtml(value: string): string {
  * entry actually fits"). Crediting a photo the agent declined to use would be
  * a false statement on a client's flyer, and firing Unsplash's download
  * trigger for it would misreport usage.
+ *
+ * The URL is matched raw OR attribute-escaped. Unsplash URLs carry query
+ * strings (`?crop=entropy&cs=tinysrgb…`), and the code-built templates
+ * (template-mode.ts) write them into src="…" with & as &amp; — correctly.
+ * Matching only the raw form made every template flyer look like the agent
+ * had declined its photo, so from 2026-09-16 they shipped with no credit and
+ * no download ping.
  */
 export function creditsUsedIn<T extends PhotoCredit>(html: string, candidates: T[]): T[] {
-  return candidates.filter((c) => c.url && html.includes(c.url))
+  return candidates.filter((c) => c.url && photoUrlAppearsIn(html, c.url))
+}
+
+/** True when `url` is in the HTML as written, or as it reads once attribute-escaped. */
+export function photoUrlAppearsIn(html: string, url: string): boolean {
+  return html.includes(url) || html.includes(url.replace(/&/g, "&amp;")) || html.includes(escapeHtml(url))
 }
 
 /**

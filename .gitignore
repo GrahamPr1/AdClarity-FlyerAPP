@@ -31,3 +31,4 @@ tests/browser/.auth/
 
 # Local NOP roster fixtures: test inboxes, never committed
 enterprise/nop/**/*.local.csv
+backfill-unsplash-credits-*.json
