@@ -42,6 +42,20 @@ describe("findFallbackStockPhoto", () => {
     expect(queryOf(fetchMock.mock.calls[1][0])).toBe(GENERIC_FALLBACK_QUERY)
   })
 
+  it("takes the generic query's top result even when its description doesn't say \"storefront\"", async () => {
+    // Measured on Preview: 10 of 10 "storefront" results failed the keyword check.
+    fetchMock.mockResolvedValueOnce(page(3, [])).mockResolvedValueOnce(page(900, [photo("g", "a cafe window on a quiet street")]))
+    const r = await findFallbackStockPhoto({ industry: "Zorblax", context: "t" })
+    expect(r).toMatchObject({ ok: true, queryUsed: GENERIC_FALLBACK_QUERY })
+  })
+
+  it("still keyword-checks the industry query", async () => {
+    fetchMock.mockResolvedValueOnce(page(500, [photo("x", "a cat on a sofa")])).mockResolvedValueOnce(page(900, [photo("g", "a shopfront")]))
+    const r = await findFallbackStockPhoto({ industry: "HVAC", context: "t" })
+    expect(r).toMatchObject({ ok: true, queryUsed: GENERIC_FALLBACK_QUERY })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it("stops at once on a failure a retry can't fix", async () => {
     fetchMock.mockResolvedValueOnce(new Response("", { status: 403 }))
     const r = await findFallbackStockPhoto({ industry: "Zorblax", context: "t" })
