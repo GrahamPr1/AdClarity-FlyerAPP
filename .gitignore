@@ -31,3 +31,6 @@ tests/browser/.auth/
 
 # Local NOP roster fixtures: test inboxes, never committed
 enterprise/nop/**/*.local.csv
+
+# Migration reports (may list customer image URLs)
+migrate-rehost-report-*.json

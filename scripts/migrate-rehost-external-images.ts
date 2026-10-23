@@ -5,6 +5,9 @@
  *   npx tsx scripts/migrate-rehost-external-images.ts            # dry run (default): report only
  *   npx tsx scripts/migrate-rehost-external-images.ts --apply    # rehost + rewrite
  *   ... --apply --clear-failed   # also blank a profile/intake logo whose rehost failed
+ *   ... --check-fetch            # dry run that also downloads each unique URL through
+ *                                # the guarded fetcher (stores nothing) and lists the
+ *                                # ones that would fail, with the reason
  *
  * Needs the TARGET environment's Redis + Blob credentials in the process env
  * (UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN / BLOB_READ_WRITE_TOKEN,
@@ -40,16 +43,22 @@
  * unless --clear-failed is passed, which blanks profile/intake logos only —
  * never document HTML. A JSON report is written to
  * migrate-rehost-report-<timestamp>.json.
+ *
+ * A dry run (with or without --check-fetch) never writes to Redis or Blob, so
+ * it runs with Upstash's READ-ONLY token and no Blob token at all. The one
+ * Redis write anywhere on this path — lib/store claiming an UNMARKED database —
+ * can't happen against production (it's marked), and is swallowed if refused.
  */
 import "./load-env"
 import { writeFileSync } from "node:fs"
 import { Redis } from "@upstash/redis"
 import { assertRedisMatchesEnvironment } from "../lib/store"
 import { decodeFlyerHtml, encodeFlyerHtml } from "../lib/flyer-data-url"
-import { isOwnPhotoUrl, rehostExternalImage, type RehostPurpose } from "../lib/rehost-image"
+import { fetchImageSafely, isOwnPhotoUrl, rehostExternalImage, type RehostPurpose } from "../lib/rehost-image"
 
 const APPLY = process.argv.includes("--apply")
 const CLEAR_FAILED = process.argv.includes("--clear-failed")
+const CHECK_FETCH = !APPLY && process.argv.includes("--check-fetch")
 const redis = Redis.fromEnv()
 
 const ALWAYS_OK_HOSTS = new Set(["images.unsplash.com", "fonts.googleapis.com", "fonts.gstatic.com"])
@@ -76,6 +85,26 @@ async function rehostOnce(url: string): Promise<string | null> {
   return cache.get(url)!
 }
 
+// Dry run + --check-fetch: download once per unique URL, keep nothing.
+// null = would succeed; otherwise "reason (detail)".
+const probes = new Map<string, string | null>()
+async function probeOnce(url: string): Promise<string | null> {
+  if (!probes.has(url)) {
+    const r = await fetchImageSafely(url)
+    probes.set(url, r.ok ? null : `${r.reason} (${r.detail})`)
+  }
+  return probes.get(url)!
+}
+
+/** The dry-run finding for one URL — probed when --check-fetch is on. */
+async function dryRunFinding(key: string, field: string, url: string): Promise<Finding> {
+  if (!CHECK_FETCH) return { key, field, host: hostOf(url), outcome: "would_rehost" }
+  const failure = await probeOnce(url)
+  return failure
+    ? { key, field, host: hostOf(url), outcome: "would_fail", url, reason: failure }
+    : { key, field, host: hostOf(url), outcome: "would_rehost" }
+}
+
 const hostOf = (url: string) => {
   try {
     return new URL(url).host
@@ -88,7 +117,10 @@ interface Finding {
   key: string
   field: string
   host: string
-  outcome: "would_rehost" | "rehosted" | "failed_left_as_is" | "failed_cleared"
+  outcome: "would_rehost" | "would_fail" | "rehosted" | "failed_left_as_is" | "failed_cleared"
+  /** Only for failures found by --check-fetch: the URL and why it failed. */
+  url?: string
+  reason?: string
 }
 const findings: Finding[] = []
 
@@ -106,7 +138,7 @@ async function scanKeys(match: string): Promise<string[]> {
 /** Rewrites one stored logo field; returns the value to store. */
 async function migrateLogoField(key: string, field: string, value: string): Promise<string | null> {
   if (!APPLY) {
-    findings.push({ key, field, host: hostOf(value), outcome: "would_rehost" })
+    findings.push(await dryRunFinding(key, field, value))
     return value
   }
   const copy = await rehostOnce(value)
@@ -146,7 +178,7 @@ async function migrateDocument(key: string, field: string, dataUrl: string | und
   const map = new Map<string, string>()
   for (const url of externals) {
     if (!APPLY) {
-      findings.push({ key, field, host: hostOf(url), outcome: "would_rehost" })
+      findings.push(await dryRunFinding(key, field, url))
       continue
     }
     const copy = await rehostOnce(url)
@@ -158,7 +190,7 @@ async function migrateDocument(key: string, field: string, dataUrl: string | und
 
 async function main() {
   await assertRedisMatchesEnvironment()
-  console.log(`${APPLY ? "APPLY" : "DRY RUN"}${CLEAR_FAILED ? " + clear-failed" : ""}`)
+  console.log(`${APPLY ? "APPLY" : "DRY RUN"}${CLEAR_FAILED ? " + clear-failed" : ""}${CHECK_FETCH ? " + check-fetch" : ""}`)
 
   // 1. Canonical profiles
   for (const key of await scanKeys("client:*:profile")) {
@@ -226,10 +258,24 @@ async function main() {
 
   const byOutcome = findings.reduce<Record<string, number>>((acc, f) => ((acc[f.outcome] = (acc[f.outcome] ?? 0) + 1), acc), {})
   const byHost = findings.reduce<Record<string, number>>((acc, f) => ((acc[f.host] = (acc[f.host] ?? 0) + 1), acc), {})
+  // Records that would change (or did): distinct profiles / pipeline records, and distinct flyers.
+  const distinct = (pred: (f: Finding) => boolean, id: (f: Finding) => string) => new Set(findings.filter(pred).map(id)).size
+  const records = {
+    profiles: distinct((f) => f.key.endsWith(":profile"), (f) => f.key),
+    pipelineRecords: distinct((f) => f.key.startsWith("pipeline-state:"), (f) => f.key),
+    intakeLatest: distinct((f) => f.key === "intake:latest", (f) => f.key),
+    flyers: distinct((f) => f.key.startsWith("deliverables:"), (f) => `${f.key} ${f.field.match(/^flyers\[([^\]]+)\]/)?.[1]}`),
+  }
+  console.log("records with external images:", records)
   console.log("outcomes:", byOutcome)
   console.log("external hosts:", byHost)
+  const unfetchable = [...probes].filter(([, why]) => why)
+  if (CHECK_FETCH) {
+    console.log(`unique URLs checked: ${probes.size}, would fail: ${unfetchable.length}`)
+    for (const [url, why] of unfetchable) console.log(`  ${why}  ${url}`)
+  }
   const report = `migrate-rehost-report-${Date.now()}.json`
-  writeFileSync(report, JSON.stringify({ apply: APPLY, clearFailed: CLEAR_FAILED, byOutcome, byHost, findings }, null, 2))
+  writeFileSync(report, JSON.stringify({ apply: APPLY, clearFailed: CLEAR_FAILED, checkFetch: CHECK_FETCH, records, byOutcome, byHost, unfetchable, findings }, null, 2))
   console.log(`report: ${report}`)
   process.exit(0)
 }
