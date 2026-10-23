@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { rehostExternalImage } from "@/lib/rehost-image"
 import { safeLogoUrl } from "@/lib/logo-url"
+import { servicesProblem } from "@/lib/intake-validation"
 import { getAppEnvironment } from "@/lib/env"
 import { waitUntil } from "@vercel/functions"
 import type { IntakeSubmission } from "@/lib/types"
@@ -43,6 +44,13 @@ export async function POST(request: NextRequest) {
     body = (await request.json()) as IntakeSubmission
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+  }
+
+  // Wrong-shaped, as opposed to missing: a client error, answered 400 here
+  // rather than a 500 from deep in the pipeline.
+  const badServices = servicesProblem(body.services)
+  if (badServices) {
+    return NextResponse.json({ error: "invalid_services", message: badServices }, { status: 400 })
   }
 
   // Basic validation of required fields.
