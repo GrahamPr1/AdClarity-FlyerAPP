@@ -247,7 +247,16 @@ function isRelevant(photo: { description: string | null; alt_description: string
  * already spent a credit on. Exactly one request per call — no pagination,
  * no retries — because of the hourly ceiling above.
  */
-export async function findPhoto(opts: { query: string; context: string }): Promise<PhotoSearchOutcome> {
+export async function findPhoto(opts: {
+  query: string
+  context: string
+  /**
+   * Off only for GENERIC_FALLBACK_QUERY: a "storefront" search is already the
+   * relevance there, and Unsplash's descriptions rarely repeat the word —
+   * measured on Preview, 10 of 10 results failed the keyword check.
+   */
+  requireKeywordMatch?: boolean
+}): Promise<PhotoSearchOutcome> {
   const key = accessKey()
   if (!key) {
     return { ok: false, reason: "not_configured", detail: "UNSPLASH_ACCESS_KEY is not set" }
@@ -308,7 +317,7 @@ export async function findPhoto(opts: { query: string; context: string }): Promi
     return { ok: false, reason: "thin_results", detail: `only ${total} results for "${opts.query}"` }
   }
 
-  const terms = relevanceTerms(opts.query)
+  const terms = opts.requireKeywordMatch === false ? [] : relevanceTerms(opts.query)
   const match = results.find((p) => isRelevant(p, terms))
   if (!match) {
     return {
@@ -369,6 +378,44 @@ export async function findPhotoForPromotion(opts: {
 
   const only = await findPhoto({ query: broad, context: opts.context })
   return { ...only, queryUsed: broad }
+}
+
+/**
+ * The query of last resort: generic, but a real photograph rather than none.
+ * One concrete word on purpose — "business" and "local" are STOPWORDS, so a
+ * phrase like "small business" would be relevance-checked against "small".
+ */
+export const GENERIC_FALLBACK_QUERY = "storefront"
+
+/**
+ * A stock photo for when AI generation was supposed to fill the gap and
+ * failed — the client opted into "if no stock photo fits, let AI generate
+ * one", so a Higgsfield outage should cost them relevance, not the photo.
+ *
+ * Broader than findPhotoForPromotion on purpose: the industry alone, then a
+ * generic query whose top result is taken as is (no keyword check). A loose
+ * fit is acceptable here because the Flyer Agent
+ * still decides whether to use it (prompts/flyer.ts rule 5 lets it design
+ * with zero photos), so a photo that doesn't suit the flyer gets declined
+ * rather than printed. Same budget discipline as findPhotoForPromotion:
+ * rate_limited, not_configured and error end the search immediately.
+ */
+export async function findFallbackStockPhoto(opts: { industry: string; context: string }): Promise<PhotoSearchOutcome & { queryUsed: string }> {
+  const industryOnly = buildSearchQuery({ industry: opts.industry, purpose: "", services: [] })
+  const queries = [industryOnly, GENERIC_FALLBACK_QUERY].filter((q, i, all) => q && all.indexOf(q) === i)
+
+  let last: PhotoSearchOutcome & { queryUsed: string } = {
+    ok: false,
+    reason: "thin_results",
+    detail: "no usable query",
+    queryUsed: "",
+  }
+  for (const query of queries) {
+    const found = await findPhoto({ query, context: opts.context, requireKeywordMatch: query !== GENERIC_FALLBACK_QUERY })
+    last = { ...found, queryUsed: query }
+    if (found.ok || (found.reason !== "thin_results" && found.reason !== "no_relevant_match")) return last
+  }
+  return last
 }
 
 /**
