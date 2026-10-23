@@ -11,8 +11,8 @@ import { getAgentProfile, listContentAssets } from "@/lib/store"
 import { toAssetContext, findVerbatimViolations, findInventedComplianceLanguage } from "./enterprise"
 import type { CampaignSource } from "@/lib/types"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
-import { generateImage } from "./higgsfield"
-import { findPhotoForPromotion, finalizePhotoUsage, type UnsplashPhoto } from "@/lib/unsplash"
+import { generateImage, MAX_PROMPT_CHARS } from "./higgsfield"
+import { findFallbackStockPhoto, findPhotoForPromotion, finalizePhotoUsage, type UnsplashPhoto } from "@/lib/unsplash"
 import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
 import { planIncludesExtras, aiPhotosEnabled, stockPhotosEnabled } from "./plan-features"
 import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
@@ -293,7 +293,7 @@ export function buildRawIntakePayload(submission: IntakeSubmission) {
 // generated image reads as belonging to THIS business's actual site and
 // service rather than a generic stock photo — the flyer's own purpose/notes,
 // the real services offered, and who it's for.
-function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerRequest): string {
+export function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerRequest): string {
   const services = intake.services.slice(0, 3).join(", ")
   const noteContext = request.notes ? ` — ${request.notes}` : ""
   // The negative constraints are spelled out rather than listed, because the
@@ -304,14 +304,19 @@ function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerRequest): st
   // their staff, and gibberish text printed on a real flyer is unshippable.
   // The expanded wording below was verified to produce a clean, empty,
   // on-brief scene at the same price.
-  return (
+  const lead =
     `${intake.industry} business, ${request.purpose}${noteContext}, ` +
-    `offering ${services}, for an audience of ${intake.targetAudience}. ` +
+    `offering ${services}, for an audience of ${intake.targetAudience}. `
+  const constraints =
     `Empty scene, equipment and workspace only. ` +
     `Absolutely no people, no faces, no hands, no human figures. ` +
     `No text, no signage, no logos, no watermarks, no lettering of any kind. ` +
     `Professional environment, warm natural lighting, documentary photography style.`
-  )
+  // The API rejects prompts over MAX_PROMPT_CHARS. Long flyer notes can get
+  // there, so trim the client-derived lead — never the constraints above,
+  // which are what keep people and garbled text out of the image.
+  const room = MAX_PROMPT_CHARS - constraints.length
+  return (lead.length <= room ? lead : `${lead.slice(0, room - 2).trimEnd()}. `) + constraints
 }
 
 /**
@@ -388,16 +393,34 @@ async function buildPhotoPool(
         return null
       }
       const generated = await generateImage({ context, prompt: buildAiPhotoPrompt(intake, request) })
-      // Higgsfield returns a URL on ITS host. Copy the image into our Blob
-      // store at generation time so the flyer (and its PDF) never depends on
-      // that host; if the copy fails, the flyer goes without the photo.
-      const ownCopy = generated ? await rehostExternalImage(generated.url, "ai-photo") : null
-      if (generated && !ownCopy) console.log(`[photo-pool] ${context}: AI image generated but could not be stored — CSS-only design.`)
-      if (ownCopy) {
-        return {
-          photo: { url: ownCopy, caption: `AI-generated, illustrative — suggested for: ${request.purpose}` },
-          unsplash: null,
+      if (generated.ok) {
+        // Higgsfield returns a URL on ITS host. Copy the image into our Blob
+        // store at generation time so the flyer (and its PDF) never depends
+        // on that host.
+        const ownCopy = await rehostExternalImage(generated.url, "ai-photo")
+        if (ownCopy) {
+          return {
+            photo: { url: ownCopy, caption: `AI-generated, illustrative — suggested for: ${request.purpose}` },
+            unsplash: null,
+          }
         }
+        console.error(`[photo-pool] ${context}: AI image generated but could not be stored.`)
+      }
+
+      // The client asked for AI only "if no stock photo fits". When AI can't
+      // deliver (generateImage has already logged why), a looser stock photo
+      // beats none — and the Flyer Agent can still decline it. Skipped when
+      // the first search failed for a reason a retry can't fix.
+      if (gates.allowStockPhotos && (found.reason === "thin_results" || found.reason === "no_relevant_match")) {
+        const stock = await findFallbackStockPhoto({ industry: intake.industry, context })
+        if (stock.ok) {
+          console.log(`[photo-pool] ${context}: AI photo unavailable — using a fallback stock photo for "${stock.queryUsed}".`)
+          return {
+            photo: { url: stock.photo.url, caption: `Stock photo — suggested for: ${request.purpose}` },
+            unsplash: stock.photo,
+          }
+        }
+        console.log(`[photo-pool] ${context}: fallback stock search missed too (${stock.reason}) — ${stock.detail}`)
       }
 
       console.log(`[photo-pool] ${context}: no photo from any source — CSS-only design.`)

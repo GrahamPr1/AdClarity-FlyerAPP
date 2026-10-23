@@ -372,6 +372,43 @@ export async function findPhotoForPromotion(opts: {
 }
 
 /**
+ * The query of last resort: generic, but a real photograph rather than none.
+ * One concrete word on purpose — "business" and "local" are STOPWORDS, so a
+ * phrase like "small business" would be relevance-checked against "small".
+ */
+export const GENERIC_FALLBACK_QUERY = "storefront"
+
+/**
+ * A stock photo for when AI generation was supposed to fill the gap and
+ * failed — the client opted into "if no stock photo fits, let AI generate
+ * one", so a Higgsfield outage should cost them relevance, not the photo.
+ *
+ * Broader than findPhotoForPromotion on purpose: the industry alone, then a
+ * generic query. A loose fit is acceptable here because the Flyer Agent
+ * still decides whether to use it (prompts/flyer.ts rule 5 lets it design
+ * with zero photos), so a photo that doesn't suit the flyer gets declined
+ * rather than printed. Same budget discipline as findPhotoForPromotion:
+ * rate_limited, not_configured and error end the search immediately.
+ */
+export async function findFallbackStockPhoto(opts: { industry: string; context: string }): Promise<PhotoSearchOutcome & { queryUsed: string }> {
+  const industryOnly = buildSearchQuery({ industry: opts.industry, purpose: "", services: [] })
+  const queries = [industryOnly, GENERIC_FALLBACK_QUERY].filter((q, i, all) => q && all.indexOf(q) === i)
+
+  let last: PhotoSearchOutcome & { queryUsed: string } = {
+    ok: false,
+    reason: "thin_results",
+    detail: "no usable query",
+    queryUsed: "",
+  }
+  for (const query of queries) {
+    const found = await findPhoto({ query, context: opts.context })
+    last = { ...found, queryUsed: query }
+    if (found.ok || (found.reason !== "thin_results" && found.reason !== "no_relevant_match")) return last
+  }
+  return last
+}
+
+/**
  * Reports a real use of a photo back to Unsplash.
  *
  * Required by the API Guidelines whenever a photo is actually used — not
