@@ -1,0 +1,36 @@
+# Standing health check for printed QR codes.
+#
+# Every printed OneFlyer QR code points at ad-clarity-landing-page.vercel.app/r/<code>.
+# If that domain is detached, protected, redirected or broken, every flyer
+# already in someone's mailbox stops working, and nothing in the app would
+# notice. This runs from GitHub, outside Vercel, so it still fires when the
+# Vercel project or the domain itself is the problem.
+#
+# It scans the reserved canary code (scripts/create-qr-canary.ts) and checks
+# the scan page, its assets and the click counter are served on the legacy
+# host. A failing run is a failed workflow, which GitHub emails about.
+name: QR canary
+
+on:
+  schedule:
+    - cron: "17 * * * *" # hourly, off the top of the hour
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/check-legacy-domain.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # One retry after a minute, so a single network blip doesn't page anyone.
+      - name: Check printed QR codes resolve on the legacy domain
+        run: node scripts/check-legacy-domain.mjs --canary || (sleep 60 && node scripts/check-legacy-domain.mjs --canary)
