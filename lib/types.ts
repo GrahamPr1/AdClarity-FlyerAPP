@@ -924,7 +924,7 @@ export interface AgentFlag {
 // description of what they sell. Listed here so its cost is attributed like
 // every other agent's rather than landing in an untracked bucket (the same
 // gap "polish" and "repurpose" were added to close).
-export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt" | "scrape" | "coloring" | "goal" | "polish" | "repurpose" | "product"
+export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt" | "scrape" | "coloring" | "goal" | "polish" | "repurpose" | "product" | "quick_edit"
 
 export interface GenerationLogEntry {
   id: string
