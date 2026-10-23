@@ -17,6 +17,13 @@
  *   --connect <origin>    send every request here instead, keeping the real
  *                         host (legacy or canonical) in the Host header — e.g.
  *                         http://localhost:3000 to test the rules on a dev server
+ *   --oidc                send VERCEL_OIDC_TOKEN (from the environment, never
+ *                         the command line) as x-vercel-trusted-oidc-idp-token,
+ *                         to check a Preview behind Vercel Authentication:
+ *                           node scripts/check-legacy-domain.mjs --canary --oidc \
+ *                             --legacy https://<preview>.vercel.app
+ *                         The 308 checks only apply on the real legacy host:
+ *                         the rules match its hostname, which a Preview can't have.
  *
  * Exits 1 if any check fails. No dependencies, so the scheduled workflow
  * (.github/workflows/qr-canary.yml) runs it with plain Node.
@@ -34,6 +41,11 @@ const CANONICAL = opt("canonical", "https://oneflyer.org").replace(/\/+$/, "")
 const CODE = opt("code", "health-canary")
 const CONNECT = opt("connect", null)
 const CANARY_ONLY = args.includes("--canary")
+const OIDC = args.includes("--oidc") ? process.env.VERCEL_OIDC_TOKEN : undefined
+if (args.includes("--oidc") && !OIDC) {
+  console.error("--oidc needs VERCEL_OIDC_TOKEN in the environment")
+  process.exit(2)
+}
 const CANARY_MARKER = "OneFlyer QR health check"
 
 /** One request, no redirects followed. Returns status, headers and up to 512 KB of body. */
@@ -44,7 +56,11 @@ function request(origin, path, { method = "GET" } = {}) {
   return new Promise((resolve, reject) => {
     const req = lib.request(
       target,
-      { method, headers: { host: hostHeader, "user-agent": "oneflyer-legacy-domain-check/1" }, timeout: 15_000 },
+      { method, headers: {
+        host: hostHeader,
+        "user-agent": "oneflyer-legacy-domain-check/1",
+        ...(OIDC ? { "x-vercel-trusted-oidc-idp-token": OIDC } : {}),
+      }, timeout: 15_000 },
       (res) => {
         const chunks = []
         let size = 0
