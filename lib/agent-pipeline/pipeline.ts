@@ -448,7 +448,7 @@ async function buildPhotoPool(
  * than the candidate pool is what makes "actually used" true — the agent is
  * free to use none of the photos it was offered.
  */
-async function applyPhotoObligations(
+export async function applyPhotoObligations(
   html: string,
   unsplash: UnsplashPhoto[],
   formatId: string | undefined,
