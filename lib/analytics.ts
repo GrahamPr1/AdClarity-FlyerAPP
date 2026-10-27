@@ -90,3 +90,91 @@ export function trackEvent(event: AnalyticsEvent, props?: EventProps): void {
     // must not surface as an error in the middle of someone's signup.
   }
 }
+
+// ---------------------------------------------------------------------------
+// Signup conversion for Google Tag Manager (the Meta Pixel tag, which fires on
+// a `sign_up` Custom Event) and GA4 (loaded directly via gtag, see
+// components/google-analytics.tsx). Meta itself lives entirely in GTM: no fbq
+// here. GA4 is already configured: no gtag('config') here.
+//
+// Call it only from the success handler of a request that the server says
+// created a NEW account, never from an effect or on page load. `signupId` is
+// the opaque, one-time id that response carries; a sessionStorage flag keyed
+// to it makes a second call for the same signup (a double handler run, a
+// replayed response, a reload) a no-op. Nothing personal is sent: just the method.
+//
+// Before a FULL page navigation, call queueSignup() instead. GA4 holds events
+// for up to about 5 seconds and sends them in a batch, and a page that unloads
+// inside that window loses the hit (seen locally: signup on the way to
+// /checkout, which redirects straight to Stripe, sent nothing). The queued
+// signup is fired by <SignupConversion /> (root layout) on the next OneFlyer
+// page this tab loads: Stripe's success and cancel URLs, or wherever /checkout
+// itself redirects. A client-side router.push keeps the page, so trackSignup
+// can fire straight away.
+// ---------------------------------------------------------------------------
+
+export type SignupMethod = "email" | "email_link"
+
+type DataLayerWindow = Window & {
+  dataLayer?: unknown[]
+  gtag?: (...args: unknown[]) => void
+}
+
+const sentSignups = new Set<string>()
+
+export function trackSignup(method: SignupMethod, signupId: string): void {
+  if (typeof window === "undefined" || !signupId) return
+  const flag = `oneflyer:sign_up:${signupId}`
+  if (sentSignups.has(flag)) return
+  try {
+    if (window.sessionStorage.getItem(flag)) return
+    window.sessionStorage.setItem(flag, "1")
+  } catch {
+    // Storage blocked (private mode): the in-memory set still guards this page.
+  }
+  sentSignups.add(flag)
+  try {
+    // ONE push, never both. gtag() itself pushes onto the shared dataLayer,
+    // and GTM reads a gtag('event', 'sign_up') entry as a `sign_up` event, so
+    // that single call reaches GA4 AND fires GTM's Meta tag. Pushing the plain
+    // { event: 'sign_up' } object as well fired the Meta tag a second time
+    // (two CompleteRegistration events per signup, seen locally). The plain
+    // push is the fallback for a page without GA4 (no Measurement ID set).
+    const w = window as DataLayerWindow
+    w.dataLayer = w.dataLayer || []
+    if (typeof w.gtag === "function") w.gtag("event", "sign_up", { method })
+    else w.dataLayer.push({ event: "sign_up", method })
+  } catch {
+    // Same rule as trackEvent: analytics must never break a signup.
+  }
+}
+
+const PENDING_KEY = "oneflyer:sign_up:pending"
+
+/** Hold a signup for the next page load (sessionStorage survives the trip to Stripe and back in this tab). */
+export function queueSignup(method: SignupMethod, signupId: string): void {
+  if (typeof window === "undefined" || !signupId) return
+  try {
+    window.sessionStorage.setItem(PENDING_KEY, JSON.stringify({ method, signupId }))
+  } catch {
+    // No storage, so nothing would survive the navigation: fire now, best effort.
+    trackSignup(method, signupId)
+  }
+}
+
+/** Fire a queued signup, once. trackSignup's per-signup flag makes repeat calls no-ops. */
+export function flushPendingSignup(): void {
+  if (typeof window === "undefined") return
+  let pending: { method?: unknown; signupId?: unknown } | null = null
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_KEY)
+    if (!raw) return
+    window.sessionStorage.removeItem(PENDING_KEY)
+    pending = JSON.parse(raw)
+  } catch {
+    return
+  }
+  if (!pending) return
+  const { method, signupId } = pending
+  if ((method === "email" || method === "email_link") && typeof signupId === "string") trackSignup(method, signupId)
+}

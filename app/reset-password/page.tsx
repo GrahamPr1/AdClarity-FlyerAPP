@@ -4,6 +4,7 @@ import { Suspense, useState, useSyncExternalStore } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { NOP_LANG_COOKIE, parseNopLang, tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 import { NopLangProvider, NopLanguageToggle } from "@/components/nop-i18n"
+import { trackSignup } from "@/lib/analytics"
 
 /**
  * NOP visitors only: their chosen language (nop_lang cookie), else the `lang`
@@ -52,7 +53,7 @@ function ResetPasswordForm({ nopLang }: { nopLang: NopLang | null }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, token, password }),
     })
-    const data = await res.json().catch(() => ({}) as { error?: string })
+    const data = await res.json().catch(() => ({}) as { error?: string; signupId?: string })
 
     if (!res.ok) {
       setWorking(false)
@@ -71,6 +72,9 @@ function ResetPasswordForm({ nopLang }: { nopLang: NopLang | null }) {
       return
     }
 
+    // signupId is present only when this link created a brand-new account
+    // (see the route); a reset of an existing password never counts.
+    if (data.signupId) trackSignup("email_link", data.signupId)
     router.push("/dashboard")
     router.refresh()
   }

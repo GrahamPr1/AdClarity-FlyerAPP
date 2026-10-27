@@ -5,6 +5,7 @@ import { DM_Sans, DM_Serif_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { GoogleAnalytics } from '@/components/google-analytics'
 import { GoogleTagManager, GoogleTagManagerNoScript } from '@/components/google-tag-manager'
+import { SignupConversion } from '@/components/signup-conversion'
 import './globals.css'
 
 // Body copy. 400/500 only — the editorial layout leans on the serif for
@@ -149,6 +150,8 @@ export default function RootLayout({
         <GoogleAnalytics />
         {/* GTM container. Loads alongside GA4, not instead of it. */}
         <GoogleTagManager />
+        {/* Fires a signup queued before a full navigation (the Stripe path). */}
+        <SignupConversion />
         <ThemeProvider>{children}</ThemeProvider>
         <Analytics />
       </body>

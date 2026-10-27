@@ -893,6 +893,11 @@ export async function setClientPaused(email: string, paused: boolean): Promise<s
   return at
 }
 
+/** When this email first got a real password credential, or null if it never has. */
+export async function getClientCreatedAt(email: string): Promise<string | null> {
+  return (await redis.get<string>(createdAtKey(email))) ?? null
+}
+
 /** Records the real signup timestamp — the FIRST time this email ever gets a real password credential (a fresh signup, or claiming a pre-password-era account via reset-password). Never overwritten on later calls, so a password reset doesn't reset "signup date". */
 export async function recordClientCreatedAtIfUnset(email: string): Promise<void> {
   const existing = await redis.get<string>(createdAtKey(email))

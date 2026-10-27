@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { trackEvent } from "@/lib/analytics"
+import { queueSignup, trackEvent, trackSignup } from "@/lib/analytics"
 import { NOP_LANG_COOKIE, langFromAcceptLanguage, parseNopLang, tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 import { NopLangProvider, NopLanguageToggle } from "@/components/nop-i18n"
 
@@ -212,7 +212,7 @@ function ClientLoginForm({
       setError(L("auth.err_network", "Couldn't reach the server — check your connection and try again."))
       return
     }
-    const data = await res.json().catch(() => ({}) as { error?: string })
+    const data = await res.json().catch(() => ({}) as { error?: string; signupId?: string })
 
     if (!res.ok) {
       setWorking(false)
@@ -232,6 +232,15 @@ function ClientLoginForm({
     }
 
     trackEvent("signup_completed")
+    // Fired after the server confirmed the new account. /checkout is a route
+    // handler that redirects straight to Stripe, a full page change that
+    // would lose GA4's batched hit, so that path queues the signup for the
+    // next OneFlyer page (see queueSignup); every other `next` is a
+    // client-side navigation that keeps the page, so it fires now.
+    if (data.signupId) {
+      if (next.startsWith("/checkout")) queueSignup("email", data.signupId)
+      else trackSignup("email", data.signupId)
+    }
     router.push(next)
     router.refresh()
   }
