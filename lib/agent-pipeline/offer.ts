@@ -110,6 +110,28 @@ export function offerBadgeNote(offer: OfferFacts): string {
   )
 }
 
+/**
+ * Makes the badge in an AI-written document prominent whatever the agent's
+ * own styling did. Measured: given offerBadgeNote, the proposal agent kept
+ * the facts verbatim but set them as a small strip, the price no bigger than
+ * body text. Sizes are relative to the document's own type (em), so this
+ * works at the proposal's small scale; !important because the agent's CSS
+ * comes first and may be more specific. A document without the badge is
+ * returned unchanged.
+ */
+export function enforceOfferBadgeStyle(html: string): string {
+  if (!/data-offer-slot/.test(html) || html.includes("data-oneflyer-offer-style")) return html
+  const css =
+    `<style data-oneflyer-offer-style>` +
+    `[data-offer-slot]{display:inline-flex!important;flex-wrap:wrap!important;align-items:center!important;column-gap:.6em!important;row-gap:.15em!important;` +
+    `padding:.5em .9em!important;border-radius:.4em!important;font-size:1.15em!important;max-width:100%!important}` +
+    `[data-offer-slot] [data-offer-field="price"]{font-size:2.4em!important;font-weight:800!important;line-height:1!important;white-space:nowrap!important}` +
+    `[data-offer-slot] [data-offer-field="offer"]{font-weight:700!important}` +
+    `[data-offer-slot] [data-offer-field="deadline"]{white-space:nowrap!important;text-transform:uppercase!important;letter-spacing:.06em!important;font-size:.85em!important;font-weight:700!important}` +
+    `</style>`
+  return /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${css}</head>`) : css + html
+}
+
 /** Offer facts from a structured product (campaign flow). */
 export function offerFromProduct(product: {
   name: string

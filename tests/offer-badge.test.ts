@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import * as cheerio from "cheerio"
-import { extractPrice, extractDeadline, offerFromText, offerFromProduct, offerBadgeText } from "@/lib/agent-pipeline/offer"
+import { extractPrice, extractDeadline, offerFromText, offerFromProduct, offerBadgeText, offerBadgeNote, enforceOfferBadgeStyle } from "@/lib/agent-pipeline/offer"
 import { fillTemplate, TEMPLATES, readableOn } from "@/lib/agent-pipeline/template-mode"
 import { keepPhonesTogether, ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
 import { readEditableFields, applyFieldEdits } from "@/lib/agent-pipeline/flyer-edit"
@@ -150,5 +150,23 @@ describe("quick edits and checks act on the badge", () => {
 
   it("won't empty the price through the editor", () => {
     expect(applyFieldEdits(base, { price: "" }).rejected[0]?.reason).toBe("empty")
+  })
+})
+
+describe("the badge in AI-written documents (the proposal)", () => {
+  it("asks for the exact facts, with hooks that don't make the document field-editable", () => {
+    const note = offerBadgeNote(OFFER)
+    expect(note).toContain('data-offer-field="price">$99<')
+    expect(note).toContain("Book by Nov 30")
+    expect(note).not.toContain("data-field=")
+  })
+
+  it("enforces prominence in code, once, and leaves documents without a badge alone", () => {
+    const doc = `<html><head><style>.offer{font-size:9px}</style></head><body><div class="offer" data-offer-slot><span data-offer-field="price">$99</span></div></body></html>`
+    const styled = enforceOfferBadgeStyle(doc)
+    expect(styled).toContain('[data-offer-slot] [data-offer-field="price"]{font-size:2.4em!important')
+    expect(enforceOfferBadgeStyle(styled)).toBe(styled)
+    const plain = "<html><head></head><body><p>No offer</p></body></html>"
+    expect(enforceOfferBadgeStyle(plain)).toBe(plain)
   })
 })

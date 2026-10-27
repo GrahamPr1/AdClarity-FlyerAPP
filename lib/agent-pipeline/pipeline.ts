@@ -4,7 +4,7 @@ import { getAppEnvironment } from "@/lib/env"
 import { safeLogoUrl } from "@/lib/logo-url"
 import { setClientFontChoice, getClientFontChoice, markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile, setGenerationStage, getDeliverablesForEmail, releaseFlyerQuota } from "@/lib/store"
 import { runQuickEditAgent } from "./agents/quickEditAgent"
-import { offerFromText, offerBadgeText, offerBadgeNote } from "./offer"
+import { offerFromText, offerBadgeText, offerBadgeNote, enforceOfferBadgeStyle } from "./offer"
 import { applyQuickEdit, readQuickEditStyle } from "./quick-edit"
 import { checkEditInvariants, type InvariantContext } from "./edit-invariants"
 import { readEditableFields, supportsDirectEdit } from "./flyer-edit"
@@ -712,7 +712,7 @@ async function runTemplateFlyer(
       const aiOffer = request.offer === undefined ? offerFromText(request.purpose, request.notes) : request.offer
       const withBadge = aiOffer ? { ...request, notes: [request.notes, offerBadgeNote(aiOffer)].filter(Boolean).join("\n") } : request
       const aiOut = await runFlyerAgent({ ...input, flyerRequests: [withBadge] }, agentEmail)
-      flyers.push(...(aiOut.flyers as Spec[]))
+      flyers.push(...(aiOut.flyers as Spec[]).map((f) => (aiOffer ? { ...f, html: enforceOfferBadgeStyle(f.html) } : f)))
       continue
     }
     // The offer badge: the product's own facts when the campaign flow set
