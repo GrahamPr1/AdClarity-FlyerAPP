@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import * as cheerio from "cheerio"
-import { extractPrice, extractDeadline, offerFromText, offerFromProduct, offerBadgeText, offerBadgeNote, enforceOfferBadgeStyle } from "@/lib/agent-pipeline/offer"
+import { extractPrice, extractDeadline, offerFromText, offerFromProduct, offerBadgeText, offerBadgeNote, enforceOfferBadgeStyle, copyProblems, plainTerms } from "@/lib/agent-pipeline/offer"
 import { fillTemplate, TEMPLATES, readableOn } from "@/lib/agent-pipeline/template-mode"
 import { keepPhonesTogether, ensureScrollable } from "@/lib/agent-pipeline/flyer-html"
 import { readEditableFields, applyFieldEdits } from "@/lib/agent-pipeline/flyer-edit"
@@ -131,7 +131,7 @@ describe("quick edits and checks act on the badge", () => {
 
   it("'make the offer stand out' emphasises the badge", () => {
     const r = edit({}, "offer")
-    expect(r.ok && r.html).toContain("[data-offer-slot]{font-size:115%")
+    expect(r.ok && r.html).toContain("[data-offer-slot]{font-size:calc(var(--line-size) * 1.3)")
     expect(r.ok && checkEditInvariants(base, r.html, "make the offer stand out", ctx)).toEqual([])
   })
 
@@ -168,5 +168,29 @@ describe("the badge in AI-written documents (the proposal)", () => {
     expect(enforceOfferBadgeStyle(styled)).toBe(styled)
     const plain = "<html><head></head><body><p>No offer</p></body></html>"
     expect(enforceOfferBadgeStyle(plain)).toBe(plain)
+  })
+})
+
+describe("the copy pass's two lines around the badge", () => {
+  it("accepts an outcome headline that doesn't repeat the badge or the line under it", () => {
+    expect(copyProblems("Keep Your Furnace Running Safely All Winter", "A 21-point safety check by a licensed local technician.", OFFER)).toBeNull()
+  })
+
+  it("flags a headline that restates the badge", () => {
+    expect(copyProblems("$99 Fall Furnace Tune-Up", "A full safety check.", OFFER)).toMatch(/price/)
+    expect(copyProblems("Fall Furnace Tune-Up Time", "A full safety check.", OFFER)).toMatch(/offer line/)
+    expect(copyProblems("Warm All Winter", "Book by Nov 30 for $99.", OFFER)).toMatch(/supporting line repeats the badge's price/)
+  })
+
+  it("flags a phrase repeated across the two lines, ignoring filler words", () => {
+    expect(copyProblems("Keep Your Furnace Running Safely", "Keep your furnace running safely with a tune-up.", null)).toMatch(/both say "keep your furnace"/)
+    expect(copyProblems("Warm All Winter", "Call us for all of the winter work.", null)).toBeNull()
+  })
+})
+
+describe("proposal pricing in plain words", () => {
+  it("states the terms as a sentence and requires them in a pricing section", () => {
+    expect(plainTerms(OFFER)).toBe("Fall furnace tune-up: $99. Book by Nov 30.")
+    expect(offerBadgeNote(OFFER)).toContain('"Fall furnace tune-up: $99. Book by Nov 30." Don\'t refer the reader elsewhere for the price.')
   })
 })

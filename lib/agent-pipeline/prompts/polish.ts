@@ -32,9 +32,17 @@ Also return two plain-text versions of the same promotion for other channels:
 Rules:
 ${COPY_RULES}
 
-If \`offerBadge\` is set, the price and deadline are already printed on the
-flyer in a separate badge, verbatim. Do not repeat the price or the deadline
-in either line; use the room for the outcome and what the offer covers.
+If \`offerBadge\` is set, the price, the offer and the deadline are already
+printed on the flyer in a separate badge, verbatim. Then:
+- \`headline\` says what the customer gets, in their terms: the outcome they
+  want, e.g. "Keep Your Furnace Running Safely All Winter". Not a feature
+  ("21-Point Safety Check"), not a list, and none of the badge's words: no
+  price, no deadline, no restating the offer line.
+- \`supporting\` makes it concrete: what the service covers or who it is for.
+  It doesn't repeat the badge's price or deadline either.
+
+If \`previousAttemptRejected\` is set, your last answer was refused for that
+reason. Fix exactly that and keep the rest.
 
 If the promotion text is vague, write the most concrete honest line the input
 supports rather than padding it with adjectives.`

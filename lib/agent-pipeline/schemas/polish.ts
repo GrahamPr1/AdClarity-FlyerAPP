@@ -56,4 +56,6 @@ export interface PolishAgentInput {
    * model so the two lines complement the badge instead of repeating it.
    */
   offerBadge: string | null
+  /** Set on the one retry: why the previous lines were refused (copyProblems in pipeline.ts). */
+  previousAttemptRejected?: string | null
 }

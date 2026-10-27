@@ -56,10 +56,18 @@ function styleCss(style: AppliedStyle): string {
   // The offer badge, bigger and ringed in white so it lifts off the photo.
   // Sizes come from the template's own --price-size, scaled, so the badge
   // grows in proportion on every canvas; the layout check catches overflow.
+  // 1.3x: every size in the badge is scaled from the template's own tokens
+  // (an earlier "font-size:115%" was relative to the badge's PARENT, 16px, so
+  // it actually shrank the offer line and the change was barely visible).
+  // Plus a white ring, an accent outline and a heavier shadow so it lifts off
+  // the photo. The layout check still has to pass before this is saved.
   if (style.emphasis === "offer") {
     rules.push(
-      `[data-offer-slot]{font-size:115%;box-shadow:0 0 0 5px #fff,0 0 0 9px var(--offer-bg),0 6px 18px rgba(0,0,0,.28)}` +
-        `[data-offer-slot] .offer-price{font-size:calc(var(--price-size) * 1.2)}`,
+      `[data-offer-slot]{font-size:calc(var(--line-size) * 1.3);` +
+        `box-shadow:0 0 0 6px #fff,0 0 0 11px var(--offer-bg),0 12px 28px rgba(0,0,0,.4)}` +
+        `[data-offer-slot] .offer-price{font-size:calc(var(--price-size) * var(--price-scale,1) * 1.3)}` +
+        `[data-offer-slot] .offer-line{font-size:calc(var(--line-size) * 1.3)}` +
+        `[data-offer-slot] .offer-deadline{font-size:calc(var(--deadline-size) * 1.3)}`,
     )
   }
   if (style.emphasis === "supporting") rules.push(`[data-field="supporting"]{font-weight:700;${highlight}}`)

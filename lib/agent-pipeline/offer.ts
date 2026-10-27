@@ -106,8 +106,18 @@ export function offerBadgeNote(offer: OfferFacts): string {
     `<div class="offer" data-offer-slot><span class="offer-price" data-offer-field="price">${esc(offer.price)}</span>` +
     (offer.line ? ` <span class="offer-line" data-offer-field="offer">${esc(offer.line)}</span>` : "") +
     (offer.deadline ? ` <span class="offer-deadline" data-offer-field="deadline">${esc(offer.deadline)}</span>` : "") +
-    `</div>`
+    `</div>` +
+    // Measured: the proposal's Investment section said "set out in the offer
+    // above" instead of the price. A reader skimming to that section must
+    // see the terms there too.
+    ` ALSO: if the document has a price, investment or cost section, state the terms there in one plain sentence, e.g. ` +
+    `"${plainTerms(offer)}" Don't refer the reader elsewhere for the price.`
   )
+}
+
+/** The offer in a plain sentence: "Fall furnace tune-up: $99. Book by Nov 30." */
+export function plainTerms(offer: OfferFacts): string {
+  return `${offer.line ? `${offer.line}: ` : ""}${offer.price}.${offer.deadline ? ` ${offer.deadline}.` : ""}`
 }
 
 /**
@@ -130,6 +140,40 @@ export function enforceOfferBadgeStyle(html: string): string {
     `[data-offer-slot] [data-offer-field="deadline"]{white-space:nowrap!important;text-transform:uppercase!important;letter-spacing:.06em!important;font-size:.85em!important;font-weight:700!important}` +
     `</style>`
   return /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${css}</head>`) : css + html
+}
+
+const STOP = new Set(["a", "an", "the", "and", "or", "of", "for", "to", "your", "our", "with", "in", "on", "at", "by", "is", "it", "this", "that", "all"])
+const tokens = (s: string) => s.toLowerCase().replace(/[^a-z0-9$%\s]/g, " ").split(/\s+/).filter(Boolean)
+
+/**
+ * What's wrong with the copy pass's two lines, if anything — checked in code
+ * because the prompt alone didn't hold (measured: "21-Point Safety Check" as
+ * the headline above a badge saying the same thing).
+ *  - the headline repeats the badge: its price, deadline, or offer line
+ *  - a phrase of three or more words appears in both lines
+ * Returns a sentence the model can act on, or null.
+ */
+export function copyProblems(headline: string, supporting: string, offer: OfferFacts | null): string | null {
+  const problems: string[] = []
+  const h = tokens(headline).join(" ")
+  if (offer) {
+    if (extractPrice(headline) || h.includes(tokens(offer.price).join(" "))) problems.push("the headline repeats the badge's price")
+    if (offer.deadline && extractDeadline(headline)) problems.push("the headline repeats the badge's deadline")
+    const line = tokens(offer.line ?? "").filter((t) => !STOP.has(t))
+    if (line.length >= 2 && line.every((t) => h.includes(t))) problems.push(`the headline restates the badge's offer line ("${offer.line}")`)
+    if (extractPrice(supporting)) problems.push("the supporting line repeats the badge's price")
+  }
+  const ht = tokens(headline)
+  const st = ` ${tokens(supporting).join(" ")} `
+  for (let i = 0; i + 3 <= ht.length; i++) {
+    const gram = ht.slice(i, i + 3)
+    if (gram.filter((t) => !STOP.has(t)).length < 2) continue
+    if (st.includes(` ${gram.join(" ")} `)) {
+      problems.push(`the headline and supporting line both say "${gram.join(" ")}"`)
+      break
+    }
+  }
+  return problems.length ? `Rewrite: ${problems.join("; ")}.` : null
 }
 
 /** Offer facts from a structured product (campaign flow). */

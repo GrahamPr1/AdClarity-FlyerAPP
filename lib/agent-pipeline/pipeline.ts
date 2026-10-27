@@ -4,7 +4,7 @@ import { getAppEnvironment } from "@/lib/env"
 import { safeLogoUrl } from "@/lib/logo-url"
 import { setClientFontChoice, getClientFontChoice, markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile, setGenerationStage, getDeliverablesForEmail, releaseFlyerQuota } from "@/lib/store"
 import { runQuickEditAgent } from "./agents/quickEditAgent"
-import { offerFromText, offerBadgeText, offerBadgeNote, enforceOfferBadgeStyle } from "./offer"
+import { offerFromText, offerBadgeText, offerBadgeNote, enforceOfferBadgeStyle, copyProblems } from "./offer"
 import { applyQuickEdit, readQuickEditStyle } from "./quick-edit"
 import { checkEditInvariants, type InvariantContext } from "./edit-invariants"
 import { readEditableFields, supportsDirectEdit } from "./flyer-edit"
@@ -718,23 +718,34 @@ async function runTemplateFlyer(
     // The offer badge: the product's own facts when the campaign flow set
     // them, else whatever the owner typed into this request.
     const offer = request.offer === undefined ? offerFromText(request.purpose, request.notes) : request.offer
-    const polished = await runPolishAgent(
-      {
-        offerBadge: offer ? offerBadgeText(offer) : null,
-        businessName: intake.businessName,
-        industry: intake.industry,
-        promotion: [request.purpose, request.notes].filter(Boolean).join(" — "),
-        targetAudience: intake.targetAudience,
-        voiceTone: intake.voiceTonePreference,
-        budgets: template.budgets,
-        hardLimits:
-          `headline: at most ${template.budgets.headline} characters. ` +
-          `supporting: at most ${template.budgets.supporting} characters. ` +
-          `Count them before responding.`,
-      },
-      agentEmail,
-      request.id,
-    )
+    const polish = (previousAttemptRejected: string | null) =>
+      runPolishAgent(
+        {
+          offerBadge: offer ? offerBadgeText(offer) : null,
+          previousAttemptRejected,
+          businessName: intake.businessName,
+          industry: intake.industry,
+          promotion: [request.purpose, request.notes].filter(Boolean).join(" — "),
+          targetAudience: intake.targetAudience,
+          voiceTone: intake.voiceTonePreference,
+          budgets: template.budgets,
+          hardLimits:
+            `headline: at most ${template.budgets.headline} characters. ` +
+            `supporting: at most ${template.budgets.supporting} characters. ` +
+            `Count them before responding.`,
+        },
+        agentEmail,
+        request.id,
+      )
+    let polished = await polish(null)
+    // One corrected attempt when the lines repeat the badge or each other
+    // (copyProblems). The second answer is used as it comes: two lines of
+    // copy aren't worth failing a flyer over.
+    const problem = copyProblems(polished.headline, polished.supporting, offer)
+    if (problem) {
+      console.log(`[template] flyer ${request.id}: copy retried — ${problem}`)
+      polished = await polish(problem)
+    }
 
     const palette = input.brandProfile?.colors ?? []
     const filled = fillTemplate({

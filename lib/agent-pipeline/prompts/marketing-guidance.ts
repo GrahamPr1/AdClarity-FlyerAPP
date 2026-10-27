@@ -26,7 +26,9 @@ export const COPY_RULES = `- PLAIN TEXT ONLY. No HTML, no markdown, no quotes ar
 - Keep the client's own offer intact. If they said $99, it stays $99.
 - Match \`voiceTone\`. Do not add exclamation marks the owner did not use.
 - No filler openers ("Introducing", "Discover", "Elevate", "Unlock").
-- Title case or sentence case for the headline; sentence case for supporting.`
+- Title case or sentence case for the headline; sentence case for supporting.
+- Never repeat a phrase between the headline and the supporting line. Each
+  line earns its space with something the other doesn't say.`
 
 /**
  * What makes a flyer work for the people who receive it. The design agent
