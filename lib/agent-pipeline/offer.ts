@@ -2,13 +2,13 @@
  * The offer a flyer is selling — price, a short offer line, and an optional
  * deadline — as FACTS, taken verbatim from what the owner typed.
  *
- * Why this exists: generation used to leave the offer to the copy model.
- * Template mode asks it for two short lines under a creative-angle brief, and
- * measured on the Miller Heating test product ("$99 … Book by November 30")
- * it wrote a problem-led headline and a phone-number line every time, so the
- * price and the deadline never reached the flyer. The offer now goes into a
- * dedicated slot filled in code (template-mode.ts), so it can't be dropped,
- * reworded, or rounded.
+ * Why this exists: generation leaves the offer's wording to the copy model,
+ * which writes two short lines under a creative-angle brief. It usually works
+ * the price into the headline, but nothing guarantees it, and the deadline
+ * ends up in small body text. (An early test that seemed to show the price
+ * dropped was wrong: it skipped product parsing, so no price was ever given.)
+ * The offer now goes into a dedicated slot filled in code (template-mode.ts),
+ * so it is always shown, prominently, and can't be reworded or rounded.
  *
  * Deterministic and pure. A price that isn't explicitly in the text is never
  * produced: no price means no offer slot at all.
