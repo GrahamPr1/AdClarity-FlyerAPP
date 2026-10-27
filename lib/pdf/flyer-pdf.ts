@@ -250,9 +250,15 @@ export async function renderFlyerPdf(html: string): Promise<RenderedPdf> {
  * and that is worth a warning in the log rather than a silent wrong PDF.
  */
 let fontsLogged = false
-async function logFontsOnce(page: import("playwright-core").Page): Promise<void> {
+async function logFontsOnce(documentPage: import("playwright-core").Page): Promise<void> {
   if (fontsLogged) return
   fontsLogged = true
+  // On its own blank page, never the flyer's: the probe appends an element,
+  // and if the probe fails partway that element stays — on the flyer's page
+  // it pushed the PDF onto a second sheet. (Measured locally under tsx, where
+  // an injected helper makes this evaluate throw: the FIRST PDF after every
+  // cold start came out 2 pages, every later one 1.)
+  const page = await documentPage.context().newPage()
   try {
     const stacks = STYLE_FONT_STACKS
     const probe = await page.evaluate(
@@ -292,6 +298,8 @@ async function logFontsOnce(page: import("playwright-core").Page): Promise<void>
     }
   } catch (err) {
     console.warn("[pdf] font check failed", err)
+  } finally {
+    await page.close().catch(() => undefined)
   }
 }
 
