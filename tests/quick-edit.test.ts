@@ -35,7 +35,7 @@ const flyer = substituteLogo(
 )
 
 const proposal = (over: Partial<QuickEditAgentOutput> = {}): QuickEditAgentOutput => ({
-  fields: { headline: null, supporting: null, phone: null, address: null },
+  fields: { headline: null, supporting: null, phone: null, address: null, price: null, offer: null, deadline: null },
   style: { look: "unchanged", emphasis: "unchanged" },
   cannotApply: null,
   summary: "Done.",
@@ -53,7 +53,7 @@ describe("shared guidance", () => {
 
 describe("applyQuickEdit", () => {
   it("changes only the fields the edit names", () => {
-    const r = applyQuickEdit(flyer, proposal({ fields: { headline: null, supporting: "24/7 emergency service. 21-point check for $89.", phone: null, address: null } }))
+    const r = applyQuickEdit(flyer, proposal({ fields: { headline: null, supporting: "24/7 emergency service. 21-point check for $89.", phone: null, address: null, price: null, offer: null, deadline: null } }))
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.changedFields).toEqual(["supporting"])
@@ -64,12 +64,12 @@ describe("applyQuickEdit", () => {
   })
 
   it("refuses text over a field's physical limit instead of overflowing it", () => {
-    const r = applyQuickEdit(flyer, proposal({ fields: { headline: "x".repeat(200), supporting: null, phone: null, address: null } }))
+    const r = applyQuickEdit(flyer, proposal({ fields: { headline: "x".repeat(200), supporting: null, phone: null, address: null, price: null, offer: null, deadline: null } }))
     expect(r.ok).toBe(false)
   })
 
   it("inserts the model's text as text, never markup", () => {
-    const r = applyQuickEdit(flyer, proposal({ fields: { headline: '<img src=x onerror="alert(1)">', supporting: null, phone: null, address: null } }))
+    const r = applyQuickEdit(flyer, proposal({ fields: { headline: '<img src=x onerror="alert(1)">', supporting: null, phone: null, address: null, price: null, offer: null, deadline: null } }))
     expect(r.ok && r.html.includes("<img src=x")).toBe(false)
   })
 
@@ -91,9 +91,9 @@ describe("applyQuickEdit", () => {
 })
 
 describe("checkEditInvariants", () => {
-  const withSupporting = (text: string) => applyQuickEdit(flyer, proposal({ fields: { headline: null, supporting: text, phone: null, address: null } }))
+  const withSupporting = (text: string) => applyQuickEdit(flyer, proposal({ fields: { headline: null, supporting: text, phone: null, address: null, price: null, offer: null, deadline: null } }))
   const withFields = (f: Partial<QuickEditAgentOutput["fields"]>) =>
-    applyQuickEdit(flyer, proposal({ fields: { headline: null, supporting: null, phone: null, address: null, ...f } }))
+    applyQuickEdit(flyer, proposal({ fields: { headline: null, supporting: null, phone: null, address: null, price: null, offer: null, deadline: null, ...f } }))
   const html = (r: ReturnType<typeof applyQuickEdit>) => (r.ok ? r.html : "")
 
   it("passes a good edit", () => {

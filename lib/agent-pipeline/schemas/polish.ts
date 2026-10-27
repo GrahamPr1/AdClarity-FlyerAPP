@@ -50,4 +50,10 @@ export interface PolishAgentInput {
    * any geometry.
    */
   hardLimits: string
+  /**
+   * The offer badge printed separately on the flyer ("$99 · Fall furnace
+   * tune-up · Book by Nov 30"), or null when there's no price. Told to the
+   * model so the two lines complement the badge instead of repeating it.
+   */
+  offerBadge: string | null
 }

@@ -46,6 +46,53 @@ const PRINT_FIDELITY_CSS =
 
 const INJECTED_CSS = `<style data-oneflyer="print-and-scroll">${PRINT_FIDELITY_CSS}${SCROLL_SAFETY_CSS}</style>`
 
+const PHONE_TEXT_RE = /(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\b\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b/g
+const NOWRAP_CLASS = "oneflyer-nowrap"
+
+/**
+ * Keeps every phone number on one line: "(502) 555-" at the end of one line
+ * and "0142" on the next is a number nobody dials correctly.
+ *
+ * Wraps each number in its own nowrap span rather than setting nowrap on the
+ * element that holds it, so two numbers ("(502) 555-0142 · (502) 555-0199")
+ * can still break BETWEEN them on a narrow canvas like the door hanger.
+ *
+ * Runs on every stored flyer (ensureScrollable, on write and on read), on
+ * template fills and after every field edit (an edit sets the field's text,
+ * which drops the spans). Text in <script>, <style> and <title> is never
+ * touched; a document with nothing to wrap is returned byte-for-byte.
+ */
+export function keepPhonesTogether(html: string): string {
+  PHONE_TEXT_RE.lastIndex = 0
+  if (!PHONE_TEXT_RE.test(html)) return html
+  const $ = cheerio.load(html)
+  let changed = false
+  $("body")
+    .find("*")
+    .addBack()
+    .contents()
+    .each((_, node) => {
+      if (node.type !== "text") return
+      const parent = node.parent as { name?: string; attribs?: Record<string, string> } | null
+      if (!parent || ["script", "style", "title", "textarea"].includes(parent.name ?? "")) return
+      if ((parent.attribs?.class ?? "").split(/\s+/).includes(NOWRAP_CLASS)) return
+      const text = (node as unknown as { data: string }).data
+      PHONE_TEXT_RE.lastIndex = 0
+      if (!PHONE_TEXT_RE.test(text)) return
+      PHONE_TEXT_RE.lastIndex = 0
+      let out = ""
+      let last = 0
+      for (const m of text.matchAll(PHONE_TEXT_RE)) {
+        out += escapeHtml(text.slice(last, m.index)) + `<span class="${NOWRAP_CLASS}" style="white-space:nowrap">${escapeHtml(m[0])}</span>`
+        last = m.index! + m[0].length
+      }
+      out += escapeHtml(text.slice(last))
+      $(node).replaceWith(out)
+      changed = true
+    })
+  return changed ? $.html() : html
+}
+
 /**
  * Adds the on-screen scroll safety net and print colour fidelity.
  *
@@ -53,6 +100,9 @@ const INJECTED_CSS = `<style data-oneflyer="print-and-scroll">${PRINT_FIDELITY_C
  * before this existed gets it on the way out.
  */
 export function ensureScrollable(html: string): string {
+  // Before the early return: flyers stored before this rule already carry the
+  // marker, and their phone numbers need it too. Idempotent on its own.
+  html = keepPhonesTogether(html)
   if (html.includes('data-oneflyer="print-and-scroll"')) return html
   if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${INJECTED_CSS}</head>`)
   if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${INJECTED_CSS}</body>`)

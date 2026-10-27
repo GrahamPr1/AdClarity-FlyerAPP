@@ -74,7 +74,7 @@ const brand = {
 } as unknown as Parameters<typeof refineFlyer>[1]
 
 const proposal = (fields: Record<string, string | null>, style = { look: "unchanged", emphasis: "unchanged" }) => ({
-  fields: { headline: null, supporting: null, phone: null, address: null, ...fields },
+  fields: { headline: null, supporting: null, phone: null, address: null, price: null, offer: null, deadline: null, ...fields },
   style,
   cannotApply: null,
   summary: "Added 24/7 emergency service to the supporting line.",

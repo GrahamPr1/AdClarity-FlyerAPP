@@ -32,5 +32,9 @@ Also return two plain-text versions of the same promotion for other channels:
 Rules:
 ${COPY_RULES}
 
+If \`offerBadge\` is set, the price and deadline are already printed on the
+flyer in a separate badge, verbatim. Do not repeat the price or the deadline
+in either line; use the room for the outcome and what the offer covers.
+
 If the promotion text is vague, write the most concrete honest line the input
 supports rather than padding it with adjectives.`

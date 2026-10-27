@@ -18,6 +18,11 @@
  *   {{BUSINESS}} {{PHONE}} {{ADDRESS}}
  *   {{LOGO_BLOCK}} {{QR_BLOCK}} {{PHOTO_BLOCK}}  whole blocks, so an absent
  *                                                logo/QR/photo leaves no gap
+ *   {{OFFER_BLOCK}}  the offer badge — price, offer line, deadline — built
+ *                    in code from the owner's own words (lib/agent-pipeline/
+ *                    offer.ts); empty when no price was given. Each template
+ *                    places it inside an anchor that sets its type sizes
+ *                    (--price-size, --line-size, --deadline-size).
  */
 export interface FlyerTemplate {
   id: string
@@ -69,6 +74,13 @@ h1,h2{font-family:var(--font-heading);font-weight:700;line-height:1.05}
 .logo{max-height:56px;max-width:200px;object-fit:contain;display:block}
 .qr{width:120px;height:120px;display:block}
 .photo{width:100%;height:100%;object-fit:cover;display:block}
+.offer{display:inline-flex;flex-wrap:wrap;align-items:center;column-gap:.6em;row-gap:.15em;max-width:100%;background:var(--offer-bg);color:var(--offer-fg);
+font-size:var(--line-size);padding:.45em .8em .5em;border-radius:.45em;box-shadow:0 .2em .7em rgba(0,0,0,.28);font-family:var(--font-body)}
+.offer-price{font-family:var(--font-heading);font-weight:800;font-size:calc(var(--price-size) * var(--price-scale,1));line-height:1;white-space:nowrap;letter-spacing:-.01em}
+.offer-text{display:flex;flex-direction:column;gap:.2em;min-width:0}
+.offer-line{font-weight:700;font-size:var(--line-size);line-height:1.15}
+.offer-deadline{font-weight:700;font-size:var(--deadline-size);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;opacity:.92}
+.offer-line:empty,.offer-deadline:empty,.offer-text:empty{display:none}
 </style></head><body><div class="page">${body}</div></body></html>`
 
 export const TEMPLATES: FlyerTemplate[] = [
@@ -86,7 +98,9 @@ export const TEMPLATES: FlyerTemplate[] = [
       <header style="background:var(--brand-primary);color:#fff;padding:44px 56px;display:flex;align-items:center;justify-content:space-between;gap:24px">
         <div style="min-width:0">{{LOGO_BLOCK}}<p style="font-size:20px;letter-spacing:.14em;text-transform:uppercase;opacity:.85;margin-top:10px">{{BUSINESS}}</p></div>
       </header>
-      <section style="flex:0 0 340px;overflow:hidden;background:var(--brand-secondary)">{{PHOTO_BLOCK}}</section>
+      <section style="flex:0 0 340px;overflow:hidden;background:var(--brand-secondary);position:relative">{{PHOTO_BLOCK}}
+        <div style="position:absolute;left:56px;right:56px;bottom:26px;--price-size:88px;--line-size:30px;--deadline-size:19px">{{OFFER_BLOCK}}</div>
+      </section>
       <section style="padding:48px 56px;flex:1 1 auto;overflow:hidden">
         <h1 style="font-size:64px;color:var(--brand-primary)">{{HEADLINE}}</h1>
         <p style="margin-top:22px;font-size:26px;line-height:1.35;color:#3a3f47">{{SUPPORTING}}</p>
@@ -110,7 +124,9 @@ export const TEMPLATES: FlyerTemplate[] = [
           <p style="font-size:16px;opacity:.8;margin-top:6px">{{ADDRESS}}</p></div>
         </aside>
         <main style="flex:1 1 auto;display:flex;flex-direction:column;overflow:hidden">
-          <div style="flex:0 0 420px;overflow:hidden;background:var(--brand-secondary)">{{PHOTO_BLOCK}}</div>
+          <div style="flex:0 0 420px;overflow:hidden;background:var(--brand-secondary);position:relative">{{PHOTO_BLOCK}}
+            <div style="position:absolute;left:48px;right:48px;bottom:26px;--price-size:78px;--line-size:27px;--deadline-size:17px">{{OFFER_BLOCK}}</div>
+          </div>
           <div style="padding:52px 48px;flex:1 1 auto;overflow:hidden">
             <h1 style="font-size:58px;color:var(--brand-primary)">{{HEADLINE}}</h1>
             <p style="margin-top:24px;font-size:25px;line-height:1.4;color:#3a3f47">{{SUPPORTING}}</p>
@@ -143,7 +159,9 @@ TEMPLATES.push(
         {{LOGO_BLOCK}}
         <p style="font-size:14px;letter-spacing:.12em;text-transform:uppercase;opacity:.9;margin-top:8px">{{BUSINESS}}</p>
       </header>
-      <section style="flex:0 0 180px;overflow:hidden;background:var(--brand-secondary)">{{PHOTO_BLOCK}}</section>
+      <section style="flex:0 0 180px;overflow:hidden;background:var(--brand-secondary);position:relative">{{PHOTO_BLOCK}}
+        <div style="position:absolute;left:14px;right:14px;bottom:12px;display:flex;justify-content:center;--price-size:46px;--line-size:16px;--deadline-size:12px">{{OFFER_BLOCK}}</div>
+      </section>
       <section style="padding:24px 22px;flex:1 1 auto;overflow:hidden;text-align:center">
         <h1 style="font-size:34px;color:var(--brand-primary)">{{HEADLINE}}</h1>
         <p style="margin-top:14px;font-size:16px;line-height:1.35;color:#3a3f47">{{SUPPORTING}}</p>
@@ -171,6 +189,7 @@ TEMPLATES.push(
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:72px 76px;color:#fff">
           <div>{{LOGO_BLOCK}}<p style="font-size:26px;letter-spacing:.16em;text-transform:uppercase;opacity:.9;margin-top:16px">{{BUSINESS}}</p></div>
           <div>
+            <div style="margin-bottom:30px;--price-size:80px;--line-size:32px;--deadline-size:21px">{{OFFER_BLOCK}}</div>
             <h1 style="font-size:86px;line-height:1.02">{{HEADLINE}}</h1>
             <p style="margin-top:28px;font-size:34px;line-height:1.35;opacity:.94">{{SUPPORTING}}</p>
           </div>

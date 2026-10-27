@@ -19,10 +19,19 @@ export async function syncOfferPage(flyerId: string, trackingCode: string | unde
   const changed = (field: string) => (now[field] !== undefined && now[field] !== was[field] ? now[field] : undefined)
   const record = await getTrackingRecord(trackingCode)
   const supporting = changed("supporting")
+  // The offer badge: when its price, line or deadline changed, the offer page
+  // states the new badge — if it was showing the old badge to begin with.
+  const badge = (f: Record<string, string>) => [f.price, f.offer, f.deadline].filter(Boolean).join(" · ")
+  const badgeChanged = (was.price ?? "") !== "" && badge(now) !== badge(was)
   await updateTrackingContentForFlyer(flyerId, trackingCode, {
     headline: changed("headline"),
     cta: changed("cta"),
     phone: changed("phone"),
-    offer: supporting !== undefined && record?.offer?.trim() === was.supporting?.trim() ? supporting : undefined,
+    offer:
+      badgeChanged && record?.offer?.trim() === badge(was)
+        ? badge(now)
+        : supporting !== undefined && record?.offer?.trim() === was.supporting?.trim()
+          ? supporting
+          : undefined,
   })
 }

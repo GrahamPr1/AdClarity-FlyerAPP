@@ -17,6 +17,13 @@ export const FlyerRequestSchema = z.object({
    * than silently reverting to a flyer.
    */
   formatId: z.string().optional(),
+  /**
+   * The offer badge's facts — price, short offer line, deadline — taken
+   * verbatim from the owner's words (lib/agent-pipeline/offer.ts). Set by the
+   * product campaign flow; other flows derive it from purpose/notes. Absent
+   * on requests stored before the badge existed, which is fine.
+   */
+  offer: z.object({ price: z.string(), line: z.string().nullable(), deadline: z.string().nullable() }).nullable().optional(),
 })
 
 export type FlyerRequest = z.infer<typeof FlyerRequestSchema>

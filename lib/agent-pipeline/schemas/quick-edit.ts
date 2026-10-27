@@ -7,7 +7,7 @@ import { z } from "zod"
  * restyle or drop anything the client didn't ask about.
  */
 export const QUICK_EDIT_LOOKS = ["unchanged", "modern", "classic", "editorial", "bold", "friendly"] as const
-export const QUICK_EDIT_EMPHASIS = ["unchanged", "none", "headline", "supporting"] as const
+export const QUICK_EDIT_EMPHASIS = ["unchanged", "none", "offer", "headline", "supporting"] as const
 
 export const QuickEditAgentOutputSchema = z.object({
   /** New text for each field the instruction changes; null leaves it exactly as it is. */
@@ -16,11 +16,15 @@ export const QuickEditAgentOutputSchema = z.object({
     supporting: z.string().nullable(),
     phone: z.string().nullable(),
     address: z.string().nullable(),
+    /** The offer badge's fields — only on flyers that have a badge. */
+    price: z.string().nullable(),
+    offer: z.string().nullable(),
+    deadline: z.string().nullable(),
   }),
   style: z.object({
     /** Typeface pairing. "editorial" is the premium one. */
     look: z.enum(QUICK_EDIT_LOOKS),
-    /** Which line gets a highlight in the brand's accent colour. */
+    /** What to emphasise: "offer" enlarges and rings the offer badge; "headline"/"supporting" highlight that line. */
     emphasis: z.enum(QUICK_EDIT_EMPHASIS),
   }),
   /** Set when part of the request can't be done on this layout, e.g. "add a photo". Shown to the client. */

@@ -1,5 +1,6 @@
+import type { OfferFacts } from "./offer"
 import { TEMPLATES, templateById, type FlyerTemplate } from "./templates"
-import { LOGO_PLACEHOLDER, QR_PLACEHOLDER } from "./flyer-html"
+import { LOGO_PLACEHOLDER, QR_PLACEHOLDER, keepPhonesTogether } from "./flyer-html"
 
 /**
  * Template mode — code builds the flyer, the model writes only two lines.
@@ -53,12 +54,54 @@ export interface TemplateFillInput {
   photoUrl: string | null
   colors: { primary: string; secondary: string; accent: string }
   fonts: { heading: string; body: string }
+  /** The offer badge's facts (lib/agent-pipeline/offer.ts). Null or absent: no badge at all. */
+  offer?: OfferFacts | null
 }
 
 export interface TemplateFillResult {
   html: string
   /** Which slots the model overshot, for pilot measurement. */
   truncated: string[]
+}
+
+/** Field budgets for the badge: what fits its line at the smallest (door hanger) size. */
+export const OFFER_BUDGETS = { price: 14, offer: 40, deadline: 22 } as const
+
+/**
+ * The offer badge. Price, offer line and deadline are separate editable
+ * fields, so a quick edit ("change the price to $89") changes the badge
+ * itself rather than rewriting body copy. The line and deadline spans are
+ * always present — empty and hidden (:empty) when not given — so an edit can
+ * add a deadline later.
+ */
+function offerBadge(offer: OfferFacts, editable: (field: string, value: string, max: number) => string): string {
+  // A price never wraps, so a long one ("From $1,299.50") shrinks to fit the
+  // badge instead; "$99" or "$1,299" keep full size. Measured by render: at
+  // full size a 14-character price was wider than the split-vertical column.
+  const scale = offer.price.length <= 6 ? 1 : Math.max(0.5, 6.5 / offer.price.length)
+  return (
+    `<div class="offer" data-offer-slot${scale < 1 ? ` style="--price-scale:${scale.toFixed(2)}"` : ""}>` +
+    `<span class="offer-price">${editable("price", offer.price, OFFER_BUDGETS.price)}</span>` +
+    `<span class="offer-text">` +
+    `<span class="offer-line">${editable("offer", offer.line ?? "", OFFER_BUDGETS.offer)}</span>` +
+    `<span class="offer-deadline">${editable("deadline", offer.deadline ?? "", OFFER_BUDGETS.deadline)}</span>` +
+    `</span></div>`
+  )
+}
+
+/** #111 or #fff, whichever has the higher WCAG contrast against `hex`. */
+export function readableOn(hex: string): string {
+  const m = hex.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i)
+  if (!m) return "#fff"
+  const full = m[1].length === 3 ? m[1].split("").map((c) => c + c).join("") : m[1]
+  const lin = (i: number) => {
+    const c = parseInt(full.slice(i, i + 2), 16) / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }
+  const L = 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4)
+  const vsWhite = 1.05 / (L + 0.05)
+  const vsDark = (L + 0.05) / (0.0137 + 0.05) // #111
+  return vsDark > vsWhite ? "#111" : "#fff"
 }
 
 export function fillTemplate(input: TemplateFillInput): TemplateFillResult {
@@ -76,7 +119,10 @@ export function fillTemplate(input: TemplateFillInput): TemplateFillResult {
 
   const vars =
     `:root{--brand-primary:${input.colors.primary};--brand-secondary:${input.colors.secondary};` +
-    `--brand-accent:${input.colors.accent};--font-heading:${input.fonts.heading};--font-body:${input.fonts.body}}`
+    `--brand-accent:${input.colors.accent};--font-heading:${input.fonts.heading};--font-body:${input.fonts.body};` +
+    // The badge is a solid block of the brand's accent; its text is black or
+    // white, whichever reads better on that accent.
+    `--offer-bg:${input.colors.accent};--offer-fg:${readableOn(input.colors.accent)}}`
 
   /**
    * Wraps an editable value so a later direct edit can find it.
@@ -111,11 +157,12 @@ export function fillTemplate(input: TemplateFillInput): TemplateFillResult {
     "{{LOGO_BLOCK}}": logoBlock,
     "{{QR_BLOCK}}": qrBlock,
     "{{PHOTO_BLOCK}}": photoBlock,
+    "{{OFFER_BLOCK}}": input.offer ? offerBadge(input.offer, editable) : "",
   }
   for (const [token, value] of Object.entries(slots)) html = html.split(token).join(value)
 
   html = html.replace("</style>", `</style><style>${vars}</style>`)
-  return { html, truncated }
+  return { html: keepPhonesTogether(html), truncated }
 }
 
 /**

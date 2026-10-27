@@ -4,6 +4,7 @@ import { getAppEnvironment } from "@/lib/env"
 import { safeLogoUrl } from "@/lib/logo-url"
 import { setClientFontChoice, getClientFontChoice, markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile, setGenerationStage, getDeliverablesForEmail, releaseFlyerQuota } from "@/lib/store"
 import { runQuickEditAgent } from "./agents/quickEditAgent"
+import { offerFromText, offerBadgeText, offerBadgeNote } from "./offer"
 import { applyQuickEdit, readQuickEditStyle } from "./quick-edit"
 import { checkEditInvariants, type InvariantContext } from "./edit-invariants"
 import { readEditableFields, supportsDirectEdit } from "./flyer-edit"
@@ -707,12 +708,19 @@ async function runTemplateFlyer(
     // rendering the wrong aspect ratio. proposal/one-pager paginate and have
     // no template at all.
     if (!template) {
-      const aiOut = await runFlyerAgent({ ...input, flyerRequests: [request] }, agentEmail)
+      // Same offer facts as a template badge, as an instruction (offerBadgeNote).
+      const aiOffer = request.offer === undefined ? offerFromText(request.purpose, request.notes) : request.offer
+      const withBadge = aiOffer ? { ...request, notes: [request.notes, offerBadgeNote(aiOffer)].filter(Boolean).join("\n") } : request
+      const aiOut = await runFlyerAgent({ ...input, flyerRequests: [withBadge] }, agentEmail)
       flyers.push(...(aiOut.flyers as Spec[]))
       continue
     }
+    // The offer badge: the product's own facts when the campaign flow set
+    // them, else whatever the owner typed into this request.
+    const offer = request.offer === undefined ? offerFromText(request.purpose, request.notes) : request.offer
     const polished = await runPolishAgent(
       {
+        offerBadge: offer ? offerBadgeText(offer) : null,
         businessName: intake.businessName,
         industry: intake.industry,
         promotion: [request.purpose, request.notes].filter(Boolean).join(" — "),
@@ -745,6 +753,7 @@ async function runTemplateFlyer(
         accent: palette[2]?.hex ?? "#e39a2b",
       },
       fonts: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+      offer,
     })
 
     if (filled.truncated.length > 0) {
@@ -773,6 +782,7 @@ async function runTemplateFlyer(
           accent: palette[2]?.hex ?? "#e39a2b",
         },
         fonts: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+        offer,
       })
       repurposeOut.set(request.id, {
         instagramHtml: sq.html,
@@ -788,7 +798,9 @@ async function runTemplateFlyer(
       dimensions: getFormat(request.formatId).dimensions,
       headline: polished.headline,
       subheadline: polished.supporting,
-      offer: polished.supporting,
+      // What the QR offer page shows as "the offer": the badge's own facts
+      // when there is one, so the page states the same price and deadline.
+      offer: offer ? offerBadgeText(offer) : polished.supporting,
       cta: intake.contact.phone,
       disclaimer: null,
       html: filled.html,

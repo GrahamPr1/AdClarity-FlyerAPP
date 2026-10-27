@@ -53,6 +53,15 @@ function styleCss(style: AppliedStyle): string {
   const highlight =
     "background:linear-gradient(transparent 58%,color-mix(in srgb,var(--brand-accent) 38%,transparent) 58%);" +
     "-webkit-box-decoration-break:clone;box-decoration-break:clone"
+  // The offer badge, bigger and ringed in white so it lifts off the photo.
+  // Sizes come from the template's own --price-size, scaled, so the badge
+  // grows in proportion on every canvas; the layout check catches overflow.
+  if (style.emphasis === "offer") {
+    rules.push(
+      `[data-offer-slot]{font-size:115%;box-shadow:0 0 0 5px #fff,0 0 0 9px var(--offer-bg),0 6px 18px rgba(0,0,0,.28)}` +
+        `[data-offer-slot] .offer-price{font-size:calc(var(--price-size) * 1.2)}`,
+    )
+  }
   if (style.emphasis === "supporting") rules.push(`[data-field="supporting"]{font-weight:700;${highlight}}`)
   if (style.emphasis === "headline") rules.push(`[data-field="headline"]{${highlight}}`)
   return rules.join("\n")

@@ -45,6 +45,17 @@ function geometry(html: string): string {
   return JSON.stringify({ page, boxes })
 }
 
+/** The offer badge's fields, as printed (template-mode.ts offerBadge). */
+function badgeOf(html: string): { present: boolean; price: string; deadline: string } {
+  const $ = cheerio.load(html)
+  const slot = $("[data-offer-slot]").first()
+  return {
+    present: slot.length > 0,
+    price: slot.find('[data-field="price"],[data-offer-field="price"]').first().text().trim(),
+    deadline: slot.find('[data-field="deadline"],[data-offer-field="deadline"]').first().text().trim(),
+  }
+}
+
 export function checkEditInvariants(before: string, after: string, instruction: string, ctx: InvariantContext): string[] {
   const problems: string[] = []
   const was = visibleText(before)
@@ -86,6 +97,22 @@ export function checkEditInvariants(before: string, after: string, instruction: 
     if (!pricesNow.includes(p)) problems.push(`the price you asked for (${p}) isn't on the flyer`)
   }
   if (CTA_RE.test(was) && !CTA_RE.test(now)) problems.push("it removed the call to action")
+
+  // ---- The offer badge (template flyers) ------------------------------------------
+  // Its price and deadline are the owner's own facts: they change only when the
+  // request is about them, and a price the owner states is exactly what prints.
+  const badgeBefore = badgeOf(before)
+  const badgeNow = badgeOf(after)
+  if (badgeBefore.price) {
+    const aboutDeadline = /\b(deadline|ends?|until|through|extend|expires?|date|by)\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d/i.test(asked)
+    if (!badgeNow.present) problems.push("it removed the offer badge")
+    else if (!badgeNow.price) problems.push("it removed the offer's price")
+    else if (!aboutPrice && norm(badgeNow.price) !== norm(badgeBefore.price)) problems.push("it changed the offer's price")
+    for (const p of pricesIn(asked).filter((x) => x.startsWith("$"))) {
+      if (badgeNow.price && !norm(badgeNow.price).replace(/\s/g, "").includes(p)) problems.push(`the offer badge doesn't show ${p}`)
+    }
+    if (badgeBefore.deadline && !aboutDeadline && norm(badgeNow.deadline) !== norm(badgeBefore.deadline)) problems.push("it changed or removed the offer's deadline")
+  }
   if (now.length < Math.min(40, was.length * 0.4)) problems.push("it removed most of the flyer's text")
 
   // ---- Print-safe: same page geometry, nothing executable ---------------------------

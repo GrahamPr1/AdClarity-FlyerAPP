@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio"
+import { keepPhonesTogether } from "./flyer-html"
 
 /**
  * Direct field editing of a generated flyer.
@@ -52,7 +53,7 @@ export function supportsDirectEdit(html: string): boolean {
  *
  * Anything not listed keeps its document position, after these.
  */
-const FIELD_ORDER = ["headline", "supporting", "cta", "phone", "address"]
+const FIELD_ORDER = ["headline", "price", "offer", "deadline", "supporting", "cta", "phone", "address"]
 
 /** The editable fields and their current values, for rendering the form. */
 export function readEditableFields(html: string): EditableField[] {
@@ -117,10 +118,11 @@ export function applyFieldEdits(html: string, edits: Record<string, string>): Ap
     const max = Number.parseInt(nodes.first().attr("data-max") ?? "", 10)
     const limit = Number.isFinite(max) && max > 0 ? max : 200
 
-    // Address is the one field that may legitimately be cleared — a flyer
-    // without a street address is normal. Everything else empty would leave
-    // a visible hole in the layout.
-    if (!value && field !== "address") {
+    // These may legitimately be cleared: a flyer without a street address is
+    // normal, and the offer badge's line and deadline hide when empty. The
+    // price can't be — a badge with no price is a hole. Everything else empty
+    // would leave a visible gap in the layout.
+    if (!value && !CLEARABLE.has(field)) {
       rejected.push({ field, reason: "empty", message: `${label(field)} can't be empty.` })
       continue
     }
@@ -142,8 +144,12 @@ export function applyFieldEdits(html: string, edits: Record<string, string>): Ap
     applied.push(field)
   }
 
-  return { html: $.html(), applied, rejected }
+  // Setting a field's text drops the nowrap spans around any phone number in
+  // it (keepPhonesTogether), so they go back on.
+  return { html: applied.length ? keepPhonesTogether($.html()) : $.html(), applied, rejected }
 }
+
+const CLEARABLE = new Set(["address", "offer", "deadline"])
 
 function label(field: string): string {
   return field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, " $1")
