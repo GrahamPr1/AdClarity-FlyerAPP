@@ -16,6 +16,7 @@ const t = vi.hoisted(() => ({
   layoutCalls: 0,
   synced: [] as unknown[],
   stored: null as Record<string, unknown> | null,
+  agentInputs: [] as { previousAttemptRejected?: string | null }[],
 }))
 
 vi.mock("@/lib/store", () => ({
@@ -24,9 +25,10 @@ vi.mock("@/lib/store", () => ({
   getDeliverablesForEmail: vi.fn(async () => ({ flyers: t.stored ? [t.stored] : [] })),
 }))
 vi.mock("@/lib/agent-pipeline/agents/quickEditAgent", () => ({
-  runQuickEditAgent: vi.fn(async () => {
+  runQuickEditAgent: vi.fn(async (input: { previousAttemptRejected?: string | null }) => {
     if (t.agentThrows) throw new Error("model unavailable")
-    return t.proposal
+    t.agentInputs.push(input)
+    return Array.isArray(t.proposal) ? t.proposal.shift() : t.proposal
   }),
 }))
 vi.mock("@/lib/agent-pipeline/qrTracking", () => ({
@@ -90,6 +92,7 @@ beforeEach(() => {
   t.layoutCalls = 0
   t.layout = { before: { pages: 1, clipped: [] }, after: { pages: 1, clipped: [] } }
   t.synced = []
+  t.agentInputs = []
   t.stored = { id: "f1", repurposed: { instagramDownloadUrl: toDataUrl(square), instagramCaption: "c", textBlurb: "t", nextdoorPost: "n" } }
 })
 
@@ -132,6 +135,27 @@ describe("refineFlyer on a template flyer", () => {
     t.layout.after = { pages: 1, clipped: ["A slightly longer supporting line"] }
     await run("add more detail")
     expect(String((last().lastEdit as { message: string }).message)).toContain("cut off some text")
+  })
+
+  it("retries once, telling the agent why, when its text is over a field's limit", async () => {
+    t.proposal = [
+      proposal({ phone: "(502) 555-0142 · Emergencies: (502) 555-0199 any time" }),
+      proposal({ phone: "(502) 555-0142 · (502) 555-0199" }),
+    ]
+    await run("add a second phone number, (502) 555-0199 for emergencies")
+    expect(t.agentInputs).toHaveLength(2)
+    expect(t.agentInputs[0].previousAttemptRejected).toBeNull()
+    expect(t.agentInputs[1].previousAttemptRejected).toMatch(/characters/)
+    const html = decodeFlyerHtml(last().downloadUrl as string)!
+    expect(readEditableFields(html).find((f) => f.field === "phone")?.value).toBe("(502) 555-0142 · (502) 555-0199")
+  })
+
+  it("gives up after one retry and keeps the previous version", async () => {
+    t.proposal = [proposal({ phone: "x".repeat(60) }), proposal({ phone: "y".repeat(60) })]
+    await run("add a second phone number, (502) 555-0199")
+    expect(t.agentInputs).toHaveLength(2)
+    expect(last()).toMatchObject({ status: "Ready", lastEdit: { outcome: "rejected" } })
+    expect(last().downloadUrl).toBeUndefined()
   })
 
   it("an agent failure leaves the flyer Ready as it was — never Failed", async () => {

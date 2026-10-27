@@ -76,7 +76,8 @@ export function applyQuickEditStyle(html: string, requested: { look: QuickEditLo
 
 export type QuickEditResult =
   | { ok: true; html: string; changedFields: string[]; styleChanged: boolean }
-  | { ok: false; reason: string }
+  /** retryable: the model's text broke a field rule (over a limit, emptied) — worth one corrected attempt. */
+  | { ok: false; reason: string; retryable?: boolean }
 
 export function applyQuickEdit(html: string, edit: QuickEditAgentOutput): QuickEditResult {
   if (!supportsDirectEdit(html)) return { ok: false, reason: "This flyer has no editable fields." }
@@ -90,7 +91,7 @@ export function applyQuickEdit(html: string, edit: QuickEditAgentOutput): QuickE
   let out = html
   if (Object.keys(changes).length) {
     const applied = applyFieldEdits(html, changes)
-    if (applied.rejected.length) return { ok: false, reason: applied.rejected.map((r) => r.message).join(" ") }
+    if (applied.rejected.length) return { ok: false, reason: applied.rejected.map((r) => r.message).join(" "), retryable: true }
     out = applied.html
   }
   const styled = applyQuickEditStyle(out, edit.style)

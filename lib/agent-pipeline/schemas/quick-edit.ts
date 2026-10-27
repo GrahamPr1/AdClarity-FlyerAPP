@@ -40,4 +40,6 @@ export interface QuickEditAgentInput {
   hardLimits: Record<string, number>
   currentStyle: { look: QuickEditLook; emphasis: QuickEditEmphasis }
   instruction: string
+  /** Set on the one retry: why the previous answer was refused (e.g. a field over its limit). */
+  previousAttemptRejected?: string | null
 }

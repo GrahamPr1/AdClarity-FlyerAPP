@@ -1348,28 +1348,45 @@ export async function refineFlyer(
     // mention can move.
     if (supportsDirectEdit(currentHtml)) {
       const fields = readEditableFields(currentHtml)
-      const proposal = await withTimeout(
-        runQuickEditAgent(
-          {
-            business: {
-              name: brandProfile.businessName,
-              trade: brandProfile.positioning,
-              audience: brandProfile.targetAudience.join(", ") || null,
-              voiceTone: brandProfile.brandVoice.join(", ") || null,
+      const propose = (previousAttemptRejected: string | null) =>
+        withTimeout(
+          runQuickEditAgent(
+            {
+              business: {
+                name: brandProfile.businessName,
+                trade: brandProfile.positioning,
+                audience: brandProfile.targetAudience.join(", ") || null,
+                voiceTone: brandProfile.brandVoice.join(", ") || null,
+              },
+              current: fields.map((f) => ({ field: f.field, value: f.value, hardLimit: f.max })),
+              hardLimits: Object.fromEntries(fields.map((f) => [f.field, f.max])),
+              currentStyle: readQuickEditStyle(currentHtml),
+              instruction,
+              previousAttemptRejected,
             },
-            current: fields.map((f) => ({ field: f.field, value: f.value, hardLimit: f.max })),
-            hardLimits: Object.fromEntries(fields.map((f) => [f.field, f.max])),
-            currentStyle: readQuickEditStyle(currentHtml),
-            instruction,
-          },
-          email,
-          runId,
-        ),
-        PIPELINE_TIMEOUT_MS,
-      )
+            email,
+            runId,
+          ),
+          PIPELINE_TIMEOUT_MS,
+        )
+      let proposal = await propose(null)
       stageMark(runId, t0, "quick edit proposed")
-      const applied = applyQuickEdit(currentHtml, proposal)
-      if (!applied.ok) return await keepPrevious(applied.reason)
+      let applied = applyQuickEdit(currentHtml, proposal)
+      // One corrected attempt when the text broke a field rule (measured:
+      // "add a second phone number" came back at 45 characters for a
+      // 40-character line). Told exactly why; never more than one retry.
+      if (!applied.ok && applied.retryable) {
+        proposal = await propose(applied.reason)
+        stageMark(runId, t0, "quick edit re-proposed")
+        applied = applyQuickEdit(currentHtml, proposal)
+      }
+      if (!applied.ok) {
+        return await keepPrevious(
+          applied.retryable
+            ? `Your change wasn't applied: ${applied.reason} Your flyer is unchanged — try a shorter wording.`
+            : `${applied.reason} Your flyer is unchanged.`,
+        )
+      }
       const problems = await vetEdit(currentHtml, applied.html, instruction, ctx, runId)
       if (problems.length) return await keepPrevious(rejectionMessage(problems))
 
