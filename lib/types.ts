@@ -509,6 +509,13 @@ export interface FlyerDeliverable {
   generationMode?: "ai" | "template"
   /** Set when status is "Failed" — shown to the client, with a retry option. */
   error?: string
+  /**
+   * The outcome of the most recent AI edit ("Want to change something?"),
+   * shown on the flyer. An edit that would break the flyer is rejected and
+   * the previous version kept, so without this the client would see their
+   * request silently do nothing.
+   */
+  lastEdit?: { at: string; outcome: "applied" | "rejected"; message: string }
 }
 
 // ---- Early Access waitlist -------------------------------------------------
@@ -924,7 +931,7 @@ export interface AgentFlag {
 // description of what they sell. Listed here so its cost is attributed like
 // every other agent's rather than landing in an untracked bucket (the same
 // gap "polish" and "repurpose" were added to close).
-export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt" | "scrape" | "coloring" | "goal" | "polish" | "repurpose" | "product"
+export type GenerationAgentType = "intake" | "brand" | "flyer" | "quick_prompt" | "scrape" | "coloring" | "goal" | "polish" | "repurpose" | "product" | "quick_edit"
 
 export interface GenerationLogEntry {
   id: string

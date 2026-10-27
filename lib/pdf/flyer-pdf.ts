@@ -294,3 +294,55 @@ async function logFontsOnce(page: import("playwright-core").Page): Promise<void>
     console.warn("[pdf] font check failed", err)
   }
 }
+
+/**
+ * How a document actually lays out when printed — the half of "print-safe"
+ * a string check can't see. Used to vet a quick edit or refinement before it
+ * is saved (lib/agent-pipeline/pipeline.ts): the edited flyer is measured
+ * against the current one, so only problems the EDIT introduced count.
+ *
+ *  - pages: the PDF's page count. A line that outgrows a single-page layout
+ *    spills onto a second page; a flyer is one physical sheet.
+ *  - clipped: text cut off inside a fixed-size box. The templates size every
+ *    section and set overflow:hidden, so an over-long line doesn't spill —
+ *    it silently disappears off the edge.
+ *
+ * Same browser, fonts and request policy as the real PDF, so it measures
+ * what the client would print.
+ */
+export interface LayoutMeasure {
+  pages: number
+  clipped: string[]
+}
+
+export async function measureLayout(html: string): Promise<LayoutMeasure> {
+  const { pdf } = await renderFlyerPdf(html)
+  const pages = (pdf.toString("latin1").match(/\/Type\s*\/Page(?!s)/g) ?? []).length
+
+  const { browser, release } = await acquireBrowser()
+  const context = await browser.newContext({ javaScriptEnabled: false })
+  const policy = pdfRequestPolicy()
+  await context.route("**/*", (route) =>
+    isAllowedPdfRequest(route.request().url(), route.request().method(), policy) ? route.continue() : route.abort("blockedbyclient"),
+  )
+  try {
+    const page = await context.newPage()
+    await page.setContent(html, { waitUntil: "load" })
+    await page.evaluate(() => document.fonts.ready.then(() => undefined)).catch(() => undefined)
+    const clipped = await page.evaluate(() => {
+      const out: string[] = []
+      for (const el of Array.from(document.querySelectorAll<HTMLElement>("body *"))) {
+        const cs = getComputedStyle(el)
+        if (!/hidden|clip/.test(`${cs.overflow} ${cs.overflowX} ${cs.overflowY}`)) continue
+        const text = (el.textContent ?? "").replace(/\s+/g, " ").trim()
+        if (!text) continue
+        if (el.scrollHeight > el.clientHeight + 2 || el.scrollWidth > el.clientWidth + 2) out.push(text.slice(0, 60))
+      }
+      return out
+    })
+    return { pages, clipped }
+  } finally {
+    await context.close().catch(() => undefined)
+    await release()
+  }
+}

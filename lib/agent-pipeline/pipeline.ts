@@ -2,7 +2,13 @@ import type { IntakeSubmission, PlanId } from "@/lib/types"
 import { rehostExternalImage } from "@/lib/rehost-image"
 import { getAppEnvironment } from "@/lib/env"
 import { safeLogoUrl } from "@/lib/logo-url"
-import { setClientFontChoice, getClientFontChoice, markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile, setGenerationStage } from "@/lib/store"
+import { setClientFontChoice, getClientFontChoice, markFlyersInProgress, markFlyerFailed, markFlyersFailed, savePipelineState, seedFlyerDeliverables, updateDeliverable, getClient, saveBrandProfile, savePendingBrandProfile, setGenerationStage, getDeliverablesForEmail, releaseFlyerQuota } from "@/lib/store"
+import { runQuickEditAgent } from "./agents/quickEditAgent"
+import { applyQuickEdit, readQuickEditStyle } from "./quick-edit"
+import { checkEditInvariants, type InvariantContext } from "./edit-invariants"
+import { readEditableFields, supportsDirectEdit } from "./flyer-edit"
+import { syncOfferPage } from "./offer-page-sync"
+import { measureLayout } from "@/lib/pdf/flyer-pdf"
 import { runIntakeAgent } from "./agents/intakeAgent"
 import { runBrandAgent } from "./agents/brandAgent"
 import { runFlyerAgent } from "./agents/flyerAgent"
@@ -39,6 +45,8 @@ import {
   canonicalOfferFrom,
   assertOfferPreserved,
   toDataUrl,
+  ensurePageSize,
+  ensureScrollable,
 } from "./flyer-html"
 
 // QR tracking, multi-channel repurposing, and AI-generated photos are all
@@ -1311,12 +1319,108 @@ export async function refineFlyer(
   /** The client's logo, so a refinement can't quietly drop it. Refine has no
    *  intake to read it from — unlike the batch and retry paths. */
   logoUrl: string | null = null,
+  /** True when this edit spent a flyer credit; refunded if the edit is rejected. */
+  paid = false,
 ): Promise<void> {
   await updateDeliverable(email, { type: "flyer", id: flyerRequest.id, status: "In Progress" })
   const runId = flyerRequest.id
   const t0 = Date.now()
 
+  // Every way an edit can end unsaved. The flyer the client already had is
+  // still good, so it goes back to Ready exactly as it was (never "Failed"),
+  // with a note saying why, and a paid edit is refunded.
+  const keepPrevious = async (message: string) => {
+    console.warn(`[agent-pipeline] edit for ${runId} not applied: ${message}`)
+    await updateDeliverable(email, { type: "flyer", id: runId, status: "Ready", lastEdit: { at: new Date().toISOString(), outcome: "rejected", message } })
+    if (paid) await releaseFlyerQuota(email, 1).catch((e) => console.error(`[agent-pipeline] refund failed for ${runId}:`, e))
+  }
+
   try {
+    // Refinement reuses the SAME tracking code, so the same QR image goes
+    // back in — regenerating it would silently invalidate any already-printed
+    // copy of this flyer.
+    const qrDataUrl = existingTrackingCode ? await qrDataUrlForCode(existingTrackingCode) : null
+    const ctx: InvariantContext = { businessName: brandProfile.businessName || null, logoUrl, qrDataUrl }
+
+    // Template flyers: a copy edit in code, not a page rewrite. The layout,
+    // colours, logo, QR and photo are fixed; only the words (and a short
+    // list of type/emphasis options) change, so nothing the client didn't
+    // mention can move.
+    if (supportsDirectEdit(currentHtml)) {
+      const fields = readEditableFields(currentHtml)
+      const propose = (previousAttemptRejected: string | null) =>
+        withTimeout(
+          runQuickEditAgent(
+            {
+              business: {
+                name: brandProfile.businessName,
+                trade: brandProfile.positioning,
+                audience: brandProfile.targetAudience.join(", ") || null,
+                voiceTone: brandProfile.brandVoice.join(", ") || null,
+              },
+              current: fields.map((f) => ({ field: f.field, value: f.value, hardLimit: f.max })),
+              hardLimits: Object.fromEntries(fields.map((f) => [f.field, f.max])),
+              currentStyle: readQuickEditStyle(currentHtml),
+              instruction,
+              previousAttemptRejected,
+            },
+            email,
+            runId,
+          ),
+          PIPELINE_TIMEOUT_MS,
+        )
+      let proposal = await propose(null)
+      stageMark(runId, t0, "quick edit proposed")
+      let applied = applyQuickEdit(currentHtml, proposal)
+      // One corrected attempt when the text broke a field rule (measured:
+      // "add a second phone number" came back at 45 characters for a
+      // 40-character line). Told exactly why; never more than one retry.
+      if (!applied.ok && applied.retryable) {
+        proposal = await propose(applied.reason)
+        stageMark(runId, t0, "quick edit re-proposed")
+        applied = applyQuickEdit(currentHtml, proposal)
+      }
+      if (!applied.ok) {
+        return await keepPrevious(
+          applied.retryable
+            ? `Your change wasn't applied: ${applied.reason} Your flyer is unchanged — try a shorter wording.`
+            : `${applied.reason} Your flyer is unchanged.`,
+        )
+      }
+      const problems = await vetEdit(currentHtml, applied.html, instruction, ctx, runId)
+      if (problems.length) return await keepPrevious(rejectionMessage(problems))
+
+      // The square Instagram version carries the same fields; it gets the
+      // same edit, or keeps its current text if the edit doesn't fit it.
+      const stored = (await getDeliverablesForEmail(email)).flyers.find((f) => f.id === runId)
+      let repurposed = stored?.repurposed
+      const igHtml = repurposed?.instagramDownloadUrl ? fromDataUrl(repurposed.instagramDownloadUrl) : null
+      if (repurposed && igHtml) {
+        const ig = applyQuickEdit(igHtml, proposal)
+        if (ig.ok && checkEditInvariants(igHtml, ig.html, instruction, ctx).length === 0) {
+          repurposed = { ...repurposed, instagramDownloadUrl: toDataUrl(ig.html) }
+        } else {
+          console.warn(`[agent-pipeline] edit for ${runId}: Instagram version kept as it was (${ig.ok ? "failed checks" : ig.reason})`)
+        }
+      }
+
+      await updateDeliverable(email, {
+        type: "flyer",
+        id: runId,
+        status: "Ready",
+        downloadUrl: toDataUrl(applied.html),
+        ...(repurposed ? { repurposed } : {}),
+        lastEdit: {
+          at: new Date().toISOString(),
+          outcome: "applied",
+          message: proposal.cannotApply ? `${proposal.summary} ${proposal.cannotApply}` : proposal.summary,
+        },
+      })
+      await syncOfferPage(runId, existingTrackingCode, currentHtml, applied.html)
+      stageMark(runId, t0, "quick edit saved")
+      return
+    }
+
     const flyerResult = await withTimeout(
       runFlyerAgent(
         {
@@ -1352,18 +1456,17 @@ export async function refineFlyer(
     const flyer = flyerResult.flyers[0]
     if (!flyer) throw new Error("Flyer Agent returned no result")
 
-    if (existingTrackingCode) await backfillTrackingContent(existingTrackingCode, flyer)
+    const candidate = substituteLogo(substituteQr(preservePhotoCredit(currentHtml, applyLegibility(flyer.html, `flyer ${flyer.id}`)), qrDataUrl), logoUrl)
+    const problems = await vetEdit(currentHtml, candidate, instruction, ctx, runId)
+    if (problems.length) return await keepPrevious(rejectionMessage(problems))
 
-    // Refinement reuses the SAME tracking code, so the same QR image goes
-    // back in — regenerating it would silently invalidate any already-printed
-    // copy of this flyer.
-    const qrDataUrl = existingTrackingCode ? await qrDataUrlForCode(existingTrackingCode) : null
+    if (existingTrackingCode) await backfillTrackingContent(existingTrackingCode, flyer)
 
     await updateDeliverable(email, {
       type: "flyer",
       id: flyer.id,
       status: "Ready",
-      downloadUrl: toDataUrl(substituteLogo(substituteQr(preservePhotoCredit(currentHtml, applyLegibility(flyer.html, `flyer ${flyer.id}`)), qrDataUrl), logoUrl)),
+      downloadUrl: toDataUrl(candidate),
       trackingCode: existingTrackingCode,
       // A refined flyer IS an AI flyer from here on: refineFlyer sends the
       // current HTML to runFlyerAgent, so what comes back is agent-authored
@@ -1371,6 +1474,7 @@ export async function refineFlyer(
       // "template" would have made it a lie the moment anyone edited, and
       // would have mis-attributed this flyer's cost in any per-mode analysis.
       generationMode: "ai",
+      lastEdit: { at: new Date().toISOString(), outcome: "applied", message: "Your change was applied." },
     })
 
     if (includeRepurposing) {
@@ -1398,8 +1502,37 @@ export async function refineFlyer(
   } catch (err) {
     const reason = describeFailure(err)
     console.error("[agent-pipeline] Refinement failed:", reason)
-    await markFlyerFailed(email, flyerRequest.id, reason).catch((e) => console.error("[agent-pipeline] Failed to record refinement failure:", e))
+    await keepPrevious("We couldn't apply that change, so your flyer is unchanged. Please try again.").catch((e) =>
+      console.error("[agent-pipeline] Failed to record refinement failure:", e),
+    )
   }
+}
+
+/**
+ * Everything an edit must not break, checked before it is saved: the
+ * content invariants (edit-invariants.ts) and the printed layout (measured in
+ * the PDF renderer against the current version, so only damage the EDIT
+ * introduced counts). A layout that can't be measured is treated as unsafe.
+ */
+async function vetEdit(before: string, after: string, instruction: string, ctx: InvariantContext, runId: string): Promise<string[]> {
+  const problems = checkEditInvariants(before, after, instruction, ctx)
+  if (problems.length) return problems
+  try {
+    // Measured exactly as the PDF route prints it.
+    const [was, now] = await Promise.all([measureLayout(ensurePageSize(ensureScrollable(before))), measureLayout(ensurePageSize(ensureScrollable(after)))])
+    if (now.pages > was.pages) problems.push("it would run onto an extra page")
+    if (now.clipped.length > was.clipped.length) problems.push("it would cut off some text at the edge of its box")
+  } catch (err) {
+    console.error(`[agent-pipeline] layout check failed for ${runId}:`, err instanceof Error ? err.message : err)
+    problems.push("we couldn't confirm it still prints correctly")
+  }
+  return problems
+}
+
+function rejectionMessage(problems: string[]): string {
+  // Each reason reads after "because": "it removed the phone number", "the
+  // price you asked for ($89) isn't on the flyer", where "it" is the change.
+  return `Your change wasn't applied, because ${problems.join(", and ")}. Your flyer is unchanged — try rewording the request.`
 }
 
 export { fromDataUrl }

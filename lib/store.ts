@@ -418,6 +418,7 @@ export async function updateDeliverable(
     /** Enterprise mode only — which approved assets backed this campaign. */
     sources?: CampaignSource[]
     generationMode?: "ai" | "template"
+    lastEdit?: FlyerDeliverable["lastEdit"]
   },
 ): Promise<FlyerDeliverable | null> {
   if (payload.type !== "flyer") return null
@@ -437,6 +438,7 @@ export async function updateDeliverable(
   // at all (see FlyerDeliverable.sources in lib/types.ts).
   if (payload.sources && payload.sources.length > 0) flyer.sources = payload.sources
   if (payload.generationMode) flyer.generationMode = payload.generationMode
+  if (payload.lastEdit) flyer.lastEdit = payload.lastEdit
   await writeDeliverables(email, current)
   return flyer
 }
@@ -1361,6 +1363,18 @@ export async function reserveFlyerQuota(
     redis.set(lastCampaignAtKey(email), new Date().toISOString()),
   ])
   return { ok: true, flyersCreated: after }
+}
+
+/**
+ * Gives back a reservation that produced nothing — a paid AI edit that was
+ * rejected because it would have broken the flyer. The client shouldn't pay
+ * for a change they didn't get. Floors at zero.
+ */
+export async function releaseFlyerQuota(email: string, count: number): Promise<void> {
+  const after = await redis.decrby(countKey(email), count)
+  if (after < 0) await redis.set(countKey(email), 0)
+  const lifetime = await redis.decrby(lifetimeCountKey(email), count)
+  if (lifetime < 0) await redis.set(lifetimeCountKey(email), 0)
 }
 
 export async function incrementFlyersCreated(email: string, by: number): Promise<number> {

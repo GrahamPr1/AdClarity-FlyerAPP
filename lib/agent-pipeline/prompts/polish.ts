@@ -1,3 +1,5 @@
+import { COPY_RULES } from "./marketing-guidance"
+
 /**
  * Template mode's copy pass.
  *
@@ -28,21 +30,7 @@ Also return two plain-text versions of the same promotion for other channels:
    First person, plain, no marketing voice. Two or three sentences.
 
 Rules:
-- PLAIN TEXT ONLY. No HTML, no markdown, no quotes around the lines, no emoji.
-- COUNT THE CHARACTERS of each line before you respond, and check both against
-  \`hardLimits\`. These are physical limits of a fixed layout, not suggestions:
-  anything over is cut off mid-phrase, and what gets lost is the end of the
-  line — usually the very detail that made the offer concrete ("installed",
-  "for dogs under 30 lbs", a booking deadline).
-- If a line is over, rewrite it shorter rather than trimming a word off the
-  end. Drop a clause, not the specifics: keep prices, dates and quantities.
-- Shorter is always safe. Aim a few characters UNDER each limit.
-- Use only facts present in the input. Never invent a discount, a date, a
-  guarantee, a licence, or a years-in-business claim that was not given.
-- Keep the client's own offer intact. If they said $99, it stays $99.
-- Match \`voiceTone\`. Do not add exclamation marks the owner did not use.
-- No filler openers ("Introducing", "Discover", "Elevate", "Unlock").
-- Title case or sentence case for the headline; sentence case for supporting.
+${COPY_RULES}
 
 If the promotion text is vague, write the most concrete honest line the input
 supports rather than padding it with adjectives.`
