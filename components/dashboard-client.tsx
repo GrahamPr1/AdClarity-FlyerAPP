@@ -481,6 +481,8 @@ export function FlyerCard({
   // by the admin roster, which views other clients' flyers; a client's own
   // dashboard omits it and the route falls back to their session identity.
   const viewUrl = `/api/flyers/${flyer.id}/view?v=1${ownerEmail ? `&email=${encodeURIComponent(ownerEmail)}` : ""}`
+  // Read once per mount: the "last edit" note only needs day-level precision.
+  const [mountedAt] = useState(() => Date.now())
 
   return (
     <div className="group/card rounded-2xl border border-border bg-card overflow-hidden flex flex-col shadow-[var(--shadow-soft)] transition-shadow duration-300 hover:shadow-[var(--shadow-lift)]">
@@ -610,6 +612,15 @@ export function FlyerCard({
             </div>
           )}
           {failed && flyer.error && <p className="mt-1.5 text-xs text-[var(--destructive)]/90 leading-snug">{flyer.error}</p>}
+          {/* The latest AI edit's outcome, for a day — a rejected edit leaves
+              the flyer unchanged, which would otherwise look like nothing
+              happened. */}
+          {ready && flyer.lastEdit && mountedAt - Date.parse(flyer.lastEdit.at) < 24 * 60 * 60 * 1000 && (
+            <p className={`mt-1.5 text-xs leading-snug ${flyer.lastEdit.outcome === "rejected" ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>
+              {flyer.lastEdit.outcome === "rejected" ? "Last edit not applied: " : "Last edit: "}
+              {flyer.lastEdit.message}
+            </p>
+          )}
           {editing && ready && (
             <FlyerEditPanel flyerId={flyer.id} onSaved={() => { void refreshStats(); onEdited?.() }} />
           )}

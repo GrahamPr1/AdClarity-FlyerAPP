@@ -288,6 +288,10 @@ function QuickPromptResultView({ flyerId, hasSavedBrand, onBack }: { flyerId: st
   const [refining, setRefining] = useState(false)
   const [refineError, setRefineError] = useState("")
   const [refineNotice, setRefineNotice] = useState("")
+  // When the last edit was sent, so its outcome (flyer.lastEdit) replaces the
+  // "Applying…" notice once the flyer is Ready again — including when the
+  // edit was rejected and the flyer kept as it was.
+  const [refineSentAt, setRefineSentAt] = useState(0)
 
   async function handleRetry(id: string) {
     const res = await fetch("/api/deliverables/retry", {
@@ -359,7 +363,8 @@ function QuickPromptResultView({ flyerId, hasSavedBrand, onBack }: { flyerId: st
       setRefineError(responseData.message ?? responseData.error ?? "Couldn't apply that change — please try again.")
       return
     }
-    setRefineNotice(responseData.isFree ? "Applying your change…" : "Applying your change — this used an additional flyer credit (3 free refinements used for this one).")
+    setRefineNotice(responseData.isFree ? "Applying your change…" : "Applying your change — this uses an additional flyer credit (3 free refinements used for this one), refunded if the change can't be made.")
+    setRefineSentAt(Date.now() - 5000)
     setRefineInstruction("")
     mutate()
   }
@@ -408,10 +413,16 @@ function QuickPromptResultView({ flyerId, hasSavedBrand, onBack }: { flyerId: st
         <form onSubmit={handleRefine} className="mt-6 max-w-sm flex flex-col gap-2">
           <label htmlFor="refine" className="block text-sm font-medium">Want to change something?</label>
           <textarea id="refine" rows={2} value={refineInstruction} onChange={(e) => setRefineInstruction(e.target.value)}
-            placeholder="e.g. 'make the headline bigger', 'use blue instead of green'"
+            placeholder="e.g. 'make the offer stand out', 'add 24/7 emergency service'"
             className="w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)]" />
           {refineError && <p role="alert" className="text-xs text-red-400">{refineError}</p>}
-          {refineNotice && <p className="text-xs text-muted-foreground">{refineNotice}</p>}
+          {flyer?.lastEdit && refineSentAt > 0 && Date.parse(flyer.lastEdit.at) >= refineSentAt ? (
+            <p role="status" className={`text-xs leading-snug ${flyer.lastEdit.outcome === "rejected" ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>
+              {flyer.lastEdit.message}
+            </p>
+          ) : (
+            refineNotice && <p className="text-xs text-muted-foreground">{refineNotice}</p>
+          )}
           <button type="submit" disabled={refining || !refineInstruction.trim()}
             className="self-start px-4 py-2 rounded-lg border border-border text-sm hover:bg-[var(--surface-sunken)] disabled:opacity-60 transition-colors">
             {refining ? "Applying…" : "Apply change"}

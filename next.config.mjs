@@ -70,6 +70,10 @@ const nextConfig = {
     // (So serverExternalPackages alone does not ship them whole, and
     // node_modules globs DO match here — see the note above.)
     "/api/flyers/\\[id\\]/pdf": ["./lib/pdf/fonts/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    // An AI edit is checked by rendering it before it is saved (measureLayout
+    // in lib/pdf/flyer-pdf.ts, called from refineFlyer), so this function
+    // needs the same browser and fonts as the PDF route.
+    "/api/quick-prompt/refine": ["./lib/pdf/fonts/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
     // The NOP renderer reads Basic Benefits' kit by path at runtime
     // (masters, Poppins TTFs, logo, content.json, digital/ thumbnails), which
     // a bundler can't follow, and needs the same two packages as the PDF
