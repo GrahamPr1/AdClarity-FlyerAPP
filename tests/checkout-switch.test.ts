@@ -68,7 +68,7 @@ describe("createCheckoutSession with the kill switch", () => {
     vi.stubEnv("CHECKOUT_ENABLED", undefined as unknown as string)
     const { createCheckoutSession } = await import("@/lib/billing")
     const result = await createCheckoutSession("buyer@example.com", "pro", "monthly", "https://oneflyer.org")
-    expect(result).toEqual({ kind: "checkout", url: "https://checkout.stripe.com/c/pay/cs_1" })
+    expect(result).toEqual({ kind: "checkout", url: "https://checkout.stripe.com/c/pay/cs_1", id: "cs_1" })
     expect(stripeFake.checkout.sessions.create).toHaveBeenCalledTimes(1)
     expect(stripeFake.checkout.sessions.create.mock.calls[0][0]).toMatchObject({ mode: "subscription", automatic_tax: { enabled: true } })
   })
