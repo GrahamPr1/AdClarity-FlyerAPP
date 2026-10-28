@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { trackEvent } from "@/lib/analytics"
+import { queueSignup, trackEvent, trackSignup } from "@/lib/analytics"
 import { NOP_LANG_COOKIE, langFromAcceptLanguage, parseNopLang, tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 import { NopLangProvider, NopLanguageToggle } from "@/components/nop-i18n"
 
@@ -32,6 +32,22 @@ function nopVisitorLang(next: string): NopLang | null {
 /** The Spanish string for a NOP Spanish visitor; otherwise the original English, unchanged. */
 function pick(es: boolean, key: NopStringKey, english: string): string {
   return es ? tNop("es", key) : english
+}
+
+/**
+ * Sends the signed-in visitor on to `next`. /checkout is a route handler that
+ * creates a Stripe Checkout Session and redirects off-site, so it gets one
+ * plain full navigation: router.push first tried two client-side fetches of
+ * it before falling back to a page load, and every one of those three
+ * requests created its own Stripe session.
+ */
+function goNext(router: ReturnType<typeof useRouter>, next: string) {
+  if (next.startsWith("/checkout")) {
+    window.location.assign(next)
+    return
+  }
+  router.push(next)
+  router.refresh()
 }
 
 function AdminLoginForm() {
@@ -184,8 +200,7 @@ function ClientLoginForm({
       return
     }
 
-    router.push(next)
-    router.refresh()
+    goNext(router, next)
   }
 
   async function handleSignup(e: React.FormEvent) {
@@ -212,7 +227,7 @@ function ClientLoginForm({
       setError(L("auth.err_network", "Couldn't reach the server — check your connection and try again."))
       return
     }
-    const data = await res.json().catch(() => ({}) as { error?: string })
+    const data = await res.json().catch(() => ({}) as { error?: string; signupId?: string })
 
     if (!res.ok) {
       setWorking(false)
@@ -232,8 +247,16 @@ function ClientLoginForm({
     }
 
     trackEvent("signup_completed")
-    router.push(next)
-    router.refresh()
+    // Fired after the server confirmed the new account. /checkout is a route
+    // handler that redirects straight to Stripe, a full page change that
+    // would lose GA4's batched hit, so that path queues the signup for the
+    // next OneFlyer page (see queueSignup); every other `next` is a
+    // client-side navigation that keeps the page, so it fires now.
+    if (data.signupId) {
+      if (next.startsWith("/checkout")) queueSignup("email", data.signupId)
+      else trackSignup("email", data.signupId)
+    }
+    goNext(router, next)
   }
 
   async function handleForgot(e: React.FormEvent) {

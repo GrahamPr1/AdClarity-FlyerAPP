@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSessionToken, hashPassword, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/auth"
-import { setClientPasswordHash, verifyAndConsumePasswordResetToken, recordClientCreatedAtIfUnset } from "@/lib/store"
+import { getClient, getClientCreatedAt, getClientPasswordHash, setClientPasswordHash, verifyAndConsumePasswordResetToken, recordClientCreatedAtIfUnset } from "@/lib/store"
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -31,6 +31,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "This reset link is invalid or has expired — request a new one." }, { status: 401 })
   }
 
+  // A reset link sent to an address OneFlyer has never seen is how a brand-new
+  // client who tried to log in first ends up creating their account. Only that
+  // case counts as a signup: not a reset of an existing password, and not a
+  // pre-password-era account (it has a client record) claiming its first one.
+  const [priorHash, priorClient, priorCreatedAt] = await Promise.all([getClientPasswordHash(email), getClient(email), getClientCreatedAt(email)])
+  const newAccount = !priorHash && !priorClient && !priorCreatedAt
+
   await setClientPasswordHash(email, await hashPassword(password))
   // Covers the "claiming a pre-password-era account" case too — this is
   // the first time this email has ever had a real credential if it never
@@ -39,7 +46,9 @@ export async function POST(request: NextRequest) {
   await recordClientCreatedAtIfUnset(email)
 
   const sessionToken = await createSessionToken(email)
-  const res = NextResponse.json({ ok: true })
+  // signupId only for a new account: the client fires its one signup
+  // conversion from it (lib/analytics.ts trackSignup).
+  const res = NextResponse.json(newAccount ? { ok: true, signupId: crypto.randomUUID() } : { ok: true })
   res.cookies.set(SESSION_COOKIE, sessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

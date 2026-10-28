@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
   await recordClientCreatedAtIfUnset(email)
 
   const token = await createSessionToken(email)
-  const res = NextResponse.json({ ok: true })
+  // signupId: an opaque one-time id the client keys its conversion event to
+  // (lib/analytics.ts trackSignup), so the event fires once per new account.
+  const res = NextResponse.json({ ok: true, signupId: crypto.randomUUID() })
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

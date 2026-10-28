@@ -3,6 +3,7 @@ import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { createCheckoutSession, createPortalSession } from "@/lib/billing"
 import { isPaidPlanId } from "@/lib/stripe"
 import { getClient } from "@/lib/store"
+import { BEGIN_CHECKOUT_COOKIE, checkoutParams, type PendingBeginCheckout } from "@/lib/checkout-tracking"
 
 // GET /checkout?plan=basic|pro&interval=monthly|annual
 //
@@ -33,7 +34,23 @@ export async function GET(request: NextRequest) {
   const origin = request.nextUrl.origin
   try {
     const result = await createCheckoutSession(session.sub, plan, interval, origin)
-    if (result.kind === "checkout") return NextResponse.redirect(result.url, 303)
+    if (result.kind === "checkout") {
+      const res = NextResponse.redirect(result.url, 303)
+      // The begin_checkout conversion. This page leaves for Stripe at once,
+      // which would lose GA4's batched hit, so it's handed to the next
+      // OneFlyer page (Stripe's success or cancel URL) to send; see
+      // flushBeginCheckout in lib/analytics.ts. Only a real Checkout Session
+      // gets here: already-subscribed and kill-switch redirects never count.
+      const pending: PendingBeginCheckout = { id: result.id, params: checkoutParams(plan, interval) }
+      res.cookies.set(BEGIN_CHECKOUT_COOKIE, JSON.stringify(pending), {
+        httpOnly: false, // read by the browser, which sends the event
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24,
+        path: "/",
+      })
+      return res
+    }
     // CHECKOUT_ENABLED is off: back to pricing, where the CTAs say why.
     if (result.kind === "unavailable") return NextResponse.redirect(new URL("/#pricing", request.url))
 

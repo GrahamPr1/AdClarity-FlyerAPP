@@ -62,7 +62,7 @@ export async function getOrCreateStripeCustomer(client: ClientRecord): Promise<s
   return customer.id
 }
 
-export type CheckoutResult = { kind: "checkout"; url: string } | { kind: "already_subscribed" } | { kind: "unavailable" }
+export type CheckoutResult = { kind: "checkout"; url: string; id: string } | { kind: "already_subscribed" } | { kind: "unavailable" }
 
 /**
  * A subscription-mode Checkout Session for one paid plan.
@@ -105,11 +105,14 @@ export async function createCheckoutSession(
     // the same sentence as under the pricing CTAs.
     custom_text: { submit: { message: renewalDisclosure(interval) } },
     metadata: { [EMAIL_METADATA_KEY]: email, oneflyer_plan: plan, oneflyer_interval: interval },
-    success_url: `${origin}/dashboard?checkout=success`,
+    // {CHECKOUT_SESSION_ID} is filled in by Stripe. The success page sends it
+    // to /api/billing/checkout-result, which checks the session with Stripe
+    // before the purchase conversion may fire (the URL alone proves nothing).
+    success_url: `${origin}/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/#pricing`,
   })
   if (!session.url) throw new Error(`Checkout session ${session.id} has no URL`)
-  return { kind: "checkout", url: session.url }
+  return { kind: "checkout", url: session.url, id: session.id }
 }
 
 /** Customer Portal: update card, switch plan, cancel, invoices. */
