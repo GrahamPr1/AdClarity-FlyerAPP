@@ -34,6 +34,22 @@ function pick(es: boolean, key: NopStringKey, english: string): string {
   return es ? tNop("es", key) : english
 }
 
+/**
+ * Sends the signed-in visitor on to `next`. /checkout is a route handler that
+ * creates a Stripe Checkout Session and redirects off-site, so it gets one
+ * plain full navigation: router.push first tried two client-side fetches of
+ * it before falling back to a page load, and every one of those three
+ * requests created its own Stripe session.
+ */
+function goNext(router: ReturnType<typeof useRouter>, next: string) {
+  if (next.startsWith("/checkout")) {
+    window.location.assign(next)
+    return
+  }
+  router.push(next)
+  router.refresh()
+}
+
 function AdminLoginForm() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -184,8 +200,7 @@ function ClientLoginForm({
       return
     }
 
-    router.push(next)
-    router.refresh()
+    goNext(router, next)
   }
 
   async function handleSignup(e: React.FormEvent) {
@@ -241,8 +256,7 @@ function ClientLoginForm({
       if (next.startsWith("/checkout")) queueSignup("email", data.signupId)
       else trackSignup("email", data.signupId)
     }
-    router.push(next)
-    router.refresh()
+    goNext(router, next)
   }
 
   async function handleForgot(e: React.FormEvent) {
