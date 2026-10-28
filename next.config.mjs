@@ -92,7 +92,9 @@ const nextConfig = {
   //
   // /faq points at the homepage section rather than a page of its own,
   // because the FAQ already has full answers there (see FAQS in
-  // lib/marketing.ts) and a second copy would drift.
+  // lib/marketing.ts) and a second copy would drift. /pricing is the same:
+  // plans live in the homepage section, and Meta ads now send paid traffic,
+  // so a guessed or old /pricing link must never 404.
   async redirects() {
     return [
       { source: "/signup", destination: "/onboarding", permanent: true },
@@ -100,6 +102,7 @@ const nextConfig = {
       { source: "/create", destination: "/onboarding", permanent: true },
       { source: "/demo", destination: "/onboarding", permanent: true },
       { source: "/faq", destination: "/#faq", permanent: true },
+      { source: "/pricing", destination: "/#pricing", permanent: true },
     ]
   },
 }
