@@ -1,4 +1,7 @@
+import type { Metadata } from "next"
 import { MobileNav } from "@/components/mobile-nav"
+import { CANONICAL_SITE_URL } from "@/lib/site-url"
+import { SITE_OPEN_GRAPH } from "@/lib/site-metadata"
 import { FooterAccountLinks } from "@/components/account-menu"
 import { RevealText } from "@/components/reveal-text"
 import { Reveal } from "@/components/reveal"
@@ -255,6 +258,11 @@ const STEPS = [
 
 /* ------------------------------- Capabilities ----------------------------- */
 /* --------------------------------- Page ---------------------------------- */
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: { ...SITE_OPEN_GRAPH, url: CANONICAL_SITE_URL },
+}
+
 export default function Page() {
   return (
     <div id="top" className="min-h-screen overflow-x-hidden bg-background text-foreground">

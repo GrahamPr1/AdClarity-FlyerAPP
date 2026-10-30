@@ -1,7 +1,7 @@
 import { LegalPage, H2, UL } from "@/app/legal/legal-page"
 import { PLAN_LIMITS } from "@/lib/types"
 
-export const metadata = { title: "Terms of Service" }
+export const metadata = { title: "Terms of Service", alternates: { canonical: "/terms" } }
 
 // Deliberately states the real state of the product, written against the code:
 // Stripe subscriptions (lib/billing.ts — renewal, failed-payment retries and

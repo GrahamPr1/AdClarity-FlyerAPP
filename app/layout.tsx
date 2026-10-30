@@ -6,6 +6,8 @@ import { Analytics } from '@vercel/analytics/next'
 import { GoogleAnalytics } from '@/components/google-analytics'
 import { GoogleTagManager, GoogleTagManagerNoScript } from '@/components/google-tag-manager'
 import { ConversionEvents } from '@/components/conversion-events'
+import { CANONICAL_SITE_URL } from '@/lib/site-url'
+import { SITE_DESCRIPTION, SITE_OPEN_GRAPH, SITE_TITLE } from '@/lib/site-metadata'
 import './globals.css'
 
 // Body copy. 400/500 only — the editorial layout leans on the serif for
@@ -31,11 +33,9 @@ const dmSerif = DM_Serif_Display({
 // The real production domain. This was previously "oneflyer.co", which the
 // project doesn't own (it's oneflyer.ORG — see `vercel domains ls`), so every
 // Open Graph share pointed at somebody else's domain.
-const SITE_URL = 'https://oneflyer.org'
-
-const TITLE = 'OneFlyer — Turn One Promotion Into a Full Marketing Campaign'
-const DESCRIPTION =
-  'Create professional flyers, Instagram posts, text-blast copy, Nextdoor posts, and trackable QR campaigns in minutes. One promotion becomes a full campaign, matched to your business. 3 campaigns free, no credit card.'
+const SITE_URL = CANONICAL_SITE_URL
+const TITLE = SITE_TITLE
+const DESCRIPTION = SITE_DESCRIPTION
 
 export const metadata: Metadata = {
   // Lets relative OG/Twitter image paths and canonical URLs resolve instead
@@ -58,17 +58,10 @@ export const metadata: Metadata = {
     'OneFlyer',
   ],
   authors: [{ name: 'OneFlyer' }],
-  alternates: {
-    canonical: '/',
-  },
-  openGraph: {
-    title: TITLE,
-    description: DESCRIPTION,
-    type: 'website',
-    url: SITE_URL,
-    siteName: 'OneFlyer',
-    locale: 'en_US',
-  },
+  // No canonical or og:url here: every page inherits the layout's metadata,
+  // so a canonical of '/' told Google that /about, /privacy and the rest were
+  // duplicates of the homepage. Each indexable page sets its own canonical.
+  openGraph: SITE_OPEN_GRAPH,
   twitter: {
     card: 'summary_large_image',
     title: TITLE,

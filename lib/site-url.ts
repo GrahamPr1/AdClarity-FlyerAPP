@@ -12,6 +12,13 @@
 // thing to fall back to if NEXT_PUBLIC_SITE_URL is ever missing or wrong.
 const FALLBACK_SITE_URL = "https://oneflyer.org"
 
+// The only domain the site advertises to search engines and in share
+// previews: sitemap, robots.txt, canonical tags, og:url. Deliberately NOT
+// getSiteUrl(): NEXT_PUBLIC_SITE_URL in Production still names the old
+// vercel.app alias (printed QR codes point there), and Search Console rejects
+// a sitemap whose URLs aren't on the verified oneflyer.org property.
+export const CANONICAL_SITE_URL = "https://oneflyer.org"
+
 export function getSiteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim()
   if (!configured) return FALLBACK_SITE_URL

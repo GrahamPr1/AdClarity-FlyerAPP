@@ -1,6 +1,6 @@
 import { LegalPage, H2, UL } from "@/app/legal/legal-page"
 
-export const metadata = { title: "Cancellation & Refund Policy" }
+export const metadata = { title: "Cancellation & Refund Policy", alternates: { canonical: "/refund-policy" } }
 
 // The QR-after-cancellation answer lives here and is the commitment the FAQ
 // and the pause flow both point at. It matches the code: app/r/[code] has no
