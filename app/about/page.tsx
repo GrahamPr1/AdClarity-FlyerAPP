@@ -3,6 +3,7 @@ import Link from "next/link"
 export const metadata = {
   title: "About",
   description: "Who built OneFlyer, and why.",
+  alternates: { canonical: "/about" },
 }
 
 // Bio copy supplied by the owner. Nothing here is invented — no founding

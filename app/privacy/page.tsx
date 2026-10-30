@@ -1,6 +1,6 @@
 import { LegalPage, H2, UL } from "@/app/legal/legal-page"
 
-export const metadata = { title: "Privacy Policy" }
+export const metadata = { title: "Privacy Policy", alternates: { canonical: "/privacy" } }
 
 // Written against what the code actually does, not a template. Every claim
 // here is traceable: Upstash Redis (lib/store.ts), Vercel Blob
