@@ -2,6 +2,10 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getSessionIdentity } from "@/lib/auth"
 import { isAdminSession } from "@/lib/admin"
+import type { Metadata } from "next"
+import { NOINDEX } from "@/lib/site-metadata"
+
+export const metadata: Metadata = { robots: NOINDEX }
 
 // Gates every /admin/* route. middleware.ts already requires a valid
 // session to reach here at all (see its matcher); this is the finer-grained

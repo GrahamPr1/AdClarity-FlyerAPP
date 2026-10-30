@@ -27,3 +27,14 @@ describe("search engines only see oneflyer.org", () => {
     expect(robots().sitemap).toBe("https://oneflyer.org/sitemap.xml")
   })
 })
+
+// Sign-in, account and app sections set noindex once in their layout, which
+// every page under them inherits.
+describe("app and sign-in pages are noindex", () => {
+  const sections = ["login", "reset-password", "onboarding", "dashboard", "profile", "coloring-page", "agent", "enterprise", "admin"]
+
+  it.each(sections)("/%s layout sets robots noindex", async (segment) => {
+    const { metadata } = await import(`@/app/${segment}/layout.tsx`)
+    expect(metadata.robots).toEqual({ index: false, follow: false })
+  })
+})
