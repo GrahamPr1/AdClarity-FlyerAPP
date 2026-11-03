@@ -45,7 +45,7 @@ export const PLANS: Plan[] = [
     monthlyFee: 19,
     annualFee: 180,
     annualMonthlyFee: annualMonthlyFee(180),
-    description: "Everything in Trial, plus scan tracking, multi-channel content, and print requests.",
+    description: "Everything in Trial, plus lead capture and editable offer pages.",
     features: [
       `${PLAN_LIMITS.basic} flyers every month`,
       "QR scan & click tracking on every flyer",

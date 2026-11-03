@@ -7,6 +7,7 @@ import { usageWindow, RESET_PERIOD_MS } from "./usage-window"
 import { getPlan } from "./plans"
 import { getAppEnvironment, verdictForMarker } from "./env"
 import { escapeRedisGlob } from "./redis-glob"
+import { applyFlyerSync, applyOwnerEdit, resetToFlyer, restoreSnapshot, snapshotOf, type OfferPageSnapshot, type OwnerOfferContent } from "./offer-page-content"
 import { sha256Hex } from "./auth"
 import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
 import type { FlyerRequest } from "./agent-pipeline/schemas/flyer"
@@ -1636,15 +1637,69 @@ export async function updateTrackingContentForFlyer(
 ): Promise<string[]> {
   const changes = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined))
   if (Object.keys(changes).length === 0) return []
-  const codes = [...new Set([...(primaryCode ? [primaryCode] : []), ...(await listFlyerChannelCodes(flyerId))])]
+  // An offer page the owner has edited keeps its own content; the flyer's
+  // change is kept aside for "Reset offer page to match flyer" (applyFlyerSync).
+  return rewriteFlyerCodes(flyerId, primaryCode, (existing) => applyFlyerSync(existing, changes))
+}
+
+/** Every code showing this flyer's offer page: the original and each channel code. */
+async function flyerCodes(flyerId: string, primaryCode: string | undefined): Promise<string[]> {
+  return [...new Set([...(primaryCode ? [primaryCode] : []), ...(await listFlyerChannelCodes(flyerId))])]
+}
+
+/** Rewrites each of the flyer's tracking records with `next`. Returns the codes it updated. */
+async function rewriteFlyerCodes(flyerId: string, primaryCode: string | undefined, next: (existing: TrackingRecord) => TrackingRecord): Promise<string[]> {
   const updated: string[] = []
-  for (const code of codes) {
+  for (const code of await flyerCodes(flyerId, primaryCode)) {
     const existing = await getTrackingRecord(code)
     if (!existing || existing.flyerId !== flyerId) continue
-    await redis.set(trackingRecordKey(code), { ...existing, ...changes })
+    await redis.set(trackingRecordKey(code), next(existing))
     updated.push(code)
   }
   return updated
+}
+
+// ---- Offer-page editing ------------------------------------------------------
+//
+// The owner's edits apply to every code of the flyer, so the page reads the
+// same whichever QR link was scanned. Nothing here touches a code, its
+// redeemUrl or its counters: the QR on paper is unchanged. One-level undo, kept
+// for a week like the flyer editor's (savePreEditSnapshot).
+
+function offerPagePreviousKey(flyerId: string) {
+  return `flyer:${flyerId}:offer-page-previous`
+}
+
+async function snapshotOfferPage(flyerId: string, primaryCode: string): Promise<boolean> {
+  const current = await getTrackingRecord(primaryCode)
+  if (!current || current.flyerId !== flyerId) return false
+  await redis.set(offerPagePreviousKey(flyerId), snapshotOf(current), { ex: PRE_EDIT_TTL_SECONDS })
+  return true
+}
+
+/** Saves the owner's edit to every code of the flyer. False if the flyer has no offer page. */
+export async function saveOfferPageEdit(flyerId: string, primaryCode: string, edit: OwnerOfferContent): Promise<boolean> {
+  if (!(await snapshotOfferPage(flyerId, primaryCode))) return false
+  return (await rewriteFlyerCodes(flyerId, primaryCode, (existing) => applyOwnerEdit(existing, edit))).length > 0
+}
+
+/** Back to what the flyer says now; the owner's edits become the undo point. */
+export async function resetOfferPageToFlyer(flyerId: string, primaryCode: string): Promise<boolean> {
+  if (!(await snapshotOfferPage(flyerId, primaryCode))) return false
+  return (await rewriteFlyerCodes(flyerId, primaryCode, resetToFlyer)).length > 0
+}
+
+export async function hasOfferPageUndo(flyerId: string): Promise<boolean> {
+  return (await redis.exists(offerPagePreviousKey(flyerId))) === 1
+}
+
+/** Restores the page as it was before the last save or reset. False if there's nothing to undo. */
+export async function undoOfferPageEdit(flyerId: string, primaryCode: string): Promise<boolean> {
+  const snapshot = await redis.get<OfferPageSnapshot>(offerPagePreviousKey(flyerId))
+  if (!snapshot) return false
+  await rewriteFlyerCodes(flyerId, primaryCode, (existing) => restoreSnapshot(existing, snapshot))
+  await redis.del(offerPagePreviousKey(flyerId))
+  return true
 }
 
 /** Atomic — safe under concurrent scans of the same code. */
@@ -1925,6 +1980,7 @@ export async function collectAccountKeys(email: string): Promise<{ keys: string[
         if (flyerId) {
           keys.add(flyerChannelCodesKey(flyerId))
           keys.add(flyerLeadsKey(flyerId))
+          keys.add(offerPagePreviousKey(flyerId))
         }
       }
     }

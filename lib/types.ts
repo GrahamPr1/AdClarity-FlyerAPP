@@ -578,6 +578,18 @@ export interface TrackingRecord {
    * at the site URL of the time — see redeemUrlFor in qrTracking.ts.
    */
   redeemUrl?: string
+  /** Owner-set price or discount ("$49", "20% off"), shown prominently. Only set by an offer-page edit. */
+  price?: string | null
+  /** YYYY-MM-DD the offer runs until, or null. Past it, the page says the offer has ended. See isOfferExpired. */
+  expiresAt?: string | null
+  /**
+   * True once the owner has edited this offer page directly. Flyer edits then
+   * stop overwriting it and update flyerCopy instead (lib/offer-page-content.ts).
+   * Absent on every record from before offer-page editing: those follow the flyer.
+   */
+  offerPageEdited?: boolean
+  /** While offerPageEdited, what the flyer would have set, for "Reset offer page to match flyer". */
+  flyerCopy?: Pick<TrackingRecord, "headline" | "offer" | "cta" | "disclaimer" | "phone">
 }
 
 /**

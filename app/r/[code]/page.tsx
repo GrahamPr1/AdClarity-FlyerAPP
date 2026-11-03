@@ -1,16 +1,31 @@
+import { cache } from "react"
+import type { Metadata } from "next"
 import { getClient, getTrackingRecord, incrementTrackingScan } from "@/lib/store"
 import { leadCaptureEnabled } from "@/lib/agent-pipeline/plan-features"
-import { RedeemButton } from "@/components/redeem-button"
 import { LeadForm } from "@/components/lead-form"
+import { OfferPageCard } from "@/components/offer-page-card"
 
 // /r/[code] — the page a flyer's QR code actually points to. Public, no
 // auth: this is meant to be opened by anyone who scans a printed flyer or
 // taps an Instagram post. Self-hosted rather than linking to the client's
 // own site (not every client has one, and this is the only way to actually
 // count a scan) — see the note on TrackingRecord in lib/types.ts.
+
+// One read per request, shared by the metadata and the page.
+const loadRecord = cache(getTrackingRecord)
+
+// A business's page for its own customers, not a OneFlyer marketing page: kept
+// out of search results, and titled for the business and its offer.
+export async function generateMetadata({ params }: { params: Promise<{ code: string }> }): Promise<Metadata> {
+  const { code } = await params
+  const record = await loadRecord(code).catch(() => null)
+  const title = !record ? "Offer not found" : record.headline ? `${record.businessName} – ${record.headline}` : record.businessName
+  return { title: { absolute: title }, robots: { index: false, follow: false } }
+}
+
 export default async function RedeemPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
-  const record = await getTrackingRecord(code)
+  const record = await loadRecord(code)
 
   if (!record) {
     return (
@@ -37,26 +52,19 @@ export default async function RedeemPage({ params }: { params: Promise<{ code: s
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-16">
-      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-7 text-center">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground/70">{record.businessName}</p>
-        {record.headline && <h1 className="mt-2 text-2xl tracking-tight">{record.headline}</h1>}
-        {record.offer && <p className="mt-3 text-[var(--brand-teal-bright)] font-medium">{record.offer}</p>}
-
-        <div className="mt-6 flex flex-col gap-3">
-          <RedeemButton code={code} phone={record.phone} label={record.cta ?? "Call now"} />
-          {record.website && (
-            <a href={record.website.startsWith("http") ? record.website : `https://${record.website}`}
-              target="_blank" rel="noopener noreferrer"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Visit website
-            </a>
-          )}
-        </div>
-
-        {showLeadForm && <LeadForm code={code} businessName={record.businessName} />}
-
-        {record.disclaimer && <p className="mt-6 text-xs text-muted-foreground/70 leading-snug">{record.disclaimer}</p>}
-      </div>
+      <OfferPageCard
+        code={code}
+        businessName={record.businessName}
+        headline={record.headline}
+        offer={record.offer}
+        price={record.price}
+        expiresAt={record.expiresAt}
+        cta={record.cta}
+        phone={record.phone}
+        website={record.website}
+        disclaimer={record.disclaimer}
+        form={showLeadForm ? <LeadForm code={code} businessName={record.businessName} /> : undefined}
+      />
     </div>
   )
 }

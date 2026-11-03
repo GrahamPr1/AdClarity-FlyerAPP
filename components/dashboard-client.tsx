@@ -374,6 +374,7 @@ export function FlyerCard({
   siblingCount = 0,
   onSeeOptions,
   onEdited,
+  canEditOfferPage,
 }: {
   flyer: FlyerDeliverable
   onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
@@ -396,6 +397,9 @@ export function FlyerCard({
   /** Called after a direct edit saves, so the list refetches and the
    *  thumbnail shows the edited document rather than the stale one. */
   onEdited?: () => void
+  /** Basic/Pro, not paused: offer a link to edit this flyer's offer page.
+   *  /api/offer-page enforces the same rule on every save. */
+  canEditOfferPage?: boolean
 }) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
@@ -555,6 +559,12 @@ export function FlyerCard({
                     already guarded the same field; this one did not. */}
                 {showChannels ? "Hide channels" : `Track by channel${(statsData?.channels?.length ?? 0) > 1 ? ` (${statsData?.channels?.length})` : ""}`}
               </button>
+            )}
+            {flyer.trackingCode && ready && canEditOfferPage && (
+              <Link href={`/dashboard/offer/${flyer.id}`}
+                className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+                Edit offer page
+              </Link>
             )}
           </div>
           {showChannels && flyer.trackingCode && (
@@ -1143,6 +1153,7 @@ export function DashboardClient() {
                       <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete}
                         onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
                         showUpgradeHint={data.planId === "trial"}
+                        canEditOfferPage={data.planId !== "trial" && !data.pausedAt}
                         angle={f.angle}
                         siblingCount={campaign ? campaign.flyerIds.length : 0}
                         onEdited={() => void mutate()}

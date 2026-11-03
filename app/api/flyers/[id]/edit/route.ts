@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import {
   getDeliverablesForEmail,
+  getTrackingRecord,
   updateDeliverable,
   savePreEditSnapshot,
   getPreEditSnapshot,
@@ -46,14 +47,18 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   if ("error" in loaded) return loaded.error
   const { flyer } = loaded
 
+  // The owner edited the offer page directly, so flyer changes won't reach it.
+  const offerPage = flyer.trackingCode ? await getTrackingRecord(flyer.trackingCode) : null
+  const offerPageEdited = !!offerPage?.offerPageEdited
+
   const html = flyer.downloadUrl ? decodeFlyerHtml(flyer.downloadUrl) : null
   if (!html) {
-    return NextResponse.json({ notSupported: true, reason: "no_html", fields: [] })
+    return NextResponse.json({ notSupported: true, reason: "no_html", fields: [], offerPageEdited })
   }
   if (!supportsDirectEdit(html)) {
     // Generated before the markers existed. Honest "no" rather than an
     // editor whose saves would silently do nothing.
-    return NextResponse.json({ notSupported: true, reason: "pre_marker", fields: [] })
+    return NextResponse.json({ notSupported: true, reason: "pre_marker", fields: [], offerPageEdited })
   }
 
   return NextResponse.json(
@@ -61,6 +66,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       notSupported: false,
       fields: readEditableFields(html),
       canRevert: (await getPreEditSnapshot(id)) !== null,
+      offerPageEdited,
     },
     { headers: { "Cache-Control": "no-store" } },
   )

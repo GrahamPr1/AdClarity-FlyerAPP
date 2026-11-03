@@ -18,11 +18,14 @@ export async function syncOfferPage(flyerId: string, trackingCode: string | unde
   const now = Object.fromEntries(readEditableFields(after).map((f) => [f.field, f.value]))
   const changed = (field: string) => (now[field] !== undefined && now[field] !== was[field] ? now[field] : undefined)
   const record = await getTrackingRecord(trackingCode)
+  // Compare against what the FLYER last set: on a page the owner has edited,
+  // that's the copy kept aside, not the owner's own offer text.
+  const flyerOffer = record?.offerPageEdited ? record.flyerCopy?.offer : record?.offer
   const supporting = changed("supporting")
   await updateTrackingContentForFlyer(flyerId, trackingCode, {
     headline: changed("headline"),
     cta: changed("cta"),
     phone: changed("phone"),
-    offer: supporting !== undefined && record?.offer?.trim() === was.supporting?.trim() ? supporting : undefined,
+    offer: supporting !== undefined && flyerOffer?.trim() === was.supporting?.trim() ? supporting : undefined,
   })
 }
