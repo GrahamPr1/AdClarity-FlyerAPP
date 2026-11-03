@@ -10,7 +10,7 @@ export const metadata = { title: "Terms of Service", alternates: { canonical: "/
 // Claiming more than the product does is what this page exists to avoid.
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Service" updated="21 October 2026">
+    <LegalPage title="Terms of Service" updated="3 November 2026">
       <p>
         These terms cover your use of OneFlyer. Plain language on purpose — if something here is
         unclear, ask us rather than guessing.
@@ -84,6 +84,12 @@ export default function TermsPage() {
         <li>
           <strong>Following the law where you operate.</strong> Including the rules on
           advertising, text-message marketing and unsolicited mail in your area.
+        </li>
+        <li>
+          <strong>Customer leads.</strong> If you use OneFlyer offer pages to collect contact
+          information from potential customers, you are responsible for contacting those customers
+          lawfully, including complying with applicable rules on calls, texts, and emails, and for
+          honoring requests to stop contacting them or to delete their information.
         </li>
       </UL>
 

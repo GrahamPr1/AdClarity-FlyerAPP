@@ -1702,19 +1702,52 @@ export async function undoOfferPageEdit(flyerId: string, primaryCode: string): P
   return true
 }
 
+// Monthly counters (UTC calendar months) beside the lifetime ones, counted
+// from the day they shipped. Scans before that count toward all time only:
+// there is no per-month history to split them by, so none is invented.
+// Kept a little over a year; the lifetime counters are never expired.
+
+/** "2026-11" for a UTC date. */
+export function statsMonth(at: Date = new Date()): string {
+  return at.toISOString().slice(0, 7)
+}
+function monthlyKey(totalKey: string, month: string) {
+  return `${totalKey}:${month}`
+}
+const MONTHLY_TTL_SECONDS = 400 * 24 * 60 * 60
+
+async function incrementWithMonth(totalKey: string): Promise<number> {
+  const month = monthlyKey(totalKey, statsMonth())
+  const p = redis.pipeline()
+  p.incr(totalKey)
+  p.incr(month)
+  p.expire(month, MONTHLY_TTL_SECONDS)
+  const [total] = await p.exec<[number, number, number]>()
+  return total
+}
+
 /** Atomic — safe under concurrent scans of the same code. */
 export async function incrementTrackingScan(code: string): Promise<number> {
-  return await redis.incr(trackingScansKey(code))
+  return await incrementWithMonth(trackingScansKey(code))
 }
 
 export async function incrementTrackingClick(code: string): Promise<number> {
-  return await redis.incr(trackingClicksKey(code))
+  return await incrementWithMonth(trackingClicksKey(code))
 }
 
 export async function getTrackingStats(code: string): Promise<TrackingStats> {
   const [scans, clicks] = await Promise.all([
     redis.get<number>(trackingScansKey(code)),
     redis.get<number>(trackingClicksKey(code)),
+  ])
+  return { scans: scans ?? 0, clicks: clicks ?? 0 }
+}
+
+/** Scans and clicks for one code in one UTC month. */
+export async function getTrackingMonthStats(code: string, month: string = statsMonth()): Promise<TrackingStats> {
+  const [scans, clicks] = await Promise.all([
+    redis.get<number>(monthlyKey(trackingScansKey(code), month)),
+    redis.get<number>(monthlyKey(trackingClicksKey(code), month)),
   ])
   return { scans: scans ?? 0, clicks: clicks ?? 0 }
 }
@@ -1900,6 +1933,23 @@ export async function getLead(email: string, id: string): Promise<LeadRecord | n
   return (await redis.get<LeadRecord>(leadKey(email, id))) ?? null
 }
 
+/** One flyer's leads, newest first. Only the client's own: records live under their namespace. */
+export async function listLeadsForFlyer(email: string, flyerId: string): Promise<LeadRecord[]> {
+  const ids = (await redis.zrange<string[]>(flyerLeadsKey(flyerId), 0, -1, { rev: true })) ?? []
+  if (ids.length === 0) return []
+  const records = await redis.mget<(LeadRecord | null)[]>(...ids.map((id) => leadKey(email, id)))
+  return records.filter((r): r is LeadRecord => r !== null && r.flyerId === flyerId)
+}
+
+/** A flyer's lead count, all time and since `since` (the start of the month). */
+export async function countLeadsForFlyer(flyerId: string, since: Date): Promise<{ total: number; since: number }> {
+  const [total, recent] = await Promise.all([
+    redis.zcard(flyerLeadsKey(flyerId)),
+    redis.zcount(flyerLeadsKey(flyerId), since.getTime(), "+inf"),
+  ])
+  return { total: total ?? 0, since: recent ?? 0 }
+}
+
 /** Every lead the client has, newest first. */
 export async function listLeadsForClient(email: string): Promise<LeadRecord[]> {
   const ids = (await redis.zrange<string[]>(clientLeadsKey(email), 0, -1, { rev: true })) ?? []
@@ -1974,6 +2024,8 @@ export async function collectAccountKeys(email: string): Promise<{ keys: string[
         keys.add(key)
         keys.add(`tracking:${code}:scans`)
         keys.add(`tracking:${code}:clicks`)
+        // And the monthly counters beside them (tracking:<code>:scans:<YYYY-MM>).
+        await scanInto(`tracking:${escapeRedisGlob(code)}:*`, `tracking:${code}:`)
         // Per-flyer keys, found through the tracking records that name the
         // flyer. Lead records themselves sit under client:<email>:* above.
         const flyerId = (record as { flyerId?: string }).flyerId

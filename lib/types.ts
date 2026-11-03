@@ -637,6 +637,13 @@ export interface FlyerTrackingBreakdown {
   totalScans: number
   totalClicks: number
   channels: ChannelStats[]
+  /** The current UTC month ("2026-11") the *ThisMonth figures cover. */
+  month: string
+  /** Counted from the day monthly counters shipped; earlier scans are in totalScans only. */
+  scansThisMonth: number
+  clicksThisMonth: number
+  totalLeads: number
+  leadsThisMonth: number
 }
 
 export interface TrackingStats {

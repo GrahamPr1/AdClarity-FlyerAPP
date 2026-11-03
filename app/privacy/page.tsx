@@ -12,10 +12,14 @@ export const metadata = { title: "Privacy Policy", alternates: { canonical: "/pr
 // keep it in step if those change), Unsplash (lib/unsplash.ts — only the search keywords built
 // by buildSearchQuery / buildSpecificSearchQuery leave the server, and the
 // chosen photo is hotlinked from Unsplash's CDN, as its API guidelines
-// require), and the QR redeem page (app/r/[code]).
+// require), the QR redeem page (app/r/[code]), and its lead form
+// (app/api/leads/[code]: LeadRecord in lib/types.ts holds no IP; the IP is
+// only in a one-hour rate-limit key, lib/rate-limit.ts; leads are deleted
+// with the account by collectAccountKeys, and one at a time from the owner's
+// dashboard or by admin).
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="21 October 2026">
+    <LegalPage title="Privacy Policy" updated="3 November 2026">
       <p>
         OneFlyer is run by a small team. This page describes what we actually store and who
         actually sees it — not what a generic template says a company might do.
@@ -94,14 +98,16 @@ export default function PrivacyPage() {
           <strong>Vercel</strong> — hosting, and file storage for uploaded photos.
         </li>
         <li>
-          <strong>Upstash</strong> — the database holding your account, campaigns and counts.
+          <strong>Upstash</strong> — the database holding your account, campaigns, counts and
+          offer-page submissions.
         </li>
         <li>
           <strong>Anthropic</strong> — the AI models that write and design your campaign. Your
           business details and your promotion are sent to generate it.
         </li>
         <li>
-          <strong>Resend</strong> — transactional email, such as password resets.
+          <strong>Resend</strong> — transactional email, such as password resets, and the email
+          that tells a business about a new offer-page submission.
         </li>
         <li>
           <strong>Google Analytics</strong> — which pages get visited and where people drop off.
@@ -122,11 +128,43 @@ export default function PrivacyPage() {
         </li>
       </UL>
 
-      <H2>Anyone who scans one of your QR codes</H2>
+      <H2>Information collected on offer pages</H2>
       <p>
-        The offer page behind your QR code is public — that&apos;s the point of a QR code on a
-        flyer. It shows the offer you created. Visitors are not asked for anything and are not
-        individually identified or tracked.
+        Businesses that use OneFlyer can place a QR code on their printed or digital marketing.
+        The QR code leads to an offer page hosted by OneFlyer. If you submit the form on an offer
+        page, we collect the information you enter (your name, phone number, and optionally your
+        email address and a message), along with the date and time of your submission and which
+        offer it was for.
+      </p>
+      <p>
+        <strong>Who receives it.</strong> Your information is sent to the business whose offer you
+        responded to, so they can contact you about that offer. OneFlyer stores and delivers it
+        on the business&apos;s behalf. We do not sell your information, share it with other
+        businesses, or use it for our own marketing.
+      </p>
+      <p>
+        <strong>How the business uses it.</strong> The business is responsible for how it contacts
+        you and uses your information after it receives it. If you no longer want to hear from a
+        business, contact them directly.
+      </p>
+      <p>
+        <strong>Spam prevention.</strong> To prevent automated abuse, we temporarily use your IP
+        address to limit repeated submissions. It is not stored with your submission.
+      </p>
+      <p>
+        <strong>How long we keep it.</strong> We keep offer-page submissions until the business
+        deletes them or asks us to delete its OneFlyer account, at which point they are deleted.
+      </p>
+      <p>
+        <strong>Your choices.</strong> To request deletion of a submission you made, contact the
+        business or contact us through our{" "}
+        <a href="/contact" className="text-[var(--brand-teal-bright)] hover:underline">Contact page</a>{" "}
+        at oneflyer.org/contact, and we will remove it.
+      </p>
+      <p>
+        <strong>Scans.</strong> When a QR code is scanned, we count the scan so the business can
+        see how its marketing performs. Scan counts are not linked to your name or contact
+        details.
       </p>
 
       <H2>How long we keep things</H2>

@@ -47,6 +47,8 @@ export const PLANS: Plan[] = [
     annualMonthlyFee: annualMonthlyFee(180),
     description: "Everything in Trial, plus lead capture and editable offer pages.",
     features: [
+      "Get customer leads from every flyer",
+      "Update your offer without reprinting",
       `${PLAN_LIMITS.basic} flyers every month`,
       "QR scan & click tracking on every flyer",
       "Instagram, text-blast & Nextdoor versions included",
@@ -85,6 +87,8 @@ export const PLANS: Plan[] = [
     // hiding what they'd actually be paying for, is the wrong way round.
     description: "Everything in Basic, plus double the monthly campaigns and AI-generated images when no stock photo fits.",
     features: [
+      "Get customer leads from every flyer",
+      "Update your offer without reprinting",
       `${PLAN_LIMITS.pro} flyers every month — double Basic`,
       "Everything in Basic",
       "AI-generated images when neither your photos nor our stock library has a match (opt-in)",
