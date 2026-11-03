@@ -20,7 +20,12 @@ async function reachPromotionStep(page: Page) {
   // No sign-in here: the session is restored from auth.setup.ts. Logging in
   // per test burned the per-account rate-limit budget (see auth-paths.ts).
   await page.goto(`${BASE}/onboarding`)
-  await page.getByRole("button", { name: /Guided Setup/i }).click()
+  // Two front doors: an account with a business profile sees "Guided Setup";
+  // one without starts at the website scan, which has a manual way through.
+  const guided = page.getByRole("button", { name: /Guided Setup/i })
+  const manual = page.getByRole("button", { name: /set up manually/i })
+  await expect(guided.or(manual)).toBeVisible({ timeout: 15000 })
+  await ((await guided.isVisible()) ? guided : manual).click()
   await page.getByRole("button", { name: /No, I'll answer a few questions/i }).click()
 
   await expect(page.getByText(/STEP 1 OF 3/i)).toBeVisible({ timeout: 15000 })
