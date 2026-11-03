@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { CampaignRecord, BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, AgentProfile, CampaignSource, ContentAsset, EnterpriseOrg, PendingGoalCampaign, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats, ThemePreference} from "./types"
+import type { CampaignRecord, BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, AgentProfile, CampaignSource, ContentAsset, EnterpriseOrg, PendingGoalCampaign, PlanId, LeadRecord, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats, ThemePreference} from "./types"
 import { PLAN_LIMITS } from "./types"
 import type { BillingEventSummary, DisputeRecord, MemberBilling } from "./types"
 import { BILLING_EVENT_LOG_LIMIT } from "./types"
@@ -1813,6 +1813,58 @@ export async function getGenerationLogForEmail(email: string): Promise<Generatio
   return await redis.zrange<GenerationLogEntry[]>(generationLogByEmailKey(email), 0, -1)
 }
 
+// ---- Offer-page leads --------------------------------------------------------
+//
+// One JSON record per lead under the owner's own namespace, plus two sorted
+// sets of lead ids scored by submission time: one per flyer (the campaign the
+// lead came from) and one per client (every lead, for the dashboard). Under
+// client:<email>:* so account deletion's SCAN finds the records and the client
+// index without a special case; the per-flyer index is added there by flyer id.
+
+function leadKey(email: string, id: string) {
+  return `client:${email}:lead:${id}`
+}
+function clientLeadsKey(email: string) {
+  return `client:${email}:leads`
+}
+function flyerLeadsKey(flyerId: string) {
+  return `flyer:${flyerId}:leads`
+}
+
+/** Saves a lead and indexes it under its flyer and its owner, in one transaction. */
+export async function saveLead(email: string, lead: LeadRecord): Promise<void> {
+  const score = Date.parse(lead.createdAt)
+  const tx = redis.multi()
+  tx.set(leadKey(email, lead.id), lead)
+  tx.zadd(flyerLeadsKey(lead.flyerId), { score, member: lead.id })
+  tx.zadd(clientLeadsKey(email), { score, member: lead.id })
+  await tx.exec()
+}
+
+export async function getLead(email: string, id: string): Promise<LeadRecord | null> {
+  return (await redis.get<LeadRecord>(leadKey(email, id))) ?? null
+}
+
+/** Every lead the client has, newest first. */
+export async function listLeadsForClient(email: string): Promise<LeadRecord[]> {
+  const ids = (await redis.zrange<string[]>(clientLeadsKey(email), 0, -1, { rev: true })) ?? []
+  if (ids.length === 0) return []
+  const records = await redis.mget<(LeadRecord | null)[]>(...ids.map((id) => leadKey(email, id)))
+  return records.filter((r): r is LeadRecord => r !== null)
+}
+
+/** Removes the lead and both index entries. False if the client has no such lead. */
+export async function deleteLead(email: string, id: string): Promise<boolean> {
+  const lead = await getLead(email, id)
+  if (!lead) return false
+  const tx = redis.multi()
+  tx.del(leadKey(email, id))
+  tx.zrem(flyerLeadsKey(lead.flyerId), id)
+  tx.zrem(clientLeadsKey(email), id)
+  await tx.exec()
+  return true
+}
+
 // ---- Account deletion (admin, irreversible) ---------------------------------
 
 
@@ -1867,6 +1919,13 @@ export async function collectAccountKeys(email: string): Promise<{ keys: string[
         keys.add(key)
         keys.add(`tracking:${code}:scans`)
         keys.add(`tracking:${code}:clicks`)
+        // Per-flyer keys, found through the tracking records that name the
+        // flyer. Lead records themselves sit under client:<email>:* above.
+        const flyerId = (record as { flyerId?: string }).flyerId
+        if (flyerId) {
+          keys.add(flyerChannelCodesKey(flyerId))
+          keys.add(flyerLeadsKey(flyerId))
+        }
       }
     }
   } while (cursor !== "0")

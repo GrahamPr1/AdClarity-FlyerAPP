@@ -1,4 +1,8 @@
+"use client"
+
 import Script from "next/script"
+import { usePathname } from "next/navigation"
+import { isOfferPagePath } from "@/lib/offer-page"
 
 /**
  * Google Analytics 4.
@@ -35,8 +39,12 @@ const RESTRICTED_REGIONS = [
 ]
 
 export function GoogleAnalytics() {
+  const pathname = usePathname()
   const id = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim()
   if (!id) return null
+  // A client component so it can see the path while server-rendering: offer
+  // pages get no tag at all (see isOfferPagePath).
+  if (isOfferPagePath(pathname)) return null
 
   return (
     <>

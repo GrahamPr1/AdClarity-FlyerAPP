@@ -572,6 +572,32 @@ export interface TrackingRecord {
   channelLabel?: string | null
   /** The flyer's original code this was minted alongside. Null on the original. */
   parentCode?: string | null
+  /**
+   * The exact URL this code's QR encodes (https://oneflyer.org/r/<code> for
+   * codes minted since it existed). Absent on older records, whose QR points
+   * at the site URL of the time — see redeemUrlFor in qrTracking.ts.
+   */
+  redeemUrl?: string
+}
+
+/**
+ * Someone who filled in the form on a flyer's offer page (/r/<code>).
+ *
+ * Deliberately holds only what the visitor typed plus when and where: no IP
+ * address, user agent or other identifier. The IP is used once, for the
+ * rate limit, and lives only in that short-lived key (lib/rate-limit.ts).
+ */
+export interface LeadRecord {
+  id: string
+  /** The flyer whose offer page it came from ("campaign" in the product). */
+  flyerId: string
+  /** The code scanned: the flyer's original code or one of its channel codes. */
+  code: string
+  name: string
+  phone: string
+  email: string | null
+  message: string | null
+  createdAt: string
 }
 
 /** Scans and clicks for one distribution channel of a flyer. */

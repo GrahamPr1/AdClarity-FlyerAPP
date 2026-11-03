@@ -2,7 +2,7 @@ import React from "react"
 import { ThemeProvider } from "@/components/theme-provider"
 import type { Metadata } from 'next'
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
+import { VercelAnalytics } from '@/components/vercel-analytics'
 import { GoogleAnalytics } from '@/components/google-analytics'
 import { GoogleTagManager, GoogleTagManagerNoScript } from '@/components/google-tag-manager'
 import { ConversionEvents } from '@/components/conversion-events'
@@ -146,7 +146,7 @@ export default function RootLayout({
         {/* Sends signup/checkout conversions queued before a full navigation (the Stripe path). */}
         <ConversionEvents />
         <ThemeProvider>{children}</ThemeProvider>
-        <Analytics />
+        <VercelAnalytics />
       </body>
     </html>
   )

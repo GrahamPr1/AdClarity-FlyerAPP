@@ -1,5 +1,7 @@
-import { getTrackingRecord, incrementTrackingScan } from "@/lib/store"
+import { getClient, getTrackingRecord, incrementTrackingScan } from "@/lib/store"
+import { leadCaptureEnabled } from "@/lib/agent-pipeline/plan-features"
 import { RedeemButton } from "@/components/redeem-button"
+import { LeadForm } from "@/components/lead-form"
 
 // /r/[code] — the page a flyer's QR code actually points to. Public, no
 // auth: this is meant to be opened by anyone who scans a printed flyer or
@@ -20,8 +22,18 @@ export default async function RedeemPage({ params }: { params: Promise<{ code: s
 
   // Counted once per page load — the closest honest proxy for "a QR scan"
   // available without a native app. Fires every render, including a
-  // refresh, same as any real page-view counter.
-  await incrementTrackingScan(code)
+  // refresh, same as any real page-view counter. A failed count is logged,
+  // never a reason not to show the offer.
+  await incrementTrackingScan(code).catch((err) => console.error(`[r] scan count failed for ${code}:`, err))
+
+  // The lead form follows the OWNER's plan right now, so upgrading switches it
+  // on for flyers already printed. Whatever the plan, and even if the lookup
+  // fails, the offer itself always renders: a printed QR code never stops
+  // working because of a downgrade, a pause or a cancelled subscription.
+  const showLeadForm = await getClient(record.email).then(leadCaptureEnabled, (err) => {
+    console.error(`[r] owner lookup failed for ${code}; showing the offer without the form:`, err)
+    return false
+  })
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-16">
@@ -40,6 +52,8 @@ export default async function RedeemPage({ params }: { params: Promise<{ code: s
             </a>
           )}
         </div>
+
+        {showLeadForm && <LeadForm code={code} businessName={record.businessName} />}
 
         {record.disclaimer && <p className="mt-6 text-xs text-muted-foreground/70 leading-snug">{record.disclaimer}</p>}
       </div>

@@ -173,6 +173,61 @@ export async function sendContactMessage(input: {
 }
 
 /**
+ * Tells a business owner someone just filled in the form on one of their
+ * offer pages. replyTo is the visitor's email when they gave one, so replying
+ * reaches them directly.
+ *
+ * Returns why it failed rather than throwing: the lead is already saved by
+ * the time this runs, and a failed email must not lose it (see
+ * app/api/leads/[code]/route.ts).
+ */
+export async function sendLeadNotification(input: {
+  to: string
+  businessName: string
+  /** The offer's headline, to say which flyer it came from. */
+  flyerTitle: string | null
+  /** The channel the scanned code was handed out through, if it had one. */
+  channelLabel: string | null
+  lead: { name: string; phone: string; email: string | null; message: string | null }
+  dashboardUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+
+  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+  const { lead } = input
+  const from = input.flyerTitle ? `your flyer \u201c${input.flyerTitle}\u201d` : "your flyer"
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top">${label}</td><td style="padding:4px 0">${value}</td></tr>`
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      ...(lead.email ? { replyTo: lead.email } : {}),
+      subject: `New lead from your flyer: ${lead.name}`,
+      html: `
+        <div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
+          <p>${escape(lead.name)} filled in the form on ${escape(from)}${input.channelLabel ? ` (${escape(input.channelLabel)})` : ""}.</p>
+          <table style="border-collapse:collapse;margin:12px 0">
+            ${row("Name", escape(lead.name))}
+            ${row("Phone", `<a href="tel:${escape(lead.phone.replace(/[^0-9+]/g, ""))}">${escape(lead.phone)}</a>`)}
+            ${lead.email ? row("Email", `<a href="mailto:${escape(lead.email)}">${escape(lead.email)}</a>`) : ""}
+            ${lead.message ? row("Message", `<span style="white-space:pre-wrap">${escape(lead.message)}</span>`) : ""}
+          </table>
+          <p><a href="${escape(input.dashboardUrl)}">See all your leads on your OneFlyer dashboard</a></p>
+          <p style="color:#888;font-size:12px">They agreed that ${escape(input.businessName)} may contact them about this offer.</p>
+        </div>
+      `,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
  * Waitlist confirmation.
  *
  * Deliberately does NOT send yet — it logs. Sending real mail to people who
