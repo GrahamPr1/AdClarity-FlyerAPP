@@ -610,6 +610,12 @@ export interface LeadRecord {
   email: string | null
   message: string | null
   createdAt: string
+  /**
+   * True when it came in after the offer's end date (isOfferExpired at the
+   * moment of submission). Old flyers keep being scanned; the owner is told.
+   * Absent on leads from before this field existed, which reads as false.
+   */
+  afterOfferEnded?: boolean
 }
 
 /** Scans and clicks for one distribution channel of a flyer. */

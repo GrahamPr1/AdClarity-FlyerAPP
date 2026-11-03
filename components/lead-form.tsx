@@ -9,8 +9,11 @@ import { LEAD_LIMITS } from "@/lib/leads"
  *
  * Submits with fetch and swaps itself for a confirmation, so a visitor never
  * lands on an error page. Every control is at least 44px tall for thumbs.
+ *
+ * On an ended offer it asks for a quote instead, and the consent line covers
+ * the business's services rather than an offer that no longer runs.
  */
-export function LeadForm({ code, businessName }: { code: string; businessName: string }) {
+export function LeadForm({ code, businessName, offerEnded = false }: { code: string; businessName: string; offerEnded?: boolean }) {
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
@@ -51,14 +54,18 @@ export function LeadForm({ code, businessName }: { code: string; businessName: s
     return (
       <div role="status" className="mt-6 rounded-xl border border-border bg-[var(--surface-soft)] p-5 text-left">
         <p className="font-medium text-foreground">Thanks, {name.trim().split(/\s+/)[0]}. Your details are on their way.</p>
-        <p className="mt-1.5 text-sm text-muted-foreground">{businessName} will contact you about this offer.</p>
+        <p className="mt-1.5 text-sm text-muted-foreground">{businessName} will contact you {offerEnded ? "soon" : "about this offer"}.</p>
       </div>
     )
   }
 
   return (
     <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4 text-left">
-      <p className="text-sm font-medium text-foreground">Or leave your details and they&apos;ll get back to you</p>
+      {offerEnded ? (
+        <p className="text-sm font-medium text-foreground">Request a quote</p>
+      ) : (
+        <p className="text-sm font-medium text-foreground">Or leave your details and they&apos;ll get back to you</p>
+      )}
       <div>
         <label htmlFor="lead-name" className="block text-sm font-medium mb-1.5">Name</label>
         <input id="lead-name" name="name" autoComplete="name" className={field} value={name}
@@ -99,7 +106,7 @@ export function LeadForm({ code, businessName }: { code: string; businessName: s
         {sending ? "Sending…" : "Send my details"}
       </button>
       <p className="text-xs text-muted-foreground leading-snug">
-        By submitting, you agree {businessName} may contact you about this offer.
+        By submitting, you agree {businessName} may contact you about {offerEnded ? "their services" : "this offer"}.
       </p>
     </form>
   )

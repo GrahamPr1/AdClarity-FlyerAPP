@@ -4,6 +4,7 @@ import { getClient, getTrackingRecord, incrementTrackingScan } from "@/lib/store
 import { leadCaptureEnabled } from "@/lib/agent-pipeline/plan-features"
 import { LeadForm } from "@/components/lead-form"
 import { OfferPageCard } from "@/components/offer-page-card"
+import { isOfferExpired } from "@/lib/offer-page-content"
 
 // /r/[code] — the page a flyer's QR code actually points to. Public, no
 // auth: this is meant to be opened by anyone who scans a printed flyer or
@@ -63,7 +64,7 @@ export default async function RedeemPage({ params }: { params: Promise<{ code: s
         phone={record.phone}
         website={record.website}
         disclaimer={record.disclaimer}
-        form={showLeadForm ? <LeadForm code={code} businessName={record.businessName} /> : undefined}
+        form={showLeadForm ? <LeadForm code={code} businessName={record.businessName} offerEnded={isOfferExpired(record.expiresAt)} /> : undefined}
       />
     </div>
   )

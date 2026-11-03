@@ -6,6 +6,7 @@ import { sendLeadNotification } from "@/lib/email"
 import { CANONICAL_SITE_URL } from "@/lib/site-url"
 import type { LeadRecord } from "@/lib/types"
 import { LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS, LeadSchema } from "@/lib/leads"
+import { isOfferExpired } from "@/lib/offer-page-content"
 
 // POST /api/leads/{code} — the form on a flyer's offer page (/r/{code}).
 //
@@ -69,6 +70,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     code,
     ...parsed.data,
     createdAt: new Date().toISOString(),
+    // Decided by the server at submission, not by what the page showed.
+    afterOfferEnded: isOfferExpired(record.expiresAt),
   }
   await saveLead(record.email, lead)
 
@@ -78,6 +81,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     flyerTitle: record.headline,
     channelLabel: record.channelLabel ?? null,
     lead,
+    afterOfferEnded: lead.afterOfferEnded ?? false,
     dashboardUrl: `${CANONICAL_SITE_URL}/dashboard`,
   })
   if (!sent.sent) console.error(`[leads] saved lead ${lead.id} on ${code}, but the owner email failed:`, sent.reason)

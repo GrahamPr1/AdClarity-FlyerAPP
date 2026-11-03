@@ -13,7 +13,7 @@ export interface OfferPageCardProps {
   phone: string
   website: string | null
   disclaimer: string | null
-  /** The lead form, when the owner's plan includes it. Not shown once the offer has ended. */
+  /** The lead form, when the owner's plan includes it. Shown on an ended offer too: old flyers keep bringing real leads. */
   form?: ReactNode
   /** The editor's live preview: the call button neither dials nor counts a click. */
   preview?: boolean
@@ -52,6 +52,7 @@ export function OfferPageCard(props: OfferPageCardProps) {
             This offer has ended. Contact {businessName} for current pricing.
           </p>
           <div className="mt-6 flex flex-col gap-3">{callButton(`Call ${phone}`)}</div>
+          {form}
         </>
       ) : (
         <>

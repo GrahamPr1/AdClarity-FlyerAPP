@@ -189,6 +189,8 @@ export async function sendLeadNotification(input: {
   /** The channel the scanned code was handed out through, if it had one. */
   channelLabel: string | null
   lead: { name: string; phone: string; email: string | null; message: string | null }
+  /** It came in after the offer's end date. */
+  afterOfferEnded?: boolean
   dashboardUrl: string
 }): Promise<{ sent: boolean; reason?: string }> {
   const resend = getClient()
@@ -209,6 +211,7 @@ export async function sendLeadNotification(input: {
       html: `
         <div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
           <p>${escape(lead.name)} filled in the form on ${escape(from)}${input.channelLabel ? ` (${escape(input.channelLabel)})` : ""}.</p>
+          ${input.afterOfferEnded ? `<p style="color:#8a5a00"><strong>Came in after this offer ended.</strong> They asked for a quote.</p>` : ""}
           <table style="border-collapse:collapse;margin:12px 0">
             ${row("Name", escape(lead.name))}
             ${row("Phone", `<a href="tel:${escape(lead.phone.replace(/[^0-9+]/g, ""))}">${escape(lead.phone)}</a>`)}
@@ -216,7 +219,7 @@ export async function sendLeadNotification(input: {
             ${lead.message ? row("Message", `<span style="white-space:pre-wrap">${escape(lead.message)}</span>`) : ""}
           </table>
           <p><a href="${escape(input.dashboardUrl)}">See all your leads on your OneFlyer dashboard</a></p>
-          <p style="color:#888;font-size:12px">They agreed that ${escape(input.businessName)} may contact them about this offer.</p>
+          <p style="color:#888;font-size:12px">They agreed that ${escape(input.businessName)} may contact them about ${input.afterOfferEnded ? "their services" : "this offer"}.</p>
         </div>
       `,
     })

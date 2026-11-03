@@ -85,7 +85,7 @@ describe("a lead on an active paid plan", () => {
   it("holds only what the visitor typed, plus when and where: no IP, no user agent", async () => {
     await submit(good)
     const lead = db.saved[0].lead as LeadRecord
-    expect(Object.keys(lead).sort()).toEqual(["code", "createdAt", "email", "flyerId", "id", "message", "name", "phone"])
+    expect(Object.keys(lead).sort()).toEqual(["afterOfferEnded", "code", "createdAt", "email", "flyerId", "id", "message", "name", "phone"])
     expect(JSON.stringify(lead)).not.toContain(IP)
     expect(JSON.stringify(lead)).not.toContain("Mozilla")
     expect(Number.isNaN(Date.parse(lead.createdAt))).toBe(false)
@@ -105,6 +105,31 @@ describe("a lead on an active paid plan", () => {
     const res = await submit({ name: "Sam", phone: "555 010 2030", email: "", message: "" })
     expect(res.status).toBe(200)
     expect(db.saved[0].lead).toMatchObject({ email: null, message: null })
+  })
+})
+
+describe("a lead after the offer's end date", () => {
+  it("is still taken, flagged afterOfferEnded on the stored lead and in the owner's email", async () => {
+    db.tracking.set("ABC2345", { ...record, expiresAt: "2020-01-31" })
+    expect((await submit(good)).status).toBe(200)
+    expect((db.saved[0].lead as LeadRecord).afterOfferEnded).toBe(true)
+    expect(db.emails[0]).toMatchObject({ afterOfferEnded: true })
+  })
+
+  it("is not flagged while the offer is running, or when it has no end date", async () => {
+    db.tracking.set("ABC2345", { ...record, expiresAt: "2099-12-31" })
+    await submit(good)
+    db.tracking.set("ABC2345", { ...record })
+    await submit(good, { ip: "198.51.100.9" })
+    expect(db.saved.map((s) => (s.lead as LeadRecord).afterOfferEnded)).toEqual([false, false])
+    expect(db.emails.map((e) => (e as { afterOfferEnded: boolean }).afterOfferEnded)).toEqual([false, false])
+  })
+
+  it("plan gating is unchanged: a trial owner's ended offer still refuses the POST", async () => {
+    db.tracking.set("ABC2345", { ...record, expiresAt: "2020-01-31" })
+    db.clients.set(OWNER, client({ plan: "trial" }))
+    expect((await submit(good)).status).toBe(403)
+    expect(db.saved).toHaveLength(0)
   })
 })
 
