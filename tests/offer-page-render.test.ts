@@ -15,6 +15,7 @@ const db = vi.hoisted(() => ({ record: null as unknown, owner: null as unknown }
 vi.mock("@/lib/store", () => ({
   getTrackingRecord: async () => db.record,
   getClient: async () => db.owner,
+  getAgentProfile: async () => null,
   incrementTrackingScan: async () => 1,
 }))
 

@@ -24,6 +24,7 @@ const db = vi.hoisted(() => ({
 vi.mock("@/lib/store", () => ({
   getTrackingRecord: async (code: string) => db.tracking.get(code) ?? null,
   getClient: async (email: string) => db.clients.get(email) ?? null,
+  getAgentProfile: async () => null,
   saveLead: async (email: string, lead: unknown) => void db.saved.push({ email, lead }),
 }))
 vi.mock("@/lib/rate-limit", () => ({

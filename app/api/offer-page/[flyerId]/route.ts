@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getClient, getDeliverablesForEmail, getTrackingRecord, hasOfferPageUndo, resetOfferPageToFlyer, saveOfferPageEdit, undoOfferPageEdit } from "@/lib/store"
-import { leadCaptureEnabled } from "@/lib/agent-pipeline/plan-features"
+import { getDeliverablesForEmail, getTrackingRecord, hasOfferPageUndo, resetOfferPageToFlyer, saveOfferPageEdit, undoOfferPageEdit } from "@/lib/store"
+import { offerPageFeaturesEnabledFor } from "@/lib/offer-page-access"
 import { redeemUrlFor } from "@/lib/agent-pipeline/qrTracking"
 import { OwnerOfferSchema, isOfferExpired, ownerContentOf } from "@/lib/offer-page-content"
 
@@ -12,8 +12,8 @@ import { OwnerOfferSchema, isOfferExpired, ownerContentOf } from "@/lib/offer-pa
  * PUT  — save an edit to every code of the flyer.
  * POST — "?action=undo" (one level) or "?action=reset" (match the flyer again).
  *
- * Saving and undo require an active paid plan (Basic/Pro, not paused),
- * checked here against the live client record: the editor hides its controls
+ * Saving and undo require an active paid plan (Basic/Pro, not paused) on a
+ * non-enterprise account (offerPageFeaturesEnabled), checked here against the live client record: the editor hides its controls
  * otherwise, but that is not what enforces it. Reset is allowed on any plan:
  * it only puts back what the flyer says, and without it a downgraded owner's
  * edited page could never follow the flyer again. Scoped to the caller's own
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ flyerId: st
       qrUrl: redeemUrlFor(code, record),
       edited: !!record.offerPageEdited,
       expired: isOfferExpired(record.expiresAt),
-      canEdit: leadCaptureEnabled(await getClient(email)),
+      canEdit: await offerPageFeaturesEnabledFor(email),
       canUndo: await hasOfferPageUndo(flyerId),
     },
     { headers: { "Cache-Control": "no-store" } },
@@ -71,7 +71,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ flyerId: st
   const loaded = await loadOwnOfferPage(req, (await ctx.params).flyerId)
   if ("error" in loaded) return loaded.error
   const { email, flyerId, code } = loaded
-  if (!leadCaptureEnabled(await getClient(email))) return notOnPlan()
+  if (!(await offerPageFeaturesEnabledFor(email))) return notOnPlan()
 
   let body: unknown
   try {
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ flyerId: s
   if ("error" in loaded) return loaded.error
   const { email, flyerId, code } = loaded
   const action = new URL(req.url).searchParams.get("action")
-  if (action !== "reset" && !leadCaptureEnabled(await getClient(email))) return notOnPlan()
+  if (action !== "reset" && !(await offerPageFeaturesEnabledFor(email))) return notOnPlan()
 
   if (action === "undo") {
     if (!(await undoOfferPageEdit(flyerId, code))) return NextResponse.json({ error: "nothing_to_undo", message: "There's nothing to undo." }, { status: 409 })

@@ -25,6 +25,7 @@ import { DownloadMenu } from "@/components/download-menu"
 import { JourneyControlCenter } from "@/components/journey-control-center"
 import { FlyerEditPanel } from "@/components/flyer-edit-panel"
 import { LeadsList } from "@/components/leads-list"
+import { offerPageFeaturesEnabled } from "@/lib/agent-pipeline/plan-features"
 import { Flyer3D } from "@/components/flyer-3d"
 
 
@@ -381,6 +382,7 @@ export function FlyerCard({
   onSeeOptions,
   onEdited,
   canEditOfferPage,
+  leadsOff,
   channelsLocked,
 }: {
   flyer: FlyerDeliverable
@@ -407,6 +409,9 @@ export function FlyerCard({
   /** Basic/Pro, not paused: offer a link to edit this flyer's offer page.
    *  /api/offer-page enforces the same rule on every save. */
   canEditOfferPage?: boolean
+  /** Enterprise account: its offer pages take no leads, so none of the leads UI.
+   *  Any leads it already holds stay reachable. */
+  leadsOff?: boolean
   /** Trial or paused: no "Track by channel". /api/tracking/channel enforces
    *  the same rule on every new code; codes that already exist keep working. */
   channelsLocked?: boolean
@@ -432,6 +437,7 @@ export function FlyerCard({
     { refreshInterval: 15000 },
   )
   const [showChannels, setShowChannels] = useState(false)
+  const hideLeadCounts = !!leadsOff && (statsData?.totalLeads ?? 0) === 0
   const [showLeads, setShowLeads] = useState(false)
   const { data: leadsData, mutate: refreshLeads } = useSWR<{ leads: LeadRecord[] }>(
     showLeads ? `/api/account/leads?flyerId=${encodeURIComponent(flyer.id)}` : null,
@@ -591,9 +597,9 @@ export function FlyerCard({
               upgrade prompt instead; never on the public offer page. */}
           {statsData?.month && flyer.trackingCode && !showUpgradeHint && (
             <p className="mt-2 text-xs text-muted-foreground" data-testid="flyer-results">
-              <span className="text-foreground">This month:</span> {count(statsData.scansThisMonth, "scan")} · {count(statsData.clicksThisMonth, "click")} · {count(statsData.leadsThisMonth, "lead")}
+              <span className="text-foreground">This month:</span> {count(statsData.scansThisMonth, "scan")} · {count(statsData.clicksThisMonth, "click")}{!hideLeadCounts && <> · {count(statsData.leadsThisMonth, "lead")}</>}
               <span aria-hidden="true"> &nbsp;|&nbsp; </span>
-              <span className="text-foreground">All time:</span> {count(statsData.totalScans, "scan")} · {count(statsData.totalClicks, "click")} · {count(statsData.totalLeads, "lead")}
+              <span className="text-foreground">All time:</span> {count(statsData.totalScans, "scan")} · {count(statsData.totalClicks, "click")}{!hideLeadCounts && <> · {count(statsData.totalLeads, "lead")}</>}
             </p>
           )}
           {statsData?.month && flyer.trackingCode && showUpgradeHint && (
@@ -604,7 +610,10 @@ export function FlyerCard({
               </Link>
             </p>
           )}
-          {flyer.trackingCode && ready && ((statsData?.totalLeads ?? 0) > 0 || !showUpgradeHint) && (
+          {/* Not in the admin roster (ownerEmail): /api/account/leads is the
+              signed-in client's own, and /admin/users/<email> is where admin
+              sees an account's leads. */}
+          {flyer.trackingCode && ready && !ownerEmail && ((statsData?.totalLeads ?? 0) > 0 || (!showUpgradeHint && !leadsOff)) && (
             <button onClick={() => setShowLeads((v) => !v)}
               className="mt-1.5 text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
               {showLeads ? "Hide leads" : `Leads (${statsData?.totalLeads ?? 0})`}
@@ -1202,7 +1211,8 @@ export function DashboardClient() {
                       <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete}
                         onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
                         showUpgradeHint={data.planId === "trial"}
-                        canEditOfferPage={data.planId !== "trial" && !data.pausedAt}
+                        canEditOfferPage={offerPageFeaturesEnabled({ plan: data.planId, pausedAt: data.pausedAt }, data.isEnterpriseAccount)}
+                        leadsOff={data.isEnterpriseAccount}
                         channelsLocked={data.planId === "trial" || !!data.pausedAt}
                         angle={f.angle}
                         siblingCount={campaign ? campaign.flyerIds.length : 0}

@@ -72,8 +72,13 @@ export function aiPhotosEnabled(plan: PlanId | undefined, wantsAiPhotos: boolean
  * Deliberately separate from planIncludesExtras: declining a QR code must not
  * also switch off repurposing, which is gated by plan alone. An unknown plan
  * (no client record) still gets none.
+ *
+ * Enterprise accounts (an agent profile with an org) keep the older rule, paid
+ * plans only: Trial's QR is a self-serve upgrade path that was never part of
+ * what an org approved.
  */
-export function qrEnabled(plan: PlanId | undefined, wantsQrCode: boolean): boolean {
+export function qrEnabled(plan: PlanId | undefined, wantsQrCode: boolean, isEnterpriseAccount = false): boolean {
+  if (isEnterpriseAccount) return planIncludesExtras(plan) && wantsQrCode
   return plan !== undefined && wantsQrCode
 }
 
@@ -84,6 +89,17 @@ export function qrEnabled(plan: PlanId | undefined, wantsQrCode: boolean): boole
  */
 export function channelTrackingEnabled(client: { plan: PlanId; pausedAt: string | null } | null | undefined): boolean {
   return leadCaptureEnabled(client)
+}
+
+/**
+ * The lead form and the offer-page editor: leadCaptureEnabled, minus enterprise
+ * accounts (an agent profile with an org). Their flyers carry approved,
+ * verbatim content, so an owner rewriting the public page, or collecting leads
+ * on it, isn't something the org signed up for. Their QR still resolves to the
+ * static page, and channel tracking follows its own rule above.
+ */
+export function offerPageFeaturesEnabled(client: { plan: PlanId; pausedAt: string | null } | null | undefined, isEnterpriseAccount: boolean): boolean {
+  return leadCaptureEnabled(client) && !isEnterpriseAccount
 }
 
 /**

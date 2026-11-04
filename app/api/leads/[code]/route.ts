@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getClient, getTrackingRecord, saveLead } from "@/lib/store"
-import { leadCaptureEnabled } from "@/lib/agent-pipeline/plan-features"
+import { getTrackingRecord, saveLead } from "@/lib/store"
+import { offerPageFeaturesEnabledFor } from "@/lib/offer-page-access"
 import { checkRateLimit, clientIp } from "@/lib/rate-limit"
 import { sendLeadNotification } from "@/lib/email"
 import { CANONICAL_SITE_URL } from "@/lib/site-url"
@@ -54,8 +54,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return silentOk()
   }
 
-  const owner = await getClient(record.email)
-  if (!leadCaptureEnabled(owner)) {
+  if (!(await offerPageFeaturesEnabledFor(record.email))) {
     return NextResponse.json({ error: "unavailable", message: "This offer isn't taking requests online. Call the business instead." }, { status: 403 })
   }
 

@@ -23,6 +23,7 @@ vi.mock("@/lib/store", () => {
     getDeliverablesForEmail: async (email: string) => ({ flyers: email === "owner@example.test" ? [{ id: "flyer-1", trackingCode: "ABC2345" }] : [] }),
     getTrackingRecord: async (code: string) => (code === "ABC2345" ? record : null),
     getClient: async () => s.client,
+    getAgentProfile: async () => null,
     hasOfferPageUndo: async () => true,
     saveOfferPageEdit: async (...args: unknown[]) => (s.saved.push(args), true),
     undoOfferPageEdit: async () => (s.undone++, true),

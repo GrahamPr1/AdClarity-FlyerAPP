@@ -23,6 +23,7 @@ vi.mock("@/lib/store", () => ({
     if (db.ownerThrows) throw new Error("redis unavailable")
     return db.owner
   },
+  getAgentProfile: async () => null,
   incrementTrackingScan: async (code: string) => {
     const n = (db.scans.get(code) ?? 0) + 1
     db.scans.set(code, n)

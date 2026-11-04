@@ -301,6 +301,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
   const generationStage = await getGenerationStage(email)
   const waitlist = await getWaitlistEntriesForEmail(email)
   const businessCategoryIsDefaulted = !(await hasExplicitBusinessCategory(email))
+  const agentProfile = await getAgentProfile(email)
 
   return {
     ...stored,
@@ -327,6 +328,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
     businessCategory: client?.businessCategory ?? "Other",
     isRealEstate: client?.isRealEstate ?? false,
     businessCategoryIsDefaulted,
+    isEnterpriseAccount: !!agentProfile?.orgId,
     isAdmin: client?.isAdmin ?? false,
   }
 }
@@ -355,6 +357,7 @@ export async function getDeliverables(): Promise<Deliverables> {
       businessCategory: "Other",
       isRealEstate: false,
       businessCategoryIsDefaulted: true,
+      isEnterpriseAccount: false,
       isAdmin: false,
     }
   }

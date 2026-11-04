@@ -2,6 +2,7 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
+import { isNopAgentAccount } from "@/lib/enterprise/agents-store"
 import { OfferPageEditor } from "@/components/offer-page-editor"
 
 export const metadata = {
@@ -16,6 +17,7 @@ export default async function OfferPageEditorRoute({ params }: { params: Promise
   const session = await getSessionIdentity({ cookies: cookieStore })
   if (!session) redirect("/login?next=/dashboard")
   if (session.sub === ADMIN_SUB) redirect("/dashboard")
+  if (await isNopAgentAccount(session.sub)) redirect("/enterprise/nop/dashboard")
   const { flyerId } = await params
 
   return (

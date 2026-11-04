@@ -55,9 +55,10 @@ import {
 // selection — see the note on PlanId in lib/types.ts), same source of
 // truth as the usage-limit check in /api/intake. Fetched once per
 // batch/retry so both checks reflect the same plan snapshot.
-async function getPlanFeatures(email: string): Promise<{ plan: PlanId | undefined; includeExtras: boolean }> {
-  const client = await getClient(email)
+async function getPlanFeatures(email: string): Promise<{ plan: PlanId | undefined; includeExtras: boolean; isEnterpriseAccount: boolean }> {
+  const [client, agentProfile] = await Promise.all([getClient(email), getAgentProfile(email).catch(() => null)])
   return {
+    isEnterpriseAccount: !!agentProfile?.orgId,
     // The real plan travels with the flags so gates needing more than a
     // boolean (AI photos, which also needs the client's opt-in) can consult
     // it directly rather than reconstructing it.
@@ -66,9 +67,9 @@ async function getPlanFeatures(email: string): Promise<{ plan: PlanId | undefine
   }
 }
 
-/** See qrEnabled — any plan, as long as the client asked for one. */
-function wantsQr(plan: PlanId | undefined, intake: NormalizedIntake): boolean {
-  return qrEnabled(plan, intake.wantsQrCode)
+/** See qrEnabled — any plan, as long as the client asked for one; paid plans only for enterprise accounts. */
+function wantsQr(plan: PlanId | undefined, intake: NormalizedIntake, isEnterpriseAccount: boolean): boolean {
+  return qrEnabled(plan, intake.wantsQrCode, isEnterpriseAccount)
 }
 
 export const MAX_FLYERS_PER_BATCH = 10
@@ -822,7 +823,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     // savePendingBrandProfile in lib/store.ts.
     await savePendingBrandProfile(flyerRequests[0].id, brandProfile, intake.contact).catch((e) => console.error("[agent-pipeline] Failed to save pending brand profile:", e))
   }
-  const { plan, includeExtras } = await getPlanFeatures(email)
+  const { plan, includeExtras, isEnterpriseAccount } = await getPlanFeatures(email)
   if (stockPhotosEnabled(plan) || aiPhotosEnabled(plan, intake.wantsAiPhotos)) await setGenerationStage(email, GENERATION_STAGES.photos)
   const { photos, unsplash: unsplashPool } = await buildPhotoPool(intake, flyerRequests, {
     allowStockPhotos: stockPhotosEnabled(plan),
@@ -836,7 +837,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
   // the QR question (no tracking record, no QR, nothing to embed). The code -> flyerId mapping lets the backfill step below match
   // each agent response back to its own record.
   const trackingByFlyerId = new Map(
-    wantsQr(plan, intake)
+    wantsQr(plan, intake, isEnterpriseAccount)
       ? await Promise.all(flyerRequests.map(async (r) => [r.id, await createFlyerTrackingCode(email, r.id, intake)] as const))
       : [],
   )
@@ -1165,7 +1166,7 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
   await setGenerationStage(email, GENERATION_STAGES.brand)
   const brandProfile = await applyFontChoice(await runBrandAgent(intake, email), email, intake.fontStylePreference)
   stageMark(runId, t0, "brand done")
-  const { plan, includeExtras } = await getPlanFeatures(email)
+  const { plan, includeExtras, isEnterpriseAccount } = await getPlanFeatures(email)
   const { photos, unsplash: unsplashPool } = await buildPhotoPool(intake, [flyerRequest], {
     allowStockPhotos: stockPhotosEnabled(plan),
     allowAiGeneration: aiPhotosEnabled(plan, intake.wantsAiPhotos),
@@ -1176,7 +1177,7 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
   // one, if this flyer had already generated once, is simply abandoned
   // along with its stats, since a regenerated flyer's content may no
   // longer match what a scan of the old QR would have promised.
-  const tracking = wantsQr(plan, intake) ? await createFlyerTrackingCode(email, flyerRequest.id, intake) : null
+  const tracking = wantsQr(plan, intake, isEnterpriseAccount) ? await createFlyerTrackingCode(email, flyerRequest.id, intake) : null
   stageMark(runId, t0, "tracking code ready")
 
   // Same two-pass split as runBatch — see the note there on why repurposing

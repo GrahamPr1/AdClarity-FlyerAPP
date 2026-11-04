@@ -1,7 +1,7 @@
 import { cache } from "react"
 import type { Metadata } from "next"
-import { getClient, getTrackingRecord, incrementTrackingScan } from "@/lib/store"
-import { leadCaptureEnabled } from "@/lib/agent-pipeline/plan-features"
+import { getTrackingRecord, incrementTrackingScan } from "@/lib/store"
+import { offerPageFeaturesEnabledFor } from "@/lib/offer-page-access"
 import { LeadForm } from "@/components/lead-form"
 import { OfferPageCard } from "@/components/offer-page-card"
 import { isOfferExpired } from "@/lib/offer-page-content"
@@ -46,7 +46,7 @@ export default async function RedeemPage({ params }: { params: Promise<{ code: s
   // on for flyers already printed. Whatever the plan, and even if the lookup
   // fails, the offer itself always renders: a printed QR code never stops
   // working because of a downgrade, a pause or a cancelled subscription.
-  const showLeadForm = await getClient(record.email).then(leadCaptureEnabled, (err) => {
+  const showLeadForm = await offerPageFeaturesEnabledFor(record.email).catch((err) => {
     console.error(`[r] owner lookup failed for ${code}; showing the offer without the form:`, err)
     return false
   })
