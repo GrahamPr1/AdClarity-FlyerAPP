@@ -78,6 +78,15 @@ export function qrEnabled(plan: PlanId | undefined, wantsQrCode: boolean): boole
 }
 
 /**
+ * Whether a flyer's owner may create more QR codes for it, one per channel.
+ * Basic/Pro, not paused: Trial keeps exactly one QR per flyer. Creation only:
+ * channel codes that already exist keep resolving and counting on any plan.
+ */
+export function channelTrackingEnabled(client: { plan: PlanId; pausedAt: string | null } | null | undefined): boolean {
+  return leadCaptureEnabled(client)
+}
+
+/**
  * Whether a flyer's offer page shows the lead form, and whether its owner may
  * edit the page. Basic/Pro, not paused.
  *

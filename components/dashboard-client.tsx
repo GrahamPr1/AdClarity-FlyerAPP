@@ -381,6 +381,7 @@ export function FlyerCard({
   onSeeOptions,
   onEdited,
   canEditOfferPage,
+  channelsLocked,
 }: {
   flyer: FlyerDeliverable
   onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
@@ -406,6 +407,9 @@ export function FlyerCard({
   /** Basic/Pro, not paused: offer a link to edit this flyer's offer page.
    *  /api/offer-page enforces the same rule on every save. */
   canEditOfferPage?: boolean
+  /** Trial or paused: no "Track by channel". /api/tracking/channel enforces
+   *  the same rule on every new code; codes that already exist keep working. */
+  channelsLocked?: boolean
 }) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
@@ -561,7 +565,7 @@ export function FlyerCard({
                 {angle}
               </span>
             )}
-            {flyer.trackingCode && ready && (
+            {flyer.trackingCode && ready && !channelsLocked && (
               <button
                 onClick={() => setShowChannels((v) => !v)}
                 className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors"
@@ -612,7 +616,7 @@ export function FlyerCard({
             </div>
           )}
 
-          {showChannels && flyer.trackingCode && (
+          {showChannels && flyer.trackingCode && !channelsLocked && (
             <div className="mt-3 rounded-lg border border-border bg-[var(--surface-soft)] p-3">
               <p className="text-xs text-muted-foreground">
                 Give each place you share this flyer its own QR link, so scans show which one worked.
@@ -1199,6 +1203,7 @@ export function DashboardClient() {
                         onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
                         showUpgradeHint={data.planId === "trial"}
                         canEditOfferPage={data.planId !== "trial" && !data.pausedAt}
+                        channelsLocked={data.planId === "trial" || !!data.pausedAt}
                         angle={f.angle}
                         siblingCount={campaign ? campaign.flyerIds.length : 0}
                         onEdited={() => void mutate()}

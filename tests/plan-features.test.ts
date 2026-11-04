@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { qrEnabled, planIncludesExtras, planAllowsAiPhotos, aiPhotosEnabled, leadCaptureEnabled } from "@/lib/agent-pipeline/plan-features"
+import { qrEnabled, planIncludesExtras, planAllowsAiPhotos, aiPhotosEnabled, leadCaptureEnabled, channelTrackingEnabled } from "@/lib/agent-pipeline/plan-features"
 import { PLAN_LIMITS } from "@/lib/types"
 
 describe("plan limits", () => {
@@ -46,6 +46,16 @@ describe("leadCaptureEnabled — Basic/Pro, not paused", () => {
   it("is off when the owner has no record", () => {
     expect(leadCaptureEnabled(null)).toBe(false)
     expect(leadCaptureEnabled(undefined)).toBe(false)
+  })
+})
+
+describe("channelTrackingEnabled — Basic/Pro, not paused", () => {
+  it("is on for active paid plans only", () => {
+    expect(channelTrackingEnabled({ plan: "basic", pausedAt: null })).toBe(true)
+    expect(channelTrackingEnabled({ plan: "pro", pausedAt: null })).toBe(true)
+    expect(channelTrackingEnabled({ plan: "trial", pausedAt: null })).toBe(false)
+    expect(channelTrackingEnabled({ plan: "pro", pausedAt: "2026-11-01T00:00:00.000Z" })).toBe(false)
+    expect(channelTrackingEnabled(null)).toBe(false)
   })
 })
 

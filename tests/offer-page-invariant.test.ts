@@ -94,6 +94,19 @@ describe("every plan state still resolves the QR to the offer", () => {
   })
 })
 
+describe("a channel code that already exists", () => {
+  it.each([
+    ["downgraded to Trial", client({ plan: "trial" })],
+    ["paused", client({ plan: "basic", pausedAt: PAUSED })],
+    ["still on Pro", client({ plan: "pro" })],
+  ])("%s: still shows the offer and counts the scan", async (_label, owner) => {
+    db.tracking.set("CHN2345", { ...record, channelLabel: "Email blast", parentCode: "ABC2345", redeemUrl: "https://oneflyer.org/r/CHN2345" })
+    db.owner = owner
+    expectOffer(await render("CHN2345"))
+    expect(db.scans.get("CHN2345")).toBe(1)
+  })
+})
+
 describe("records written before this change", () => {
   it("render and count normally without redeemUrl, channelLabel or parentCode", async () => {
     const legacy = { ...record } as Partial<TrackingRecord>
