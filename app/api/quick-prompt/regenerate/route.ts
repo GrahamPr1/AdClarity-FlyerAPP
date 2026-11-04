@@ -3,6 +3,7 @@ import { waitUntil } from "@vercel/functions"
 import { PLAN_LIMITS } from "@/lib/types"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getPipelineState, getOrCreateClient, reserveFlyerQuota, incrementAndCheckRegenerateAllowance } from "@/lib/store"
+import { nopAgentGenerationBlock } from "@/lib/enterprise/generation-guard"
 import { getPlan } from "@/lib/plans"
 import { retryFlyer } from "@/lib/agent-pipeline/pipeline"
 import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
@@ -23,6 +24,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const email = session.sub
+
+  const nopBlock = await nopAgentGenerationBlock(email, request)
+  if (nopBlock) return nopBlock
 
   let body: { flyerId?: string }
   try {
