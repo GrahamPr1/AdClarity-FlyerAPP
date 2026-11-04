@@ -1,4 +1,5 @@
-import { countLeadsForFlyer, getTrackingMonthStats, getTrackingRecord, getTrackingStats, listFlyerChannelCodes, statsMonth } from "@/lib/store"
+import { countLeadsForFlyer, getTrackingMonthStats, getTrackingRecord, getTrackingStats, listFlyerChannelCodes } from "@/lib/store"
+import { statsMonth, statsMonthStart } from "@/lib/stats-month"
 import { UNLABELED_CHANNEL, type ChannelStats, type FlyerTrackingBreakdown } from "@/lib/types"
 
 /**
@@ -13,7 +14,7 @@ import { UNLABELED_CHANNEL, type ChannelStats, type FlyerTrackingBreakdown } fro
  * a label per code, and only a COUNT of leads. There is nothing about who
  * scanned to leave out.
  *
- * "This month" is the current UTC calendar month.
+ * "This month" is the current calendar month in Eastern time (stats-month.ts).
  */
 export async function buildFlyerBreakdown(
   flyerId: string,
@@ -49,7 +50,7 @@ export async function buildFlyerBreakdown(
   // channel actually worked.
   channels.sort((a, b) => Number(a.isChannel) - Number(b.isChannel) || b.scans - a.scans)
 
-  const leads = await countLeadsForFlyer(flyerId, new Date(`${month}-01T00:00:00.000Z`))
+  const leads = await countLeadsForFlyer(flyerId, statsMonthStart(month))
   return {
     flyerId,
     totalScans: channels.reduce((sum, c) => sum + c.scans, 0),

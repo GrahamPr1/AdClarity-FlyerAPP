@@ -3,7 +3,7 @@ import type { LeadRecord, TrackingRecord } from "@/lib/types"
 
 /**
  * The real store code against an in-memory Redis:
- * - monthly scan/click counters run beside the lifetime ones (UTC months),
+ * - monthly scan/click counters run beside the lifetime ones (Eastern months),
  *   and scans from before they existed count toward all time only;
  * - a flyer's results report scans, clicks and leads this month and all time;
  * - a lead is listed newest first and deleting it removes the record and both
@@ -63,7 +63,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe("monthly counters", () => {
-  it("a scan and a click count toward all time and the current UTC month, which expires after ~13 months", async () => {
+  it("a scan and a click count toward all time and the current Eastern month, which expires after ~13 months", async () => {
     const { incrementTrackingScan, incrementTrackingClick, getTrackingStats, getTrackingMonthStats } = await import("@/lib/store")
     await incrementTrackingScan("ABC2345"); await incrementTrackingScan("ABC2345"); await incrementTrackingClick("ABC2345")
     expect(await getTrackingStats("ABC2345")).toEqual({ scans: 2, clicks: 1 })
@@ -81,12 +81,23 @@ describe("monthly counters", () => {
     expect(b).toMatchObject({ month: "2026-11", totalScans: 41, scansThisMonth: 1 })
   })
 
-  it("the month rolls over in UTC", async () => {
-    const { incrementTrackingScan, getTrackingMonthStats } = await import("@/lib/store")
-    vi.setSystemTime(new Date("2026-11-30T23:59:00Z")); await incrementTrackingScan("ABC2345")
-    vi.setSystemTime(new Date("2026-12-01T00:01:00Z")); await incrementTrackingScan("ABC2345")
-    expect((await getTrackingMonthStats("ABC2345", "2026-11")).scans).toBe(1)
-    expect((await getTrackingMonthStats("ABC2345", "2026-12")).scans).toBe(1)
+  it("the month rolls over at midnight Eastern, not midnight UTC", async () => {
+    const { incrementTrackingScan, incrementTrackingClick, getTrackingMonthStats } = await import("@/lib/store")
+    // Already December in UTC, still 11:59 pm on Nov 30 in New York.
+    vi.setSystemTime(new Date("2026-12-01T04:59:00Z")); await incrementTrackingScan("ABC2345"); await incrementTrackingClick("ABC2345")
+    // 12:01 am on Dec 1 in New York.
+    vi.setSystemTime(new Date("2026-12-01T05:01:00Z")); await incrementTrackingScan("ABC2345")
+    expect(await getTrackingMonthStats("ABC2345", "2026-11")).toEqual({ scans: 1, clicks: 1 })
+    expect(await getTrackingMonthStats("ABC2345", "2026-12")).toEqual({ scans: 1, clicks: 0 })
+  })
+
+  it("leads split at the same Eastern midnight as scans", async () => {
+    const { saveLead } = await import("@/lib/store")
+    const { buildFlyerBreakdown } = await import("@/lib/tracking-breakdown")
+    await saveLead(OWNER, lead("nov", "2026-12-01T04:59:59Z")) // 11:59 pm Nov 30, Eastern
+    await saveLead(OWNER, lead("dec", "2026-12-01T05:00:00Z")) // midnight Dec 1, Eastern
+    vi.setSystemTime(new Date("2026-12-01T06:00:00Z"))
+    expect(await buildFlyerBreakdown("flyer-1", "ABC2345", OWNER)).toMatchObject({ month: "2026-12", totalLeads: 2, leadsThisMonth: 1 })
   })
 })
 

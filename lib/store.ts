@@ -7,6 +7,7 @@ import { usageWindow, RESET_PERIOD_MS } from "./usage-window"
 import { getPlan } from "./plans"
 import { getAppEnvironment, verdictForMarker } from "./env"
 import { escapeRedisGlob } from "./redis-glob"
+import { statsMonth } from "./stats-month"
 import { applyFlyerSync, applyOwnerEdit, resetToFlyer, restoreSnapshot, snapshotOf, type OfferPageSnapshot, type OwnerOfferContent } from "./offer-page-content"
 import { sha256Hex } from "./auth"
 import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
@@ -1702,15 +1703,11 @@ export async function undoOfferPageEdit(flyerId: string, primaryCode: string): P
   return true
 }
 
-// Monthly counters (UTC calendar months) beside the lifetime ones, counted
+// Monthly counters (Eastern calendar months, see stats-month.ts) beside the lifetime ones, counted
 // from the day they shipped. Scans before that count toward all time only:
 // there is no per-month history to split them by, so none is invented.
 // Kept a little over a year; the lifetime counters are never expired.
 
-/** "2026-11" for a UTC date. */
-export function statsMonth(at: Date = new Date()): string {
-  return at.toISOString().slice(0, 7)
-}
 function monthlyKey(totalKey: string, month: string) {
   return `${totalKey}:${month}`
 }
@@ -1743,7 +1740,7 @@ export async function getTrackingStats(code: string): Promise<TrackingStats> {
   return { scans: scans ?? 0, clicks: clicks ?? 0 }
 }
 
-/** Scans and clicks for one code in one UTC month. */
+/** Scans and clicks for one code in one month. */
 export async function getTrackingMonthStats(code: string, month: string = statsMonth()): Promise<TrackingStats> {
   const [scans, clicks] = await Promise.all([
     redis.get<number>(monthlyKey(trackingScansKey(code), month)),
