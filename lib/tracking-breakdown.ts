@@ -1,4 +1,5 @@
-import { getTrackingRecord, getTrackingStats, listFlyerChannelCodes } from "@/lib/store"
+import { countLeadsForFlyer, getTrackingMonthStats, getTrackingRecord, getTrackingStats, listFlyerChannelCodes } from "@/lib/store"
+import { statsMonth, statsMonthStart } from "@/lib/stats-month"
 import { UNLABELED_CHANNEL, type ChannelStats, type FlyerTrackingBreakdown } from "@/lib/types"
 
 /**
@@ -9,8 +10,11 @@ import { UNLABELED_CHANNEL, type ChannelStats, type FlyerTrackingBreakdown } fro
  * is needed: every flyer generated before channels existed still reports a
  * breakdown, with all of its scans under UNLABELED_CHANNEL.
  *
- * Contains no personal data by construction — it reads two integer counters
- * and a label per code. There is nothing about who scanned to leave out.
+ * Contains no personal data by construction — it reads integer counters and
+ * a label per code, and only a COUNT of leads. There is nothing about who
+ * scanned to leave out.
+ *
+ * "This month" is the current calendar month in Eastern time (stats-month.ts).
  */
 export async function buildFlyerBreakdown(
   flyerId: string,
@@ -21,13 +25,18 @@ export async function buildFlyerBreakdown(
   const channelCodes = await listFlyerChannelCodes(flyerId)
   const codes = [...(originalCode ? [originalCode] : []), ...channelCodes.filter((c) => c !== originalCode)]
 
+  const month = statsMonth()
   const channels: ChannelStats[] = []
+  let scansThisMonth = 0
+  let clicksThisMonth = 0
   for (const code of codes) {
     const record = await getTrackingRecord(code)
     // A code whose record is gone, or belongs to someone else, is skipped
     // rather than counted — the reverse index is not an ownership claim.
     if (!record || record.email !== ownerEmail || record.flyerId !== flyerId) continue
-    const stats = await getTrackingStats(code)
+    const [stats, monthly] = await Promise.all([getTrackingStats(code), getTrackingMonthStats(code, month)])
+    scansThisMonth += monthly.scans
+    clicksThisMonth += monthly.clicks
     channels.push({
       code,
       label: record.channelLabel ?? UNLABELED_CHANNEL,
@@ -41,10 +50,16 @@ export async function buildFlyerBreakdown(
   // channel actually worked.
   channels.sort((a, b) => Number(a.isChannel) - Number(b.isChannel) || b.scans - a.scans)
 
+  const leads = await countLeadsForFlyer(flyerId, statsMonthStart(month))
   return {
     flyerId,
     totalScans: channels.reduce((sum, c) => sum + c.scans, 0),
     totalClicks: channels.reduce((sum, c) => sum + c.clicks, 0),
     channels,
+    month,
+    scansThisMonth,
+    clicksThisMonth,
+    totalLeads: leads.total,
+    leadsThisMonth: leads.since,
   }
 }

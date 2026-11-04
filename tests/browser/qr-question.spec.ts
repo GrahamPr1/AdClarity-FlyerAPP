@@ -4,8 +4,8 @@ import { stateFile } from "./auth-paths"
 /**
  * "Add a QR code to your flyer?" must be a visible question while filling in
  * flyer details — not buried in the collapsed optional section — and it must
- * reflect the plan honestly rather than promising Trial users a QR code the
- * server will not produce for them (see qrEnabled in plan-features.ts).
+ * be a real choice on every plan: Trial flyers get a QR code too (see
+ * qrEnabled in plan-features.ts).
  */
 
 const BASE = "http://localhost:3000"
@@ -20,7 +20,12 @@ async function reachPromotionStep(page: Page) {
   // No sign-in here: the session is restored from auth.setup.ts. Logging in
   // per test burned the per-account rate-limit budget (see auth-paths.ts).
   await page.goto(`${BASE}/onboarding`)
-  await page.getByRole("button", { name: /Guided Setup/i }).click()
+  // Two front doors: an account with a business profile sees "Guided Setup";
+  // one without starts at the website scan, which has a manual way through.
+  const guided = page.getByRole("button", { name: /Guided Setup/i })
+  const manual = page.getByRole("button", { name: /set up manually/i })
+  await expect(guided.or(manual)).toBeVisible({ timeout: 15000 })
+  await ((await guided.isVisible()) ? guided : manual).click()
   await page.getByRole("button", { name: /No, I'll answer a few questions/i }).click()
 
   await expect(page.getByText(/STEP 1 OF 3/i)).toBeVisible({ timeout: 15000 })
@@ -61,14 +66,13 @@ test("QR question is visible, defaults on, and can be declined", async ({ page }
 test.describe("Trial plan", () => {
   test.use({ storageState: ({}, provide, testInfo) => provide(stateFile("trial", testInfo.project.name)) })
 
-test("question is shown but disabled, with an upgrade path", async ({ page }) => {
+test("question is shown, enabled and on by default", async ({ page }) => {
   await reachPromotionStep(page)
 
   await expect(page.getByText(/Add a QR code to your flyer\?/i)).toBeVisible()
   const box = page.getByRole("checkbox", { name: /scannable QR code/i })
-  await expect(box).toBeDisabled()
-  await expect(box, "must not promise a QR the plan won't produce").not.toBeChecked()
-  await expect(page.getByRole("link", { name: /Upgrade to Basic/i })).toBeVisible()
+  await expect(box).toBeEnabled()
+  await expect(box, "Trial flyers get a QR too").toBeChecked()
 })
 
 })

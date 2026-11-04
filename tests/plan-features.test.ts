@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { qrEnabled, planIncludesExtras, planAllowsAiPhotos, aiPhotosEnabled } from "@/lib/agent-pipeline/plan-features"
+import { qrEnabled, planIncludesExtras, planAllowsAiPhotos, aiPhotosEnabled, leadCaptureEnabled, channelTrackingEnabled } from "@/lib/agent-pipeline/plan-features"
 import { PLAN_LIMITS } from "@/lib/types"
 
 describe("plan limits", () => {
@@ -11,24 +11,51 @@ describe("plan limits", () => {
 })
 
 describe("qrEnabled", () => {
-  it("gives a QR to paid plans that asked for one", () => {
+  it("gives a QR to every plan that asked for one, Trial included", () => {
+    expect(qrEnabled("trial", true)).toBe(true)
     expect(qrEnabled("basic", true)).toBe(true)
     expect(qrEnabled("pro", true)).toBe(true)
   })
 
-  it("withholds it when a paid client declined", () => {
+  it("withholds it when the client declined", () => {
+    expect(qrEnabled("trial", false)).toBe(false)
     expect(qrEnabled("basic", false)).toBe(false)
     expect(qrEnabled("pro", false)).toBe(false)
   })
 
-  it("withholds it on trial even when the submitted flag says true", () => {
-    // The onboarding checkbox is disabled on Trial, but the form is not what
-    // enforces this — a hand-crafted POST must not get a QR either.
-    expect(qrEnabled("trial", true)).toBe(false)
-  })
-
   it("withholds it when the plan is unknown", () => {
     expect(qrEnabled(undefined, true)).toBe(false)
+  })
+})
+
+describe("leadCaptureEnabled — Basic/Pro, not paused", () => {
+  it("is on for active paid plans", () => {
+    expect(leadCaptureEnabled({ plan: "basic", pausedAt: null })).toBe(true)
+    expect(leadCaptureEnabled({ plan: "pro", pausedAt: null })).toBe(true)
+  })
+
+  it("is off on Trial, which is also where a cancelled subscription lands", () => {
+    expect(leadCaptureEnabled({ plan: "trial", pausedAt: null })).toBe(false)
+  })
+
+  it("is off while paused, on any plan", () => {
+    expect(leadCaptureEnabled({ plan: "pro", pausedAt: "2026-11-01T00:00:00.000Z" })).toBe(false)
+    expect(leadCaptureEnabled({ plan: "basic", pausedAt: "2026-11-01T00:00:00.000Z" })).toBe(false)
+  })
+
+  it("is off when the owner has no record", () => {
+    expect(leadCaptureEnabled(null)).toBe(false)
+    expect(leadCaptureEnabled(undefined)).toBe(false)
+  })
+})
+
+describe("channelTrackingEnabled — Basic/Pro, not paused", () => {
+  it("is on for active paid plans only", () => {
+    expect(channelTrackingEnabled({ plan: "basic", pausedAt: null })).toBe(true)
+    expect(channelTrackingEnabled({ plan: "pro", pausedAt: null })).toBe(true)
+    expect(channelTrackingEnabled({ plan: "trial", pausedAt: null })).toBe(false)
+    expect(channelTrackingEnabled({ plan: "pro", pausedAt: "2026-11-01T00:00:00.000Z" })).toBe(false)
+    expect(channelTrackingEnabled(null)).toBe(false)
   })
 })
 

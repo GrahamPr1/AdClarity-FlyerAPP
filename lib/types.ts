@@ -572,6 +572,50 @@ export interface TrackingRecord {
   channelLabel?: string | null
   /** The flyer's original code this was minted alongside. Null on the original. */
   parentCode?: string | null
+  /**
+   * The exact URL this code's QR encodes (https://oneflyer.org/r/<code> for
+   * codes minted since it existed). Absent on older records, whose QR points
+   * at the site URL of the time — see redeemUrlFor in qrTracking.ts.
+   */
+  redeemUrl?: string
+  /** Owner-set price or discount ("$49", "20% off"), shown prominently. Only set by an offer-page edit. */
+  price?: string | null
+  /** YYYY-MM-DD the offer runs until, or null. Past it, the page says the offer has ended. See isOfferExpired. */
+  expiresAt?: string | null
+  /**
+   * True once the owner has edited this offer page directly. Flyer edits then
+   * stop overwriting it and update flyerCopy instead (lib/offer-page-content.ts).
+   * Absent on every record from before offer-page editing: those follow the flyer.
+   */
+  offerPageEdited?: boolean
+  /** While offerPageEdited, what the flyer would have set, for "Reset offer page to match flyer". */
+  flyerCopy?: Pick<TrackingRecord, "headline" | "offer" | "cta" | "disclaimer" | "phone">
+}
+
+/**
+ * Someone who filled in the form on a flyer's offer page (/r/<code>).
+ *
+ * Deliberately holds only what the visitor typed plus when and where: no IP
+ * address, user agent or other identifier. The IP is used once, for the
+ * rate limit, and lives only in that short-lived key (lib/rate-limit.ts).
+ */
+export interface LeadRecord {
+  id: string
+  /** The flyer whose offer page it came from ("campaign" in the product). */
+  flyerId: string
+  /** The code scanned: the flyer's original code or one of its channel codes. */
+  code: string
+  name: string
+  phone: string
+  email: string | null
+  message: string | null
+  createdAt: string
+  /**
+   * True when it came in after the offer's end date (isOfferExpired at the
+   * moment of submission). Old flyers keep being scanned; the owner is told.
+   * Absent on leads from before this field existed, which reads as false.
+   */
+  afterOfferEnded?: boolean
 }
 
 /** Scans and clicks for one distribution channel of a flyer. */
@@ -593,6 +637,13 @@ export interface FlyerTrackingBreakdown {
   totalScans: number
   totalClicks: number
   channels: ChannelStats[]
+  /** The current Eastern-time month ("2026-11") the *ThisMonth figures cover. */
+  month: string
+  /** Counted from the day monthly counters shipped; earlier scans are in totalScans only. */
+  scansThisMonth: number
+  clicksThisMonth: number
+  totalLeads: number
+  leadsThisMonth: number
 }
 
 export interface TrackingStats {
@@ -657,6 +708,8 @@ export interface Deliverables {
   isRealEstate: boolean
   /** True only when this client has never explicitly set a category (an account that predates this field) — drives the dashboard's one-time, non-blocking banner (see DashboardClient). False the moment they've set any category, including explicitly choosing "Other". */
   businessCategoryIsDefaulted: boolean
+  /** Has an agent profile with an org: no lead form or offer-page editing (offerPageFeaturesEnabled). */
+  isEnterpriseAccount: boolean
   /** See ClientRecord.isAdmin — lets DashboardClient show a link to /admin for an account that has it, since otherwise there's no way to discover /admin exists after a normal client login. */
   isAdmin: boolean
 }

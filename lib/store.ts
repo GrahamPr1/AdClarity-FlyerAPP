@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis"
-import type { CampaignRecord, BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, AgentProfile, CampaignSource, ContentAsset, EnterpriseOrg, PendingGoalCampaign, PlanId, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats, ThemePreference} from "./types"
+import type { CampaignRecord, BillingInterval, WaitlistEntry, BusinessCategory, BusinessProfileRecord, CampaignDefaults, ClientRecord, Deliverables, FlyerDeliverable, FormFillRequest, GenerationLogEntry, IntakeSubmission, AgentProfile, CampaignSource, ContentAsset, EnterpriseOrg, PendingGoalCampaign, PlanId, LeadRecord, PrintRequest, RepurposedFlyerContent, SavedBrandProfile, TrackingRecord, TrackingStats, ThemePreference} from "./types"
 import { PLAN_LIMITS } from "./types"
 import type { BillingEventSummary, DisputeRecord, MemberBilling } from "./types"
 import { BILLING_EVENT_LOG_LIMIT } from "./types"
@@ -7,6 +7,8 @@ import { usageWindow, RESET_PERIOD_MS } from "./usage-window"
 import { getPlan } from "./plans"
 import { getAppEnvironment, verdictForMarker } from "./env"
 import { escapeRedisGlob } from "./redis-glob"
+import { statsMonth } from "./stats-month"
+import { applyFlyerSync, applyOwnerEdit, resetToFlyer, restoreSnapshot, snapshotOf, type OfferPageSnapshot, type OwnerOfferContent } from "./offer-page-content"
 import { sha256Hex } from "./auth"
 import type { NormalizedIntake } from "./agent-pipeline/schemas/intake"
 import type { FlyerRequest } from "./agent-pipeline/schemas/flyer"
@@ -299,6 +301,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
   const generationStage = await getGenerationStage(email)
   const waitlist = await getWaitlistEntriesForEmail(email)
   const businessCategoryIsDefaulted = !(await hasExplicitBusinessCategory(email))
+  const agentProfile = await getAgentProfile(email)
 
   return {
     ...stored,
@@ -325,6 +328,7 @@ export async function getDeliverablesForEmail(email: string): Promise<Deliverabl
     businessCategory: client?.businessCategory ?? "Other",
     isRealEstate: client?.isRealEstate ?? false,
     businessCategoryIsDefaulted,
+    isEnterpriseAccount: !!agentProfile?.orgId,
     isAdmin: client?.isAdmin ?? false,
   }
 }
@@ -353,6 +357,7 @@ export async function getDeliverables(): Promise<Deliverables> {
       businessCategory: "Other",
       isRealEstate: false,
       businessCategoryIsDefaulted: true,
+      isEnterpriseAccount: false,
       isAdmin: false,
     }
   }
@@ -1636,30 +1641,113 @@ export async function updateTrackingContentForFlyer(
 ): Promise<string[]> {
   const changes = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined))
   if (Object.keys(changes).length === 0) return []
-  const codes = [...new Set([...(primaryCode ? [primaryCode] : []), ...(await listFlyerChannelCodes(flyerId))])]
+  // An offer page the owner has edited keeps its own content; the flyer's
+  // change is kept aside for "Reset offer page to match flyer" (applyFlyerSync).
+  return rewriteFlyerCodes(flyerId, primaryCode, (existing) => applyFlyerSync(existing, changes))
+}
+
+/** Every code showing this flyer's offer page: the original and each channel code. */
+async function flyerCodes(flyerId: string, primaryCode: string | undefined): Promise<string[]> {
+  return [...new Set([...(primaryCode ? [primaryCode] : []), ...(await listFlyerChannelCodes(flyerId))])]
+}
+
+/** Rewrites each of the flyer's tracking records with `next`. Returns the codes it updated. */
+async function rewriteFlyerCodes(flyerId: string, primaryCode: string | undefined, next: (existing: TrackingRecord) => TrackingRecord): Promise<string[]> {
   const updated: string[] = []
-  for (const code of codes) {
+  for (const code of await flyerCodes(flyerId, primaryCode)) {
     const existing = await getTrackingRecord(code)
     if (!existing || existing.flyerId !== flyerId) continue
-    await redis.set(trackingRecordKey(code), { ...existing, ...changes })
+    await redis.set(trackingRecordKey(code), next(existing))
     updated.push(code)
   }
   return updated
 }
 
+// ---- Offer-page editing ------------------------------------------------------
+//
+// The owner's edits apply to every code of the flyer, so the page reads the
+// same whichever QR link was scanned. Nothing here touches a code, its
+// redeemUrl or its counters: the QR on paper is unchanged. One-level undo, kept
+// for a week like the flyer editor's (savePreEditSnapshot).
+
+function offerPagePreviousKey(flyerId: string) {
+  return `flyer:${flyerId}:offer-page-previous`
+}
+
+async function snapshotOfferPage(flyerId: string, primaryCode: string): Promise<boolean> {
+  const current = await getTrackingRecord(primaryCode)
+  if (!current || current.flyerId !== flyerId) return false
+  await redis.set(offerPagePreviousKey(flyerId), snapshotOf(current), { ex: PRE_EDIT_TTL_SECONDS })
+  return true
+}
+
+/** Saves the owner's edit to every code of the flyer. False if the flyer has no offer page. */
+export async function saveOfferPageEdit(flyerId: string, primaryCode: string, edit: OwnerOfferContent): Promise<boolean> {
+  if (!(await snapshotOfferPage(flyerId, primaryCode))) return false
+  return (await rewriteFlyerCodes(flyerId, primaryCode, (existing) => applyOwnerEdit(existing, edit))).length > 0
+}
+
+/** Back to what the flyer says now; the owner's edits become the undo point. */
+export async function resetOfferPageToFlyer(flyerId: string, primaryCode: string): Promise<boolean> {
+  if (!(await snapshotOfferPage(flyerId, primaryCode))) return false
+  return (await rewriteFlyerCodes(flyerId, primaryCode, resetToFlyer)).length > 0
+}
+
+export async function hasOfferPageUndo(flyerId: string): Promise<boolean> {
+  return (await redis.exists(offerPagePreviousKey(flyerId))) === 1
+}
+
+/** Restores the page as it was before the last save or reset. False if there's nothing to undo. */
+export async function undoOfferPageEdit(flyerId: string, primaryCode: string): Promise<boolean> {
+  const snapshot = await redis.get<OfferPageSnapshot>(offerPagePreviousKey(flyerId))
+  if (!snapshot) return false
+  await rewriteFlyerCodes(flyerId, primaryCode, (existing) => restoreSnapshot(existing, snapshot))
+  await redis.del(offerPagePreviousKey(flyerId))
+  return true
+}
+
+// Monthly counters (Eastern calendar months, see stats-month.ts) beside the lifetime ones, counted
+// from the day they shipped. Scans before that count toward all time only:
+// there is no per-month history to split them by, so none is invented.
+// Kept a little over a year; the lifetime counters are never expired.
+
+function monthlyKey(totalKey: string, month: string) {
+  return `${totalKey}:${month}`
+}
+const MONTHLY_TTL_SECONDS = 400 * 24 * 60 * 60
+
+async function incrementWithMonth(totalKey: string): Promise<number> {
+  const month = monthlyKey(totalKey, statsMonth())
+  const p = redis.pipeline()
+  p.incr(totalKey)
+  p.incr(month)
+  p.expire(month, MONTHLY_TTL_SECONDS)
+  const [total] = await p.exec<[number, number, number]>()
+  return total
+}
+
 /** Atomic — safe under concurrent scans of the same code. */
 export async function incrementTrackingScan(code: string): Promise<number> {
-  return await redis.incr(trackingScansKey(code))
+  return await incrementWithMonth(trackingScansKey(code))
 }
 
 export async function incrementTrackingClick(code: string): Promise<number> {
-  return await redis.incr(trackingClicksKey(code))
+  return await incrementWithMonth(trackingClicksKey(code))
 }
 
 export async function getTrackingStats(code: string): Promise<TrackingStats> {
   const [scans, clicks] = await Promise.all([
     redis.get<number>(trackingScansKey(code)),
     redis.get<number>(trackingClicksKey(code)),
+  ])
+  return { scans: scans ?? 0, clicks: clicks ?? 0 }
+}
+
+/** Scans and clicks for one code in one month. */
+export async function getTrackingMonthStats(code: string, month: string = statsMonth()): Promise<TrackingStats> {
+  const [scans, clicks] = await Promise.all([
+    redis.get<number>(monthlyKey(trackingScansKey(code), month)),
+    redis.get<number>(monthlyKey(trackingClicksKey(code), month)),
   ])
   return { scans: scans ?? 0, clicks: clicks ?? 0 }
 }
@@ -1813,6 +1901,75 @@ export async function getGenerationLogForEmail(email: string): Promise<Generatio
   return await redis.zrange<GenerationLogEntry[]>(generationLogByEmailKey(email), 0, -1)
 }
 
+// ---- Offer-page leads --------------------------------------------------------
+//
+// One JSON record per lead under the owner's own namespace, plus two sorted
+// sets of lead ids scored by submission time: one per flyer (the campaign the
+// lead came from) and one per client (every lead, for the dashboard). Under
+// client:<email>:* so account deletion's SCAN finds the records and the client
+// index without a special case; the per-flyer index is added there by flyer id.
+
+function leadKey(email: string, id: string) {
+  return `client:${email}:lead:${id}`
+}
+function clientLeadsKey(email: string) {
+  return `client:${email}:leads`
+}
+function flyerLeadsKey(flyerId: string) {
+  return `flyer:${flyerId}:leads`
+}
+
+/** Saves a lead and indexes it under its flyer and its owner, in one transaction. */
+export async function saveLead(email: string, lead: LeadRecord): Promise<void> {
+  const score = Date.parse(lead.createdAt)
+  const tx = redis.multi()
+  tx.set(leadKey(email, lead.id), lead)
+  tx.zadd(flyerLeadsKey(lead.flyerId), { score, member: lead.id })
+  tx.zadd(clientLeadsKey(email), { score, member: lead.id })
+  await tx.exec()
+}
+
+export async function getLead(email: string, id: string): Promise<LeadRecord | null> {
+  return (await redis.get<LeadRecord>(leadKey(email, id))) ?? null
+}
+
+/** One flyer's leads, newest first. Only the client's own: records live under their namespace. */
+export async function listLeadsForFlyer(email: string, flyerId: string): Promise<LeadRecord[]> {
+  const ids = (await redis.zrange<string[]>(flyerLeadsKey(flyerId), 0, -1, { rev: true })) ?? []
+  if (ids.length === 0) return []
+  const records = await redis.mget<(LeadRecord | null)[]>(...ids.map((id) => leadKey(email, id)))
+  return records.filter((r): r is LeadRecord => r !== null && r.flyerId === flyerId)
+}
+
+/** A flyer's lead count, all time and since `since` (the start of the month). */
+export async function countLeadsForFlyer(flyerId: string, since: Date): Promise<{ total: number; since: number }> {
+  const [total, recent] = await Promise.all([
+    redis.zcard(flyerLeadsKey(flyerId)),
+    redis.zcount(flyerLeadsKey(flyerId), since.getTime(), "+inf"),
+  ])
+  return { total: total ?? 0, since: recent ?? 0 }
+}
+
+/** Every lead the client has, newest first. */
+export async function listLeadsForClient(email: string): Promise<LeadRecord[]> {
+  const ids = (await redis.zrange<string[]>(clientLeadsKey(email), 0, -1, { rev: true })) ?? []
+  if (ids.length === 0) return []
+  const records = await redis.mget<(LeadRecord | null)[]>(...ids.map((id) => leadKey(email, id)))
+  return records.filter((r): r is LeadRecord => r !== null)
+}
+
+/** Removes the lead and both index entries. False if the client has no such lead. */
+export async function deleteLead(email: string, id: string): Promise<boolean> {
+  const lead = await getLead(email, id)
+  if (!lead) return false
+  const tx = redis.multi()
+  tx.del(leadKey(email, id))
+  tx.zrem(flyerLeadsKey(lead.flyerId), id)
+  tx.zrem(clientLeadsKey(email), id)
+  await tx.exec()
+  return true
+}
+
 // ---- Account deletion (admin, irreversible) ---------------------------------
 
 
@@ -1867,6 +2024,16 @@ export async function collectAccountKeys(email: string): Promise<{ keys: string[
         keys.add(key)
         keys.add(`tracking:${code}:scans`)
         keys.add(`tracking:${code}:clicks`)
+        // And the monthly counters beside them (tracking:<code>:scans:<YYYY-MM>).
+        await scanInto(`tracking:${escapeRedisGlob(code)}:*`, `tracking:${code}:`)
+        // Per-flyer keys, found through the tracking records that name the
+        // flyer. Lead records themselves sit under client:<email>:* above.
+        const flyerId = (record as { flyerId?: string }).flyerId
+        if (flyerId) {
+          keys.add(flyerChannelCodesKey(flyerId))
+          keys.add(flyerLeadsKey(flyerId))
+          keys.add(offerPagePreviousKey(flyerId))
+        }
       }
     }
   } while (cursor !== "0")

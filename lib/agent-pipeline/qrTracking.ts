@@ -1,6 +1,7 @@
 import QRCode from "qrcode"
 import { getTrackingRecord, addFlyerChannelCode, createTrackingRecord, updateTrackingContentForFlyer } from "@/lib/store"
-import { getSiteUrl } from "@/lib/site-url"
+import { getSiteUrl, qrRedeemUrl } from "@/lib/site-url"
+import type { TrackingRecord } from "@/lib/types"
 import type { NormalizedIntake } from "./schemas/intake"
 import type { FlyerSpecification } from "./schemas/flyer"
 
@@ -27,10 +28,11 @@ export async function createFlyerTrackingCode(
   intake: NormalizedIntake,
 ): Promise<{ code: string; qrDataUrl: string }> {
   const code = generateTrackingCode()
-  const redeemUrl = `${getSiteUrl()}/r/${code}`
+  const redeemUrl = qrRedeemUrl(code)
   const qrDataUrl = await QRCode.toDataURL(redeemUrl, { margin: 1, width: 512 })
 
   await createTrackingRecord(code, {
+    redeemUrl,
     email,
     flyerId,
     businessName: intake.businessName,
@@ -66,11 +68,13 @@ export async function createChannelTrackingCode(
   if (!parent) return null
 
   const code = generateTrackingCode()
-  const redeemUrl = `${getSiteUrl()}/r/${code}`
+  const redeemUrl = qrRedeemUrl(code)
   const qrDataUrl = await QRCode.toDataURL(redeemUrl, { margin: 1, width: 512 })
 
   await createTrackingRecord(code, {
     ...parent,
+    // The parent's own URL must not be copied: this code encodes its own.
+    redeemUrl,
     channelLabel,
     // Always the ORIGINAL code, even when minted from another child, so the
     // set stays a flat one-level grouping rather than a chain to walk.
@@ -90,7 +94,17 @@ export async function createChannelTrackingCode(
  * new one would silently invalidate every already-printed copy of that flyer.
  */
 export async function qrDataUrlForCode(code: string): Promise<string> {
-  return QRCode.toDataURL(`${getSiteUrl()}/r/${code}`, { margin: 1, width: 512 })
+  return QRCode.toDataURL(redeemUrlFor(code, await getTrackingRecord(code)), { margin: 1, width: 512 })
+}
+
+/**
+ * The URL a code's QR encodes. Records written before redeemUrl existed were
+ * minted with the site URL of the time (the vercel.app alias), which is what
+ * getSiteUrl() still returns in Production — so an old flyer's refined QR
+ * stays byte-identical to the one on paper.
+ */
+export function redeemUrlFor(code: string, record: Pick<TrackingRecord, "redeemUrl"> | null): string {
+  return record?.redeemUrl ?? `${getSiteUrl()}/r/${code}`
 }
 
 export async function backfillTrackingContent(code: string, flyer: FlyerSpecification): Promise<void> {

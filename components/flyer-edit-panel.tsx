@@ -27,13 +27,20 @@ export function FlyerEditPanel({ flyerId, onSaved }: { flyerId: string; onSaved:
     reason?: string
     fields: EditableField[]
     canRevert?: boolean
+    offerPageEdited?: boolean
   }>(`/api/flyers/${flyerId}/edit`, fetcher)
 
   if (isLoading) return <p className="mt-3 text-xs text-muted-foreground">Loading…</p>
   if (!data) return null
 
+  // Shown whichever way the flyer is changed: a regeneration doesn't reach an
+  // edited offer page either.
+  const notice = data.offerPageEdited ? <OfferPageEditedNotice flyerId={flyerId} onReset={() => void mutate()} /> : null
+
   if (data.notSupported) {
     return (
+      <>
+      {notice}
       <div className="mt-3 rounded-lg border border-border bg-[var(--surface-soft)] p-3">
         <p className="text-xs text-muted-foreground">
           {data.reason === "pre_marker"
@@ -42,11 +49,51 @@ export function FlyerEditPanel({ flyerId, onSaved }: { flyerId: string; onSaved:
           You can still change it by regenerating with an instruction.
         </p>
       </div>
+      </>
     )
   }
 
-  return <Editor key={data.fields.map((f) => f.value).join("|")} flyerId={flyerId} initial={data.fields}
-    canRevert={!!data.canRevert} onSaved={() => { void mutate(); onSaved() }} />
+  return (
+    <>
+      {notice}
+      <Editor key={data.fields.map((f) => f.value).join("|")} flyerId={flyerId} initial={data.fields}
+        canRevert={!!data.canRevert} onSaved={() => { void mutate(); onSaved() }} />
+    </>
+  )
+}
+
+/** The offer page has its own edits, so flyer edits won't reach it until it's reset. */
+function OfferPageEditedNotice({ flyerId, onReset }: { flyerId: string; onReset: () => void }) {
+  const [resetting, setResetting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function reset() {
+    setResetting(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/offer-page/${flyerId}?action=reset`, { method: "POST" })
+      if (!res.ok) {
+        setError((await res.json().catch(() => ({}))).message ?? "That didn't reset. Try again.")
+        return
+      }
+      onReset()
+    } catch {
+      setError("That didn't reset. Check your connection and try again.")
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-border bg-[var(--surface-soft)] p-3 text-xs">
+      <p className="text-muted-foreground">Your offer page has its own edits, so changes here won&apos;t update it.</p>
+      <button type="button" onClick={() => void reset()} disabled={resetting}
+        className="mt-1.5 text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors disabled:opacity-50">
+        {resetting ? "Resetting…" : "Reset offer page to match flyer"}
+      </button>
+      {error && <p role="alert" className="mt-1.5 text-red-600 dark:text-red-400">{error}</p>}
+    </div>
+  )
 }
 
 function Editor({

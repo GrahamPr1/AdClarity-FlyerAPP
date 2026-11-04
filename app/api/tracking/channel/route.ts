@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getDeliverables, getDeliverablesForEmail } from "@/lib/store"
+import { getClient, getDeliverables, getDeliverablesForEmail } from "@/lib/store"
 import { createChannelTrackingCode } from "@/lib/agent-pipeline/qrTracking"
+import { channelTrackingEnabled } from "@/lib/agent-pipeline/plan-features"
 
 const MAX_LABEL_LENGTH = 40
 const MAX_CHANNELS_PER_FLYER = 12
@@ -11,6 +12,11 @@ const MAX_CHANNELS_PER_FLYER = 12
 //
 // Post-generation only, by design: generation is untouched, and a client
 // decides how they are distributing a flyer after they have seen it.
+//
+// Basic/Pro, not paused, checked here on the flyer OWNER's live record, for
+// the admin's mirrored view too: hiding the button is not what enforces it.
+// Only creating a code is gated. /r/<code> never looks at this, so codes that
+// already exist keep working after a downgrade or pause.
 export async function POST(request: NextRequest) {
   const session = await getSessionIdentity(request)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -36,6 +42,15 @@ export async function POST(request: NextRequest) {
   const deliverables = session.sub === ADMIN_SUB ? await getDeliverables() : await getDeliverablesForEmail(session.sub)
   const flyer = deliverables.flyers.find((f) => f.id === flyerId)
   if (!flyer) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const ownerEmail = session.sub === ADMIN_SUB ? deliverables.email : session.sub
+  if (!channelTrackingEnabled(ownerEmail ? await getClient(ownerEmail) : null)) {
+    return NextResponse.json(
+      { error: "upgrade_required", message: "Tracking by channel is part of Basic and Pro. If your account is paused, resume it first." },
+      { status: 403 },
+    )
+  }
+
   if (!flyer.trackingCode) {
     return NextResponse.json(
       { error: "no_qr", message: "This flyer was generated without a QR code, so there's nothing to track." },

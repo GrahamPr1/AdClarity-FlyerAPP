@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { waitUntil } from "@vercel/functions"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getPipelineState } from "@/lib/store"
+import { nopAgentGenerationBlock } from "@/lib/enterprise/generation-guard"
 import { retryFlyer } from "@/lib/agent-pipeline/pipeline"
 
 // Same reasoning as app/api/intake/route.ts's maxDuration — this route also
@@ -42,6 +43,10 @@ export async function POST(request: NextRequest) {
   } else {
     email = session.sub
   }
+
+  // Whose flyer it is, so this also covers admin retrying for an agent.
+  const nopBlock = await nopAgentGenerationBlock(email, request)
+  if (nopBlock) return nopBlock
 
   const pipelineState = await getPipelineState(email)
   if (!pipelineState) {

@@ -63,18 +63,56 @@ export function aiPhotosEnabled(plan: PlanId | undefined, wantsAiPhotos: boolean
 /**
  * Whether a flyer gets a QR code printed on it.
  *
- * Two independent conditions, both required: the plan has to include QR
- * tracking, AND the client has to have asked for one ("Add a QR code to your
- * flyer?" in onboarding).
+ * Every plan, including Trial, as long as the client asked for one ("Add a QR
+ * code to your flyer?" in onboarding). A Trial flyer's QR opens the static
+ * offer page and counts scans; the lead form and offer-page editing are what
+ * a paid plan adds (see leadCaptureEnabled). Trial used to get no QR at all,
+ * which left nothing to show a trial account and nothing to upgrade from.
  *
  * Deliberately separate from planIncludesExtras: declining a QR code must not
- * also switch off repurposing, which is gated by plan alone. And the plan
- * check is on the outside, so a client on Trial gets no QR even if the
- * submitted flag says true — the form disables the checkbox, but the form is
- * not what enforces this.
+ * also switch off repurposing, which is gated by plan alone. An unknown plan
+ * (no client record) still gets none.
+ *
+ * Enterprise accounts (an agent profile with an org) keep the older rule, paid
+ * plans only: Trial's QR is a self-serve upgrade path that was never part of
+ * what an org approved.
  */
-export function qrEnabled(plan: PlanId | undefined, wantsQrCode: boolean): boolean {
-  return planIncludesExtras(plan) && wantsQrCode
+export function qrEnabled(plan: PlanId | undefined, wantsQrCode: boolean, isEnterpriseAccount = false): boolean {
+  if (isEnterpriseAccount) return planIncludesExtras(plan) && wantsQrCode
+  return plan !== undefined && wantsQrCode
+}
+
+/**
+ * Whether a flyer's owner may create more QR codes for it, one per channel.
+ * Basic/Pro, not paused: Trial keeps exactly one QR per flyer. Creation only:
+ * channel codes that already exist keep resolving and counting on any plan.
+ */
+export function channelTrackingEnabled(client: { plan: PlanId; pausedAt: string | null } | null | undefined): boolean {
+  return leadCaptureEnabled(client)
+}
+
+/**
+ * The lead form and the offer-page editor: leadCaptureEnabled, minus enterprise
+ * accounts (an agent profile with an org). Their flyers carry approved,
+ * verbatim content, so an owner rewriting the public page, or collecting leads
+ * on it, isn't something the org signed up for. Their QR still resolves to the
+ * static page, and channel tracking follows its own rule above.
+ */
+export function offerPageFeaturesEnabled(client: { plan: PlanId; pausedAt: string | null } | null | undefined, isEnterpriseAccount: boolean): boolean {
+  return leadCaptureEnabled(client) && !isEnterpriseAccount
+}
+
+/**
+ * Whether a flyer's offer page shows the lead form, and whether its owner may
+ * edit the page. Basic/Pro, not paused.
+ *
+ * Read from the OWNER's record on every request, not stored on the flyer, so
+ * upgrading switches the form on for flyers already printed, and a downgrade
+ * or pause switches it off. Never a reason to hide the offer page itself:
+ * whatever this returns, /r/<code> still renders the offer and counts the scan.
+ */
+export function leadCaptureEnabled(client: { plan: PlanId; pausedAt: string | null } | null | undefined): boolean {
+  return !!client && planIncludesExtras(client.plan) && !client.pausedAt
 }
 
 /**

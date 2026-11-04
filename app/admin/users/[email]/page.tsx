@@ -3,7 +3,8 @@
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import useSWR from "swr"
-import type { AdminUserDetail, GenerationAgentType } from "@/lib/types"
+import type { AdminUserDetail, GenerationAgentType, LeadRecord } from "@/lib/types"
+import { LeadsList } from "@/components/leads-list"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -17,6 +18,22 @@ export default function AdminUserDetailPage() {
     `/api/admin/users/${encodeURIComponent(email)}`,
     fetcher,
   )
+  // Offer-page leads, so a single one can be removed when the person who sent
+  // it asks (Privacy Policy, "Your choices").
+  const { data: leadsData, mutate: refreshLeads } = useSWR<{ leads?: LeadRecord[] }>(
+    `/api/admin/leads?email=${encodeURIComponent(email)}`,
+    fetcher,
+  )
+  async function deleteLead(id: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch(`/api/admin/leads?email=${encodeURIComponent(email)}&id=${encodeURIComponent(id)}`, { method: "DELETE" })
+      if (!res.ok) return { ok: false, error: (await res.json().catch(() => ({}))).error ?? "That didn't delete." }
+      await refreshLeads()
+      return { ok: true }
+    } catch {
+      return { ok: false, error: "That didn't delete. Check your connection and try again." }
+    }
+  }
 
   return (
     <div className="px-6 md:px-10 lg:px-16 py-10 max-w-4xl mx-auto">
@@ -58,6 +75,11 @@ export default function AdminUserDetailPage() {
             <p className="text-xs uppercase tracking-widest text-muted-foreground/70">Estimated AI cost to date</p>
             <p className="mt-2 text-2xl font-semibold text-[var(--brand-teal-bright)]">${data.totalEstimatedCostUsd.toFixed(4)}</p>
             <p className="mt-1 text-xs text-muted-foreground">Summed from {data.generationLog.length} real generation-log rows, not an estimate.</p>
+          </div>
+
+          <h2 className="mt-8 text-lg">Offer-page leads</h2>
+          <div className="mt-3 rounded-xl border border-border bg-card px-5 py-2">
+            {leadsData?.leads ? <LeadsList leads={leadsData.leads} onDelete={deleteLead} /> : <p className="py-3 text-sm text-muted-foreground">Loading…</p>}
           </div>
 
           <h2 className="mt-8 text-lg">Generation history</h2>

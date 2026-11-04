@@ -599,21 +599,13 @@ export function OnboardingForm({
               <Label htmlFor="wantsQrCode">Add a QR code to your flyer?</Label>
               <label htmlFor="wantsQrCode" className="mt-1.5 flex items-start gap-2.5 text-sm cursor-pointer">
                 <input id="wantsQrCode" type="checkbox"
-                  checked={(form.wantsQrCode ?? true) && realPlanId !== "trial"}
-                  disabled={realPlanId === "trial"}
+                  checked={form.wantsQrCode ?? true}
                   onChange={(e) => set("wantsQrCode", e.target.checked)}
                   className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--brand-teal-bright)] disabled:opacity-50" />
                 <span>Print a scannable QR code on the flyer</span>
               </label>
               <p className="mt-1.5 text-xs text-muted-foreground">
-                {realPlanId === "trial" ? (
-                  <>
-                    <Link href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">Upgrade to Basic</Link>
-                    {" "}to add scannable QR codes and see how many people scan them.
-                  </>
-                ) : (
-                  <>Scanning it opens your offer, and you&apos;ll see the scan count on your dashboard.</>
-                )}
+                Scanning it opens your offer, and you&apos;ll see the scan count on your dashboard.
               </p>
             </div>
           </div>

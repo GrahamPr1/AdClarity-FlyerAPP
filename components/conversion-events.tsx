@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
+import { isOfferPagePath } from "@/lib/offer-page"
 import { flushBeginCheckout, flushPendingSignup, reportCheckoutResult } from "@/lib/analytics"
 
 /**
@@ -18,6 +19,9 @@ import { flushBeginCheckout, flushPendingSignup, reportCheckoutResult } from "@/
 export function ConversionEvents() {
   const pathname = usePathname()
   useEffect(() => {
+    // Offer pages load no tags to send these to (see isOfferPagePath); a
+    // pending conversion waits for the next OneFlyer page instead.
+    if (isOfferPagePath(pathname)) return
     flushPendingSignup()
     // Checkout conversions, in funnel order: the begin_checkout queued before
     // Stripe, then (success page only, server-confirmed) the purchase.

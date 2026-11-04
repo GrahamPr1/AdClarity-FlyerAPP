@@ -16,7 +16,7 @@ import type {
   RepurposedFlyerContent,
 } from "@/lib/types"
 import { BUSINESS_CATEGORIES } from "@/lib/types"
-import type { FlyerTrackingBreakdown } from "@/lib/types"
+import type { FlyerTrackingBreakdown, LeadRecord } from "@/lib/types"
 import { FormFillSection } from "@/components/form-fill-section"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { trackEvent } from "@/lib/analytics"
@@ -24,6 +24,8 @@ import { PrintButton } from "@/components/print-button"
 import { DownloadMenu } from "@/components/download-menu"
 import { JourneyControlCenter } from "@/components/journey-control-center"
 import { FlyerEditPanel } from "@/components/flyer-edit-panel"
+import { LeadsList } from "@/components/leads-list"
+import { offerPageFeaturesEnabled } from "@/lib/agent-pipeline/plan-features"
 import { Flyer3D } from "@/components/flyer-3d"
 
 
@@ -98,6 +100,11 @@ function CategoryBanner({ onSaved }: { onSaved: () => void }) {
 }
 
 /* ----------------------------- Status badge ------------------------------ */
+/** "1 scan", "3 scans". */
+function count(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? "" : "s"}`
+}
+
 export function StatusBadge({ status }: { status: FlyerStatus | string }) {
   const map: Record<string, string> = {
     Ready: "bg-[var(--brand-teal-tint)] text-[var(--brand-teal-bright)] border-[var(--brand-teal)]/40",
@@ -374,6 +381,9 @@ export function FlyerCard({
   siblingCount = 0,
   onSeeOptions,
   onEdited,
+  canEditOfferPage,
+  leadsOff,
+  channelsLocked,
 }: {
   flyer: FlyerDeliverable
   onRetry: (flyerId: string) => Promise<{ ok: boolean; error?: string }>
@@ -396,6 +406,15 @@ export function FlyerCard({
   /** Called after a direct edit saves, so the list refetches and the
    *  thumbnail shows the edited document rather than the stale one. */
   onEdited?: () => void
+  /** Basic/Pro, not paused: offer a link to edit this flyer's offer page.
+   *  /api/offer-page enforces the same rule on every save. */
+  canEditOfferPage?: boolean
+  /** Enterprise account: its offer pages take no leads, so none of the leads UI.
+   *  Any leads it already holds stay reachable. */
+  leadsOff?: boolean
+  /** Trial or paused: no "Track by channel". /api/tracking/channel enforces
+   *  the same rule on every new code; codes that already exist keep working. */
+  channelsLocked?: boolean
 }) {
   const ready = flyer.status === "Ready"
   const failed = flyer.status === "Failed"
@@ -418,6 +437,22 @@ export function FlyerCard({
     { refreshInterval: 15000 },
   )
   const [showChannels, setShowChannels] = useState(false)
+  const hideLeadCounts = !!leadsOff && (statsData?.totalLeads ?? 0) === 0
+  const [showLeads, setShowLeads] = useState(false)
+  const { data: leadsData, mutate: refreshLeads } = useSWR<{ leads: LeadRecord[] }>(
+    showLeads ? `/api/account/leads?flyerId=${encodeURIComponent(flyer.id)}` : null,
+    fetcher,
+  )
+  async function deleteLeadById(id: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch(`/api/account/leads?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+      if (!res.ok) return { ok: false, error: (await res.json().catch(() => ({}))).error ?? "That didn't delete. Try again." }
+      await Promise.all([refreshLeads(), refreshStats()])
+      return { ok: true }
+    } catch {
+      return { ok: false, error: "That didn't delete. Check your connection and try again." }
+    }
+  }
   const [newLabel, setNewLabel] = useState("")
   const [minting, setMinting] = useState(false)
   const [channelError, setChannelError] = useState("")
@@ -536,12 +571,7 @@ export function FlyerCard({
                 {angle}
               </span>
             )}
-            {statsData?.totalScans !== undefined && (
-              <span className="text-xs text-muted-foreground" title="QR scans / CTA clicks">
-                {statsData.totalScans} scanned · {statsData.totalClicks} clicked
-              </span>
-            )}
-            {flyer.trackingCode && ready && (
+            {flyer.trackingCode && ready && !channelsLocked && (
               <button
                 onClick={() => setShowChannels((v) => !v)}
                 className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors"
@@ -556,8 +586,46 @@ export function FlyerCard({
                 {showChannels ? "Hide channels" : `Track by channel${(statsData?.channels?.length ?? 0) > 1 ? ` (${statsData?.channels?.length})` : ""}`}
               </button>
             )}
+            {flyer.trackingCode && ready && canEditOfferPage && (
+              <Link href={`/dashboard/offer/${flyer.id}`}
+                className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+                Edit offer page
+              </Link>
+            )}
           </div>
-          {showChannels && flyer.trackingCode && (
+          {/* Results: one line per flyer. Trial sees the scan count as an
+              upgrade prompt instead; never on the public offer page. */}
+          {statsData?.month && flyer.trackingCode && !showUpgradeHint && (
+            <p className="mt-2 text-xs text-muted-foreground" data-testid="flyer-results">
+              <span className="text-foreground">This month:</span> {count(statsData.scansThisMonth, "scan")} · {count(statsData.clicksThisMonth, "click")}{!hideLeadCounts && <> · {count(statsData.leadsThisMonth, "lead")}</>}
+              <span aria-hidden="true"> &nbsp;|&nbsp; </span>
+              <span className="text-foreground">All time:</span> {count(statsData.totalScans, "scan")} · {count(statsData.totalClicks, "click")}{!hideLeadCounts && <> · {count(statsData.totalLeads, "lead")}</>}
+            </p>
+          )}
+          {statsData?.month && flyer.trackingCode && showUpgradeHint && (
+            <p className="mt-2 text-xs" data-testid="trial-upsell">
+              <span className="text-foreground">{statsData.totalScans === 1 ? "1 person" : `${statsData.totalScans} people`} scanned this flyer.</span>{" "}
+              <Link href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+                Upgrade to Basic to collect their name and number.
+              </Link>
+            </p>
+          )}
+          {/* Not in the admin roster (ownerEmail): /api/account/leads is the
+              signed-in client's own, and /admin/users/<email> is where admin
+              sees an account's leads. */}
+          {flyer.trackingCode && ready && !ownerEmail && ((statsData?.totalLeads ?? 0) > 0 || (!showUpgradeHint && !leadsOff)) && (
+            <button onClick={() => setShowLeads((v) => !v)}
+              className="mt-1.5 text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+              {showLeads ? "Hide leads" : `Leads (${statsData?.totalLeads ?? 0})`}
+            </button>
+          )}
+          {showLeads && (
+            <div className="mt-2 rounded-lg border border-border bg-[var(--surface-soft)] px-3 py-1">
+              {leadsData ? <LeadsList leads={leadsData.leads} onDelete={deleteLeadById} /> : <p className="py-3 text-xs text-muted-foreground">Loading…</p>}
+            </div>
+          )}
+
+          {showChannels && flyer.trackingCode && !channelsLocked && (
             <div className="mt-3 rounded-lg border border-border bg-[var(--surface-soft)] p-3">
               <p className="text-xs text-muted-foreground">
                 Give each place you share this flyer its own QR link, so scans show which one worked.
@@ -681,7 +749,7 @@ export function FlyerCard({
       {ready && showUpgradeHint && (
         <div className="px-4 pb-4 pt-3 border-t border-border">
           <Link href="/#pricing" className="text-xs text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
-            Upgrade to Basic to unlock scan tracking, Instagram/text/Nextdoor versions, and print requests →
+            Upgrade to Basic to unlock lead capture, Instagram/text/Nextdoor versions, and print requests →
           </Link>
         </div>
       )}
@@ -1143,6 +1211,9 @@ export function DashboardClient() {
                       <FlyerCard key={f.id} flyer={f} onRetry={handleRetry} onDelete={handleDelete}
                         onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
                         showUpgradeHint={data.planId === "trial"}
+                        canEditOfferPage={offerPageFeaturesEnabled({ plan: data.planId, pausedAt: data.pausedAt }, data.isEnterpriseAccount)}
+                        leadsOff={data.isEnterpriseAccount}
+                        channelsLocked={data.planId === "trial" || !!data.pausedAt}
                         angle={f.angle}
                         siblingCount={campaign ? campaign.flyerIds.length : 0}
                         onEdited={() => void mutate()}

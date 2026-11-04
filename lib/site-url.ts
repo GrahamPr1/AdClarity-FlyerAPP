@@ -19,6 +19,19 @@ const FALLBACK_SITE_URL = "https://oneflyer.org"
 // a sitemap whose URLs aren't on the verified oneflyer.org property.
 export const CANONICAL_SITE_URL = "https://oneflyer.org"
 
+/**
+ * The URL a NEW tracking code's QR encodes: always oneflyer.org, whatever
+ * NEXT_PUBLIC_SITE_URL says. Codes already printed point at the vercel.app
+ * alias and keep working there: the same deployment serves /r/<code> on both
+ * hosts, and nothing redirects or blocks /r/ on either.
+ *
+ * Stored on the tracking record as redeemUrl at creation, so re-rendering a
+ * QR (a refinement) reproduces the exact URL that was printed.
+ */
+export function qrRedeemUrl(code: string): string {
+  return `${CANONICAL_SITE_URL}/r/${code}`
+}
+
 export function getSiteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim()
   if (!configured) return FALLBACK_SITE_URL
