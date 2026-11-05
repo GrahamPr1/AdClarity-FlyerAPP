@@ -69,7 +69,8 @@ type ProfileResponse = {
 }
 
 /** The agent's profile page: system fields read-only, display fields editable. */
-export function NopProfileForm() {
+/** readOnly: an admin viewing the agent's portal; fields disabled, nothing saved (the route refuses anyway). */
+export function NopProfileForm({ readOnly = false }: { readOnly?: boolean }) {
   const { t } = useNop()
   const [data, setData] = useState<ProfileResponse | null>(null)
   const [missing, setMissing] = useState(false)
@@ -91,7 +92,7 @@ export function NopProfileForm() {
     return (
       <div className="rounded-2xl border border-border bg-card p-6 text-sm">
         {t("profile.not_registered")}{" "}
-        <Link href="/enterprise/nop/register" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
+        <Link href="/agent/start" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
           {t("profile.register_link")}
         </Link>
       </div>
@@ -134,9 +135,11 @@ export function NopProfileForm() {
           setMessage(t("profile.saved"))
         }}
       >
-        <DisplayInputs value={display} onChange={setDisplay} errors={errors} />
+        <fieldset disabled={readOnly} className="contents">
+          <DisplayInputs value={display} onChange={setDisplay} errors={errors} />
+        </fieldset>
         <div className="flex items-center gap-3">
-          <button type="submit" disabled={busy} className={primary}>
+          <button type="submit" disabled={busy || readOnly} title={readOnly ? t("portal.read_only") : undefined} className={primary}>
             {busy ? t("profile.saving") : t("profile.save")}
           </button>
           {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}

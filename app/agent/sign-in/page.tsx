@@ -18,7 +18,7 @@ export async function generateMetadata() {
 // "Already registered? Sign in" with an emailed code.
 export default async function Page() {
   const session = await getSessionIdentity({ cookies: await cookies() })
-  if (session && session.sub !== ADMIN_SUB && (await loadNopAgent(session.sub))) redirect("/enterprise/nop/dashboard")
+  if (session && session.sub !== ADMIN_SUB && (await loadNopAgent(session.sub))) redirect("/agent")
   const { lang, source } = await nopLangForPage(null)
   return (
     <NopPageShell

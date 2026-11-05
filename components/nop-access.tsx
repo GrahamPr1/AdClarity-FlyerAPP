@@ -237,7 +237,7 @@ export function NopGetStarted() {
               setStep({ name: "id" })
               return setError({ message: data.message ?? t("common.generic") })
             }
-            router.replace(data.redirect ?? "/enterprise/nop/dashboard")
+            router.replace(data.redirect ?? "/agent")
           }}
         >
           <p data-testid="nop-confirm" className="rounded-lg border border-border bg-[var(--surface-soft)] p-4 text-sm">
@@ -312,7 +312,7 @@ export function NopSignIn() {
               }
               return data.message ?? t("common.generic")
             }
-            router.replace(data.redirect ?? "/enterprise/nop/dashboard")
+            router.replace(data.redirect ?? "/agent")
             return null
           }}
           onResend={async () => {

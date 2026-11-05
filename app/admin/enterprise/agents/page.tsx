@@ -1,0 +1,114 @@
+"use client"
+
+import { useMemo, useState } from "react"
+import Link from "next/link"
+import useSWR from "swr"
+import type { AgentRow } from "@/lib/enterprise/portal/admin"
+import type { AdminAgentView } from "@/lib/enterprise/portal/store"
+import type { AgentFeature, AgentTier } from "@/lib/enterprise/portal/features"
+
+// /admin/enterprise/agents: every agent account, by org; each org's Pro/Leader
+// feature switches; and the log of admin views of agent accounts. The admin
+// layout gates the page; every route behind it checks admin again.
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
+type FeaturesResponse = { orgs: { id: string; name: string; features: Record<AgentFeature, boolean> }[]; features: { id: AgentFeature; label: string; tier: AgentTier }[] }
+const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "Never")
+
+export default function AdminAgentsPage() {
+  const agents = useSWR<{ agents: AgentRow[] }>("/api/admin/enterprise/agents", fetcher)
+  const features = useSWR<FeaturesResponse>("/api/admin/enterprise/features", fetcher)
+  const views = useSWR<{ views: AdminAgentView[] }>("/api/admin/enterprise/agent-views", fetcher)
+  const [q, setQ] = useState("")
+  const [org, setOrg] = useState("")
+  const [tier, setTier] = useState("")
+  const [saving, setSaving] = useState<string | null>(null)
+
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    return (agents.data?.agents ?? []).filter(
+      (a) => (!needle || a.name.toLowerCase().includes(needle) || a.email.includes(needle)) && (!org || a.orgId === org) && (!tier || a.tier === tier),
+    )
+  }, [agents.data, q, org, tier])
+  const byOrg = useMemo(() => {
+    const m = new Map<string, AgentRow[]>()
+    for (const r of rows) m.set(r.orgName, [...(m.get(r.orgName) ?? []), r])
+    return [...m.entries()]
+  }, [rows])
+
+  async function toggle(orgId: string, feature: AgentFeature, enabled: boolean) {
+    setSaving(`${orgId}:${feature}`)
+    await fetch("/api/admin/enterprise/features", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orgId, feature, enabled }) })
+    await features.mutate()
+    setSaving(null)
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl px-6 py-10 md:px-10">
+      <Link href="/admin/enterprise/nop" className="text-sm text-muted-foreground hover:text-foreground">← NOP console</Link>
+      <h1 className="mt-4 text-2xl tracking-tight">Agents</h1>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-5">
+        <h2 className="text-lg">Org features</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Pro and Leader features each org&apos;s agents can use. Off hides the feature from that org&apos;s agents entirely, on the server too.</p>
+        {features.data?.orgs.map((o) => (
+          <div key={o.id} className="mt-4">
+            <p className="font-medium">{o.name}</p>
+            <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {features.data!.features.map((f) => (
+                <li key={f.id}>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border px-3 text-sm">
+                    <input type="checkbox" data-feature={f.id} checked={o.features[f.id]} disabled={saving === `${o.id}:${f.id}`} onChange={(e) => void toggle(o.id, f.id, e.target.checked)} />
+                    <span>{f.label}</span>
+                    <span className="ml-auto text-xs uppercase text-muted-foreground">{f.tier}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </section>
+
+      <section className="mt-8">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-sm">Search<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or email" className="mt-1 block min-h-11 w-64 rounded-lg border border-border bg-background px-3" /></label>
+          <label className="text-sm">Org<select value={org} onChange={(e) => setOrg(e.target.value)} className="mt-1 block min-h-11 rounded-lg border border-border bg-background px-3">
+            <option value="">All</option>{features.data?.orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select></label>
+          <label className="text-sm">Tier<select value={tier} onChange={(e) => setTier(e.target.value)} className="mt-1 block min-h-11 rounded-lg border border-border bg-background px-3">
+            <option value="">All</option><option value="basic">Basic</option><option value="pro">Pro</option><option value="leader">Leader</option>
+          </select></label>
+        </div>
+        {!agents.data ? <p className="mt-6 text-muted-foreground">Loading…</p> : byOrg.length === 0 ? <p className="mt-6 text-muted-foreground">No agent accounts match.</p> : byOrg.map(([orgName, list]) => (
+          <div key={orgName} className="mt-6">
+            <h2 className="text-lg">{orgName} <span className="text-sm text-muted-foreground">({list.length})</span></h2>
+            <div className="mt-2 overflow-x-auto rounded-xl border border-border">
+              <table className="w-full text-sm" data-testid="agents-table">
+                <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground/70">
+                  <th className="px-4 py-3">Name</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Agent ID</th><th className="px-4 py-3">Tier</th><th className="px-4 py-3">Last active</th><th className="px-4 py-3">Flyers made</th><th className="px-4 py-3">Leads</th>
+                </tr></thead>
+                <tbody>{list.map((a) => (
+                  <tr key={a.email} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3"><Link href={`/admin/enterprise/agents/${encodeURIComponent(a.email)}`} className="text-[var(--brand-teal-bright)] hover:underline">{a.name}</Link></td>
+                    <td className="px-4 py-3">{a.email}</td><td className="px-4 py-3">{a.agentId}</td><td className="px-4 py-3 capitalize">{a.tier}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{when(a.lastActive)}</td><td className="px-4 py-3">{a.flyersMade}</td><td className="px-4 py-3">{a.leads}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-lg">Admin views of agent accounts</h2>
+        <ul className="mt-2 divide-y divide-border rounded-xl border border-border text-sm">
+          {(views.data?.views ?? []).map((v, i) => (
+            <li key={i} className="flex flex-wrap gap-x-4 px-4 py-2"><span className="whitespace-nowrap">{when(v.at)}</span><span>{v.admin}</span><span>{v.kind === "view-as" ? "viewed the portal of" : "opened"}</span><span>{v.agentEmail}</span></li>
+          ))}
+          {views.data && views.data.views.length === 0 && <li className="px-4 py-3 text-muted-foreground">None yet.</li>}
+        </ul>
+      </section>
+    </div>
+  )
+}

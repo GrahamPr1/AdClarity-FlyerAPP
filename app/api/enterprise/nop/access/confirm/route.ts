@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { rejectWhileViewingAs } from "@/lib/enterprise/portal/view-as"
 import { businessAccountBlocks } from "@/lib/enterprise/account-conversion"
 import { recordClientCreatedAtIfUnset, saveAgentProfile } from "@/lib/store"
 import { validateDisplayFields } from "@/lib/enterprise/nop-roster"
@@ -15,6 +16,9 @@ import { clearFlowCookie, fail, readFlow, setSessionCookie } from "@/lib/enterpr
 // atomic SET NX as before; a business account at that email is refused.
 
 export async function POST(request: NextRequest) {
+  // Registration and sign-in are writes: never while an admin views a portal.
+  const readOnly = rejectWhileViewingAs(request)
+  if (readOnly) return readOnly
   const lang = await nopLangForRequest(request)
   const flow = await readFlow(request)
   if (!flow || flow.state.kind !== "register" || flow.state.step !== "verified") return fail(lang, 409, "no_registration", "err.expired")
@@ -59,7 +63,7 @@ export async function POST(request: NextRequest) {
 
   await recordClientCreatedAtIfUnset(account)
   await saveAgentProfile(account, { ...buildAgentProfile(roster, display.values), preferredLanguage: lang })
-  const res = NextResponse.json({ ok: true, agentId: roster.agentId, redirect: "/enterprise/nop/dashboard" })
+  const res = NextResponse.json({ ok: true, agentId: roster.agentId, redirect: "/agent" })
   await setSessionCookie(res, account)
   return end(res)
 }

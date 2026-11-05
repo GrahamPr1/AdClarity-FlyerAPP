@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireClientSession } from "@/lib/enterprise/agent-session"
+import { requirePortalViewer } from "@/lib/enterprise/portal/view-as"
 import { isNopTemplate, readThumbnail } from "@/lib/enterprise/nop-render/kit"
 
 // GET /api/enterprise/nop/thumbnail/{NOP_P2_ES} -> the kit's own digital/
 // PNG, as shipped: the blank master, used as the dashboard card image.
 // The kit lives outside public/, so it is served from here.
 export async function GET(request: NextRequest, { params }: { params: Promise<{ template: string }> }) {
-  const auth = await requireClientSession(request)
+  // The agent, or an admin viewing their portal.
+  const auth = await requirePortalViewer(request)
   if ("response" in auth) return auth.response
   const { template } = await params
   if (!isNopTemplate(template)) return NextResponse.json({ error: "unknown_template" }, { status: 404 })

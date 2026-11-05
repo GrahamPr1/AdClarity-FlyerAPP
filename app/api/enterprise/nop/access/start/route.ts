@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { rejectWhileViewingAs } from "@/lib/enterprise/portal/view-as"
 import { sendAgentVerificationCode } from "@/lib/email"
 import { AGENT_ID_RE, NOP_ORG_NAME, isValidEmail, maskEmail, normalizeEmail } from "@/lib/enterprise/nop-roster"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
@@ -18,6 +19,9 @@ import { accessRateLimit, fail, setFlowCookie } from "@/lib/enterprise/access-ht
 const SIGNED_OUT = "(signed out)"
 
 export async function POST(request: NextRequest) {
+  // Registration and sign-in are writes: never while an admin views a portal.
+  const readOnly = rejectWhileViewingAs(request)
+  if (readOnly) return readOnly
   const lang = await nopLangForRequest(request)
   let body: { agentId?: unknown; email?: unknown }
   try {

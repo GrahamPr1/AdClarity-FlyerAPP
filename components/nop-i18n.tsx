@@ -2,7 +2,7 @@
 
 import { createContext, Fragment, useContext, useEffect, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
+import { NOP_LANG_COOKIE, NOP_LANG_COOKIE_MAX_AGE, tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 
 // Client side of NOP language: the active language for a NOP page, the
 // EN/ES toggle, and keeping <html lang> in step with it.
@@ -77,7 +77,12 @@ export function NopLangProvider({
  * keeps every client component's state — a registration step in progress
  * stays where it is.
  */
-export function NopLanguageToggle({ onChange }: { onChange?: (lang: NopLang) => void }) {
+/**
+ * cookieOnly: switch this browser's language without saving anything to the
+ * account. Used while an admin views an agent's portal, where every agent
+ * write route refuses (and the agent's saved preference isn't the admin's).
+ */
+export function NopLanguageToggle({ onChange, cookieOnly = false }: { onChange?: (lang: NopLang) => void; cookieOnly?: boolean }) {
   const { lang, t } = useNop()
   const router = useRouter()
   const [busy, setBusy] = useState(false)
@@ -85,7 +90,8 @@ export function NopLanguageToggle({ onChange }: { onChange?: (lang: NopLang) => 
   async function choose(next: NopLang) {
     if (next === lang || busy) return
     setBusy(true)
-    await saveNopLanguage(next)
+    if (cookieOnly) document.cookie = `${NOP_LANG_COOKIE}=${next}; path=/; max-age=${NOP_LANG_COOKIE_MAX_AGE}; samesite=lax`
+    else await saveNopLanguage(next)
     setBusy(false)
     if (onChange) onChange(next)
     else router.refresh()

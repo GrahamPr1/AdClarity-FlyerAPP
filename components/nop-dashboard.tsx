@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useNop } from "@/components/nop-i18n"
 import type { NopLang, NopStringKey } from "@/lib/enterprise/nop-i18n"
 
-// The NOP agent's home: Basic Benefits' 8 templates, each with the agent's
+// The NOP agent's flyers (portal Home and Create): Basic Benefits' 8 templates, each with the agent's
 // own thumbnail and direct downloads. Every server answer is the authority
 // (roster status is re-read on each render); this only shows what it returns.
 
@@ -73,7 +73,7 @@ function useNopDownload(template: string) {
  * the card is never empty while it renders), a tap through to the full
  * preview, and the three downloads right on the card.
  */
-function FlyerCard({ id, pkg, active }: { id: string; pkg: Pkg; active: boolean }) {
+function FlyerCard({ id, pkg, active, readOnly }: { id: string; pkg: Pkg; active: boolean; readOnly: boolean }) {
   const { t } = useNop()
   const { busy, error, download } = useNopDownload(id)
   const [thumb, setThumb] = useState<"loading" | "ready" | "failed">("loading")
@@ -104,7 +104,7 @@ function FlyerCard({ id, pkg, active }: { id: string; pkg: Pkg; active: boolean 
   return (
     <li data-template={id} className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card">
       {active ? (
-        <Link href={`/enterprise/nop/flyer/${id}`} aria-label={t("dash.open_flyer", { name })} className="block focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[var(--brand-teal-bright)]">
+        <Link href={`/agent/create/${id}`} aria-label={t("dash.open_flyer", { name })} className="block focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[var(--brand-teal-bright)]">
           {image}
         </Link>
       ) : (
@@ -117,7 +117,8 @@ function FlyerCard({ id, pkg, active }: { id: string; pkg: Pkg; active: boolean 
         {active && (
           <div className="mt-auto flex flex-col gap-2 pt-3">
             {DOWNLOADS.map((d, i) => (
-              <button key={d.fmt} type="button" data-format={d.fmt} disabled={busy !== null}
+              <button key={d.fmt} type="button" data-format={d.fmt} disabled={busy !== null || readOnly}
+                title={readOnly ? t("portal.read_only") : undefined}
                 className={i === 0 ? primary : outline} onClick={() => void download(d.fmt)}>
                 {busy === d.fmt ? t("flyer.downloading") : t(d.label)}
               </button>
@@ -130,7 +131,7 @@ function FlyerCard({ id, pkg, active }: { id: string; pkg: Pkg; active: boolean 
   )
 }
 
-export function NopDashboard({ active, statusKey }: { active: boolean; statusKey: NopStringKey | null }) {
+export function NopDashboard({ active, statusKey, readOnly = false }: { active: boolean; statusKey: NopStringKey | null; readOnly?: boolean }) {
   const { lang, t } = useNop()
   // Which flyers to show. Follows the page language until the agent picks
   // one, then it is their own choice: an agent reading English may hand
@@ -165,7 +166,7 @@ export function NopDashboard({ active, statusKey }: { active: boolean; statusKey
 
       <ul className="grid gap-5 sm:grid-cols-2" data-testid="nop-templates">
         {PACKAGES.map((pkg) => (
-          <FlyerCard key={`NOP_${pkg}_${code}`} id={`NOP_${pkg}_${code}`} pkg={pkg} active={active} />
+          <FlyerCard key={`NOP_${pkg}_${code}`} id={`NOP_${pkg}_${code}`} pkg={pkg} active={active} readOnly={readOnly} />
         ))}
       </ul>
     </div>
@@ -173,7 +174,7 @@ export function NopDashboard({ active, statusKey }: { active: boolean; statusKey
 }
 
 /** The agent's actual flyer, rendered by the server, then the three downloads. */
-export function NopFlyerPreview({ template, active, statusKey, agentName }: { template: string; active: boolean; statusKey: NopStringKey | null; agentName: string }) {
+export function NopFlyerPreview({ template, active, statusKey, agentName, readOnly = false }: { template: string; active: boolean; statusKey: NopStringKey | null; agentName: string; readOnly?: boolean }) {
   const { t } = useNop()
   const { busy, error, download } = useNopDownload(template)
   const [preview, setPreview] = useState<{ url?: string; error?: string } | null>(null)
@@ -227,7 +228,7 @@ export function NopFlyerPreview({ template, active, statusKey, agentName }: { te
             {DOWNLOADS.map((d) => (
               <li key={d.fmt} className="flex flex-wrap items-center justify-between gap-3">
                 <span className="text-sm text-muted-foreground">{t(d.hint)}</span>
-                <button type="button" className={primary} disabled={busy !== null} onClick={() => void download(d.fmt)} data-format={d.fmt}>
+                <button type="button" className={primary} disabled={busy !== null || readOnly} title={readOnly ? t("portal.read_only") : undefined} onClick={() => void download(d.fmt)} data-format={d.fmt}>
                   {busy === d.fmt ? t("flyer.downloading") : t(d.label)}
                 </button>
               </li>
@@ -237,7 +238,7 @@ export function NopFlyerPreview({ template, active, statusKey, agentName }: { te
         </section>
       )}
 
-      <Link href="/enterprise/nop/profile" className="inline-flex min-h-11 items-center text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
+      <Link href="/agent/profile" className="inline-flex min-h-11 items-center text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">
         {t("flyer.edit_details")}
       </Link>
     </div>

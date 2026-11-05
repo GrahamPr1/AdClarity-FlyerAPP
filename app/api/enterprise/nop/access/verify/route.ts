@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { rejectWhileViewingAs } from "@/lib/enterprise/portal/view-as"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 import { getAccountAgentId, getAgentIdOwner, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { MAX_CODE_ATTEMPTS, codeMatches, deleteFlow, updateFlow } from "@/lib/enterprise/access-store"
@@ -12,6 +13,9 @@ import { accessRateLimit, clearFlowCookie, fail, readFlow, setSessionCookie } fr
 // on success) and compared in constant time; 5 wrong tries end the flow.
 
 export async function POST(request: NextRequest) {
+  // Registration and sign-in are writes: never while an admin views a portal.
+  const readOnly = rejectWhileViewingAs(request)
+  if (readOnly) return readOnly
   const lang = await nopLangForRequest(request)
   const flow = await readFlow(request)
   if (!flow) return fail(lang, 409, "no_registration", "err.expired")
@@ -57,7 +61,7 @@ export async function POST(request: NextRequest) {
     clearFlowCookie(res)
     return res
   }
-  const res = NextResponse.json({ ok: true, redirect: "/enterprise/nop/dashboard" })
+  const res = NextResponse.json({ ok: true, redirect: "/agent" })
   await setSessionCookie(res, state.account!)
   clearFlowCookie(res)
   return res

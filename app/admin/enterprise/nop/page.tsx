@@ -138,6 +138,7 @@ export default function NopAdminPage() {
     <div className="mx-auto max-w-6xl px-6 py-10">
       <Link href="/admin" className="text-sm text-muted-foreground transition-colors hover:text-foreground">← Admin</Link>
       <h1 className="mt-4 text-2xl">Neighborhood Outreach Program — agents</h1>
+      <Link href="/admin/enterprise/agents" className="mt-1 inline-flex min-h-11 items-center text-sm text-[var(--brand-teal-bright)] hover:underline">Agent accounts, tiers and features →</Link>
       <p className="mt-2 text-sm text-muted-foreground">
         Import the roster NOP issues. Re-importing updates existing agents, and a status change applies on the next
         request. Rows with placeholders or invalid values are rejected and listed below, never skipped silently.
