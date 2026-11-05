@@ -1,5 +1,6 @@
 import { cache } from "react"
 import type { Metadata } from "next"
+import { notFound } from "next/navigation"
 import { getTrackingRecord, incrementTrackingScan } from "@/lib/store"
 import { offerPageFeaturesEnabledFor } from "@/lib/offer-page-access"
 import { LeadForm } from "@/components/lead-form"
@@ -28,13 +29,10 @@ export default async function RedeemPage({ params }: { params: Promise<{ code: s
   const { code } = await params
   const record = await loadRecord(code)
 
-  if (!record) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-6">
-        <p className="text-muted-foreground">This link isn&apos;t valid.</p>
-      </div>
-    )
-  }
+  // Only a code with no record at all is a 404 (see not-found.tsx). Plan state
+  // never gets here, and a failed lookup throws rather than calling a printed
+  // code invalid.
+  if (!record) notFound()
 
   // Counted once per page load — the closest honest proxy for "a QR scan"
   // available without a native app. Fires every render, including a
