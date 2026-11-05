@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest"
 import fs from "node:fs"
 import path from "node:path"
-import { KIT_V2_DIR, KIT_V2_ORIGIN, NOP_V2_TEMPLATES, bodyOf, isNopV2Template, kitV2FileFor, readV2Html, v2FileName, v2HtmlForRender, v2Parts } from "@/lib/enterprise/nop-render/kit-v2"
+import { ACCENT_METRICS, KIT_V2_DIR, KIT_V2_ORIGIN, NOP_V2_TEMPLATES, bodyOf, isNopV2Template, kitV2FileFor, readV2Html, v2FileName, v2HtmlForRender, v2Parts } from "@/lib/enterprise/nop-render/kit-v2"
 import { agentMaySeeTemplate, AGENT_AREA_READY } from "@/lib/enterprise/nop-render/kit-v2-access"
 
 /**
  * Kit v2: Basic Benefits' final flyers, imported as supplied. The renderer
- * adds one <base> tag to <head> and nothing else, so every page's locked
+ * adds a <base> tag and the accent-font metrics to <head> and nothing else, so every page's locked
  * content (benefits, prices, disclaimers) is byte-for-byte theirs. Only the
  * kit's own files are reachable; Opificio isn't shipped; Spanish and all of
  * kit v2 stay away from agents until approved.
@@ -41,10 +41,18 @@ describe("the imported kit", () => {
 })
 
 describe("what the renderer changes", () => {
-  it.each(NOP_V2_TEMPLATES.flatMap((id) => [[id, "letter"], [id, "bleed"]] as const))("%s %s: one <base> in <head>; <body> untouched", (id, size) => {
+  it.each(NOP_V2_TEMPLATES.flatMap((id) => [[id, "letter"], [id, "bleed"]] as const))("%s %s: <base> and accent metrics in <head>; <body> untouched", (id, size) => {
     const source = readV2Html(id, size), rendered = v2HtmlForRender(id, size)
     expect(bodyOf(rendered)).toBe(bodyOf(source))
-    expect(rendered.replace(`<base href="${KIT_V2_ORIGIN}/">`, "")).toBe(source)
+    expect(rendered.replace(`<base href="${KIT_V2_ORIGIN}/">${ACCENT_METRICS}`, "")).toBe(source)
+  })
+
+  it("the accent metrics use a kit Poppins file, only for the space character, so digits still fall back to Poppins as in the approved PDFs", () => {
+    const src = /url\('([^']+)'\)/.exec(ACCENT_METRICS)![1]
+    expect(src).toMatch(/Poppins-ExtraBold\.ttf$/)
+    expect(kitV2FileFor(`${KIT_V2_ORIGIN}/${src}`)).not.toBeNull()
+    expect(ACCENT_METRICS).toContain("unicode-range:U+0020}")
+    expect(ACCENT_METRICS).toContain("ascent-override:70%;descent-override:19.8%;line-gap-override:4.9%")
   })
 
   it("serves only files inside the kit's html folder", () => {

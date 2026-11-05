@@ -9,6 +9,9 @@ Left out on purpose:
 - Opificio and Opificio Rounded fonts. Basic Benefits' approved PDFs embed
   only Poppins, so OneFlyer matches them and does not bundle Opificio. The
   HTML's --font-accent falls back to Poppins, as it did when they made the PDFs.
+  Opificio has no digits, so the prices were always drawn in Poppins, but laid
+  out with Opificio's line metrics. The renderer reproduces those metrics
+  without the font (ACCENT_METRICS in lib/enterprise/nop-render/kit-v2.ts).
 - Poppins weights the approved PDFs don't use. Kept: Light, Regular,
   SemiBold, Bold, ExtraBold, ExtraBold Italic (exactly the six their PDFs embed).
 - _ds_bundle.js, _ds_manifest.json and the design-system readme (not used by the pages).

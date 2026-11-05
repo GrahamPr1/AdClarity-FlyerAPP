@@ -5,11 +5,11 @@ import path from "node:path"
 // price/no-price, each as a US Letter page and a print-shop page with 0.125in
 // bleed. Read-only, exactly as supplied (see enterprise/nop/kit-v2/KIT.md).
 //
-// The renderer changes nothing in a page. It adds one <base> tag to <head> so
-// the page's own relative links (stylesheets, fonts, logo) resolve, and serves
-// those files from this folder. Anything the kit doesn't contain (Opificio,
-// unused Poppins weights, any network address) is refused, so the page falls
-// back to Poppins exactly as it did when Basic Benefits made their PDFs.
+// The renderer changes nothing in a page's <body>. It adds two things to
+// <head>: a <base> tag so the page's own relative links (stylesheets, fonts,
+// logo) resolve, and ACCENT_METRICS below. It serves those files from this
+// folder; anything the kit doesn't contain (Opificio, unused Poppins weights,
+// any network address) is refused.
 
 export const KIT_V2_DIR = path.join(process.cwd(), "enterprise", "nop", "kit-v2")
 const HTML_DIR = path.join(KIT_V2_DIR, "html")
@@ -49,13 +49,25 @@ export function readV2Html(id: NopV2Id, size: NopV2Size): string {
   return fs.readFileSync(path.join(HTML_DIR, v2FileName(id, size)), "utf8")
 }
 
-/** The page with one <base> tag added to <head>. The <body> is untouched. */
+const DS_FONTS = "_ds/basic-benefits-design-system-65e9c885-f032-4927-be79-6ba6a48cd125/assets/fonts"
+
+/**
+ * Prices and the numbered steps use the accent font (Opificio Rounded) at
+ * weight 800. Opificio has no digits or "$", so in Basic Benefits' PDFs those
+ * glyphs are Poppins ExtraBold, but the line is laid out with Opificio's
+ * vertical metrics (ascent 700, descent 198, line gap 49 per 1000). Opificio
+ * isn't shipped, so this face is Poppins ExtraBold carrying those three
+ * metrics: same glyphs, same line position as the approved PDFs.
+ */
+export const ACCENT_METRICS = `<style>@font-face{font-family:'Opificio Rounded';src:url('${DS_FONTS}/Poppins-ExtraBold.ttf') format('truetype');font-weight:800;font-style:normal;ascent-override:70%;descent-override:19.8%;line-gap-override:4.9%;unicode-range:U+0020}</style>`
+
+/** The page with a <base> tag and ACCENT_METRICS added to <head>. The <body> is untouched. */
 export function v2HtmlForRender(id: NopV2Id, size: NopV2Size): string {
   const html = readV2Html(id, size)
   const head = /<head[^>]*>/i.exec(html)
   if (!head) throw new Error(`${v2FileName(id, size)} has no <head>`)
   const at = head.index + head[0].length
-  return `${html.slice(0, at)}<base href="${KIT_V2_ORIGIN}/">${html.slice(at)}`
+  return `${html.slice(0, at)}<base href="${KIT_V2_ORIGIN}/">${ACCENT_METRICS}${html.slice(at)}`
 }
 
 /** The <body> element's markup, for proving a render leaves it as supplied. */
