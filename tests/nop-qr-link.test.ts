@@ -9,14 +9,20 @@ import type { AgentRosterStatus } from "@/lib/types"
  * to the program's enrollment page otherwise.
  */
 
-const s = vi.hoisted(() => ({ roster: new Map<string, { status: string }>(), fail: false }))
+const s = vi.hoisted(() => ({ roster: new Map<string, { status: string }>(), fail: false, scans: [] as string[], countFails: false }))
+vi.mock("@/lib/enterprise/portal/agent-data", () => ({
+  countAgentScan: async (id: string) => {
+    if (s.countFails) throw new Error("redis down")
+    s.scans.push(id)
+  },
+}))
 vi.mock("@/lib/enterprise/agents-store", () => ({
   getRosterRecord: async (id: string) => {
     if (s.fail) throw new Error("redis down")
     return s.roster.get(id) ?? null
   },
 }))
-beforeEach(() => { s.roster.clear(); s.fail = false })
+beforeEach(() => { s.roster.clear(); s.fail = false; s.scans.length = 0; s.countFails = false })
 
 describe("the QR link and where it forwards", () => {
   it("is a fixed oneflyer.org link per Agent ID", () => {
@@ -56,6 +62,19 @@ describe("GET /a/{agentId}", () => {
   it("302s an inactive, unknown or malformed agent to the program's page", async () => {
     s.roster.set("111", { status: "suspended" })
     for (const id of ["111", "222", "x1"]) expect((await call(id)).location).toBe("https://neighbor.basicbenefits.com/")
+  })
+
+  it("counts one scan per GET for any roster agent, whatever the status; not HEAD, not unknown IDs", async () => {
+    s.roster.set("858980", { status: "active" })
+    s.roster.set("111", { status: "terminated" })
+    await call("858980"); await call("858980", "HEAD"); await call("111"); await call("222"); await call("x1")
+    expect(s.scans).toEqual(["858980", "111"])
+  })
+
+  it("still forwards when counting fails", async () => {
+    s.roster.set("858980", { status: "active" })
+    s.countFails = true
+    expect((await call("858980")).location).toBe("https://neighbor.basicbenefits.com/858980")
   })
 
   it("forwards to the program's page when the roster can't be read", async () => {
