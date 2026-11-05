@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requirePortalViewer } from "@/lib/enterprise/portal/view-as"
 import { isNopTemplate, readThumbnail } from "@/lib/enterprise/nop-render/kit"
+import { agentMaySeeTemplate, getNopFlyerSettings } from "@/lib/enterprise/nop-render/kit-v2-access"
 
 // GET /api/enterprise/nop/thumbnail/{NOP_P2_ES} -> the kit's own digital/
 // PNG, as shipped: the blank master, used as the dashboard card image.
@@ -10,7 +11,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const auth = await requirePortalViewer(request)
   if ("response" in auth) return auth.response
   const { template } = await params
-  if (!isNopTemplate(template)) return NextResponse.json({ error: "unknown_template" }, { status: 404 })
+  if (!isNopTemplate(template) || !agentMaySeeTemplate(template, await getNopFlyerSettings(), true)) {
+    return NextResponse.json({ error: "unknown_template" }, { status: 404 })
+  }
   return new NextResponse(new Uint8Array(readThumbnail(template)), {
     headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=86400" },
   })

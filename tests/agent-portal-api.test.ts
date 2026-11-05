@@ -23,6 +23,7 @@ vi.mock("@/lib/enterprise/nop-render/agent-context", () => ({
 }))
 vi.mock("@/lib/enterprise/nop-render/log", () => ({ logNopRender: async (e: unknown) => void s.logged.push(e) }))
 vi.mock("@/lib/enterprise/nop-render/thumb-cache", () => ({ getCachedThumb: async () => null, setCachedThumb: async () => {}, thumbCacheKey: () => "k" }))
+vi.mock("@/lib/enterprise/nop-render/kit-v2-access", async (orig) => ({ ...(await orig<typeof import("@/lib/enterprise/nop-render/kit-v2-access")>()), getNopFlyerSettings: async () => ({ agentKit: "v1", spanishV2: false }) }))
 vi.mock("@/lib/enterprise/nop-render/render", () => ({
   NOP_DOWNLOAD_FORMATS: ["print", "home", "social"],
   NopRenderError: class extends Error {},

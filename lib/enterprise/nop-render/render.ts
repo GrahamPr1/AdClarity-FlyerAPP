@@ -173,7 +173,7 @@ async function fitAndCheck(page: Page): Promise<string[]> {
 }
 
 /** Waits for fonts, then proves every weight/style the text uses is loaded. Throws otherwise. */
-async function assertFonts(page: Page): Promise<string[]> {
+export async function assertFonts(page: Page): Promise<string[]> {
   const result = await page.evaluate(async () => {
     const used = new Set<string>()
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
@@ -208,7 +208,7 @@ async function assertFonts(page: Page): Promise<string[]> {
 }
 
 /** A page in a fresh context; `close` disposes of the context and, on Vercel, the browser (see acquireBrowser in lib/pdf/flyer-pdf.ts). */
-async function newPage(dsf: number): Promise<{ context: BrowserContext; page: Page; close: () => Promise<void> }> {
+export async function newPage(dsf: number): Promise<{ context: BrowserContext; page: Page; close: () => Promise<void> }> {
   const { browser, release } = await acquireBrowser()
   const context = await browser.newContext({ viewport: { width: 1000, height: 1200 }, deviceScaleFactor: dsf })
   const close = async () => {

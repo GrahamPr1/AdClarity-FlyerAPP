@@ -1,0 +1,8 @@
+/* Basic Benefits Design System — global entry point.
+   Consumers link THIS file. Imports only; no rules here. */
+@import url('tokens/typography.css');
+@import url('tokens/fonts.css');
+@import url('tokens/colors.css');
+@import url('tokens/spacing.css');
+@import url('tokens/effects.css');
+@import url('tokens/components.css');

@@ -1,0 +1,7 @@
+/* Spacing — 8px rhythm */
+:root{
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px;
+  --sp-6:24px; --sp-8:32px; --sp-10:40px; --sp-12:48px; --sp-16:64px;
+  --sp-20:80px; --sp-24:96px; --sp-32:128px;
+  --maxw-marketing:1140px; --maxw-reading:820px; --section-pad:clamp(64px, 9vw, 128px);
+}
