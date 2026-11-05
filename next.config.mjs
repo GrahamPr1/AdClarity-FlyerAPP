@@ -79,9 +79,11 @@ const nextConfig = {
     // a bundler can't follow, and needs the same two packages as the PDF
     // route above for the same reasons. Dynamic-route keys escape their
     // brackets, as above, or the entry silently never applies.
-    "/api/enterprise/nop/render/\\[template\\]": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets,digital}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
-    "/api/enterprise/nop/thumbnail/\\[template\\]": ["./enterprise/nop/kit-v1.1.1/digital/**"],
-    "/api/admin/enterprise/nop/render-check": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    "/api/enterprise/nop/render/\\[template\\]": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets,digital}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./enterprise/nop/kit-v2/{html,previews}/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    "/api/enterprise/nop/thumbnail/\\[template\\]": ["./enterprise/nop/kit-v1.1.1/digital/**", "./enterprise/nop/kit-v2/previews/**"],
+    // Kit v2 (Basic Benefits' final flyers): pages, their stylesheets, the six
+    // bundled Poppins faces and the logo. Not reference/ (verification only).
+    "/api/admin/enterprise/nop/render-check": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./enterprise/nop/kit-v2/{html,previews}/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
   },
 
   // Vanity paths people type or that appear in old links. Permanent, because

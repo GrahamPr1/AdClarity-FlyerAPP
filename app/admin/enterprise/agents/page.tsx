@@ -6,6 +6,7 @@ import useSWR from "swr"
 import type { AgentRow } from "@/lib/enterprise/portal/admin"
 import type { AdminAgentView } from "@/lib/enterprise/portal/store"
 import type { AgentFeature, AgentTier } from "@/lib/enterprise/portal/features"
+import { NOP_V2_TEMPLATES } from "@/lib/enterprise/nop-render/kit-v2-ids"
 
 // /admin/enterprise/agents: every agent account, by org; each org's Pro/Leader
 // feature switches; and the log of admin views of agent accounts. The admin
@@ -23,6 +24,14 @@ export default function AdminAgentsPage() {
   const [org, setOrg] = useState("")
   const [tier, setTier] = useState("")
   const [saving, setSaving] = useState<string | null>(null)
+  const flyers = useSWR<{ agentKit: "v1" | "v2"; spanishV2: boolean; agentAreaReady: boolean }>("/api/admin/enterprise/nop/flyer-settings", fetcher)
+  const [flyerMsg, setFlyerMsg] = useState<string | null>(null)
+  async function setFlyers(patch: Record<string, unknown>) {
+    setFlyerMsg(null)
+    const res = await fetch("/api/admin/enterprise/nop/flyer-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) })
+    if (!res.ok) setFlyerMsg((await res.json().catch(() => ({}))).message ?? "Couldn't save.")
+    await flyers.mutate()
+  }
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -67,6 +76,42 @@ export default function AdminAgentsPage() {
             </ul>
           </div>
         ))}
+      </section>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-5" data-testid="nop-flyer-settings">
+        <h2 className="text-lg">NOP flyers</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Basic Benefits&apos; final flyers (kit v2) are imported but not given to agents: they have no agent information area yet.</p>
+        {flyers.data && (
+          <div className="mt-3 flex flex-col gap-3 text-sm">
+            <p>
+              Agents get: <strong>{flyers.data.agentKit === "v2" ? "kit v2" : "kit v1.1.1"}</strong>
+              {flyers.data.agentKit === "v1" && (
+                <button type="button" disabled={!flyers.data.agentAreaReady} onClick={() => void setFlyers({ agentKit: "v2" })}
+                  className="ml-3 min-h-11 rounded-lg border border-border px-3 disabled:opacity-50" title={flyers.data.agentAreaReady ? undefined : "Needs the agent information area first"}>
+                  Switch agents to kit v2
+                </button>
+              )}
+            </p>
+            <label className="flex min-h-11 items-center gap-3">
+              <input type="checkbox" data-testid="spanish-v2" checked={flyers.data.spanishV2} onChange={(e) => void setFlyers({ spanishV2: e.target.checked })} />
+              Spanish kit-v2 flyers visible to agents (pending Basic Benefits&apos; review; keep off)
+            </label>
+            {flyerMsg && <p role="alert" className="text-red-600">{flyerMsg}</p>}
+            <details>
+              <summary className="min-h-11 cursor-pointer py-2">Preview kit v2 (admin only)</summary>
+              <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+                {NOP_V2_TEMPLATES.map((id) => (
+                  <li key={id} className="flex flex-wrap gap-3">
+                    <span className="font-mono text-xs">{id}</span>
+                    {(["letter", "bleed"] as const).map((f) => (
+                      <a key={f} className="text-[var(--brand-teal-bright)] hover:underline" href={`/api/admin/enterprise/nop/render-check?template=${id}&format=${f}`}>{f}</a>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </div>
+        )}
       </section>
 
       <section className="mt-8">

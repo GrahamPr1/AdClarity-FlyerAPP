@@ -3,6 +3,7 @@ import { requirePortalViewer } from "@/lib/enterprise/portal/view-as"
 import { tNop, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 import { isNopTemplate, readKitContent } from "@/lib/enterprise/nop-render/kit"
+import { agentMaySeeTemplate, getNopFlyerSettings } from "@/lib/enterprise/nop-render/kit-v2-access"
 import { NOP_DOWNLOAD_FORMATS, NopRenderError, renderNopFlyer, type NopFormat } from "@/lib/enterprise/nop-render/render"
 import { loadNopAgent, nopStatusMessageKey } from "@/lib/enterprise/nop-render/agent-context"
 import { logNopRender } from "@/lib/enterprise/nop-render/log"
@@ -31,7 +32,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const lang = await nopLangForRequest(request, auth.email)
 
   const { template } = await params
-  if (!isNopTemplate(template)) return NextResponse.json({ error: "unknown_template" }, { status: 404 })
+  // Kit-v2 flyers (and Spanish v2 until Basic Benefits approve them) are
+  // refused here exactly like an unknown template, so a direct URL reveals nothing.
+  if (!agentMaySeeTemplate(template, await getNopFlyerSettings(), isNopTemplate(template)) || !isNopTemplate(template)) {
+    return NextResponse.json({ error: "unknown_template" }, { status: 404 })
+  }
   const format = new URL(request.url).searchParams.get("format") as NopFormat
   if (!FORMATS.includes(format)) return NextResponse.json({ error: "format must be preview, print, home or social" }, { status: 422 })
   if (viewingAs && (NOP_DOWNLOAD_FORMATS as readonly string[]).includes(format)) {

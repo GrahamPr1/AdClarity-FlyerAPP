@@ -1,0 +1,16 @@
+/* Opificio — squared technical display face. ACCENT MOMENTS ONLY
+   (eyebrows, stat/price values, logotype-style headers) — never body copy.
+   --font-accent = Opificio Rounded (warmer default) · --font-accent-sharp = Opificio (sharp) */
+
+@font-face{font-family:'Opificio';src:url('../assets/fonts/opificio_light.ttf') format('truetype');font-weight:300;font-style:normal;font-display:swap}
+@font-face{font-family:'Opificio';src:url('../assets/fonts/opificio_regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Opificio';src:url('../assets/fonts/opificio_bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap}
+
+@font-face{font-family:'Opificio Rounded';src:url('../assets/fonts/opificio_light_rounded.ttf') format('truetype');font-weight:300;font-style:normal;font-display:swap}
+@font-face{font-family:'Opificio Rounded';src:url('../assets/fonts/opificio_rounded.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Opificio Rounded';src:url('../assets/fonts/opificio_bold_rounded.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap}
+
+:root{
+  --font-accent:'Opificio Rounded','Poppins',sans-serif;
+  --font-accent-sharp:'Opificio','Poppins',sans-serif;
+}

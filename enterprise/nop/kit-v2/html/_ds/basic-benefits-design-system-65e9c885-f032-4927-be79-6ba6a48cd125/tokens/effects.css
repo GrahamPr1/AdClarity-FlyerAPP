@@ -1,0 +1,12 @@
+/* Radius, shadow, borders, decorative motifs */
+:root{
+  --r-sm:7px; --r-md:10px; --r-btn:8px; --r-lg:16px; --r-pill:999px;
+  --border-hair:1px solid var(--hairline); --border-card:1px solid var(--lgray); --card-top-accent:3px;
+  --shadow-sm:0 1px 2px rgba(0,8,54,.06);
+  --shadow-md:0 6px 18px -8px rgba(0,8,54,.18);
+  --shadow-lg:0 18px 40px -18px rgba(0,8,54,.30);
+  --dot-texture:radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.6px);/* @kind other */
+  --dot-size:24px 24px;/* @kind other */
+  --cyan-glow:radial-gradient(circle, rgba(22,178,247,0.22) 0%, rgba(22,178,247,0.08) 40%, transparent 68%);/* @kind other */
+  --ease:.15s ease;/* @kind other */
+}
