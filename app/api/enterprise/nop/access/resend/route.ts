@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { rejectWhileViewingAs } from "@/lib/enterprise/portal/view-as"
 import { waitUntil } from "@vercel/functions"
 import { sendAgentVerificationCode } from "@/lib/email"
 import { NOP_ORG_NAME } from "@/lib/enterprise/nop-roster"
@@ -16,6 +17,9 @@ import { clearFlowCookie, fail, readFlow } from "@/lib/enterprise/access-http"
 // and sends nothing.
 
 export async function POST(request: NextRequest) {
+  // Registration and sign-in are writes: never while an admin views a portal.
+  const readOnly = rejectWhileViewingAs(request)
+  if (readOnly) return readOnly
   const lang = await nopLangForRequest(request)
   const flow = await readFlow(request)
   if (!flow || flow.state.step !== "code") return fail(lang, 409, "no_registration", "err.expired")

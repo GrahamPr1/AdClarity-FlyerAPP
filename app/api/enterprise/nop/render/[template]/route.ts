@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireClientSession } from "@/lib/enterprise/agent-session"
+import { requirePortalViewer } from "@/lib/enterprise/portal/view-as"
 import { tNop, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 import { isNopTemplate, readKitContent } from "@/lib/enterprise/nop-render/kit"
-import { NopRenderError, renderNopFlyer, type NopFormat } from "@/lib/enterprise/nop-render/render"
+import { NOP_DOWNLOAD_FORMATS, NopRenderError, renderNopFlyer, type NopFormat } from "@/lib/enterprise/nop-render/render"
 import { loadNopAgent, nopStatusMessageKey } from "@/lib/enterprise/nop-render/agent-context"
 import { logNopRender } from "@/lib/enterprise/nop-render/log"
 import { getCachedThumb, setCachedThumb, thumbCacheKey } from "@/lib/enterprise/nop-render/thumb-cache"
@@ -22,14 +22,21 @@ export const dynamic = "force-dynamic"
 const FORMATS: readonly NopFormat[] = ["preview", "print", "home", "social", "thumb"]
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ template: string }> }) {
-  const auth = await requireClientSession(request)
+  // The agent, or an admin viewing their portal read-only: previews and
+  // thumbnails only. A download is the agent making a flyer (it's written to
+  // their compliance log), so it is refused while viewing, as every write is.
+  const auth = await requirePortalViewer(request)
   if ("response" in auth) return auth.response
+  const viewingAs = auth.viewAs !== null
   const lang = await nopLangForRequest(request, auth.email)
 
   const { template } = await params
   if (!isNopTemplate(template)) return NextResponse.json({ error: "unknown_template" }, { status: 404 })
   const format = new URL(request.url).searchParams.get("format") as NopFormat
   if (!FORMATS.includes(format)) return NextResponse.json({ error: "format must be preview, print, home or social" }, { status: 422 })
+  if (viewingAs && (NOP_DOWNLOAD_FORMATS as readonly string[]).includes(format)) {
+    return NextResponse.json({ error: "read_only", message: "You're viewing an agent's portal read-only. Downloads are off." }, { status: 403 })
+  }
 
   const agent = await loadNopAgent(auth.email)
   if (!agent) return NextResponse.json({ error: "not_registered" }, { status: 404 })
@@ -72,7 +79,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "render_failed", message: tNop(lang, "render.failed") }, { status: 500 })
   }
 
-  await logNopRender({ agentId: agent.agentId, account: auth.email, template, format, kitVersion: readKitContent().program.kit_version })
+  // The compliance log records the agent's own activity; an admin's view is logged separately.
+  if (!viewingAs) await logNopRender({ agentId: agent.agentId, account: auth.email, template, format, kitVersion: readKitContent().program.kit_version })
   if (thumbKey) {
     await setCachedThumb(thumbKey, rendered.body)
     return new NextResponse(new Uint8Array(rendered.body), {

@@ -1,0 +1,82 @@
+// Agent tiers and the features they unlock. Pure: no Redis, no request, so the
+// rule is unit-tested and shared by pages, API routes and admin.
+//
+//   basic   flyers only, no analytics of any kind (every agent starts here)
+//   pro     everything in Phases 2–6 and 8, including results
+//   leader  everything in Pro, plus the team dashboard
+//
+// Every Pro/Leader feature can also be switched off per org. canUse() checks
+// both, and is the ONE place either rule lives.
+
+export const AGENT_TIERS = ["basic", "pro", "leader"] as const
+export type AgentTier = (typeof AGENT_TIERS)[number]
+
+export function isAgentTier(v: unknown): v is AgentTier {
+  return typeof v === "string" && (AGENT_TIERS as readonly string[]).includes(v)
+}
+
+export const AGENT_FEATURES = ["results", "leads", "agentPage", "followUps", "events", "recruiting", "team", "printRequests", "monthlyEmail"] as const
+export type AgentFeature = (typeof AGENT_FEATURES)[number]
+
+export function isAgentFeature(v: unknown): v is AgentFeature {
+  return typeof v === "string" && (AGENT_FEATURES as readonly string[]).includes(v)
+}
+
+/** The lowest tier each feature needs. */
+export const FEATURE_TIER: Record<AgentFeature, AgentTier> = {
+  results: "pro",
+  leads: "pro",
+  agentPage: "pro",
+  followUps: "pro",
+  events: "pro",
+  recruiting: "pro",
+  team: "leader",
+  printRequests: "pro",
+  monthlyEmail: "pro",
+}
+
+/** For the admin screens. Admin is English-only. */
+export const FEATURE_LABELS: Record<AgentFeature, string> = {
+  results: "Results (scans and counts)",
+  leads: "Lead capture",
+  agentPage: "Personal agent page + booking",
+  followUps: "Follow-up messages",
+  events: "Event kit",
+  recruiting: "Recruiting kit",
+  team: "Team dashboard (Leader)",
+  printRequests: "Print requests",
+  monthlyEmail: "Monthly results email",
+}
+
+const RANK: Record<AgentTier, number> = { basic: 0, pro: 1, leader: 2 }
+
+export type OrgFeatures = Record<AgentFeature, boolean>
+
+/** Basic Benefits approved every feature, so the NOP org starts with all of them on; any other org starts with none. */
+export function defaultOrgFeatures(orgIsNop: boolean): OrgFeatures {
+  return Object.fromEntries(AGENT_FEATURES.map((f) => [f, orgIsNop])) as OrgFeatures
+}
+
+/** Tier AND org switch. Nothing else unlocks a feature. */
+export function canUse(agent: { tier: AgentTier; orgFeatures: OrgFeatures }, feature: AgentFeature): boolean {
+  return RANK[agent.tier] >= RANK[FEATURE_TIER[feature]] && agent.orgFeatures[feature] === true
+}
+
+/** Every feature at once, for a page or the /api/enterprise/agent/portal answer. */
+export function entitlements(agent: { tier: AgentTier; orgFeatures: OrgFeatures }): Record<AgentFeature, boolean> {
+  return Object.fromEntries(AGENT_FEATURES.map((f) => [f, canUse(agent, f)])) as Record<AgentFeature, boolean>
+}
+
+/**
+ * The bottom navigation. Home and Create always; Leads whenever the org has
+ * lead capture on (a Basic agent sees it as a short locked "Pro" screen);
+ * Team only for a Leader whose org has it on. An org switch that's off hides
+ * its tab completely, for every tier.
+ */
+export type PortalTab = "home" | "create" | "leads" | "team"
+export function portalTabs(agent: { tier: AgentTier; orgFeatures: OrgFeatures }): PortalTab[] {
+  const tabs: PortalTab[] = ["home", "create"]
+  if (agent.orgFeatures.leads) tabs.push("leads")
+  if (canUse(agent, "team")) tabs.push("team")
+  return tabs
+}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAgentProfile, saveAgentProfile } from "@/lib/store"
 import { requireClientSession } from "@/lib/enterprise/agent-session"
+import { rejectWhileViewingAs, requirePortalViewer } from "@/lib/enterprise/portal/view-as"
 import { validateDisplayFields } from "@/lib/enterprise/nop-roster"
 import { canGenerate, getAccountAgentId, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
@@ -20,7 +21,8 @@ async function loadAgent(email: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireClientSession(request)
+  // The agent, or an admin viewing their portal (read-only).
+  const auth = await requirePortalViewer(request)
   if ("response" in auth) return auth.response
   const profile = await loadAgent(auth.email)
   if (!profile) return NextResponse.json({ error: "not_registered" }, { status: 404 })
@@ -32,6 +34,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const readOnly = rejectWhileViewingAs(request)
+  if (readOnly) return readOnly
   const auth = await requireClientSession(request)
   if ("response" in auth) return auth.response
   const profile = await loadAgent(auth.email)

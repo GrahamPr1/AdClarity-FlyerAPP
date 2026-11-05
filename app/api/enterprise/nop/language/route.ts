@@ -3,6 +3,7 @@ import { ADMIN_SUB, getSessionIdentity } from "@/lib/auth"
 import { getAgentProfile, saveAgentProfile } from "@/lib/store"
 import { NOP_LANG_COOKIE, NOP_LANG_COOKIE_MAX_AGE, parseNopLang } from "@/lib/enterprise/nop-i18n"
 import { getAccountAgentId } from "@/lib/enterprise/agents-store"
+import { rejectWhileViewingAs } from "@/lib/enterprise/portal/view-as"
 
 // POST /api/enterprise/nop/language { lang: "en" | "es" }
 //
@@ -10,6 +11,10 @@ import { getAccountAgentId } from "@/lib/enterprise/agents-store"
 // visitors), so the cookie is always set; a registered agent's saved
 // preference is updated too, so their choice follows them to a new device.
 export async function POST(request: NextRequest) {
+  // Saves the agent's preference: a write. The portal's toggle sets only the
+  // cookie, in the browser, while an admin is viewing.
+  const readOnly = rejectWhileViewingAs(request)
+  if (readOnly) return readOnly
   let lang: ReturnType<typeof parseNopLang>
   try {
     lang = parseNopLang(((await request.json()) as { lang?: unknown }).lang)

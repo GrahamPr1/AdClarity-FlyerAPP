@@ -5,6 +5,8 @@ import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { loadNopAgent } from "@/lib/enterprise/nop-render/agent-context"
 import { NopPageShell } from "../enterprise/nop/nop-page-shell"
+import { portalPageOrNull } from "@/lib/enterprise/portal/page"
+import { PortalHome } from "./portal-home"
 
 export const dynamic = "force-dynamic"
 
@@ -16,9 +18,12 @@ export async function generateMetadata() {
 const big =
   "flex min-h-14 w-full items-center justify-center rounded-xl px-5 py-4 text-center text-base font-semibold transition-colors"
 
-// oneflyer.org/agent (and /agente): the one front door for Neighborhood
-// Outreach Program agents. Two choices, nothing else to read.
+// oneflyer.org/agent (and /agente): the agent portal's Home for a signed-in
+// agent (or an admin viewing one, read-only); otherwise the one front door for
+// Neighborhood Outreach Program agents, two choices and nothing else to read.
 export default async function Page() {
+  const portal = await portalPageOrNull()
+  if (portal) return <PortalHome page={portal} />
   const session = await getSessionIdentity({ cookies: await cookies() })
   const agent = session && session.sub !== ADMIN_SUB ? await loadNopAgent(session.sub) : null
   const { lang, source } = await nopLangForPage(session?.sub ?? null)
@@ -28,7 +33,7 @@ export default async function Page() {
     <NopPageShell lang={lang} source={source} title={t("agent.title")} intro={t("agent.intro")}>
       <div className="flex flex-col gap-3">
         {agent ? (
-          <Link href="/enterprise/nop/dashboard" className={`${big} bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)]`}>
+          <Link href="/agent" className={`${big} bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)]`}>
             {t("agent.go_dashboard")}
           </Link>
         ) : (

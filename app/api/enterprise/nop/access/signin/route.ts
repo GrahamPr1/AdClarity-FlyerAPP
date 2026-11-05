@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { rejectWhileViewingAs } from "@/lib/enterprise/portal/view-as"
 import { waitUntil } from "@vercel/functions"
 import { sendAgentVerificationCode } from "@/lib/email"
 import { NOP_ORG_NAME, isValidEmail, normalizeEmail } from "@/lib/enterprise/nop-roster"
@@ -32,6 +33,9 @@ async function resolveAgent(email: string): Promise<{ account: string; agentId: 
 }
 
 export async function POST(request: NextRequest) {
+  // Registration and sign-in are writes: never while an admin views a portal.
+  const readOnly = rejectWhileViewingAs(request)
+  if (readOnly) return readOnly
   const lang = await nopLangForRequest(request)
   let typed: string
   try {

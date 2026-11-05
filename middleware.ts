@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth"
+import { verifySessionToken, SESSION_COOKIE, ADMIN_SUB } from "@/lib/auth"
+import { holdsAgentId } from "@/lib/enterprise/portal/agent-account-edge"
 
 export async function middleware(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value
@@ -45,6 +46,19 @@ export async function middleware(req: NextRequest) {
     // landing on /dashboard regardless of what they were trying to reach.
     loginUrl.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // A Neighborhood Outreach Program agent belongs in the agent portal, not on
+  // the business pages. One Redis read, only for a signed-in non-admin on
+  // these paths. Fails open: if the lookup errors, the request carries on as
+  // it always did (the business pages never serve an agent's data anyway).
+  const path = req.nextUrl.pathname
+  if (session.sub !== ADMIN_SUB && (path.startsWith("/dashboard") || path.startsWith("/onboarding") || path.startsWith("/profile"))) {
+    try {
+      if (await holdsAgentId(session.sub)) return NextResponse.redirect(new URL("/agent", req.url))
+    } catch (err) {
+      console.error("[middleware] agent check failed; continuing:", err)
+    }
   }
 
   return NextResponse.next()
