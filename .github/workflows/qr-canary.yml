@@ -4,6 +4,8 @@
 # Scans one known real code on both hosts QR codes point at: the vercel.app
 # address on older printed flyers, and oneflyer.org on newer ones. Each must
 # show that code's business name, with its assets and click counter served.
+# Both hosts are always checked, and the last step says which one failed:
+# old flyers, new flyers, or both.
 #
 # Needs two repository VARIABLES (Settings > Secrets and variables > Actions >
 # Variables): QR_CHECK_CODE and QR_CHECK_TEXT, the exact business name. Each run
@@ -30,6 +32,7 @@ jobs:
       QR_CHECK_TEXT: ${{ vars.QR_CHECK_TEXT }}
     steps:
       - name: Require the monitor settings
+        id: settings
         run: |
           if [ -z "$QR_CHECK_CODE" ] || [ -z "$QR_CHECK_TEXT" ]; then
             echo "::error::Set the repository variables QR_CHECK_CODE and QR_CHECK_TEXT."
@@ -40,10 +43,39 @@ jobs:
           sparse-checkout: scripts/check-legacy-domain.mjs
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v4
+        id: node
         with:
           node-version: 24
-      # One retry after a minute on each, so a single network blip doesn't page anyone.
-      - name: Check the QR code on the vercel.app address
+      # One retry after a minute on each, so a single network blip doesn't page
+      # anyone. Each runs whatever happened to the other: a failure on one host
+      # must not hide the state of the other.
+      - name: Check the QR code on the vercel.app address (older printed flyers)
+        id: legacy
+        if: ${{ !cancelled() && steps.settings.outcome == 'success' && steps.node.outcome == 'success' }}
         run: node scripts/check-legacy-domain.mjs --canary || (sleep 60 && node scripts/check-legacy-domain.mjs --canary)
-      - name: Check the QR code on oneflyer.org
+      - name: Check the QR code on oneflyer.org (newer flyers)
+        id: canonical
+        if: ${{ !cancelled() && steps.settings.outcome == 'success' && steps.node.outcome == 'success' }}
         run: node scripts/check-legacy-domain.mjs --canary --legacy https://oneflyer.org || (sleep 60 && node scripts/check-legacy-domain.mjs --canary --legacy https://oneflyer.org)
+      - name: Report both hosts
+        if: ${{ !cancelled() && steps.settings.outcome == 'success' && steps.node.outcome == 'success' }}
+        env:
+          LEGACY: ${{ steps.legacy.outcome }}
+          CANONICAL: ${{ steps.canonical.outcome }}
+        run: |
+          {
+            echo "### QR check for /r/$QR_CHECK_CODE"
+            echo "| Host | Flyers | Result |"
+            echo "|---|---|---|"
+            echo "| ad-clarity-landing-page.vercel.app | older printed flyers | $LEGACY |"
+            echo "| oneflyer.org | newer flyers | $CANONICAL |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$LEGACY" = success ] && [ "$CANONICAL" = success ]; then echo "Both hosts OK."; exit 0; fi
+          if [ "$LEGACY" != success ] && [ "$CANONICAL" != success ]; then
+            echo "::error::QR codes are failing on BOTH hosts: old and new flyers."
+          elif [ "$LEGACY" != success ]; then
+            echo "::error::QR codes are failing on ad-clarity-landing-page.vercel.app: OLDER printed flyers. oneflyer.org is OK."
+          else
+            echo "::error::QR codes are failing on oneflyer.org: NEWER flyers. ad-clarity-landing-page.vercel.app is OK."
+          fi
+          exit 1
