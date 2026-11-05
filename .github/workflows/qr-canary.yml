@@ -1,0 +1,49 @@
+# Hourly health check for QR codes, run from GitHub, outside Vercel, so it still
+# fires when the Vercel project or a domain is the problem.
+#
+# Scans one known real code on both hosts QR codes point at: the vercel.app
+# address on older printed flyers, and oneflyer.org on newer ones. Each must
+# show that code's business name, with its assets and click counter served.
+#
+# Needs two repository VARIABLES (Settings > Secrets and variables > Actions >
+# Variables): QR_CHECK_CODE and QR_CHECK_TEXT, the exact business name. Each run
+# counts scans on that code, so use a dedicated flyer. If either is missing the
+# run fails, rather than looking healthy while checking nothing.
+#
+# A failed run is what alerts: GitHub notifies whoever last changed the schedule.
+name: QR canary
+
+on:
+  schedule:
+    - cron: "17 * * * *" # hourly, off the top of the hour
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      QR_CHECK_CODE: ${{ vars.QR_CHECK_CODE }}
+      QR_CHECK_TEXT: ${{ vars.QR_CHECK_TEXT }}
+    steps:
+      - name: Require the monitor settings
+        run: |
+          if [ -z "$QR_CHECK_CODE" ] || [ -z "$QR_CHECK_TEXT" ]; then
+            echo "::error::Set the repository variables QR_CHECK_CODE and QR_CHECK_TEXT."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/check-legacy-domain.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # One retry after a minute on each, so a single network blip doesn't page anyone.
+      - name: Check the QR code on the vercel.app address
+        run: node scripts/check-legacy-domain.mjs --canary || (sleep 60 && node scripts/check-legacy-domain.mjs --canary)
+      - name: Check the QR code on oneflyer.org
+        run: node scripts/check-legacy-domain.mjs --canary --legacy https://oneflyer.org || (sleep 60 && node scripts/check-legacy-domain.mjs --canary --legacy https://oneflyer.org)
