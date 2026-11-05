@@ -3,8 +3,9 @@
  * Checks that printed QR codes still work on the legacy domain, and that its
  * pages redirect to oneflyer.org. Read-only: it never logs in and never
  * counts a click (the one request to the click counter is a GET, which that
- * route doesn't answer). Opening the canary's scan page does count a scan —
- * on the canary's own record, which exists for exactly this.
+ * route doesn't answer). Opening the scan page DOES count a scan on that code,
+ * so an hourly run adds about 24 a day: use a flyer of your own, not a
+ * customer's.
  *
  *   node scripts/check-legacy-domain.mjs             # full post-deploy check
  *   node scripts/check-legacy-domain.mjs --canary    # just what printed QR codes need
@@ -12,8 +13,11 @@
  * Options
  *   --legacy <origin>     default https://ad-clarity-landing-page.vercel.app
  *   --canonical <origin>  default https://oneflyer.org
- *   --code <code>         canary QR code, default health-canary
- *                         (created by scripts/create-qr-canary.ts)
+ *   --code <code>         the known QR code to scan: $QR_CHECK_CODE, else
+ *                         health-canary (created by scripts/create-qr-canary.ts)
+ *   --expect <text>       what that code's page must show, normally its business
+ *                         name: $QR_CHECK_TEXT, else the canary's name. A status
+ *                         alone can't prove a QR code works.
  *   --connect <origin>    send every request here instead, keeping the real
  *                         host (legacy or canonical) in the Host header — e.g.
  *                         http://localhost:3000 to test the rules on a dev server
@@ -38,7 +42,8 @@ const opt = (name, fallback) => {
 }
 const LEGACY = opt("legacy", "https://ad-clarity-landing-page.vercel.app").replace(/\/+$/, "")
 const CANONICAL = opt("canonical", "https://oneflyer.org").replace(/\/+$/, "")
-const CODE = opt("code", "health-canary")
+const CODE = opt("code", process.env.QR_CHECK_CODE || "health-canary")
+const EXPECT = opt("expect", process.env.QR_CHECK_TEXT || "OneFlyer QR health check")
 const CONNECT = opt("connect", null)
 const CANARY_ONLY = args.includes("--canary")
 const OIDC = args.includes("--oidc") ? process.env.VERCEL_OIDC_TOKEN : undefined
@@ -46,7 +51,17 @@ if (args.includes("--oidc") && !OIDC) {
   console.error("--oidc needs VERCEL_OIDC_TOKEN in the environment")
   process.exit(2)
 }
-const CANARY_MARKER = "OneFlyer QR health check"
+
+/** The text as the page's HTML writes it: "Pearl & Sons" is "Pearl &amp; Sons". */
+const escapeHtml = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;")
+const showsExpected = (html) => html.includes(EXPECT) || html.includes(escapeHtml(EXPECT))
+
+/** The page for a real code: 200, and showing what it should. */
+function expectOfferPage(r) {
+  expect(r.status !== 404, `HTTP 404: code "${CODE}" doesn't exist on this host`)
+  expect(r.status === 200, `HTTP ${r.status}`)
+  expect(showsExpected(r.body), `200, but the page doesn't show "${EXPECT}"`)
+}
 
 /** One request, no redirects followed. Returns status, headers and up to 512 KB of body. */
 function request(origin, path, { method = "GET" } = {}) {
@@ -97,10 +112,9 @@ let scanHtml = ""
 await check(`scan page ${LEGACY}/r/${CODE}`, async () => {
   const r = await request(LEGACY, `/r/${CODE}`)
   notRedirect(r, "scan page")
-  expect(r.status === 200, `HTTP ${r.status}`)
-  expect(r.body.includes(CANARY_MARKER), `200, but not the canary page (no "${CANARY_MARKER}") — is the canary record missing?`)
+  expectOfferPage(r)
   scanHtml = r.body
-  return "200, canary content"
+  return `200, shows "${EXPECT}"`
 })
 
 await check("scan page assets (/_next/) served on the legacy host", async () => {
@@ -146,8 +160,8 @@ if (!CANARY_ONLY) {
 
   await check(`canonical scan page ${CANONICAL}/r/${CODE}`, async () => {
     const r = await request(CANONICAL, `/r/${CODE}`)
-    expect(r.status === 200 && r.body.includes(CANARY_MARKER), `HTTP ${r.status}`)
-    return "200, canary content"
+    expectOfferPage(r)
+    return `200, shows "${EXPECT}"`
   })
 }
 

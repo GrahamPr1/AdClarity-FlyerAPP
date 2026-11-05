@@ -6,9 +6,13 @@
 # notice. This runs from GitHub, outside Vercel, so it still fires when the
 # Vercel project or the domain itself is the problem.
 #
-# It scans the reserved canary code (scripts/create-qr-canary.ts) and checks
-# the scan page, its assets and the click counter are served on the legacy
+# It scans a known real code and checks the page shows that code's business
+# name, and that its assets and the click counter are served on the legacy
 # host. A failing run is a failed workflow, which GitHub emails about.
+#
+# Set two repository variables: QR_CHECK_CODE and QR_CHECK_TEXT (the business
+# name). Each run counts scans on that code, so use a flyer of your own. Unset,
+# it falls back to the health-canary record and fails if that doesn't exist.
 name: QR canary
 
 on:
@@ -33,4 +37,7 @@ jobs:
           node-version: 24
       # One retry after a minute, so a single network blip doesn't page anyone.
       - name: Check printed QR codes resolve on the legacy domain
+        env:
+          QR_CHECK_CODE: ${{ vars.QR_CHECK_CODE }}
+          QR_CHECK_TEXT: ${{ vars.QR_CHECK_TEXT }}
         run: node scripts/check-legacy-domain.mjs --canary || (sleep 60 && node scripts/check-legacy-domain.mjs --canary)

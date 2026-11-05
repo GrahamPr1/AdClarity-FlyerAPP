@@ -8,16 +8,18 @@ redirect (308) to oneflyer.org. Rules: `legacy-redirects.mjs`; pinned by
 
 ## Before merging
 
-1. Create the canary QR record in production (one time; it never overwrites):
+1. Set the repository variables `QR_CHECK_CODE` (a real code from a flyer of
+   your own) and `QR_CHECK_TEXT` (its business name). Each check counts scans on
+   that code. Then check that
+   `https://ad-clarity-landing-page.vercel.app/r/<code>` shows that name.
+
+   Or use the reserved canary record instead, which belongs to no client:
 
    ```
    APP_ENV=production UPSTASH_REDIS_REST_URL=… UPSTASH_REDIS_REST_TOKEN=<write token> \
      npx tsx scripts/create-qr-canary.ts            # dry run
    … --apply                                       # create
    ```
-
-   Then check that `https://ad-clarity-landing-page.vercel.app/r/health-canary`
-   shows "OneFlyer QR health check".
 
 ## Merge day
 
