@@ -1,6 +1,7 @@
 import kitContent from "@/enterprise/nop/kit-v1.1.1/content.json"
 import type { AgentRosterStatus, RosterRecord } from "@/lib/types"
 import { tNop, type NopLang } from "./nop-i18n"
+import { CANONICAL_SITE_URL } from "@/lib/site-url"
 
 // Pure, dependency-free roster logic for the Neighborhood Outreach Program.
 //
@@ -27,13 +28,39 @@ const COLUMNS = [
 ] as const
 
 /**
- * Where an agent's QR codes point. Derived from the kit's enroll_domain, never
+ * An agent's enrollment URL: where their QR link (nopQrLink) forwards while
+ * they're active, and the link printed on their flyers. Derived from the kit's enroll_domain, never
  * taken from the roster: the roster's enrollment_url is NOP-typed data, and a
  * typo there would silently route an agent's commissions somewhere else.
  */
 export function qrDestinationFor(agentId: string): string {
   const domain = kitContent.enroll_domain.replace(/\/+$/, "")
   return `https://${domain}/${agentId}`
+}
+
+/** The program's own enrollment page, for a QR whose agent is unknown or not active. */
+export function programEnrollmentUrl(): string {
+  return `https://${kitContent.enroll_domain.replace(/\/+$/, "")}/`
+}
+
+/**
+ * What an agent's flyer QR encodes: a OneFlyer link that forwards to the
+ * enrollment URL (app/a/[agentId]/route.ts), so OneFlyer can count the scan.
+ * Always oneflyer.org: it's printed, so it must outlive any deployment URL.
+ */
+export const NOP_QR_PATH = "/a"
+export function nopQrLink(agentId: string): string {
+  return `${CANONICAL_SITE_URL}${NOP_QR_PATH}/${agentId}`
+}
+
+/**
+ * Where that link forwards. An active roster agent: their own enrollment URL,
+ * exactly as before the link existed. Anyone else (unknown, pending,
+ * suspended, terminated, or not an Agent ID at all): the program's enrollment
+ * page, so no printed flyer ever credits an agent who isn't active.
+ */
+export function nopQrTarget(agentId: string, roster: Pick<RosterRecord, "status"> | null | undefined): string {
+  return AGENT_ID_RE.test(agentId) && isGenerationStatus(roster) ? qrDestinationFor(agentId) : programEnrollmentUrl()
 }
 
 /** What enrollment_url should be. Used ONLY to flag a mismatch on import. */
