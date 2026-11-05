@@ -5,8 +5,10 @@
 //   pro     everything in Phases 2–6 and 8, including results
 //   leader  everything in Pro, plus the team dashboard
 //
-// Every Pro/Leader feature can also be switched off per org. canUse() checks
-// both, and is the ONE place either rule lives.
+// Every Pro/Leader feature can also be switched off per org, and needs the
+// agent's roster record to be active right now (a suspended or terminated Pro
+// agent gets none of it). canUse() checks all three, and is the ONE place
+// these rules live.
 
 export const AGENT_TIERS = ["basic", "pro", "leader"] as const
 export type AgentTier = (typeof AGENT_TIERS)[number]
@@ -57,13 +59,20 @@ export function defaultOrgFeatures(orgIsNop: boolean): OrgFeatures {
   return Object.fromEntries(AGENT_FEATURES.map((f) => [f, orgIsNop])) as OrgFeatures
 }
 
-/** Tier AND org switch. Nothing else unlocks a feature. */
-export function canUse(agent: { tier: AgentTier; orgFeatures: OrgFeatures }, feature: AgentFeature): boolean {
-  return RANK[agent.tier] >= RANK[FEATURE_TIER[feature]] && agent.orgFeatures[feature] === true
+/** What canUse needs to know about an agent. `active`: their roster record is active now. */
+export interface FeatureSubject {
+  tier: AgentTier
+  orgFeatures: OrgFeatures
+  active: boolean
+}
+
+/** Tier AND org switch AND an active roster record. Nothing else unlocks a feature. */
+export function canUse(agent: FeatureSubject, feature: AgentFeature): boolean {
+  return agent.active === true && RANK[agent.tier] >= RANK[FEATURE_TIER[feature]] && agent.orgFeatures[feature] === true
 }
 
 /** Every feature at once, for a page or the /api/enterprise/agent/portal answer. */
-export function entitlements(agent: { tier: AgentTier; orgFeatures: OrgFeatures }): Record<AgentFeature, boolean> {
+export function entitlements(agent: FeatureSubject): Record<AgentFeature, boolean> {
   return Object.fromEntries(AGENT_FEATURES.map((f) => [f, canUse(agent, f)])) as Record<AgentFeature, boolean>
 }
 
@@ -74,7 +83,7 @@ export function entitlements(agent: { tier: AgentTier; orgFeatures: OrgFeatures 
  * its tab completely, for every tier.
  */
 export type PortalTab = "home" | "create" | "leads" | "team"
-export function portalTabs(agent: { tier: AgentTier; orgFeatures: OrgFeatures }): PortalTab[] {
+export function portalTabs(agent: FeatureSubject): PortalTab[] {
   const tabs: PortalTab[] = ["home", "create"]
   if (agent.orgFeatures.leads) tabs.push("leads")
   if (canUse(agent, "team")) tabs.push("team")

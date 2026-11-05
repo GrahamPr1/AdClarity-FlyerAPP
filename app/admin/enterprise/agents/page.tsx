@@ -7,6 +7,7 @@ import type { AgentRow } from "@/lib/enterprise/portal/admin"
 import type { AdminAgentView } from "@/lib/enterprise/portal/store"
 import type { AgentFeature, AgentTier } from "@/lib/enterprise/portal/features"
 import { NOP_V2_TEMPLATES } from "@/lib/enterprise/nop-render/kit-v2-ids"
+import { AdminApprovedText, AdminAgentDataMove } from "@/components/admin-nop-agent-data"
 
 // /admin/enterprise/agents: every agent account, by org; each org's Pro/Leader
 // feature switches; and the log of admin views of agent accounts. The admin
@@ -114,6 +115,9 @@ export default function AdminAgentsPage() {
         )}
       </section>
 
+      <AdminApprovedText />
+      <AdminAgentDataMove />
+
       <section className="mt-8">
         <div className="flex flex-wrap items-end gap-3">
           <label className="text-sm">Search<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or email" className="mt-1 block min-h-11 w-64 rounded-lg border border-border bg-background px-3" /></label>
@@ -130,15 +134,19 @@ export default function AdminAgentsPage() {
             <div className="mt-2 overflow-x-auto rounded-xl border border-border">
               <table className="w-full text-sm" data-testid="agents-table">
                 <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground/70">
-                  <th className="px-4 py-3">Name</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Agent ID</th><th className="px-4 py-3">Tier</th><th className="px-4 py-3">Last active</th><th className="px-4 py-3">Flyers made</th><th className="px-4 py-3">Leads</th>
+                  <th className="px-4 py-3">Name</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Agent ID</th><th className="px-4 py-3">Tier</th><th className="px-4 py-3">Last active</th><th className="px-4 py-3">Flyers made</th><th className="px-4 py-3">QR scans</th><th className="px-4 py-3">Leads</th>
                 </tr></thead>
                 <tbody>{list.map((a) => (
                   <tr key={a.email} className="border-b border-border last:border-0">
                     <td className="px-4 py-3"><Link href={`/admin/enterprise/agents/${encodeURIComponent(a.email)}`} className="text-[var(--brand-teal-bright)] hover:underline">{a.name}</Link></td>
                     <td className="px-4 py-3">{a.email}</td><td className="px-4 py-3">{a.agentId}</td><td className="px-4 py-3 capitalize">{a.tier}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">{when(a.lastActive)}</td><td className="px-4 py-3">{a.flyersMade}</td><td className="px-4 py-3">{a.leads}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{when(a.lastActive)}</td><td className="px-4 py-3">{a.flyersMade}</td><td className="px-4 py-3">{a.scans}</td><td className="px-4 py-3">{a.leads}</td>
                   </tr>
                 ))}</tbody>
+                <tfoot><tr className="border-t border-border font-medium" data-testid="org-totals">
+                  <td className="px-4 py-3" colSpan={5}>Org totals</td><td className="px-4 py-3">{list.reduce((n, a) => n + a.flyersMade, 0)}</td>
+                  <td className="px-4 py-3">{list.reduce((n, a) => n + a.scans, 0)}</td><td className="px-4 py-3">{list.reduce((n, a) => n + a.leads, 0)}</td>
+                </tr></tfoot>
               </table>
             </div>
           </div>

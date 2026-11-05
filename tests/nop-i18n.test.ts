@@ -35,7 +35,7 @@ describe("dictionaries", () => {
   })
   it("uses inscribirse only for customer enrollment", () => {
     const enrol = Object.entries(es).filter(([, v]) => /inscrib|inscrip/i.test(v)).map(([k]) => k)
-    expect(enrol).toEqual(["profile.enrollment_link"])
+    expect(enrol).toEqual(["profile.enrollment_link", "lead.coming_soon_body", "lead.enroll"])
   })
 })
 

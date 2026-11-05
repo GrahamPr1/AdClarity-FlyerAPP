@@ -2,13 +2,14 @@ import { describe, it, expect } from "vitest"
 import { AGENT_FEATURES, AGENT_TIERS, canUse, defaultOrgFeatures, entitlements, portalTabs, type AgentFeature, type AgentTier, type OrgFeatures } from "@/lib/enterprise/portal/features"
 
 /**
- * canUse(): tier AND org switch, nothing else. Basic gets no Pro/Leader
- * feature at all (including results), Pro gets everything but Team, Leader
- * gets everything; an org switch that's off removes a feature for every tier.
+ * canUse(): tier AND org switch AND an active roster record, nothing else.
+ * Basic gets no Pro/Leader feature at all (including results), Pro gets
+ * everything but Team, Leader gets everything; an org switch that's off
+ * removes a feature for every tier, and so does an inactive roster record.
  */
 
 const allOn = defaultOrgFeatures(true)
-const agent = (tier: AgentTier, orgFeatures: OrgFeatures = allOn) => ({ tier, orgFeatures })
+const agent = (tier: AgentTier, orgFeatures: OrgFeatures = allOn, active = true) => ({ tier, orgFeatures, active })
 
 describe("tiers", () => {
   it("Basic can use none of the Pro/Leader features, results included", () => {
@@ -21,6 +22,17 @@ describe("tiers", () => {
 
   it("Leader can use everything", () => {
     for (const f of AGENT_FEATURES) expect(canUse(agent("leader"), f), f).toBe(true)
+  })
+})
+
+describe("roster status", () => {
+  it("a Pro or Leader agent whose roster record isn't active gets no Pro/Leader feature", () => {
+    for (const tier of AGENT_TIERS) for (const f of AGENT_FEATURES) expect(canUse(agent(tier, allOn, false), f), `${tier} ${f}`).toBe(false)
+    expect(entitlements(agent("leader", allOn, false))).toEqual(Object.fromEntries(AGENT_FEATURES.map((f) => [f, false])))
+  })
+
+  it("an inactive Leader loses the Team tab; Leads stays (it shows their status instead)", () => {
+    expect(portalTabs(agent("leader", allOn, false))).toEqual(["home", "create", "leads"])
   })
 })
 

@@ -12,6 +12,8 @@ export interface PortalContext {
   orgName: string
   tier: AgentTier
   orgFeatures: OrgFeatures
+  /** The roster record is active now: required for every Pro/Leader feature. */
+  active: boolean
   can: Record<AgentFeature, boolean>
   tabs: PortalTab[]
 }
@@ -22,8 +24,8 @@ export async function loadPortalContext(email: string): Promise<PortalContext | 
   if (!agent) return null
   const orgId = agent.profile.orgId || NOP_ORG_ID
   const [tier, orgFeatures] = await Promise.all([getAgentTier(email), getOrgFeatures(orgId)])
-  const base = { tier, orgFeatures }
-  return { email, agent, orgId, orgName: NOP_ORG_NAME, tier, orgFeatures, can: entitlements(base), tabs: portalTabs(base) }
+  const base = { tier, orgFeatures, active: agent.active }
+  return { email, agent, orgId, orgName: NOP_ORG_NAME, tier, orgFeatures, active: agent.active, can: entitlements(base), tabs: portalTabs(base) }
 }
 
 /** The server-side check every tier-gated route calls. */

@@ -1,5 +1,5 @@
 import { Resend } from "resend"
-import { tNop, type NopLang } from "@/lib/enterprise/nop-i18n"
+import { tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 
 /**
  * Where operational alerts go. Distinct from any customer-facing address:
@@ -220,6 +220,53 @@ export async function sendLeadNotification(input: {
           </table>
           <p><a href="${escape(input.dashboardUrl)}">See all your leads on your OneFlyer dashboard</a></p>
           <p style="color:#888;font-size:12px">They agreed that ${escape(input.businessName)} may contact them about ${input.afterOfferEnded ? "their services" : "this offer"}.</p>
+        </div>
+      `,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
+ * A new lead for a NOP agent, in the agent's language. Separate from the SMB
+ * email above: different wording, bilingual, and it quotes the consent the
+ * person ticked rather than a business's offer.
+ */
+export async function sendNopAgentLeadNotification(input: {
+  to: string
+  lang: NopLang
+  lead: { name: string; phone: string; email: string | null; message: string | null; consent?: { text: string } }
+  portalUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+
+  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
+  const { lead } = input
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top">${escape(label)}</td><td style="padding:4px 0">${value}</td></tr>`
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      ...(lead.email ? { replyTo: lead.email } : {}),
+      subject: t("email.lead_subject", { name: lead.name }),
+      html: `
+        <div lang="${input.lang}" style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
+          <p>${escape(t("email.lead_intro"))}</p>
+          <table style="border-collapse:collapse;margin:12px 0">
+            ${row(t("lead.name"), escape(lead.name))}
+            ${row(t("lead.phone"), `<a href="tel:${escape(lead.phone.replace(/[^0-9+]/g, ""))}">${escape(lead.phone)}</a>`)}
+            ${lead.email ? row(t("portal.lead_email"), `<a href="mailto:${escape(lead.email)}">${escape(lead.email)}</a>`) : ""}
+            ${lead.message ? row(t("lead.message_optional").replace(/\s*\(.*\)$/, ""), `<span style="white-space:pre-wrap">${escape(lead.message)}</span>`) : ""}
+          </table>
+          <p><a href="${escape(input.portalUrl)}">${escape(t("email.lead_open"))}</a></p>
+          ${lead.consent ? `<p style="color:#888;font-size:12px">☑ ${escape(lead.consent.text)}</p>` : ""}
         </div>
       `,
     })

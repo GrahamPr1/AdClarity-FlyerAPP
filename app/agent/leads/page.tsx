@@ -3,6 +3,8 @@ import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { requirePortalPage } from "@/lib/enterprise/portal/page"
 import { ProLocked } from "@/components/nop-portal"
+import { NopAgentLeads } from "@/components/nop-agent-leads"
+import { listAgentLeads } from "@/lib/enterprise/portal/agent-data"
 import { PortalShell } from "../portal-shell"
 
 export const dynamic = "force-dynamic"
@@ -14,8 +16,9 @@ export async function generateMetadata() {
 
 /**
  * Leads. Hidden entirely when the org has lead capture off; a short locked
- * "Pro" screen for Basic. The list itself arrives in Phase 2, through
- * /api/enterprise/agent/leads, which refuses Basic agents on the server.
+ * "Pro" screen for Basic; a one-line status note for a Pro/Leader agent whose
+ * roster record isn't active. Otherwise the list, newest first. Leads are
+ * read only after canUse allows it.
  */
 export default async function Page() {
   const page = await requirePortalPage()
@@ -24,10 +27,18 @@ export default async function Page() {
   return (
     <PortalShell page={page} title={tNop(lang, "portal.leads_title")}>
       {ctx.can.leads ? (
-        <p data-testid="leads-empty" className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">{tNop(lang, "portal.leads_empty")}</p>
+        <LeadsList agentId={ctx.agent.agentId} readOnly={page.readOnly} empty={tNop(lang, "portal.leads_empty")} />
+      ) : ctx.tier !== "basic" && !ctx.active ? (
+        <p data-testid="leads-inactive" className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">{tNop(lang, "portal.leads_inactive")}</p>
       ) : (
         <ProLocked sentence="portal.leads_locked" />
       )}
     </PortalShell>
   )
+}
+
+async function LeadsList({ agentId, readOnly, empty }: { agentId: string; readOnly: boolean; empty: string }) {
+  const leads = await listAgentLeads(agentId)
+  if (leads.length === 0) return <p data-testid="leads-empty" className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">{empty}</p>
+  return <NopAgentLeads leads={leads} readOnly={readOnly} />
 }

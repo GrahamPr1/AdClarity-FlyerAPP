@@ -1,13 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { getSessionIdentity } from "@/lib/auth"
 import { isAdminSession } from "@/lib/admin"
-import { getAgentProfile, listLeadsForClient } from "@/lib/store"
+import { getAgentProfile } from "@/lib/store"
 import { getRosterRecord, listRoster } from "@/lib/enterprise/agents-store"
 import { NOP_ORG_ID, NOP_ORG_NAME } from "@/lib/enterprise/nop-roster"
 import { listNopRenders, type NopRenderLogEntry } from "@/lib/enterprise/nop-render/log"
 import { NOP_DOWNLOAD_FORMATS } from "@/lib/enterprise/nop-render/render"
 import type { AgentTier } from "./features"
 import { getAgentTier, getLastActive, listAdminAgentViews, type AdminAgentView } from "./store"
+import { summarizeAgentData } from "./agent-data"
 
 // OneFlyer admin's view of agent accounts. Read-only helpers; the routes that
 // change anything (tier, org switches, view-as) are in app/api/admin/enterprise.
@@ -30,7 +31,9 @@ export interface AgentRow {
   lastActive: string | null
   /** Downloads (print, home-print, social): flyers actually made. Previews aren't counted. */
   flyersMade: number
+  /** Everything under the Agent ID, whatever the tier: the org and admin see totals for every agent. */
   leads: number
+  scans: number
 }
 
 const isDownload = (e: NopRenderLogEntry) => (NOP_DOWNLOAD_FORMATS as readonly string[]).includes(e.format)
@@ -43,11 +46,11 @@ export async function listAgentRows(): Promise<AgentRow[]> {
   return Promise.all(
     roster.map(async (r, i) => {
       const email = r.lockedTo!
-      const [profile, tier, renders, leads] = await Promise.all([
+      const [profile, tier, renders, data] = await Promise.all([
         getAgentProfile(email),
         getAgentTier(email),
         listNopRenders({ agentId: r.agentId }),
-        listLeadsForClient(email),
+        summarizeAgentData(r.agentId),
       ])
       return {
         email,
@@ -59,7 +62,8 @@ export async function listAgentRows(): Promise<AgentRow[]> {
         status: r.status,
         lastActive: lastActive[i],
         flyersMade: renders.filter(isDownload).length,
-        leads: leads.length,
+        leads: data.leads,
+        scans: data.scans,
       }
     }),
   )
