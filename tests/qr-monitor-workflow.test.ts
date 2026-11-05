@@ -22,6 +22,28 @@ describe("the QR monitor workflow", () => {
     expect(steps.indexOf("exit 1")).toBeLessThan(steps.indexOf("check-legacy-domain.mjs --canary"))
   })
 
+  it("checks both hosts every time: neither check depends on the other passing", () => {
+    for (const id of ["legacy", "canonical"]) {
+      const step = steps.slice(steps.indexOf(`id: ${id}`), steps.indexOf("run:", steps.indexOf(`id: ${id}`)))
+      // Runs whatever the other host did, but not when setup itself failed,
+      // which would otherwise read as "QR codes are down on both hosts".
+      expect(step, id).toContain("if: ${{ !cancelled() && steps.settings.outcome == 'success' && steps.node.outcome == 'success' }}")
+    }
+  })
+
+  it("keeps the one-minute retry on each host", () => {
+    expect(steps.match(/\|\| \(sleep 60 && node scripts\/check-legacy-domain\.mjs/g)).toHaveLength(2)
+  })
+
+  it("names the failing host: older flyers, newer flyers, or both", () => {
+    expect(steps).toContain("LEGACY: ${{ steps.legacy.outcome }}")
+    expect(steps).toContain("CANONICAL: ${{ steps.canonical.outcome }}")
+    expect(steps).toContain("failing on BOTH hosts")
+    expect(steps).toContain("OLDER printed flyers")
+    expect(steps).toContain("NEWER flyers")
+    expect(steps).toContain("GITHUB_STEP_SUMMARY")
+  })
+
   it("is QR-only, on both hosts: every check runs in --canary mode", () => {
     const runs = [...steps.matchAll(/node scripts\/check-legacy-domain\.mjs[^|\n)]*/g)].map((m) => m[0])
     expect(runs.length).toBeGreaterThan(0)
