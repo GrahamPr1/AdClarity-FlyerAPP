@@ -4,29 +4,27 @@ import { defaultOrgFeatures } from "@/lib/enterprise/portal/features"
 
 /**
  * Phase 2 on the server:
- *  - the public lead form takes leads only for an active Pro/Leader agent with
- *    lead capture on, and only once the consent text is approved (until then:
+ *  - the QR lead form (by code) takes leads only when the org has the QR lead
+ *    page switched on (off by default) for an active Pro/Leader agent with
+ *    lead capture, and only once the consent text is approved (until then:
  *    nothing accepted); consent must be ticked and is stored verbatim;
  *  - leads and results reach only an active Pro/Leader agent; Basic gets no data;
  *  - marking contacted is refused while an admin views as the agent;
- *  - the approved-text and data-move routes are OneFlyer admin only, and a
- *    move needs a preview's counts plus explicit confirmation.
+ *  - the approved-text, data-move and lead-deletion routes are OneFlyer admin
+ *    only; a move needs a preview's counts plus explicit confirmation; a
+ *    deletion needs confirmation and is logged without personal details.
  */
 
 const s = vi.hoisted(() => ({
   tier: "pro", active: true, features: {} as Record<string, boolean>, owner: "agent@x.test" as string | null,
   roster: { status: "active" } as { status: string } | null, consent: { id: "approved-text:nop:leadConsent:en", text: "I agree to be contacted.", version: 3, pending: false },
   saved: [] as { agentId: string; lead: Record<string, unknown> }[], emails: [] as unknown[], leads: [] as unknown[], marked: [] as unknown[],
-  admins: new Set(["admin"]), moves: [] as unknown[], moveResult: "ok" as "ok" | "stale",
+  admins: new Set(["admin"]), moves: [] as unknown[], moveResult: "ok" as "ok" | "stale", deleted: [] as unknown[],
 }))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => !!sub && s.admins.has(sub) }))
 vi.mock("@/lib/enterprise/portal/store", () => ({ getAgentTier: async () => s.tier, getOrgFeatures: async () => s.features, touchLastActive: async () => {} }))
 vi.mock("@/lib/enterprise/nop-render/agent-context", () => ({
   loadNopAgent: async (email: string) => (email === "agent@x.test" ? { agentId: "858980", profile: { orgId: "nop", name: "Pat Lee", displayName: "Pat Lee", preferredLanguage: "es" }, status: s.active ? "active" : "suspended", active: s.active } : null),
-}))
-vi.mock("@/lib/enterprise/agents-store", () => ({
-  getRosterRecord: async (id: string) => (id === "858980" || id === "858981" ? s.roster : null),
-  getAgentIdOwner: async (id: string) => (id === "858980" ? s.owner : null),
 }))
 vi.mock("@/lib/enterprise/portal/approved-text", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/portal/approved-text")>()),
@@ -42,15 +40,28 @@ vi.mock("@/lib/enterprise/portal/agent-data", () => ({
   summarizeAgentData: async (id: string) => (id === "111" ? { leads: 2, scans: 5 } : { leads: 0, scans: 0 }),
   moveAgentData: async (admin: string, from: string, to: string, expected: unknown) => (s.moves.push({ admin, from, to, expected }), s.moveResult === "ok" ? { ok: true, move: { admin, from, to, moved: expected, at: "t" } } : { ok: false, reason: "stale" }),
   listAgentDataMoves: async () => s.moves,
+  listAgentLeadIds: async () => ["l1", "l2"],
+  deleteAgentLeads: async (admin: string, agentId: string, leadIds: string[], requestedBy: string, note: string) => (s.deleted.push({ admin, agentId, leadIds, requestedBy, note }), leadIds.includes("nope") ? null : { admin, agentId, leadIds, requestedBy, note, at: "t" }),
+  listLeadDeletions: async () => s.deleted,
 }))
+vi.mock("@/lib/enterprise/agents-store", () => ({
+  getRosterRecord: async (id: string) => (id === "858980" || id === "858981" ? s.roster : null),
+  getAgentIdOwner: async (id: string) => (id === "858980" ? s.owner : null),
+  listRoster: async () => [{ agentId: "858980", agentName: "Pat Lee" }],
+}))
+vi.mock("@/lib/enterprise/nop-qr-code", () => ({
+  agentIdForQrCode: async (code: string) => ({ k7Q2mXp: "858980", Zz9Yx8W: "858981" } as Record<string, string>)[code] ?? null,
+  getAgentQrCode: async (id: string) => (id === "858980" ? "k7Q2mXp" : null),
+}))
+vi.mock("@/lib/enterprise/portal/retention", () => ({ getRetentionClock: async () => null }))
 vi.mock("@/lib/email", () => ({ sendNopAgentLeadNotification: async (e: unknown) => (s.emails.push(e), { sent: true }) }))
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: async () => ({ allowed: true }), clientIp: () => "1.2.3.4" }))
 
 beforeEach(() => {
   vi.stubEnv("SESSION_SECRET", "test-secret")
-  Object.assign(s, { tier: "pro", active: true, features: defaultOrgFeatures(true), owner: "agent@x.test", roster: { status: "active" }, moveResult: "ok" })
+  Object.assign(s, { tier: "pro", active: true, features: { ...defaultOrgFeatures(true), qrLeadPage: true }, owner: "agent@x.test", roster: { status: "active" }, moveResult: "ok" })
   s.consent = { id: "approved-text:nop:leadConsent:en", text: "I agree to be contacted.", version: 3, pending: false }
-  for (const a of [s.saved, s.emails, s.marked, s.moves]) a.length = 0
+  for (const a of [s.saved, s.emails, s.marked, s.moves, s.deleted]) a.length = 0
   s.leads = []
 })
 afterEach(() => vi.unstubAllEnvs())
@@ -69,28 +80,30 @@ async function call(load: () => Promise<any>, method: string, url: string, opts:
   return { status: res.status as number, json: await res.json().catch(() => null) }
 }
 
-const publicLead = () => import("@/app/api/enterprise/nop/leads/[agentId]/route")
+const publicLead = () => import("@/app/api/enterprise/nop/leads/[code]/route")
+const deletions = () => import("@/app/api/admin/enterprise/nop/lead-deletions/route")
 const leadsList = () => import("@/app/api/enterprise/agent/leads/route")
 const leadMark = () => import("@/app/api/enterprise/agent/leads/[id]/route")
 const results = () => import("@/app/api/enterprise/agent/results/route")
 const texts = () => import("@/app/api/admin/enterprise/nop/approved-text/route")
 const move = () => import("@/app/api/admin/enterprise/nop/agent-data-move/route")
 const good = { name: "Ana Ruiz", phone: "(270) 555-0199", email: "ana@x.test", message: "Call after 5", consent: true, consentVersion: 3, lang: "en" }
-const submit = (body: unknown, id = "858980") => call(publicLead, "POST", `/api/enterprise/nop/leads/${id}`, { params: { agentId: id }, body })
+const submit = (body: unknown, code = "k7Q2mXp") => call(publicLead, "POST", `/api/enterprise/nop/leads/${code}`, { params: { code }, body })
 
-describe("public lead form", () => {
-  it("an active Pro agent with approved consent: the lead is saved under the Agent ID with the consent shown, and the agent is emailed in their language", async () => {
+describe("QR lead form", () => {
+  it("an active Pro agent, QR lead page on, consent approved: the lead is saved under the Agent ID with the consent shown, and the agent is emailed in their language", async () => {
     expect((await submit(good)).status).toBe(200)
     expect(s.saved).toHaveLength(1)
     expect(s.saved[0].agentId).toBe("858980")
-    expect(s.saved[0].lead).toMatchObject({ name: "Ana Ruiz", phone: "(270) 555-0199", email: "ana@x.test", contactedAt: null, consent: { text: "I agree to be contacted.", textId: "approved-text:nop:leadConsent:en", version: 3, lang: "en" } })
+    expect(s.saved[0].lead).toMatchObject({ code: "k7Q2mXp", name: "Ana Ruiz", phone: "(270) 555-0199", email: "ana@x.test", contactedAt: null, consent: { text: "I agree to be contacted.", textId: "approved-text:nop:leadConsent:en", version: 3, lang: "en" } })
     expect(s.emails).toEqual([expect.objectContaining({ to: "agent@x.test", lang: "es", portalUrl: "https://oneflyer.org/agent/leads" })])
   })
 
   it.each([
     ["a Basic agent", () => { s.tier = "basic" }],
     ["a suspended Pro agent", () => { s.roster = { status: "suspended" }; s.active = false }],
-    ["an org with lead capture off", () => { s.features = { ...defaultOrgFeatures(true), leads: false } }],
+    ["an org with lead capture off", () => { s.features = { ...defaultOrgFeatures(true), qrLeadPage: true, leads: false } }],
+    ["an org with the QR lead page off (the default)", () => { s.features = defaultOrgFeatures(true) }],
     ["an Agent ID no account holds", () => { s.owner = null }],
   ])("%s: 404, nothing saved or sent", async (_l, setup) => {
     setup()
@@ -98,8 +111,9 @@ describe("public lead form", () => {
     expect(s.saved).toEqual([]); expect(s.emails).toEqual([])
   })
 
-  it("an unknown Agent ID: 404", async () => {
-    expect((await submit(good, "999999")).status).toBe(404)
+  it("an unknown code, or the bare Agent ID in place of a code: 404", async () => {
+    expect((await submit(good, "zzzzzzz")).status).toBe(404)
+    expect((await submit(good, "858980")).status).toBe(404)
   })
 
   it("while the consent text is the placeholder, nothing is accepted (the page shows Coming soon)", async () => {
@@ -157,15 +171,31 @@ describe("the agent's leads and results", () => {
   })
 })
 
+describe("where a scan lands (qrLanding)", () => {
+  it("forwards by default; opens the lead page only with the switch on for an active Pro agent", async () => {
+    const { qrLanding } = await import("@/lib/enterprise/portal/lead-capture")
+    expect(await qrLanding("k7Q2mXp")).toMatchObject({ state: "lead_page", agentId: "858980", enrollUrl: "https://neighbor.basicbenefits.com/858980" })
+    s.features = defaultOrgFeatures(true)
+    expect(await qrLanding("k7Q2mXp")).toEqual({ state: "forward", agentId: "858980", onRoster: true, target: "https://neighbor.basicbenefits.com/858980" })
+    s.features = { ...defaultOrgFeatures(true), qrLeadPage: true }; s.tier = "basic"
+    expect((await qrLanding("k7Q2mXp")).state).toBe("forward")
+    s.tier = "pro"; s.roster = { status: "pending" }
+    expect(await qrLanding("k7Q2mXp")).toMatchObject({ state: "forward", target: "https://neighbor.basicbenefits.com/" })
+    expect(await qrLanding("zzzzzzz")).toEqual({ state: "forward", agentId: null, onRoster: false, target: "https://neighbor.basicbenefits.com/" })
+  })
+})
+
 describe("admin only", () => {
-  it("approved text and data moves refuse agents and signed-out visitors", async () => {
+  it("approved text, data moves and lead deletions refuse agents and signed-out visitors", async () => {
     for (const who of ["agent@x.test", undefined]) {
       expect((await call(texts, "GET", "/x", { who })).status).toBe(401)
       expect((await call(texts, "POST", "/x", { who, body: { key: "leadConsent", lang: "en", text: "x" } })).status).toBe(401)
       expect((await call(move, "GET", "/x", { who })).status).toBe(401)
       expect((await call(move, "POST", "/x", { who, body: { from: "111", to: "858980", action: "move", confirm: true, expected: { leads: 2, scans: 5 } } })).status).toBe(401)
+      expect((await call(deletions, "GET", "/x?q=ana@x.test", { who })).status).toBe(401)
+      expect((await call(deletions, "POST", "/x", { who, body: { agentId: "858980", leadIds: "all", expectedCount: 2, requestedBy: "person", confirm: true } })).status).toBe(401)
     }
-    expect(s.moves).toEqual([])
+    expect(s.moves).toEqual([]); expect(s.deleted).toEqual([])
   })
 
   it("a move: preview shows what will move; it needs confirmation and the previewed counts", async () => {
@@ -184,5 +214,25 @@ describe("admin only", () => {
     expect((await call(move, "POST", "/x", { who: "admin", body: { from: "858980", to: "858980", action: "preview" } })).json.error).toBe("same_id")
     s.moveResult = "stale"
     expect((await call(move, "POST", "/x", { who: "admin", body: { from: "111", to: "858980", action: "move", confirm: true, expected: { leads: 2, scans: 5 } } })).status).toBe(409)
+  })
+})
+
+describe("deleting leads on request", () => {
+  it("finds a person's leads by email or phone across agents", async () => {
+    s.leads = [{ id: "l1", name: "Ana Ruiz", phone: "(270) 555-0199", email: "Ana@X.test", createdAt: "t" }, { id: "l2", name: "Bo", phone: "555-0100", email: null, createdAt: "t" }]
+    expect((await call(deletions, "GET", "/x?q=ana@x.test", { who: "admin" })).json.matches.map((m: { lead: { id: string } }) => m.lead.id)).toEqual(["l1"])
+    expect((await call(deletions, "GET", "/x?q=270.555.0199", { who: "admin" })).json.matches.map((m: { lead: { id: string } }) => m.lead.id)).toEqual(["l1"])
+    expect((await call(deletions, "GET", "/x?q=55", { who: "admin" })).status).toBe(400)
+  })
+
+  it("needs confirmation; deletes and logs who asked; 'all' must match the count the admin saw", async () => {
+    const body = { agentId: "858980", leadIds: ["l1"], requestedBy: "person", note: "asked by phone" }
+    expect((await call(deletions, "POST", "/x", { who: "admin", body })).json.error).toBe("confirm_required")
+    expect(s.deleted).toEqual([])
+    expect((await call(deletions, "POST", "/x", { who: "admin", body: { ...body, confirm: true } })).status).toBe(200)
+    expect(s.deleted).toEqual([{ admin: "admin", agentId: "858980", leadIds: ["l1"], requestedBy: "person", note: "asked by phone" }])
+    expect((await call(deletions, "POST", "/x", { who: "admin", body: { agentId: "858980", leadIds: "all", expectedCount: 3, requestedBy: "basic_benefits", confirm: true } })).status).toBe(409)
+    expect((await call(deletions, "POST", "/x", { who: "admin", body: { agentId: "858980", leadIds: "all", expectedCount: 2, requestedBy: "basic_benefits", confirm: true } })).status).toBe(200)
+    expect((await call(deletions, "POST", "/x", { who: "admin", body: { ...body, requestedBy: "someone", confirm: true } })).status).toBe(400)
   })
 })

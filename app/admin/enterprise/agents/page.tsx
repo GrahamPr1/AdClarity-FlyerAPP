@@ -7,7 +7,7 @@ import type { AgentRow } from "@/lib/enterprise/portal/admin"
 import type { AdminAgentView } from "@/lib/enterprise/portal/store"
 import type { AgentFeature, AgentTier } from "@/lib/enterprise/portal/features"
 import { NOP_V2_TEMPLATES } from "@/lib/enterprise/nop-render/kit-v2-ids"
-import { AdminApprovedText, AdminAgentDataMove } from "@/components/admin-nop-agent-data"
+import { AdminApprovedText, AdminAgentDataMove, AdminLeadDeletion } from "@/components/admin-nop-agent-data"
 
 // /admin/enterprise/agents: every agent account, by org; each org's Pro/Leader
 // feature switches; and the log of admin views of agent accounts. The admin
@@ -117,6 +117,7 @@ export default function AdminAgentsPage() {
 
       <AdminApprovedText />
       <AdminAgentDataMove />
+      <AdminLeadDeletion />
 
       <section className="mt-8">
         <div className="flex flex-wrap items-end gap-3">

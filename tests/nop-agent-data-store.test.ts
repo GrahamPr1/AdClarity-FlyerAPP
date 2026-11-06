@@ -4,7 +4,8 @@ import type { LeadRecord } from "@/lib/types"
 /**
  * Scans, leads and approved wording on an in-memory Redis. Scans and leads
  * live under the Agent ID; a lead is an agent's only while it's in their set;
- * approved text starts as a placeholder that counts as pending.
+ * approved text starts as a placeholder that counts as pending; the retention
+ * clock starts once at termination; admin deletions are logged without details.
  * (The atomic move script runs against a real Redis in the local check.)
  */
 
@@ -13,7 +14,10 @@ vi.mock("@upstash/redis", () => {
   const zset = (k: string) => r.z.get(k) ?? (r.z.set(k, new Map()), r.z.get(k)!)
   const fake = {
     get: async (k: string) => r.kv.get(k) ?? null,
-    set: async (k: string, v: unknown) => void r.kv.set(k, structuredClone(v)),
+    set: async (k: string, v: unknown, o?: { nx?: boolean }) => (o?.nx && r.kv.has(k) ? null : (r.kv.set(k, structuredClone(v)), "OK")),
+    del: async (...ks: string[]) => ks.forEach((k) => r.kv.delete(k)),
+    zadd: async (k: string, e: { score: number; member: string }) => void zset(k).set(e.member, e.score),
+    zrem: async (k: string, ...ms: string[]) => ms.forEach((m) => zset(k).delete(m)),
     mget: async (...ks: string[]) => ks.map((k) => r.kv.get(k) ?? null),
     hgetall: async (k: string) => r.h.get(k) ?? null,
     zrange: async (k: string, _a: number, _b: number, o?: { rev?: boolean }) => { const e = [...zset(k)].sort((x, y) => x[1] - y[1]).map(([m]) => m); return o?.rev ? e.reverse() : e },
@@ -28,6 +32,8 @@ vi.mock("@upstash/redis", () => {
         hincrby: (k: string, f: string, n: number) => (ops.push(() => { const h = r.h.get(k) ?? {}; h[f] = (h[f] ?? 0) + n; r.h.set(k, h) }), tx),
         set: (k: string, v: unknown) => (ops.push(() => r.kv.set(k, structuredClone(v))), tx),
         zadd: (k: string, e: { score: number; member: string }) => (ops.push(() => zset(k).set(e.member, e.score)), tx),
+        zrem: (k: string, ...ms: string[]) => (ops.push(() => ms.forEach((m) => zset(k).delete(m))), tx),
+        del: (...ks: string[]) => (ops.push(() => ks.forEach((x) => r.kv.delete(x))), tx),
         exec: async () => ops.forEach((o) => o()),
       }
       return tx
@@ -99,5 +105,40 @@ describe("approved wording", () => {
     expect(isPendingText("I agree [PENDING ORG APPROVAL — consent text]")).toBe(true)
     expect(isPendingText("")).toBe(true)
     expect(isPendingText("I agree to be contacted.")).toBe(false)
+  })
+})
+
+describe("retention", () => {
+  it("deadline is 12 calendar months on, clamped to the month's last day", async () => {
+    const { retentionDeadline } = await import("@/lib/enterprise/portal/retention")
+    expect(retentionDeadline(new Date("2026-11-06T15:00:00Z")).toISOString()).toBe("2027-11-06T15:00:00.000Z")
+    expect(retentionDeadline(new Date("2027-02-28T00:00:00Z")).toISOString()).toBe("2028-02-28T00:00:00.000Z")
+    expect(retentionDeadline(new Date("2028-02-29T00:00:00Z")).toISOString()).toBe("2029-02-28T00:00:00.000Z")
+  })
+
+  it("starts once and isn't restarted by a later import; clearing removes it from the due list", async () => {
+    const { startRetentionClock, clearRetentionClock, getRetentionClock } = await import("@/lib/enterprise/portal/retention")
+    await startRetentionClock("858980", "terminated", new Date("2026-11-06T00:00:00Z"))
+    await startRetentionClock("858980", "terminated", new Date("2027-03-01T00:00:00Z"))
+    expect(await getRetentionClock("858980")).toEqual({ endedAt: "2026-11-06T00:00:00.000Z", reason: "terminated", deleteAfter: "2027-11-06T00:00:00.000Z" })
+    expect(r.z.get("nop-retention-due")?.get("858980")).toBe(Date.parse("2027-11-06T00:00:00Z"))
+    await clearRetentionClock("858980")
+    expect(await getRetentionClock("858980")).toBeNull()
+    expect(r.z.get("nop-retention-due")?.has("858980")).toBe(false)
+  })
+})
+
+describe("deleting leads on request", () => {
+  it("deletes only the agent's own leads and logs ids, never details", async () => {
+    const { saveAgentLead, deleteAgentLeads, listAgentLeads, listLeadDeletions } = await import("@/lib/enterprise/portal/agent-data")
+    await saveAgentLead("858980", { ...lead("a", "2026-11-01T10:00:00Z"), name: "Ana Ruiz", email: "ana@x.test" })
+    await saveAgentLead("858981", lead("b", "2026-11-02T10:00:00Z"))
+    expect(await deleteAgentLeads("admin", "858980", ["b"], "person", "")).toBeNull()
+    const d = await deleteAgentLeads("admin", "858980", ["a", "b"], "person", "phoned in")
+    expect(d).toMatchObject({ admin: "admin", agentId: "858980", leadIds: ["a"], requestedBy: "person", note: "phoned in" })
+    expect(await listAgentLeads("858980")).toEqual([])
+    expect(r.kv.has("nop-lead:a")).toBe(false)
+    expect((await listAgentLeads("858981")).map((l) => l.id)).toEqual(["b"])
+    expect(JSON.stringify(await listLeadDeletions())).not.toMatch(/Ana|ana@x/)
   })
 })

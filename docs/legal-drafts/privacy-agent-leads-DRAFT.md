@@ -1,9 +1,11 @@
 # DRAFT — Privacy Policy: agent lead pages (NOP Phase 2)
 
 > **Status: for review. Nothing on the live Privacy Policy (`app/privacy/page.tsx`) has been changed.**
-> Publish this in the same deploy that opens the first agent lead form, which is the
-> deploy where Basic Benefits' approved consent text is entered. Not before: today
-> every agent lead page shows "Coming soon" and collects nothing.
+> The **Scans** paragraph applies as soon as the OneFlyer QR link reaches production.
+> The rest applies once a lead form is live: the QR lead page is switched on for the
+> org (off by default) AND Basic Benefits' approved consent text is entered. Until
+> then no form collects anything. Publish each part no later than the deploy or
+> switch that makes it true.
 >
 > This is wording drafted by an engineer, not legal advice. Items marked **[CHECK]**
 > depend on a decision only you (or Basic Benefits) can make.
@@ -15,20 +17,21 @@ Proposed new section, placed after **"Information collected on offer pages"**:
 ## Information collected on agent pages
 
 Some organizations use OneFlyer to give their independent agents personalized flyers.
-An agent's flyer may carry a QR code that opens a short OneFlyer link, which forwards
+An agent's flyer may carry a QR code that opens a short OneFlyer link, which takes
 you to the organization's enrollment page.
 
 **Scans.** When that QR code is scanned, we count the scan for the agent. We record
 only that a scan happened and the month it happened in. We do not record who
 scanned it, your IP address, or your device.
 
-**The contact form.** An agent may also have a contact page hosted by OneFlyer. If
-you submit the form on it, we collect the information you enter (your name, phone
+**The contact form.** For some agents, the QR code may instead open a OneFlyer page
+with a button to enroll and a form to ask the agent to contact you. If you submit
+that form, we collect the information you enter (your name, phone
 number, and optionally your email address and a message), the date and time of your
 submission, the language the page was shown in, and the exact consent statement you
 agreed to by ticking the box.
 
-**Who receives it.** Your information goes to the agent whose page you used, so they
+**Who receives it.** Your information goes to the agent whose flyer you scanned, so they
 can contact you. We email the agent to tell them a new request has arrived. OneFlyer
 stores and delivers it on the agent's and their organization's behalf. Authorized
 OneFlyer staff can see it to run and support the service.
@@ -48,33 +51,39 @@ them, tell the agent or contact the organization directly.
 **Spam prevention.** To prevent automated abuse, we temporarily use your IP address
 to limit repeated submissions. It is not stored with your request.
 
-**How long we keep it.** [CHECK: decision needed, see below.] We keep a request
-until [the agent's organization or OneFlyer deletes it / N months after the agent
-leaves the program], whichever comes first.
+**How long we keep it.** We keep a request while the agent is active in the
+organization's program. If the agent leaves the program, we delete their requests
+12 months after the date they left. We delete a request sooner if you ask us to, or
+if the agent's organization asks us to.
 
-**Your choices.** To have a request you made deleted, contact the agent, or contact
-us through our [Contact page](/contact) at oneflyer.org/contact, and we will remove it.
+**Your choices.** To have a request you made deleted, contact us through our
+[Contact page](/contact) at oneflyer.org/contact, and we will remove it. You can also
+ask the agent or their organization. Deleting it from OneFlyer does not delete any
+copy the agent already made, for example in their phone or email.
 
 ---
 
 ## Decisions needed before publishing
 
-1. **Retention.** Requests belong to the Agent ID, so deleting an agent's OneFlyer
-   login does **not** delete them today (by design: decision 6, data stays with the ID).
-   Pick a rule:
-   - (a) keep until deleted by OneFlyer on request;
-   - (b) delete N months after the agent's roster status becomes terminated;
-   - (c) something Basic Benefits specifies.
-
-   There's no automatic deletion yet. (b) would need a scheduled job, which I'd build
-   only once you choose it.
-2. **Who at the organization can see requests.** Today: the agent, plus OneFlyer
+1. **Retention (decided).** Leads are kept while the agent is active. A 12-month
+   clock starts when the roster marks the agent terminated (or the agent is removed
+   from the roster), and the leads are due for deletion at its end. Admins can delete
+   sooner on request from the person or from Basic Benefits; every deletion is logged
+   without the person's details. **What exists now:** the clock's start date and
+   due date are recorded on each roster import, and admin deletion works. **Not yet:**
+   the scheduled job that deletes at the due date (it comes with the cron phase), and
+   a roster "remove" action (imports only add and update today; whatever removes an
+   agent later must start the same clock). Publish the retention sentence no earlier
+   than the deploy that adds the job, or state the gap. [CHECK]
+2. **"Left the program."** I've treated *terminated* and *removed from the roster* as
+   leaving. *Suspended* and *pending* don't start the clock. Confirm. [CHECK]
+3. **Who at the organization can see requests.** Today: the agent, plus OneFlyer
    admins. Basic Benefits staff have no access (the admin page is OneFlyer only, per
    your decision 5). The brief's "the org can see totals" is met only through OneFlyer
-   admin for now. Confirm that's the intended rule.
-3. **Consent wording.** The policy quotes no consent text. The form shows Basic
+   admin for now. Confirm that's the intended rule. [CHECK]
+4. **Consent wording.** The policy quotes no consent text. The form shows Basic
    Benefits' approved statement verbatim and stores it with each request. Confirm
    their statement is consistent with this section.
-4. **Spanish.** The live Privacy Policy is English only. The agent pages are bilingual.
+5. **Spanish.** The live Privacy Policy is English only. The agent pages are bilingual.
    Decide whether a Spanish version of this section is needed (it would need a
    reviewed translation, not a machine one).

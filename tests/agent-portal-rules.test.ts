@@ -8,7 +8,7 @@ import { AGENT_FEATURES, AGENT_TIERS, canUse, defaultOrgFeatures, entitlements, 
  * removes a feature for every tier, and so does an inactive roster record.
  */
 
-const allOn = defaultOrgFeatures(true)
+const allOn = Object.fromEntries(AGENT_FEATURES.map((f) => [f, true])) as OrgFeatures
 const agent = (tier: AgentTier, orgFeatures: OrgFeatures = allOn, active = true) => ({ tier, orgFeatures, active })
 
 describe("tiers", () => {
@@ -42,8 +42,10 @@ describe("org switches", () => {
     for (const tier of AGENT_TIERS) expect(canUse(agent(tier, off), feature as AgentFeature)).toBe(false)
   })
 
-  it("start ON for the NOP org (Basic Benefits approved them) and OFF for any other org", () => {
-    expect(Object.values(defaultOrgFeatures(true)).every(Boolean)).toBe(true)
+  it("start ON for the NOP org (Basic Benefits approved them) and OFF for any other org; the QR lead page is OFF everywhere", () => {
+    const nop = defaultOrgFeatures(true)
+    expect(nop.qrLeadPage).toBe(false)
+    expect(AGENT_FEATURES.filter((f) => f !== "qrLeadPage").every((f) => nop[f])).toBe(true)
     expect(Object.values(defaultOrgFeatures(false)).some(Boolean)).toBe(false)
   })
 })

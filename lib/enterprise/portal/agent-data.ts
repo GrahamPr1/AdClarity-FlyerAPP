@@ -132,3 +132,45 @@ export async function moveAgentData(admin: string, from: string, to: string, exp
 export async function listAgentDataMoves(limit = 100): Promise<AgentDataMove[]> {
   return redis.lrange<AgentDataMove>(MOVES_KEY, 0, limit - 1)
 }
+
+// ---- Admin: delete leads on request (before the retention clock runs out) ------
+
+export type DeletionRequester = "person" | "basic_benefits"
+
+export interface LeadDeletion {
+  admin: string
+  agentId: string
+  /** Ids only: the log never keeps the details it was asked to delete. */
+  leadIds: string[]
+  requestedBy: DeletionRequester
+  note: string
+  at: string
+}
+
+const DELETIONS_KEY = "nop-lead-deletions"
+
+/**
+ * Deletes the given leads of one Agent ID (only ids actually in that agent's
+ * set), and logs it. Returns null when none of the ids were the agent's.
+ */
+export async function deleteAgentLeads(admin: string, agentId: string, leadIds: string[], requestedBy: DeletionRequester, note: string): Promise<LeadDeletion | null> {
+  const owned: string[] = []
+  for (const id of leadIds) if ((await redis.zscore(leadsKey(agentId), id)) !== null) owned.push(id)
+  if (owned.length === 0) return null
+  const tx = redis.multi()
+  tx.zrem(leadsKey(agentId), ...owned)
+  tx.del(...owned.map(leadKey))
+  await tx.exec()
+  const entry: LeadDeletion = { admin, agentId, leadIds: owned, requestedBy, note, at: new Date().toISOString() }
+  await redis.lpush(DELETIONS_KEY, entry)
+  return entry
+}
+
+/** Every lead id an Agent ID holds, for "delete all of this agent's leads". */
+export async function listAgentLeadIds(agentId: string): Promise<string[]> {
+  return ((await redis.zrange<string[]>(leadsKey(agentId), 0, -1)) ?? []).map(String)
+}
+
+export async function listLeadDeletions(limit = 100): Promise<LeadDeletion[]> {
+  return redis.lrange<LeadDeletion>(DELETIONS_KEY, 0, limit - 1)
+}

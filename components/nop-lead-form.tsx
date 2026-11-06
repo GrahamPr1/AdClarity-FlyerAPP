@@ -7,10 +7,10 @@ import { LEAD_LIMITS } from "@/lib/leads"
 /**
  * The form on a NOP agent's public lead page. The consent line is the org's
  * approved text, passed in verbatim, beside a checkbox that starts unticked.
- * POST /api/enterprise/nop/leads/{agentId} enforces everything; the form
+ * POST /api/enterprise/nop/leads/{code} enforces everything; the form
  * just reports what the server said. Every control is at least 44px tall.
  */
-export function NopLeadForm({ agentId, agentName, consentText, consentVersion }: { agentId: string; agentName: string; consentText: string; consentVersion: number }) {
+export function NopLeadForm({ code, agentName, consentText, consentVersion }: { code: string; agentName: string; consentText: string; consentVersion: number }) {
   const { t, lang } = useNop()
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
@@ -32,7 +32,7 @@ export function NopLeadForm({ agentId, agentName, consentText, consentVersion }:
     setSending(true)
     setError(null)
     try {
-      const res = await fetch(`/api/enterprise/nop/leads/${encodeURIComponent(agentId)}`, {
+      const res = await fetch(`/api/enterprise/nop/leads/${encodeURIComponent(code)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, phone, email, message, website, consent, consentVersion, lang }),

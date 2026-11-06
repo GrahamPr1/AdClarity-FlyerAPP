@@ -2,6 +2,7 @@ import { Redis } from "@upstash/redis"
 import type { AgentFlag, AgentProfile, EnterpriseOrg, RosterRecord } from "@/lib/types"
 import { deleteAgentProfile, getAgentProfile, getEnterpriseOrg, saveAgentProfile, saveEnterpriseOrg } from "@/lib/store"
 import { NOP_ORG_ID, NOP_ORG_NAME, isGenerationStatus, qrDestinationFor } from "./nop-roster"
+import { clearRetentionClock, startRetentionClock } from "./portal/retention"
 
 // Redis layer for locked-agent registration. Additive: none of these keys
 // existed before, and nothing in the SMB path reads them except the one
@@ -75,6 +76,11 @@ export async function importRoster(
       await addAgentFlag({ type: "roster_email_changed", agentId: row.agentId, account: "(roster import)", fromEmail: previous.rosterEmail, toEmail: row.rosterEmail })
     }
     await redis.sadd(rosterEmailKey(NOP_ORG_ID, row.rosterEmail), row.agentId)
+
+    // Lead retention: terminated starts the 12-month clock (once; re-imports
+    // don't restart it); any other status means the agent is back, so stop it.
+    if (row.status === "terminated") await startRetentionClock(row.agentId, "terminated")
+    else if (previous?.status === "terminated") await clearRetentionClock(row.agentId)
 
     // Keep the registered agent's copies of system fields in step. Status is
     // deliberately not copied; it is only ever read from the roster.

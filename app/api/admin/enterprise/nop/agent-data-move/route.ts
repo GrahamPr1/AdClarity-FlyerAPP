@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/enterprise/portal/admin"
 import { getAgentIdOwner, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { AGENT_ID_RE } from "@/lib/enterprise/nop-roster"
 import { listAgentDataMoves, moveAgentData, summarizeAgentData } from "@/lib/enterprise/portal/agent-data"
+import { getAgentQrCode } from "@/lib/enterprise/nop-qr-code"
 
 // /api/admin/enterprise/nop/agent-data-move — OneFlyer admin only.
 //   GET                                           the log of every move
@@ -20,8 +21,9 @@ export async function GET(request: NextRequest) {
 }
 
 async function side(agentId: string) {
-  const [data, roster, owner] = await Promise.all([summarizeAgentData(agentId), getRosterRecord(agentId), getAgentIdOwner(agentId)])
-  return { agentId, ...data, onRoster: !!roster, name: roster?.agentName ?? null, status: roster?.status ?? null, account: owner }
+  const [data, roster, owner, qrCode] = await Promise.all([summarizeAgentData(agentId), getRosterRecord(agentId), getAgentIdOwner(agentId), getAgentQrCode(agentId)])
+  // qrCode is shown, never moved: it stays with its Agent ID for good.
+  return { agentId, ...data, onRoster: !!roster, name: roster?.agentName ?? null, status: roster?.status ?? null, account: owner, qrCode }
 }
 
 export async function POST(request: NextRequest) {
