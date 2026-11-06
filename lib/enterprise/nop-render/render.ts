@@ -14,6 +14,7 @@ import {
 import { decodeQrFromPng } from "./qr-gate"
 import { getRosterRecord } from "@/lib/enterprise/agents-store"
 import { nopQrLink, nopQrTarget } from "@/lib/enterprise/nop-roster"
+import { agentIdForQrCode, getOrIssueAgentQrCode } from "@/lib/enterprise/nop-qr-code"
 
 // Renders Basic Benefits' NOP masters with an agent's details. No AI, no
 // layout of our own: the master HTML is loaded as shipped and the only
@@ -24,8 +25,9 @@ import { nopQrLink, nopQrTarget } from "@/lib/enterprise/nop-roster"
 //   1. no text zone overflows its box (boxes are overflow:hidden, so a
 //      clipped value looks fine on screen — scrollWidth is what reveals it);
 //   2. every Poppins weight the text uses is actually loaded;
-//   3. the QR decodes to exactly the agent's OneFlyer link (nopQrLink), and
-//      that link forwards to exactly the agent's enrollment URL right now.
+//   3. the QR decodes to exactly the agent's OneFlyer link (nopQrLink with
+//      their permanent code), that code maps back to this Agent ID, and the
+//      link forwards to exactly the agent's enrollment URL right now.
 
 /** "thumb" is the dashboard card image: a small JPEG of the print layout. */
 export type NopFormat = "preview" | "print" | "home" | "social" | "thumb"
@@ -251,10 +253,19 @@ function gate(decoded: string | null, expected: string) {
   if (decoded !== expected) throw new NopRenderError("qr_mismatch", `QR decoded to ${JSON.stringify(decoded)}, expected ${expected}`)
 }
 
-/** The link's live destination (the same rule app/a/[agentId] follows) must be the enrollment URL. */
-async function gateDestination(agentId: string, enrollment: string) {
-  const target = nopQrTarget(agentId, await getRosterRecord(agentId))
-  if (target !== enrollment) throw new NopRenderError("qr_mismatch", `${nopQrLink(agentId)} forwards to ${target}, expected ${enrollment}`)
+/**
+ * The agent's QR link, after checking it: their code maps back to this Agent
+ * ID, and the link's live destination (the rule app/a/[code] follows) is the
+ * enrollment URL. Issues the code on the agent's first flyer.
+ */
+async function checkedQrLink(agentId: string, enrollment: string): Promise<string> {
+  const code = await getOrIssueAgentQrCode(agentId)
+  const link = nopQrLink(code)
+  const owner = await agentIdForQrCode(code)
+  if (owner !== agentId) throw new NopRenderError("qr_mismatch", `${link} belongs to ${owner}, expected ${agentId}`)
+  const target = nopQrTarget(owner, await getRosterRecord(owner))
+  if (target !== enrollment) throw new NopRenderError("qr_mismatch", `${link} forwards to ${target}, expected ${enrollment}`)
+  return link
 }
 
 /**
@@ -264,8 +275,7 @@ async function gateDestination(agentId: string, enrollment: string) {
 export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, format: NopFormat): Promise<NopRendered> {
   const t0 = Date.now()
   const content = readKitContent()
-  const expected = nopQrLink(agent.agentId)
-  await gateDestination(agent.agentId, enrollUrl(content, agent.agentId))
+  const expected = await checkedQrLink(agent.agentId, enrollUrl(content, agent.agentId))
   const dsf = format === "social" ? SOCIAL.w / DIGITAL_BASE_W : format === "preview" ? 1 : format === "thumb" ? THUMB_DSF : 2
   const { page, close } = await newPage(dsf)
   try {
@@ -409,7 +419,7 @@ export async function inspectNopFlyer(id: NopTemplateId, agent: NopAgentValues):
   const { page, close } = await newPage(1)
   try {
     await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
-    await inject(page, textValues(content, id, agent), readKitFileBase64(content.default_logo), await qrSvg(nopQrLink(agent.agentId)))
+    await inject(page, textValues(content, id, agent), readKitFileBase64(content.default_logo), await qrSvg(nopQrLink(await getOrIssueAgentQrCode(agent.agentId))))
     await assertFonts(page)
     const tooWide = await fitAndCheck(page)
     const measured = await page.evaluate(() => {

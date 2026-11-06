@@ -17,7 +17,7 @@ export function isAgentTier(v: unknown): v is AgentTier {
   return typeof v === "string" && (AGENT_TIERS as readonly string[]).includes(v)
 }
 
-export const AGENT_FEATURES = ["results", "leads", "agentPage", "followUps", "events", "recruiting", "team", "printRequests", "monthlyEmail"] as const
+export const AGENT_FEATURES = ["results", "leads", "qrLeadPage", "agentPage", "followUps", "events", "recruiting", "team", "printRequests", "monthlyEmail"] as const
 export type AgentFeature = (typeof AGENT_FEATURES)[number]
 
 export function isAgentFeature(v: unknown): v is AgentFeature {
@@ -28,6 +28,7 @@ export function isAgentFeature(v: unknown): v is AgentFeature {
 export const FEATURE_TIER: Record<AgentFeature, AgentTier> = {
   results: "pro",
   leads: "pro",
+  qrLeadPage: "pro",
   agentPage: "pro",
   followUps: "pro",
   events: "pro",
@@ -41,6 +42,7 @@ export const FEATURE_TIER: Record<AgentFeature, AgentTier> = {
 export const FEATURE_LABELS: Record<AgentFeature, string> = {
   results: "Results (scans and counts)",
   leads: "Lead capture",
+  qrLeadPage: "QR opens a page (Enroll now + lead form) instead of forwarding",
   agentPage: "Personal agent page + booking",
   followUps: "Follow-up messages",
   events: "Event kit",
@@ -54,9 +56,16 @@ const RANK: Record<AgentTier, number> = { basic: 0, pro: 1, leader: 2 }
 
 export type OrgFeatures = Record<AgentFeature, boolean>
 
-/** Basic Benefits approved every feature, so the NOP org starts with all of them on; any other org starts with none. */
+/**
+ * Off for every org until an admin switches them on, NOP included: changes
+ * Basic Benefits haven't approved yet. qrLeadPage changes where a printed QR
+ * lands, so it waits for their yes.
+ */
+export const FEATURES_OFF_BY_DEFAULT: readonly AgentFeature[] = ["qrLeadPage"]
+
+/** Basic Benefits approved the Phase 1 feature list, so the NOP org starts with those on; any other org starts with none. */
 export function defaultOrgFeatures(orgIsNop: boolean): OrgFeatures {
-  return Object.fromEntries(AGENT_FEATURES.map((f) => [f, orgIsNop])) as OrgFeatures
+  return Object.fromEntries(AGENT_FEATURES.map((f) => [f, orgIsNop && !FEATURES_OFF_BY_DEFAULT.includes(f)])) as OrgFeatures
 }
 
 /** What canUse needs to know about an agent. `active`: their roster record is active now. */

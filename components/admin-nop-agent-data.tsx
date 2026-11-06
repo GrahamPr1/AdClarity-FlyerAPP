@@ -2,11 +2,12 @@
 
 import { useState } from "react"
 import useSWR from "swr"
-import type { AgentDataMove } from "@/lib/enterprise/portal/agent-data"
+import type { AgentDataMove, LeadDeletion } from "@/lib/enterprise/portal/agent-data"
 
 // Admin pieces for NOP Phase 2 on /admin/enterprise/agents: the org's
-// approved wording (lead-form consent) and moving an Agent ID's leads and
-// scans to another Agent ID. English only, like the rest of admin.
+// approved wording (lead-form consent), moving an Agent ID's leads and scans
+// to another Agent ID, and deleting leads on request. English only, like the
+// rest of admin.
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "Never")
@@ -58,7 +59,7 @@ function TextEditor({ row, onSaved }: { row: TextRow; onSaved: () => void }) {
   )
 }
 
-type Side = { agentId: string; leads: number; scans: number; onRoster: boolean; name: string | null; status: string | null; account: string | null }
+type Side = { agentId: string; leads: number; scans: number; onRoster: boolean; name: string | null; status: string | null; account: string | null; qrCode: string | null }
 
 export function AdminAgentDataMove() {
   const moves = useSWR<{ moves: AgentDataMove[] }>("/api/admin/enterprise/nop/agent-data-move", fetcher)
@@ -93,12 +94,12 @@ export function AdminAgentDataMove() {
     setConfirmed(false)
     await moves.mutate()
   }
-  const describe = (s: Side) => `${s.agentId}${s.name ? ` · ${s.name}` : ""}${s.status ? ` · ${s.status}` : s.onRoster ? "" : " · not on the roster"}${s.account ? ` · ${s.account}` : " · no account"}`
+  const describe = (s: Side) => `${s.agentId}${s.name ? ` · ${s.name}` : ""}${s.status ? ` · ${s.status}` : s.onRoster ? "" : " · not on the roster"}${s.account ? ` · ${s.account}` : " · no account"}${s.qrCode ? ` · QR /a/${s.qrCode}` : ""}`
 
   return (
     <section className="mt-6 rounded-xl border border-border bg-card p-5" data-testid="agent-data-move">
       <h2 className="text-lg">Move an Agent ID&apos;s data</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Leads and QR scans belong to the Agent ID. This moves all of them from one Agent ID to another, keeping their dates. It can&apos;t be undone automatically; every move is logged below.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Leads and QR scans belong to the Agent ID. This moves all of them from one Agent ID to another, keeping their dates. It can&apos;t be undone automatically; every move is logged below. QR codes never move: each stays with its Agent ID, so later scans of the old ID&apos;s flyers still count there.</p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="text-sm">From Agent ID<input value={from} onChange={(e) => { setFrom(e.target.value); setPreview(null) }} inputMode="numeric" className={`${input} w-40`} /></label>
         <label className="text-sm">To Agent ID<input value={to} onChange={(e) => { setTo(e.target.value); setPreview(null) }} inputMode="numeric" className={`${input} w-40`} /></label>
@@ -131,6 +132,103 @@ export function AdminAgentDataMove() {
           <li key={i} className="flex flex-wrap gap-x-4 px-4 py-2"><span className="whitespace-nowrap">{when(m.at)}</span><span>{m.admin}</span><span>moved {m.moved.leads} leads and {m.moved.scans} scans</span><span>{m.from} → {m.to}</span></li>
         ))}
         {moves.data && moves.data.moves.length === 0 && <li className="px-4 py-3 text-muted-foreground">None yet.</li>}
+      </ul>
+    </section>
+  )
+}
+
+type Match = { agentId: string; agentName?: string; lead: { id: string; name: string; phone: string; email: string | null; createdAt: string } }
+type Clock = { endedAt: string; reason: string; deleteAfter: string } | null
+
+export function AdminLeadDeletion() {
+  const log = useSWR<{ deletions: LeadDeletion[] }>("/api/admin/enterprise/nop/lead-deletions", fetcher)
+  const [mode, setMode] = useState<"person" | "agent">("person")
+  const [query, setQuery] = useState("")
+  const [found, setFound] = useState<{ matches: Match[]; retention?: Clock; agentId?: string } | null>(null)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [note, setNote] = useState("")
+  const [confirmed, setConfirmed] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function search() {
+    setMsg(null); setFound(null); setPicked(new Set()); setConfirmed(false)
+    const url = mode === "person" ? `/api/admin/enterprise/nop/lead-deletions?q=${encodeURIComponent(query)}` : `/api/admin/enterprise/nop/lead-deletions?agentId=${encodeURIComponent(query.trim())}`
+    const res = await fetch(url); const json = await res.json().catch(() => ({}))
+    if (!res.ok) return setMsg(json.message ?? "Couldn't search.")
+    setFound({ ...json, agentId: mode === "agent" ? query.trim() : undefined })
+  }
+
+  async function remove() {
+    if (!found) return
+    setBusy(true); setMsg(null)
+    // Grouped by Agent ID: one logged deletion per agent.
+    const byAgent = new Map<string, string[]>()
+    if (mode === "agent") byAgent.set(found.agentId!, ["all"])
+    else for (const m of found.matches) if (picked.has(m.lead.id)) byAgent.set(m.agentId, [...(byAgent.get(m.agentId) ?? []), m.lead.id])
+    let deleted = 0
+    for (const [agentId, ids] of byAgent) {
+      const all = ids[0] === "all"
+      const res = await fetch("/api/admin/enterprise/nop/lead-deletions", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId, leadIds: all ? "all" : ids, expectedCount: all ? found.matches.length : undefined, requestedBy: mode === "person" ? "person" : "basic_benefits", note, confirm: true }) })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { setBusy(false); return setMsg(json.message ?? "Couldn't delete.") }
+      deleted += json.deletion.leadIds.length
+    }
+    setBusy(false); setFound(null); setConfirmed(false); setNote("")
+    setMsg(`Deleted ${deleted} lead${deleted === 1 ? "" : "s"}. Logged.`)
+    await log.mutate()
+  }
+
+  const count = mode === "agent" ? found?.matches.length ?? 0 : picked.size
+  return (
+    <section className="mt-6 rounded-xl border border-border bg-card p-5" data-testid="lead-deletion">
+      <h2 className="text-lg">Delete leads on request</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Leads are kept while an agent is active and deleted 12 months after the agent is terminated or removed from the roster. Delete sooner here when the person, or Basic Benefits, asks. Every deletion is logged without the person&apos;s details.
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <label className="text-sm">Request from
+          <select value={mode} onChange={(e) => { setMode(e.target.value as "person" | "agent"); setFound(null) }} className={`${input} w-56`}>
+            <option value="person">The person (find by phone or email)</option>
+            <option value="agent">Basic Benefits (all of one agent&apos;s leads)</option>
+          </select>
+        </label>
+        <label className="text-sm">{mode === "person" ? "Phone or email" : "Agent ID"}
+          <input value={query} onChange={(e) => setQuery(e.target.value)} className={`${input} w-64`} />
+        </label>
+        <button type="button" onClick={() => void search()} disabled={!query.trim()} className="min-h-11 rounded-lg border border-border px-4 text-sm disabled:opacity-50">Find leads</button>
+      </div>
+      {found && (
+        <div className="mt-4 text-sm" data-testid="deletion-matches">
+          {mode === "agent" && found.retention && <p className="mb-2 text-muted-foreground">Retention: {found.retention.reason.replace(/_/g, " ")} {when(found.retention.endedAt)}; due for deletion after {when(found.retention.deleteAfter)}.</p>}
+          {found.matches.length === 0 ? <p className="text-muted-foreground">No leads found.</p> : (
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {found.matches.map((m) => (
+                <li key={m.lead.id} className="flex flex-wrap items-center gap-x-4 px-3 py-2">
+                  {mode === "person" && <input type="checkbox" aria-label={`Select ${m.lead.name}`} checked={picked.has(m.lead.id)} onChange={(e) => setPicked((p) => { const n = new Set(p); if (e.target.checked) n.add(m.lead.id); else n.delete(m.lead.id); return n })} />}
+                  <span>{m.lead.name}</span><span>{m.lead.phone}</span>{m.lead.email && <span>{m.lead.email}</span>}
+                  <span className="text-muted-foreground">Agent {m.agentId}{m.agentName ? ` · ${m.agentName}` : ""} · {when(m.lead.createdAt)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {count > 0 && (
+            <div className="mt-3 flex flex-col gap-2">
+              <label>Note (optional, no personal details)<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} className={input} /></label>
+              <label className="flex min-h-11 items-center gap-3"><input type="checkbox" data-testid="deletion-confirm" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> Permanently delete {count} lead{count === 1 ? "" : "s"}. This can&apos;t be undone.</label>
+              <button type="button" onClick={() => void remove()} disabled={busy || !confirmed} className="min-h-11 w-fit rounded-lg bg-[var(--destructive)] px-4 font-semibold text-white disabled:opacity-50">Delete {count} lead{count === 1 ? "" : "s"}</button>
+            </div>
+          )}
+        </div>
+      )}
+      {msg && <p role="status" className="mt-3 text-sm">{msg}</p>}
+      <h3 className="mt-6 text-sm font-medium">Deletions</h3>
+      <ul className="mt-2 divide-y divide-border rounded-xl border border-border text-sm" data-testid="deletion-log">
+        {(log.data?.deletions ?? []).map((d, i) => (
+          <li key={i} className="flex flex-wrap gap-x-4 px-4 py-2"><span className="whitespace-nowrap">{when(d.at)}</span><span>{d.admin}</span><span>deleted {d.leadIds.length} lead{d.leadIds.length === 1 ? "" : "s"} of Agent {d.agentId}</span><span>asked by {d.requestedBy === "person" ? "the person" : "Basic Benefits"}</span>{d.note && <span className="text-muted-foreground">{d.note}</span>}</li>
+        ))}
+        {log.data && log.data.deletions.length === 0 && <li className="px-4 py-3 text-muted-foreground">None yet.</li>}
       </ul>
     </section>
   )

@@ -1,37 +1,49 @@
 import { getAgentIdOwner, getRosterRecord } from "@/lib/enterprise/agents-store"
-import { AGENT_ID_RE, isGenerationStatus, qrDestinationFor } from "@/lib/enterprise/nop-roster"
+import { nopQrTarget, qrDestinationFor } from "@/lib/enterprise/nop-roster"
+import { agentIdForQrCode } from "@/lib/enterprise/nop-qr-code"
 import type { NopLang } from "@/lib/enterprise/nop-i18n"
 import { canUse } from "./features"
 import { loadPortalContext } from "./context"
 import { getApprovedText, type ApprovedText } from "./approved-text"
 
-// Whether an agent's public lead form (/a/{agentId}/contact) takes leads, and
-// in which language. The page and POST /api/enterprise/nop/leads/{agentId}
-// both ask this, so the server decides, never the form.
+// What a scan of oneflyer.org/a/{code} does. The QR route, the lead page
+// (/a/{code}/contact) and POST /api/enterprise/nop/leads/{code} all ask this,
+// so the server alone decides.
 //
-//   unavailable   no such agent, no account holds the ID, roster not active,
-//                 not Pro/Leader, or the org has lead capture off
-//   coming_soon   everything else is in place, but the consent text for this
-//                 language is still the placeholder: the page shows "Coming soon"
-//   open          the form shows, with the approved consent text verbatim
+//   forward     the default for everyone: straight to the enrollment URL
+//               (nopQrTarget: the agent's own while active, else the program's)
+//   lead_page   option (a), only when ALL hold: the code is an active roster
+//               agent's, an account holds the ID, they can use lead capture,
+//               and their org has switched qrLeadPage on (off by default).
+//               The page puts "Enroll now" (same enrollment URL) first and
+//               the lead form below it.
 
-export type LeadCapture =
-  | { state: "unavailable" }
-  | { state: "coming_soon"; agentId: string; agentName: string; enrollUrl: string }
-  | { state: "open"; agentId: string; agentName: string; enrollUrl: string; owner: string; agentLang: NopLang; consent: ApprovedText }
+export type QrLanding =
+  | { state: "forward"; agentId: string | null; onRoster: boolean; target: string }
+  | { state: "lead_page"; agentId: string; agentName: string; enrollUrl: string; owner: string; orgId: string; agentLang: NopLang }
 
-export async function agentLeadCapture(agentId: string, lang: NopLang): Promise<LeadCapture> {
-  if (!AGENT_ID_RE.test(agentId)) return { state: "unavailable" }
+export async function qrLanding(code: string): Promise<QrLanding> {
+  const agentId = await agentIdForQrCode(code)
+  if (!agentId) return { state: "forward", agentId: null, onRoster: false, target: nopQrTarget(null, null) }
   const roster = await getRosterRecord(agentId)
-  if (!isGenerationStatus(roster)) return { state: "unavailable" }
+  const forward: QrLanding = { state: "forward", agentId, onRoster: !!roster, target: nopQrTarget(agentId, roster) }
+  if (roster?.status !== "active") return forward
   const owner = await getAgentIdOwner(agentId)
-  if (!owner) return { state: "unavailable" }
+  if (!owner) return forward
   const ctx = await loadPortalContext(owner)
-  if (!ctx || ctx.agent.agentId !== agentId || !canUse(ctx, "leads")) return { state: "unavailable" }
+  if (!ctx || ctx.agent.agentId !== agentId || !canUse(ctx, "leads") || !canUse(ctx, "qrLeadPage")) return forward
+  return {
+    state: "lead_page",
+    agentId,
+    agentName: ctx.agent.profile.displayName ?? ctx.agent.profile.name,
+    enrollUrl: qrDestinationFor(agentId),
+    owner,
+    orgId: ctx.orgId,
+    agentLang: ctx.agent.profile.preferredLanguage ?? "en",
+  }
+}
 
-  const agentName = ctx.agent.profile.displayName ?? ctx.agent.profile.name
-  const enrollUrl = qrDestinationFor(agentId)
-  const consent = await getApprovedText(ctx.orgId, "leadConsent", lang)
-  if (consent.pending) return { state: "coming_soon", agentId, agentName, enrollUrl }
-  return { state: "open", agentId, agentName, enrollUrl, owner, agentLang: ctx.agent.profile.preferredLanguage ?? "en", consent }
+/** The consent line for the lead form in this language; pending = show "Coming soon" and accept nothing. */
+export function leadConsent(orgId: string, lang: NopLang): Promise<ApprovedText> {
+  return getApprovedText(orgId, "leadConsent", lang)
 }

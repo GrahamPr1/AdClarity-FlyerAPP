@@ -45,22 +45,31 @@ export function programEnrollmentUrl(): string {
 
 /**
  * What an agent's flyer QR encodes: a OneFlyer link that forwards to the
- * enrollment URL (app/a/[agentId]/route.ts), so OneFlyer can count the scan.
+ * enrollment URL (app/a/[code]/route.ts), so OneFlyer can count the scan.
  * Always oneflyer.org: it's printed, so it must outlive any deployment URL.
+ *
+ * The link carries a random short code, never the Agent ID: issued once per
+ * Agent ID (lib/enterprise/nop-qr-code.ts) and never changed, so every flyer
+ * an agent ever printed keeps working.
  */
 export const NOP_QR_PATH = "/a"
-export function nopQrLink(agentId: string): string {
-  return `${CANONICAL_SITE_URL}${NOP_QR_PATH}/${agentId}`
+/** No 0/O/o, 1/l/I: nothing a person could misread off a printed URL. */
+export const NOP_QR_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz"
+export const NOP_QR_CODE_LENGTH = 7
+export const NOP_QR_CODE_RE = new RegExp(`^[${NOP_QR_ALPHABET}]{6,8}$`)
+
+export function nopQrLink(code: string): string {
+  return `${CANONICAL_SITE_URL}${NOP_QR_PATH}/${code}`
 }
 
 /**
  * Where that link forwards. An active roster agent: their own enrollment URL,
- * exactly as before the link existed. Anyone else (unknown, pending,
+ * exactly as before the link existed. Anyone else (unknown code, pending,
  * suspended, terminated, or not an Agent ID at all): the program's enrollment
  * page, so no printed flyer ever credits an agent who isn't active.
  */
-export function nopQrTarget(agentId: string, roster: Pick<RosterRecord, "status"> | null | undefined): string {
-  return AGENT_ID_RE.test(agentId) && isGenerationStatus(roster) ? qrDestinationFor(agentId) : programEnrollmentUrl()
+export function nopQrTarget(agentId: string | null, roster: Pick<RosterRecord, "status"> | null | undefined): string {
+  return agentId && AGENT_ID_RE.test(agentId) && isGenerationStatus(roster) ? qrDestinationFor(agentId) : programEnrollmentUrl()
 }
 
 /** What enrollment_url should be. Used ONLY to flag a mismatch on import. */

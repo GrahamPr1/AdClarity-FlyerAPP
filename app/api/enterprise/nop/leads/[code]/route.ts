@@ -5,15 +5,16 @@ import { CANONICAL_SITE_URL } from "@/lib/site-url"
 import type { LeadRecord } from "@/lib/types"
 import { LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS, LeadSchema } from "@/lib/leads"
 import { parseNopLang, tNop, type NopStringKey } from "@/lib/enterprise/nop-i18n"
-import { agentLeadCapture } from "@/lib/enterprise/portal/lead-capture"
+import { leadConsent, qrLanding } from "@/lib/enterprise/portal/lead-capture"
 import { saveAgentLead } from "@/lib/enterprise/portal/agent-data"
 
-// POST /api/enterprise/nop/leads/{agentId} — the form on a NOP agent's public
-// lead page (/a/{agentId}/contact). The SMB route's guards, unchanged in kind:
+// POST /api/enterprise/nop/leads/{code} — the form on a NOP agent's QR lead
+// page (/a/{code}/contact). The SMB route's guards, unchanged in kind:
 //   - honeypot and per-IP, per-agent rate limit answer 200 and store nothing;
-//   - whether the form is open is decided here (agentLeadCapture): an agent
-//     who isn't active Pro/Leader with lead capture on gets nothing, and while
-//     the consent text is a placeholder nothing is accepted at all;
+//   - whether the form is open is decided here (qrLanding): unless the org has
+//     the QR lead page on and the agent is an active Pro/Leader with lead
+//     capture, nothing is accepted; while the consent text is a placeholder,
+//     nothing is accepted either;
 //   - the consent box must be ticked; the exact approved text shown, its
 //     version and the time are stored with the lead;
 //   - the lead is saved under the Agent ID before the agent is emailed.
@@ -23,8 +24,8 @@ const silentOk = () => NextResponse.json({ ok: true })
 
 const FIELD_ERROR: Record<string, NopStringKey> = { name: "lead.err_name", phone: "lead.err_phone", email: "lead.err_email" }
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ agentId: string }> }) {
-  const { agentId } = await params
+export async function POST(request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
+  const { code } = await params
 
   let body: Record<string, unknown>
   try {
@@ -36,14 +37,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const lang = parseNopLang(body.lang) ?? "en"
 
   if (typeof body.website === "string" && body.website.trim() !== "") {
-    console.info(`[nop-leads] honeypot hit for ${agentId}; dropped`)
+    console.info(`[nop-leads] honeypot hit for ${code}; dropped`)
     return silentOk()
   }
 
-  const capture = await agentLeadCapture(agentId, lang)
-  if (capture.state !== "open") {
-    return NextResponse.json({ error: capture.state, message: tNop(lang, "lead.err_unavailable") }, { status: capture.state === "unavailable" ? 404 : 409 })
-  }
+  const landing = await qrLanding(code)
+  if (landing.state !== "lead_page") return NextResponse.json({ error: "unavailable", message: tNop(lang, "lead.err_unavailable") }, { status: 404 })
+  const consent = await leadConsent(landing.orgId, lang)
+  if (consent.pending) return NextResponse.json({ error: "coming_soon", message: tNop(lang, "lead.err_unavailable") }, { status: 409 })
+  const { agentId } = landing
 
   const { allowed } = await checkRateLimit(`nop-lead:${agentId}:${clientIp(request.headers)}`, LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS)
   if (!allowed) {
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // left open across an edit of the wording must be reloaded, not credited
   // with consent to words the person never saw.
   if (body.consent !== true) return NextResponse.json({ error: "consent_required", message: tNop(lang, "lead.err_consent") }, { status: 422 })
-  if (body.consentVersion !== capture.consent.version) {
+  if (body.consentVersion !== consent.version) {
     return NextResponse.json({ error: "consent_changed", message: tNop(lang, "lead.err_generic") }, { status: 409 })
   }
 
@@ -69,15 +71,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const lead: LeadRecord = {
     id: crypto.randomUUID(),
     flyerId: `nop-agent:${agentId}`,
-    code: agentId,
+    code,
     ...parsed.data,
     createdAt: now,
-    consent: { text: capture.consent.text, textId: capture.consent.id, version: capture.consent.version, lang, at: now },
+    consent: { text: consent.text, textId: consent.id, version: consent.version, lang, at: now },
     contactedAt: null,
   }
   await saveAgentLead(agentId, lead)
 
-  const sent = await sendNopAgentLeadNotification({ to: capture.owner, lang: capture.agentLang, lead, portalUrl: `${CANONICAL_SITE_URL}/agent/leads` })
+  const sent = await sendNopAgentLeadNotification({ to: landing.owner, lang: landing.agentLang, lead, portalUrl: `${CANONICAL_SITE_URL}/agent/leads` })
   if (!sent.sent) console.error(`[nop-leads] saved lead ${lead.id} for ${agentId}, but the agent email failed:`, sent.reason)
 
   return NextResponse.json({ ok: true })
