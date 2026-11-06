@@ -75,8 +75,8 @@ copy the agent already made, for example in their phone or email.
    a roster "remove" action (imports only add and update today; whatever removes an
    agent later must start the same clock). Publish the retention sentence no earlier
    than the deploy that adds the job, or state the gap. [CHECK]
-2. **"Left the program."** I've treated *terminated* and *removed from the roster* as
-   leaving. *Suspended* and *pending* don't start the clock. Confirm. [CHECK]
+2. **"Left the program" (decided).** Only *terminated* or *removed from the roster*
+   starts the 12-month clock. *Suspended* and *pending* don't.
 3. **Who at the organization can see requests.** Today: the agent, plus OneFlyer
    admins. Basic Benefits staff have no access (the admin page is OneFlyer only, per
    your decision 5). The brief's "the org can see totals" is met only through OneFlyer
