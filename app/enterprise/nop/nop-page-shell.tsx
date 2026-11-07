@@ -7,11 +7,9 @@ import { NopLangProvider, NopLanguageToggle } from "@/components/nop-i18n"
  * Frame for every NOP agent page: language provider, EN/ES toggle, heading.
  *
  * <html lang> lives in the root layout, which every OneFlyer page shares and
- * which must stay static, so a NOP page corrects it itself. The script sits
- * inside <main>, in the body — never as a direct child of <html>, which is
- * invalid HTML and is what broke hydration before (see app/layout.tsx). It
- * runs as the parser reaches it, before first paint; NopLangProvider keeps
- * it right after a toggle and resets it on the way out.
+ * which must stay static. <main lang> marks the page's language from the
+ * first byte; NopLangProvider then sets <html lang> before paint, after a
+ * toggle and on client navigation, and resets it on the way out.
  */
 export function NopPageShell({
   lang,
@@ -30,7 +28,6 @@ export function NopPageShell({
 }) {
   return (
     <main lang={lang} className="min-h-screen bg-background px-6 py-16 text-foreground md:py-24">
-      <script dangerouslySetInnerHTML={{ __html: `document.documentElement.lang=${JSON.stringify(lang)}` }} />
       <NopLangProvider lang={lang} persist={source === "profile"}>
         <div className="mx-auto max-w-xl">
           <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
