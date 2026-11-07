@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, Fragment, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, Fragment, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { NOP_LANG_COOKIE, NOP_LANG_COOKIE_MAX_AGE, tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 
@@ -46,9 +46,11 @@ export function NopLangProvider({
   persist?: boolean
   children: ReactNode
 }) {
-  // <html lang> is set before first paint by NopHtmlLangScript; this keeps it
-  // right after a toggle and puts it back for the (English) pages outside NOP.
-  useEffect(() => {
+  // <html lang>: set here, before paint, on hydration, after a toggle and on
+  // client navigation; put back for the (English) pages outside NOP. Never an
+  // inline <script> in a component: React doesn't run one it renders on the
+  // client (a client navigation), and reports it as an error.
+  useLayoutEffect(() => {
     document.documentElement.lang = lang
     return () => {
       document.documentElement.lang = "en"

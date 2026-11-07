@@ -16,7 +16,6 @@ export function PortalShell({ page, title, intro, children }: { page: PortalPage
   const name = ctx.agent.profile.displayName ?? ctx.agent.profile.name
   return (
     <main lang={lang} className="min-h-screen bg-background text-foreground">
-      <script dangerouslySetInnerHTML={{ __html: `document.documentElement.lang=${JSON.stringify(lang)}` }} />
       {/* Never persist a language to the agent's account while an admin is viewing it. */}
       <NopLangProvider lang={lang} persist={source === "profile" && !readOnly}>
         {readOnly && <ViewAsBanner name={name} email={ctx.email} />}
