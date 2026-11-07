@@ -2,8 +2,8 @@ import { Redis } from "@upstash/redis"
 import type { ContentAsset } from "@/lib/types"
 import type { NopLang } from "@/lib/enterprise/nop-i18n"
 
-// Org-approved wording that public pages show verbatim: for now the consent
-// line on an agent's lead form. Stored as ContentAsset records (locked, text)
+// Org-approved wording that public pages show verbatim: the consent line on
+// an agent's lead form, and the package descriptions on an agent's page. Stored as ContentAsset records (locked, text)
 // under the usual content-asset:{id} key, but deliberately NOT in the org's
 // asset index, so the enterprise generation pipeline never reads them.
 //
@@ -15,17 +15,27 @@ import type { NopLang } from "@/lib/enterprise/nop-i18n"
 
 const redis = Redis.fromEnv()
 
-export const APPROVED_TEXT_KEYS = ["leadConsent"] as const
+export const APPROVED_TEXT_KEYS = ["leadConsent", "packageP1", "packageP2", "packageP3"] as const
 export type ApprovedTextKey = (typeof APPROVED_TEXT_KEYS)[number]
 
 export function isApprovedTextKey(v: unknown): v is ApprovedTextKey {
   return typeof v === "string" && (APPROVED_TEXT_KEYS as readonly string[]).includes(v)
 }
 
-export const APPROVED_TEXT_LABELS: Record<ApprovedTextKey, string> = { leadConsent: "Lead form consent" }
+export const APPROVED_TEXT_LABELS: Record<ApprovedTextKey, string> = {
+  leadConsent: "Lead form consent",
+  packageP1: "Agent page: package P1 (Everyday Care). First line is the heading",
+  packageP2: "Agent page: package P2 (Complete Virtual Care). First line is the heading",
+  packageP3: "Agent page: package P3 (Health & Weight Management). First line is the heading",
+}
 
 const PLACEHOLDER_MARK = "[PENDING ORG APPROVAL"
-export const APPROVED_TEXT_PLACEHOLDER: Record<ApprovedTextKey, string> = { leadConsent: `${PLACEHOLDER_MARK} — consent text]` }
+export const APPROVED_TEXT_PLACEHOLDER: Record<ApprovedTextKey, string> = {
+  leadConsent: `${PLACEHOLDER_MARK} — consent text]`,
+  packageP1: `${PLACEHOLDER_MARK} — package P1 text]`,
+  packageP2: `${PLACEHOLDER_MARK} — package P2 text]`,
+  packageP3: `${PLACEHOLDER_MARK} — package P3 text]`,
+}
 
 /** A text that is missing, blank, or still carries the placeholder mark anywhere in it. */
 export function isPendingText(text: string | null | undefined): boolean {

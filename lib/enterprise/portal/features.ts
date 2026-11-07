@@ -17,7 +17,7 @@ export function isAgentTier(v: unknown): v is AgentTier {
   return typeof v === "string" && (AGENT_TIERS as readonly string[]).includes(v)
 }
 
-export const AGENT_FEATURES = ["results", "leads", "qrLeadPage", "agentPage", "followUps", "events", "recruiting", "team", "printRequests", "monthlyEmail"] as const
+export const AGENT_FEATURES = ["results", "leads", "qrLeadPage", "agentPage", "agentPhoto", "followUps", "events", "recruiting", "team", "printRequests", "monthlyEmail"] as const
 export type AgentFeature = (typeof AGENT_FEATURES)[number]
 
 export function isAgentFeature(v: unknown): v is AgentFeature {
@@ -30,6 +30,7 @@ export const FEATURE_TIER: Record<AgentFeature, AgentTier> = {
   leads: "pro",
   qrLeadPage: "pro",
   agentPage: "pro",
+  agentPhoto: "pro",
   followUps: "pro",
   events: "pro",
   recruiting: "pro",
@@ -44,6 +45,7 @@ export const FEATURE_LABELS: Record<AgentFeature, string> = {
   leads: "Lead capture",
   qrLeadPage: "QR opens a page (Enroll now + lead form) instead of forwarding",
   agentPage: "Personal agent page + booking",
+  agentPhoto: "Photo on the personal agent page",
   followUps: "Follow-up messages",
   events: "Event kit",
   recruiting: "Recruiting kit",
@@ -59,9 +61,10 @@ export type OrgFeatures = Record<AgentFeature, boolean>
 /**
  * Off for every org until an admin switches them on, NOP included: changes
  * Basic Benefits haven't approved yet. qrLeadPage changes where a printed QR
- * lands, so it waits for their yes.
+ * lands, so it waits for their yes. agentPhoto puts an agent's photo on their
+ * public page, which they haven't said yes to either.
  */
-export const FEATURES_OFF_BY_DEFAULT: readonly AgentFeature[] = ["qrLeadPage"]
+export const FEATURES_OFF_BY_DEFAULT: readonly AgentFeature[] = ["qrLeadPage", "agentPhoto"]
 
 /** Basic Benefits approved the Phase 1 feature list, so the NOP org starts with those on; any other org starts with none. */
 export function defaultOrgFeatures(orgIsNop: boolean): OrgFeatures {

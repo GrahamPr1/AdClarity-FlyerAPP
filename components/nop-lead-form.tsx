@@ -5,12 +5,13 @@ import { useNop } from "@/components/nop-i18n"
 import { LEAD_LIMITS } from "@/lib/leads"
 
 /**
- * The form on a NOP agent's public lead page. The consent line is the org's
+ * The form on a NOP agent's QR lead page, or (source "page") their personal
+ * page. The consent line is the org's
  * approved text, passed in verbatim, beside a checkbox that starts unticked.
  * POST /api/enterprise/nop/leads/{code} enforces everything; the form
  * just reports what the server said. Every control is at least 44px tall.
  */
-export function NopLeadForm({ code, agentName, consentText, consentVersion }: { code: string; agentName: string; consentText: string; consentVersion: number }) {
+export function NopLeadForm({ code, agentName, consentText, consentVersion, source }: { code: string; agentName: string; consentText: string; consentVersion: number; source?: "page" }) {
   const { t, lang } = useNop()
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
@@ -35,7 +36,7 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion }: { 
       const res = await fetch(`/api/enterprise/nop/leads/${encodeURIComponent(code)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, email, message, website, consent, consentVersion, lang }),
+        body: JSON.stringify({ name, phone, email, message, website, consent, consentVersion, lang, source }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) return setError(json.message ?? t("lead.err_generic"))

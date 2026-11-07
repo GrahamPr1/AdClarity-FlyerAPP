@@ -5,6 +5,7 @@ import type { AgentFeature } from "@/lib/enterprise/portal/features"
 import { NopDashboard } from "@/components/nop-dashboard"
 import { agentFlyerKit, getNopFlyerSettings } from "@/lib/enterprise/nop-render/kit-v2-access"
 import { agentResults } from "@/lib/enterprise/portal/results"
+import Link from "next/link"
 import { PortalShell } from "./portal-shell"
 
 // What a Basic agent's one line about Pro may mention: only features their org
@@ -39,6 +40,15 @@ export async function PortalHome({ page }: { page: PortalPage }) {
               {ctx.can.leads && <div data-testid="results-leads"><dt className="text-xs text-muted-foreground">{t("portal.results_leads")}</dt><dd className="text-2xl font-semibold tabular-nums">{results.leads}</dd></div>}
             </dl>
           )}
+        </section>
+      )}
+      {ctx.can.agentPage && (
+        <section aria-labelledby="my-page" data-testid="home-page-card" className="mb-6 rounded-2xl border border-border bg-card p-5">
+          <h2 id="my-page" className="font-semibold">{t("portal.page_title")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("portal.page_card_body")}</p>
+          <Link href="/agent/page" className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-[var(--surface-soft)]">
+            {t("portal.page_share")}
+          </Link>
         </section>
       )}
       <NopDashboard active={ctx.agent.active} statusKey={ctx.agent.active ? null : nopStatusMessageKey(ctx.agent.status)} readOnly={readOnly} kit={kit} />
