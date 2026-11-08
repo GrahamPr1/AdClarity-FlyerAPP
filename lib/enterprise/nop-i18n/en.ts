@@ -325,6 +325,12 @@ export const en = {
   "portal.page_photo_invalid": "Use a JPEG, PNG or WebP photo up to 5 MB.",
   "portal.page_locked": "Get your own page with your contact details, a booking link and a contact form.",
   "portal.page_inactive": "Your page is available while your program status is active.",
+
+  // ---- Phase 4: follow-up messages ----
+  "portal.followup_title": "Follow-up messages ({count})",
+  "portal.followup_note": "Opens your own Messages or email app with the message ready. Nothing is sent until you press send.",
+  "portal.followup_sms": "Open in Messages",
+  "portal.followup_email": "Open in email",
 } as const
 
 export type NopStringKey = keyof typeof en

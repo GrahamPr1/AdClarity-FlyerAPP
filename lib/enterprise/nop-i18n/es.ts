@@ -326,4 +326,10 @@ export const es: Record<NopStringKey, string> = {
   "portal.page_photo_invalid": "Use una foto JPEG, PNG o WebP de hasta 5 MB.",
   "portal.page_locked": "Obtenga su propia página con sus datos de contacto, un enlace para reservar citas y un formulario de contacto.",
   "portal.page_inactive": "Su página está disponible mientras su estado en el programa esté activo.",
+
+  // ---- Phase 4: follow-up messages ----
+  "portal.followup_title": "Mensajes de seguimiento ({count})",
+  "portal.followup_note": "Abre su propia aplicación de mensajes o de correo con el mensaje listo. No se envía nada hasta que usted lo envíe.",
+  "portal.followup_sms": "Abrir en Mensajes",
+  "portal.followup_email": "Abrir en el correo",
 }

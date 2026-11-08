@@ -297,4 +297,10 @@ export const NOP_STRING_WHERE: Record<NopStringKey, { where: string; note?: stri
   "portal.page_photo_invalid": { where: "/agent/page error when the server refuses a photo" },
   "portal.page_locked": { where: "/agent/page, locked Pro screen for Basic agents" },
   "portal.page_inactive": { where: "/agent/page for a Pro/Leader agent whose roster status isn't active" },
+
+  // ---- Phase 4: follow-up messages ----
+  "portal.followup_title": { where: "Leads tab, each lead card: expandable section with the org-approved follow-up messages ({count} is 1–3)" },
+  "portal.followup_note": { where: "Leads tab, inside the follow-up section" },
+  "portal.followup_sms": { where: "Leads tab, follow-up button: opens the agent's texting app with the message filled in", note: "\"Mensajes\" is the app name on iPhone; on Android the agent's default texting app opens." },
+  "portal.followup_email": { where: "Leads tab, follow-up button: opens the agent's email app with subject and message filled in" },
 }

@@ -144,8 +144,8 @@ describe("QR lead form", () => {
 
 describe("the agent's leads and results", () => {
   it("Pro: leads and this month's results", async () => {
-    s.leads = [{ id: "a" }]
-    expect((await call(leadsList, "GET", "/x", { who: "agent@x.test" })).json).toEqual({ leads: [{ id: "a" }] })
+    s.leads = [{ id: "a", name: "Ana Ruiz", phone: "(270) 555-0199", email: null }]
+    expect((await call(leadsList, "GET", "/x", { who: "agent@x.test" })).json).toMatchObject({ leads: [{ id: "a" }], followUps: { a: expect.any(Array) } })
     expect((await call(results, "GET", "/x", { who: "agent@x.test" })).json).toMatchObject({ scans: 4, leads: 2 })
   })
 
