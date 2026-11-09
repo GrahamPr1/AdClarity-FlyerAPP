@@ -315,4 +315,13 @@ export const NOP_STRING_WHERE: Record<NopStringKey, { where: string; note?: stri
   "email.approved_cta": { where: "Email to the agent when approved (button)" },
   "email.rejected_subject": { where: "Email to the agent when an admin rejects the sign-up (subject)" },
   "email.rejected_body": { where: "Email to the agent when rejected (body; never says why)" },
+  "portal.upgrade_button": { where: "Upgrade button (Home and the locked Pro screens)" },
+  "portal.manage_billing": { where: "Button to the Stripe billing page (card, invoices, cancel)" },
+  "portal.billing_title": { where: "Home, billing card title" },
+  "portal.billing_active": { where: "Home, billing card while paid" },
+  "portal.billing_cancels": { where: "Home, billing card after cancelling (until the period ends)" },
+  "portal.billing_past_due": { where: "Home, billing card while a payment is failing" },
+  "portal.billing_success": { where: "Home, after returning from Stripe Checkout" },
+  "portal.billing_cancelled_checkout": { where: "Home, after leaving Stripe Checkout without paying" },
+  "portal.billing_error": { where: "Billing buttons, on error" },
 }

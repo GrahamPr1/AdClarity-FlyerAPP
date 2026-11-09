@@ -7,7 +7,8 @@ import { NOP_ORG_ID, NOP_ORG_NAME } from "@/lib/enterprise/nop-roster"
 import { listNopRenders, type NopRenderLogEntry } from "@/lib/enterprise/nop-render/log"
 import { NOP_DOWNLOAD_FORMATS } from "@/lib/enterprise/nop-render/render"
 import type { AgentTier } from "./features"
-import { getAgentTier, getLastActive, listAdminAgentViews, type AdminAgentView } from "./store"
+import { getAgentTier, getAgentTierSource, getLastActive, listAdminAgentViews, type AdminAgentView } from "./store"
+import { agentBillingLabel, getAgentBilling, type AgentBillingLabel } from "./agent-billing"
 import { summarizeAgentData } from "./agent-data"
 
 // OneFlyer admin's view of agent accounts. Read-only helpers; the routes that
@@ -27,6 +28,10 @@ export interface AgentRow {
   orgId: string
   orgName: string
   tier: AgentTier
+  /** Paid Pro (Stripe), admin-set (e.g. an org paying), cancelling, past due, cancelled, or none. */
+  billing: AgentBillingLabel
+  /** End of the paid period, when Stripe billing exists. */
+  paidUntil: string | null
   status: string
   lastActive: string | null
   /** Downloads (print, home-print, social): flyers actually made. Previews aren't counted. */
@@ -46,11 +51,13 @@ export async function listAgentRows(): Promise<AgentRow[]> {
   return Promise.all(
     roster.map(async (r, i) => {
       const email = r.lockedTo!
-      const [profile, tier, renders, data] = await Promise.all([
+      const [profile, tier, renders, data, tierSource, billingRecord] = await Promise.all([
         getAgentProfile(email),
         getAgentTier(email),
         listNopRenders({ agentId: r.agentId }),
         summarizeAgentData(r.agentId),
+        getAgentTierSource(email),
+        getAgentBilling(email),
       ])
       return {
         email,
@@ -59,6 +66,8 @@ export async function listAgentRows(): Promise<AgentRow[]> {
         orgId: profile?.orgId ?? NOP_ORG_ID,
         orgName: NOP_ORG_NAME,
         tier,
+        billing: agentBillingLabel(tier, tierSource, billingRecord),
+        paidUntil: billingRecord?.currentPeriodEnd ?? null,
         status: r.status,
         lastActive: lastActive[i],
         flyersMade: renders.filter(isDownload).length,

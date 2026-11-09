@@ -344,4 +344,13 @@ export const es: Record<NopStringKey, string> = {
   "email.approved_cta": "Iniciar sesión",
   "email.rejected_subject": "Su registro: {program}",
   "email.rejected_body": "Su registro en el {program} no fue aprobado. Si tiene preguntas, comuníquese con el administrador de su programa.",
+  "portal.upgrade_button": "Cambiar a Pro: $40 al mes + impuestos donde correspondan",
+  "portal.manage_billing": "Administrar facturación",
+  "portal.billing_title": "Su plan Pro",
+  "portal.billing_active": "Pro, $40 al mes + impuestos donde correspondan. Se renueva el {date}.",
+  "portal.billing_cancels": "Su plan Pro termina el {date}. Conserva sus contactos y su historial.",
+  "portal.billing_past_due": "No pudimos cobrar su tarjeta. Actualícela en Administrar facturación para conservar Pro.",
+  "portal.billing_success": "¡Gracias! Pro se activa en cuanto se confirme su pago, normalmente en menos de un minuto.",
+  "portal.billing_cancelled_checkout": "Pago cancelado. Sigue en Básico.",
+  "portal.billing_error": "No se pudo abrir la facturación en este momento. Inténtelo de nuevo.",
 }

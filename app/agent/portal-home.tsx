@@ -7,6 +7,9 @@ import { agentFlyerKit, getNopFlyerSettings } from "@/lib/enterprise/nop-render/
 import { agentResults } from "@/lib/enterprise/portal/results"
 import Link from "next/link"
 import { PortalShell } from "./portal-shell"
+import { canBuyPro, getAgentBilling } from "@/lib/enterprise/portal/agent-billing"
+import { getAgentTierSource } from "@/lib/enterprise/portal/store"
+import { ManageBilling, UpgradeToPro } from "@/components/nop-agent-billing"
 
 // What a Basic agent's one line about Pro may mention: only features their org
 // has switched on, so it never advertises something they couldn't get.
@@ -18,8 +21,13 @@ const PRO_WORDS: [AgentFeature, NopStringKey][] = [
 ]
 
 /** /agent for a signed-in agent: their ready-to-use flyers; this month's results for Pro/Leader only. */
-export async function PortalHome({ page }: { page: PortalPage }) {
+export async function PortalHome({ page, billingNotice = null }: { page: PortalPage; billingNotice?: "success" | "cancelled" | null }) {
   const { ctx, lang, readOnly } = page
+  // Agent Pro billing: what Stripe last told us (agent-billing.ts), and whether they may buy.
+  const [billing, tierSource] = await Promise.all([getAgentBilling(ctx.email), getAgentTierSource(ctx.email)])
+  const paidByStripe = tierSource === "stripe" && !!billing?.subscriptionId
+  const upgrade = canBuyPro(ctx)
+  const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(lang === "es" ? "es-US" : "en-US", { month: "long", day: "numeric", year: "numeric" }) : "")
   // Read only when canUse says so: a Basic or inactive agent's numbers are never even loaded.
   const results = ctx.can.results ? await agentResults(ctx.agent.agentId) : null
   const kit = agentFlyerKit(await getNopFlyerSettings())
@@ -29,6 +37,23 @@ export async function PortalHome({ page }: { page: PortalPage }) {
 
   return (
     <PortalShell page={page} title={t("portal.home_title")} intro={t("portal.home_intro")}>
+      {billingNotice && (
+        <p role="status" data-testid="billing-notice" className="mb-6 rounded-xl border border-border bg-[var(--surface-soft)] p-4 text-sm">
+          {t(billingNotice === "success" ? "portal.billing_success" : "portal.billing_cancelled_checkout")}
+        </p>
+      )}
+      {paidByStripe && (
+        <section aria-labelledby="billing" data-testid="home-billing" className="mb-6 rounded-2xl border border-border bg-card p-5">
+          <h2 id="billing" className="font-semibold">{t("portal.billing_title")}</h2>
+          <p data-testid="billing-status" className="mt-1 text-sm text-muted-foreground">
+            {billing!.status === "past_due" ? t("portal.billing_past_due")
+              : billing!.cancelAtPeriodEnd && ctx.tier === "pro" ? t("portal.billing_cancels", { date: date(billing!.currentPeriodEnd) })
+              : ctx.tier === "pro" ? t("portal.billing_active", { date: date(billing!.currentPeriodEnd) })
+              : null}
+          </p>
+          <div className="mt-3"><ManageBilling readOnly={readOnly} /></div>
+        </section>
+      )}
       {results && (
         <section aria-labelledby="results" data-testid="home-results" className="mb-6 rounded-2xl border border-border bg-card p-5">
           <h2 id="results" className="font-semibold">{t("portal.results_title")}</h2>
@@ -58,6 +83,7 @@ export async function PortalHome({ page }: { page: PortalPage }) {
           {t("portal.pro_line", { list })}
         </p>
       )}
+      {upgrade && <div data-testid="home-upgrade" className="mt-4"><UpgradeToPro readOnly={readOnly} /></div>}
     </PortalShell>
   )
 }

@@ -4,7 +4,9 @@ import { isAgentTier } from "@/lib/enterprise/portal/features"
 import { setAgentTier } from "@/lib/enterprise/portal/store"
 
 // POST /api/admin/enterprise/agents/{email}/tier { tier: "basic" | "pro" | "leader" }
-// Admin only. The only way an agent's tier changes (no agent billing yet).
+// Admin only. An admin-set Pro or Leader is labeled "Admin-set" and is never
+// changed by agent billing (e.g. an organization paying for its agents); see
+// lib/enterprise/portal/agent-billing.ts.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ email: string }> }) {
   const auth = await requireAdmin(request)
   if ("response" in auth) return auth.response
