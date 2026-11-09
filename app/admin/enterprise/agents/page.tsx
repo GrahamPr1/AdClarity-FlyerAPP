@@ -27,6 +27,7 @@ export default function AdminAgentsPage() {
   const [saving, setSaving] = useState<string | null>(null)
   const flyers = useSWR<{ agentKit: "v1" | "v2"; spanishV2: boolean; agentAreaReady: boolean }>("/api/admin/enterprise/nop/flyer-settings", fetcher)
   const [flyerMsg, setFlyerMsg] = useState<string | null>(null)
+  const [testAgent, setTestAgent] = useState("")
   async function setFlyers(patch: Record<string, unknown>) {
     setFlyerMsg(null)
     const res = await fetch("/api/admin/enterprise/nop/flyer-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) })
@@ -81,7 +82,7 @@ export default function AdminAgentsPage() {
 
       <section className="mt-6 rounded-xl border border-border bg-card p-5" data-testid="nop-flyer-settings">
         <h2 className="text-lg">NOP flyers</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Basic Benefits&apos; final flyers (kit v2) are imported but not given to agents: they have no agent information area yet.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Basic Benefits&apos; final flyers (kit v2), with the agent area in the footer as Basic Benefits approved. Agents get them only once you switch them here.</p>
         {flyers.data && (
           <div className="mt-3 flex flex-col gap-3 text-sm">
             <p>
@@ -100,12 +101,18 @@ export default function AdminAgentsPage() {
             {flyerMsg && <p role="alert" className="text-red-600">{flyerMsg}</p>}
             <details>
               <summary className="min-h-11 cursor-pointer py-2">Preview kit v2 (admin only)</summary>
+              <label className="mt-2 block">
+                As agent (optional): Agent ID of an active roster agent
+                <input value={testAgent} onChange={(e) => setTestAgent(e.target.value.replace(/\D/g, ""))} inputMode="numeric" data-testid="v2-test-agent"
+                  className="mt-1 block min-h-11 w-40 rounded-lg border border-border bg-background px-3" />
+              </label>
+              <p className="mt-1 text-muted-foreground">With an Agent ID, each link is exactly the file that agent would download: their name, phone, enrollment link and QR, after every release check. It&apos;s logged under your account. Without one, the page as Basic Benefits supplied it.</p>
               <ul className="mt-2 grid gap-1 sm:grid-cols-2">
                 {NOP_V2_TEMPLATES.map((id) => (
                   <li key={id} className="flex flex-wrap gap-3">
                     <span className="font-mono text-xs">{id}</span>
                     {(["letter", "bleed"] as const).map((f) => (
-                      <a key={f} className="text-[var(--brand-teal-bright)] hover:underline" href={`/api/admin/enterprise/nop/render-check?template=${id}&format=${f}`}>{f}</a>
+                      <a key={f} className="text-[var(--brand-teal-bright)] hover:underline" href={`/api/admin/enterprise/nop/render-check?template=${id}&format=${f}${testAgent ? `&agentId=${testAgent}` : ""}`}>{f}</a>
                     ))}
                   </li>
                 ))}

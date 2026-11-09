@@ -1,10 +1,8 @@
 // The agent's information area on a kit-v2 flyer: name, phone, enrollment
 // link and QR code. Only the markup of the area itself lives here; where it
 // goes on the page is the placement's job (footer-placement.ts for Basic
-// Benefits' footer proposal). If Basic Benefits add their own agent area
-// instead, a different placement uses this same block.
-//
-// PROPOSAL ONLY: not wired into any route. Agents can't reach kit v2.
+// Benefits' approved footer). The values come only from the roster-locked
+// profile and the agent's code (render-v2.ts); agents can't type any of them.
 
 /** The QR code itself, and the white quiet zone around it, in inches. */
 export const AGENT_QR_IN = 0.7

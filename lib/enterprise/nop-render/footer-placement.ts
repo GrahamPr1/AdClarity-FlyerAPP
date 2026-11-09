@@ -1,7 +1,8 @@
 import type { NopV2Pkg } from "./kit-v2-ids"
 
-// Option B (proposal for Basic Benefits): the agent area goes in the dark
-// footer band, in place of the generic neighbor.basicbenefits.com link.
+// Option B, approved by Basic Benefits (11/2026, with the P2/P3 spacing
+// change): the agent area goes in the dark footer band, in place of the
+// generic neighbor.basicbenefits.com link. No label, no new wording.
 //
 // Exactly what changes, and nothing else:
 //   - the footer's right-hand column (generic link + version stamp) becomes
@@ -55,4 +56,23 @@ export function placeAgentAreaInFooter(html: string, pkg: NopV2Pkg, areaHtml: st
   const spacing = MAIN_SPACING[pkg]
   if (spacing) out = replaceOnce(out, spacing[0], spacing[1], "<main> spacing")
   return out
+}
+
+const footerOf = (html: string) => /<footer[\s\S]*<\/footer>/.exec(html)?.[0] ?? null
+
+/**
+ * Release check on the exact markup sent to the renderer: outside the footer
+ * (and, on P2/P3, the <main> spacing values) it is byte-for-byte the page as
+ * supplied, and every piece of Basic Benefits' own footer text is still there
+ * except the generic link the agent area replaces. Throws otherwise.
+ */
+export function assertOnlyFooterChanged(src: string, out: string, pkg: NopV2Pkg): void {
+  const before = footerOf(src), after = footerOf(out)
+  if (!before || !after) throw new Error("footer placement: no <footer>")
+  const spacing = MAIN_SPACING[pkg]
+  const rest = (spacing ? out.replace(spacing[1], spacing[0]) : out).replace(after, "")
+  if (rest !== src.replace(before, "")) throw new Error("footer placement: a locked section changed")
+  for (const text of before.match(/>[^<>]*\S[^<>]*</g) ?? []) {
+    if (!text.includes("neighbor.basicbenefits.com") && !after.includes(text)) throw new Error(`footer placement: footer text ${text} is missing`)
+  }
 }

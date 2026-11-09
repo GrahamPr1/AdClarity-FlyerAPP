@@ -1,11 +1,19 @@
 import fs from "node:fs"
 import path from "node:path"
-import { assertFonts, newPage, NopRenderError } from "./render"
-import { KIT_V2_ORIGIN, V2_PAGE_POINTS, kitV2FileFor, v2HtmlForRender, type NopV2Id, type NopV2Size } from "./kit-v2"
+import type { Page } from "playwright-core"
+import { assertFonts, checkedQrLink, gate, newPage, NopRenderError, qrSvg } from "./render"
+import { KIT_V2_ORIGIN, V2_PAGE_POINTS, kitV2FileFor, readV2Html, v2HtmlForRender, v2Parts, type NopV2Id, type NopV2Size } from "./kit-v2"
+import { agentAreaHtml } from "./agent-area"
+import { assertOnlyFooterChanged, placeAgentAreaInFooter } from "./footer-placement"
+import { decodeQrFromPng } from "./qr-gate"
+import { enrollUrl, readKitContent } from "./kit"
 
-// Renders a kit-v2 page as Basic Benefits supplied it. The agent information
-// area isn't placed yet (Basic Benefits are choosing where it goes), so this
-// takes no agent values at all: nothing an agent provides can reach the page.
+// Renders a kit-v2 page. renderNopV2 is the page exactly as Basic Benefits
+// supplied it (admin checks). renderNopV2ForAgent adds the agent area in the
+// footer (Basic Benefits' approved placement) and is the only way an agent's
+// kit-v2 flyer is made. The agent area takes exactly four values, none typed
+// by the agent: name and phone from the roster-locked profile, the enrollment
+// URL from the Agent ID, and the QR from the agent's code.
 
 export type NopV2Output = "pdf" | "preview" | "thumb"
 
@@ -27,8 +35,17 @@ export function pdfPagePoints(pdf: Buffer): { w: number; h: number } | null {
 }
 
 export async function renderNopV2(id: NopV2Id, size: NopV2Size, output: NopV2Output): Promise<NopV2Rendered> {
+  return renderV2Page(id, size, v2HtmlForRender(id, size), output, output === "thumb" ? 0.75 : output === "preview" ? 1 : 2)
+}
+
+/**
+ * Loads the page, proves its fonts, runs `check` on the laid-out page (the
+ * agent gates), then returns the requested output. Nothing is returned if a
+ * check throws.
+ */
+async function renderV2Page(id: NopV2Id, size: NopV2Size, html: string, output: NopV2Output, dsf: number, check?: (page: Page) => Promise<void>): Promise<NopV2Rendered> {
   const t0 = Date.now()
-  const { page, close } = await newPage(output === "thumb" ? 0.75 : output === "preview" ? 1 : 2)
+  const { page, close } = await newPage(dsf)
   try {
     // The kit's own files only. Anything else is refused, so nothing outside
     // the kit (no network, no Opificio) can change what renders.
@@ -40,13 +57,20 @@ export async function renderNopV2(id: NopV2Id, size: NopV2Size, output: NopV2Out
       return route.fulfill({ status: 200, contentType: TYPES[path.extname(file)] ?? "application/octet-stream", body: fs.readFileSync(file) })
     })
     await page.goto(`${KIT_V2_ORIGIN}/__blank`).catch(() => undefined)
-    await page.setContent(v2HtmlForRender(id, size), { waitUntil: "load" })
+    await page.setContent(html, { waitUntil: "load" })
     const usedFonts = await assertFonts(page)
+    if (check) {
+      // The agent gates measure the page as it prints.
+      await page.emulateMedia({ media: "print" })
+      await check(page)
+    }
 
     if (output !== "pdf") {
       const box = await page.locator(".page").first().boundingBox()
       if (!box) throw new NopRenderError("master_invalid", `${id}: no .page element`)
-      const body = await page.screenshot({ type: output === "thumb" ? "jpeg" : "png", ...(output === "thumb" ? { quality: 82 } : {}), clip: box })
+      // Agent thumbnails are taken at CSS size: the card shows them small, and the gate already read the QR at full scale.
+      const scale = check && output === "thumb" ? { scale: "css" as const } : {}
+      const body = await page.screenshot({ type: output === "thumb" ? "jpeg" : "png", ...(output === "thumb" ? { quality: 82 } : {}), clip: box, ...scale })
       return { body, contentType: output === "thumb" ? "image/jpeg" : "image/png", pagePoints: null, usedFonts, ms: Date.now() - t0 }
     }
 
@@ -62,4 +86,130 @@ export async function renderNopV2(id: NopV2Id, size: NopV2Size, output: NopV2Out
   } finally {
     await close()
   }
+}
+
+/** 150 dpi: the agent renders are laid out, and the QR read, at the lowest resolution a flyer is expected to print at. */
+export const V2_AGENT_DSF = 150 / 96
+
+export interface NopV2AgentValues {
+  /** From the locked roster record and profile, never from anything the agent typed. */
+  agentId: string
+  displayName: string
+  displayPhone: string
+}
+
+export interface NopV2AgentRendered extends NopV2Rendered {
+  /** What the QR decoded to (already checked equal to the agent's code link). */
+  qr: string
+}
+
+/** The page markup with the agent area in the footer, after the locked-sections check. */
+export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, qrLink: string): Promise<string> {
+  const src = readV2Html(id, size)
+  const area = agentAreaHtml({ name: agent.displayName, phone: agent.displayPhone, enrollUrl: enrollUrl(readKitContent(), agent.agentId), qrSvg: await qrSvg(qrLink) })
+  const { pkg } = v2Parts(id)
+  let placed: string
+  try {
+    placed = placeAgentAreaInFooter(src, pkg, area)
+    assertOnlyFooterChanged(src, placed, pkg)
+  } catch (err) {
+    throw new NopRenderError("master_invalid", `${id} ${size}: ${err instanceof Error ? err.message : err}`)
+  }
+  return placed
+}
+
+/**
+ * Layout gates on the laid-out page: each agent value sits on one line inside
+ * the agent area, clear of Basic Benefits' footer text and of the QR box; the
+ * footer still ends at the bottom of the page; <main> (with P2/P3's tighter
+ * spacing) still holds all its content; and the link printed and linked is
+ * exactly the agent's enrollment URL.
+ */
+async function checkAgentLayout(page: Page, enrollment: string): Promise<void> {
+  // No named functions inside evaluate: some bundlers wrap them in a helper
+  // that doesn't exist inside the page.
+  const r = await page.evaluate(() => {
+    const footer = document.querySelector("footer")
+    const els: Record<string, Element | null> = {
+      page: document.querySelector("section.page"),
+      footer,
+      left: footer?.firstElementChild ?? null,
+      area: document.querySelector("[data-agent-area]"),
+      qr: document.querySelector('[data-agent-field="qr"]'),
+    }
+    const boxes: Record<string, { left: number; right: number; top: number; bottom: number; width: number; height: number } | null> = {}
+    for (const [k, el] of Object.entries(els)) {
+      const b = el?.getBoundingClientRect()
+      boxes[k] = b ? { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width, height: b.height } : null
+    }
+    const main = document.querySelector("main")
+    const pageEl = els.page
+    const link = document.querySelector('[data-agent-field="enroll_link"]')
+    const fields = ["enroll_link", "name", "phone"].map((f) => {
+      const el = document.querySelector(`[data-agent-field="${f}"]`)
+      if (!el) return { f, b: null, lines: 0 }
+      const range = document.createRange()
+      range.selectNodeContents(el)
+      const lines = new Set(Array.from(range.getClientRects()).filter((x) => x.width > 0).map((x) => Math.round(x.top))).size
+      const b = el.getBoundingClientRect()
+      return { f, b: { left: b.left, right: b.right, top: b.top, bottom: b.bottom }, lines }
+    })
+    return {
+      box: boxes,
+      main: main ? { scroll: main.scrollHeight, client: main.clientHeight } : null,
+      pageScroll: pageEl ? { scroll: pageEl.scrollHeight, client: pageEl.clientHeight } : null,
+      href: link?.getAttribute("href") ?? null, linkText: link?.textContent ?? null, fields,
+    }
+  })
+  const fail = (code: "field_too_long" | "master_invalid", msg: string, field?: string) => {
+    throw new NopRenderError(code, msg, field)
+  }
+  const { page: pg, footer, left, area, qr } = r.box
+  if (!pg || !footer || !left || !area || !qr || !r.main || !r.pageScroll) fail("master_invalid", "agent area or page structure not found")
+  if (r.href !== enrollment || r.linkText !== enrollment.replace(/^https?:\/\//, "").replace(/\/$/, "")) fail("master_invalid", `enrollment link is ${r.href} / ${r.linkText}, expected ${enrollment}`)
+  for (const { f, b, lines } of r.fields) {
+    const field = f === "name" ? "agent_name" : f === "phone" ? "agent_phone" : "enroll_link"
+    const code = field === "enroll_link" ? "master_invalid" : "field_too_long"
+    if (!b || lines !== 1) fail(code, `${field} is on ${lines} lines`, field)
+    // Clear of the footer's own text column and of the QR box, inside the footer band.
+    if (b!.left < left!.right + 8 || b!.right > qr!.left - 8 || b!.top < footer!.top || b!.bottom > footer!.bottom) fail(code, `${field} doesn't fit beside the QR`, field)
+  }
+  if (Math.abs(qr!.width - 0.9 * 96) > 0.5 || Math.abs(qr!.height - 0.9 * 96) > 0.5) fail("master_invalid", `QR box is ${qr!.width}x${qr!.height}px, expected 0.9in`)
+  if (qr!.right > footer!.right || qr!.top < footer!.top || qr!.bottom > footer!.bottom) fail("master_invalid", "QR box is outside the footer")
+  if (Math.abs(footer!.bottom - pg!.bottom) > 0.5) fail("master_invalid", `footer ends ${Math.abs(footer!.bottom - pg!.bottom)}px ${footer!.bottom > pg!.bottom ? "below" : "above"} the page bottom`)
+  if (r.main!.scroll > r.main!.client + 0.5) fail("master_invalid", `main content overflows by ${r.main!.scroll - r.main!.client}px`)
+  if (r.pageScroll!.scroll > r.pageScroll!.client + 0.5) fail("master_invalid", `page content overflows by ${r.pageScroll!.scroll - r.pageScroll!.client}px`)
+}
+
+/** Reads the QR from the page as laid out (at V2_AGENT_DSF) and checks it is exactly `expected`. */
+async function checkAgentQr(page: Page, expected: string): Promise<string> {
+  const b = await page.locator('[data-agent-field="qr"]').boundingBox()
+  if (!b) throw new NopRenderError("master_invalid", "QR box not found")
+  // The white box is the quiet zone; a few px of footer around it is fine for the reader.
+  const pad = 4
+  const qr = decodeQrFromPng(await page.screenshot({ type: "png", clip: { x: b.x - pad, y: b.y - pad, width: b.width + 2 * pad, height: b.height + 2 * pad } }))
+  gate(qr, expected)
+  return qr!
+}
+
+/**
+ * One kit-v2 flyer for one agent. Release checks, all before anything is returned:
+ *   - the agent's code link maps back to this Agent ID and forwards to exactly
+ *     their enrollment URL (checkedQrLink, the same check as kit v1.1.1);
+ *   - outside the footer (and P2/P3's <main> spacing) the markup is
+ *     byte-for-byte as supplied;
+ *   - the layout gates above, and fonts;
+ *   - the QR read back from the page at 150 dpi is exactly the code link;
+ *   - PDFs: one page, at Letter or bleed size as asked.
+ */
+export async function renderNopV2ForAgent(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, output: NopV2Output): Promise<NopV2AgentRendered> {
+  const enrollment = enrollUrl(readKitContent(), agent.agentId)
+  const expected = await checkedQrLink(agent.agentId, enrollment)
+  const html = v2HtmlForRender(id, size, await v2AgentHtml(id, size, agent, expected))
+  let qr = ""
+  const rendered = await renderV2Page(id, size, html, output, V2_AGENT_DSF, async (page) => {
+    await checkAgentLayout(page, enrollment)
+    qr = await checkAgentQr(page, expected)
+  })
+  return { ...rendered, qr }
 }

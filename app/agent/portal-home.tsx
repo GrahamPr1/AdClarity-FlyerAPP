@@ -3,6 +3,7 @@ import { nopStatusMessageKey } from "@/lib/enterprise/nop-render/agent-context"
 import type { PortalPage } from "@/lib/enterprise/portal/page"
 import type { AgentFeature } from "@/lib/enterprise/portal/features"
 import { NopDashboard } from "@/components/nop-dashboard"
+import { agentFlyerKit, getNopFlyerSettings } from "@/lib/enterprise/nop-render/kit-v2-access"
 import { agentResults } from "@/lib/enterprise/portal/results"
 import { PortalShell } from "./portal-shell"
 
@@ -20,6 +21,7 @@ export async function PortalHome({ page }: { page: PortalPage }) {
   const { ctx, lang, readOnly } = page
   // Read only when canUse says so: a Basic or inactive agent's numbers are never even loaded.
   const results = ctx.can.results ? await agentResults(ctx.agent.agentId) : null
+  const kit = agentFlyerKit(await getNopFlyerSettings())
   const t = (k: NopStringKey, v?: Record<string, string>) => tNop(lang, k, v)
   const words = ctx.tier === "basic" ? PRO_WORDS.filter(([f]) => ctx.orgFeatures[f]).map(([, k]) => t(k)) : []
   const list = words.length > 1 ? `${words.slice(0, -1).join(", ")} ${t("portal.and")} ${words[words.length - 1]}` : words[0]
@@ -39,7 +41,7 @@ export async function PortalHome({ page }: { page: PortalPage }) {
           )}
         </section>
       )}
-      <NopDashboard active={ctx.agent.active} statusKey={ctx.agent.active ? null : nopStatusMessageKey(ctx.agent.status)} readOnly={readOnly} />
+      <NopDashboard active={ctx.agent.active} statusKey={ctx.agent.active ? null : nopStatusMessageKey(ctx.agent.status)} readOnly={readOnly} kit={kit} />
       {list && (
         <p data-testid="pro-line" className="mt-6 text-sm text-muted-foreground">
           <span className="mr-2 inline-flex rounded-full border border-border px-2 py-0.5 text-xs font-semibold">{t("portal.pro_label")}</span>

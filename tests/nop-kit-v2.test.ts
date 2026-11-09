@@ -8,8 +8,8 @@ import { agentMaySeeTemplate, AGENT_AREA_READY } from "@/lib/enterprise/nop-rend
  * Kit v2: Basic Benefits' final flyers, imported as supplied. The renderer
  * adds a <base> tag and the accent-font metrics to <head> and nothing else, so every page's locked
  * content (benefits, prices, disclaimers) is byte-for-byte theirs. Only the
- * kit's own files are reachable; Opificio isn't shipped; Spanish and all of
- * kit v2 stay away from agents until approved.
+ * kit's own files are reachable; Opificio isn't shipped; kit v2 reaches agents
+ * only once admin switches them to it, and Spanish only with its own switch.
  */
 
 const SOURCE = "/Users/grahampearl/Downloads/NOP-Flyers-Handoff/html"
@@ -73,11 +73,13 @@ describe("who may see which flyers", () => {
     expect(agentMaySeeTemplate("NOP_P1_EN", { agentKit: "v2", spanishV2: false }, true)).toBe(false)
   })
 
-  it("no kit-v2 flyer reaches an agent while the agent area doesn't exist, whatever the settings", () => {
-    expect(AGENT_AREA_READY).toBe(false)
+  it("kit v2 reaches agents only once admin switches them to it; Spanish only with its own switch", () => {
+    expect(AGENT_AREA_READY).toBe(true)
+    for (const id of NOP_V2_TEMPLATES) expect(agentMaySeeTemplate(id, v1, false), id).toBe(false)
+    const v2en = { agentKit: "v2" as const, spanishV2: false }
     for (const id of NOP_V2_TEMPLATES) {
-      expect(agentMaySeeTemplate(id, v1, false), id).toBe(false)
-      expect(agentMaySeeTemplate(id, v2es, false), id).toBe(false)
+      expect(agentMaySeeTemplate(id, v2en, false), id).toBe(v2Parts(id).lang === "EN")
+      expect(agentMaySeeTemplate(id, v2es, false), id).toBe(true)
     }
   })
 

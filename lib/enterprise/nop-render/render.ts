@@ -90,7 +90,7 @@ function textValues(content: KitContent, id: NopTemplateId, agent: NopAgentValue
   }
 }
 
-async function qrSvg(url: string): Promise<string> {
+export async function qrSvg(url: string): Promise<string> {
   // Q: survives ~25% damage (a fold, a scuff). Margin 0: qr_zone already
   // provides the 0.125in quiet zone around the 1.375in code.
   return QRCode.toString(url, { type: "svg", errorCorrectionLevel: "Q", margin: 0, color: { dark: "#000000", light: "#ffffff" } })
@@ -249,7 +249,7 @@ async function qrRegion(page: Page): Promise<{ x: number; y: number; width: numb
   return { x: Math.max(0, r.x - pad), y: Math.max(0, r.y - pad), width: r.width + pad * 2, height: r.height + pad * 2 }
 }
 
-function gate(decoded: string | null, expected: string) {
+export function gate(decoded: string | null, expected: string) {
   if (decoded !== expected) throw new NopRenderError("qr_mismatch", `QR decoded to ${JSON.stringify(decoded)}, expected ${expected}`)
 }
 
@@ -258,7 +258,7 @@ function gate(decoded: string | null, expected: string) {
  * ID, and the link's live destination (the rule app/a/[code] follows) is the
  * enrollment URL. Issues the code on the agent's first flyer.
  */
-async function checkedQrLink(agentId: string, enrollment: string): Promise<string> {
+export async function checkedQrLink(agentId: string, enrollment: string): Promise<string> {
   const code = await getOrIssueAgentQrCode(agentId)
   const link = nopQrLink(code)
   const owner = await agentIdForQrCode(code)

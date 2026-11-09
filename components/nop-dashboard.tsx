@@ -4,13 +4,14 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useNop } from "@/components/nop-i18n"
 import type { NopLang, NopStringKey } from "@/lib/enterprise/nop-i18n"
+import type { AgentFlyerKit } from "@/lib/enterprise/nop-render/kit-v2-ids"
+import { agentTemplates, flyerLabels, flyerLangs } from "@/lib/enterprise/nop-render/flyer-labels"
 
-// The NOP agent's flyers (portal Home and Create): Basic Benefits' 8 templates, each with the agent's
-// own thumbnail and direct downloads. Every server answer is the authority
-// (roster status is re-read on each render); this only shows what it returns.
-
-const PACKAGES = ["P1", "P2", "P3", "ALL"] as const
-type Pkg = (typeof PACKAGES)[number]
+// The NOP agent's flyers (portal Home and Create): Basic Benefits' templates
+// (kit v1.1.1: 8; kit v2 once admin switches agents to it: 3 packages, with
+// and without prices), each with the agent's own thumbnail and direct
+// downloads. Every server answer is the authority (roster status and the kit
+// are re-read on each render); this only shows what it returns.
 
 const primary =
   "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-[var(--brand-teal-bright)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)] disabled:opacity-60 transition-colors"
@@ -23,6 +24,8 @@ const DOWNLOADS: { fmt: Fmt; label: NopStringKey; hint: NopStringKey }[] = [
   { fmt: "home", label: "flyer.dl_home", hint: "flyer.dl_home_hint" },
   { fmt: "social", label: "flyer.dl_social", hint: "flyer.dl_social_hint" },
 ]
+/** Kit v2: the print-shop page (bleed) and the Letter page. No social image. */
+const downloadsFor = (template: string) => (template.startsWith("NOP2_") ? DOWNLOADS.filter((d) => d.fmt !== "social") : DOWNLOADS)
 
 function StatusBanner({ messageKey }: { messageKey: NopStringKey }) {
   const { t } = useNop()
@@ -73,11 +76,12 @@ function useNopDownload(template: string) {
  * the card is never empty while it renders), a tap through to the full
  * preview, and the three downloads right on the card.
  */
-function FlyerCard({ id, pkg, active, readOnly }: { id: string; pkg: Pkg; active: boolean; readOnly: boolean }) {
+function FlyerCard({ id, active, readOnly }: { id: string; active: boolean; readOnly: boolean }) {
   const { t } = useNop()
   const { busy, error, download } = useNopDownload(id)
   const [thumb, setThumb] = useState<"loading" | "ready" | "failed">("loading")
-  const name = `${t(`pkg.${pkg}`)} · ${t(`pkg.${pkg}_name`)}`
+  const labels = flyerLabels(id)
+  const name = [t(labels.eyebrow), t(labels.name), labels.pricing && t(labels.pricing)].filter(Boolean).join(" · ")
 
   const image = (
     <span className="relative block aspect-[17/22] w-full overflow-hidden border-b border-border bg-[var(--surface-soft)]">
@@ -111,12 +115,13 @@ function FlyerCard({ id, pkg, active, readOnly }: { id: string; pkg: Pkg; active
         image
       )}
       <div className="flex flex-1 flex-col gap-1 p-4">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">{t(`pkg.${pkg}`)}</p>
-        <p className="font-semibold leading-snug">{t(`pkg.${pkg}_name`)}</p>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">{t(labels.eyebrow)}</p>
+        <p className="font-semibold leading-snug">{t(labels.name)}</p>
+        {labels.pricing && <p className="text-sm text-muted-foreground" data-testid="flyer-pricing">{t(labels.pricing)}</p>}
         {thumb === "failed" && <p className="text-xs text-muted-foreground">{t("dash.thumb_failed")}</p>}
         {active && (
           <div className="mt-auto flex flex-col gap-2 pt-3">
-            {DOWNLOADS.map((d, i) => (
+            {downloadsFor(id).map((d, i) => (
               <button key={d.fmt} type="button" data-format={d.fmt} disabled={busy !== null || readOnly}
                 title={readOnly ? t("portal.read_only") : undefined}
                 className={i === 0 ? primary : outline} onClick={() => void download(d.fmt)}>
@@ -131,20 +136,21 @@ function FlyerCard({ id, pkg, active, readOnly }: { id: string; pkg: Pkg; active
   )
 }
 
-export function NopDashboard({ active, statusKey, readOnly = false }: { active: boolean; statusKey: NopStringKey | null; readOnly?: boolean }) {
+export function NopDashboard({ active, statusKey, readOnly = false, kit }: { active: boolean; statusKey: NopStringKey | null; readOnly?: boolean; kit: AgentFlyerKit }) {
   const { lang, t } = useNop()
   // Which flyers to show. Follows the page language until the agent picks
   // one, then it is their own choice: an agent reading English may hand
   // out Spanish flyers, and switching the page language leaves it alone.
   const [chosen, setFlyerLang] = useState<NopLang | null>(null)
-  const flyerLang = chosen ?? lang
-  const code = flyerLang.toUpperCase()
+  const langs = flyerLangs(kit)
+  const wanted = chosen ?? lang
+  const flyerLang = langs.includes(wanted) ? wanted : langs[0]
 
   return (
     <div>
       {!active && statusKey && <StatusBanner messageKey={statusKey} />}
 
-      <div role="group" aria-label={t("dash.flyer_lang")} className="mb-6 flex flex-wrap items-center gap-3">
+      {langs.length > 1 && <div role="group" aria-label={t("dash.flyer_lang")} className="mb-6 flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium" aria-hidden="true">{t("dash.flyer_lang")}</span>
         <div className="inline-flex overflow-hidden rounded-full border border-border">
           {(["en", "es"] as const).map((l) => (
@@ -162,11 +168,11 @@ export function NopDashboard({ active, statusKey, readOnly = false }: { active: 
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       <ul className="grid gap-5 sm:grid-cols-2" data-testid="nop-templates">
-        {PACKAGES.map((pkg) => (
-          <FlyerCard key={`NOP_${pkg}_${code}`} id={`NOP_${pkg}_${code}`} pkg={pkg} active={active} readOnly={readOnly} />
+        {agentTemplates(kit, flyerLang).map((id) => (
+          <FlyerCard key={id} id={id} active={active} readOnly={readOnly} />
         ))}
       </ul>
     </div>
@@ -225,7 +231,7 @@ export function NopFlyerPreview({ template, active, statusKey, agentName, readOn
         <section aria-labelledby="nop-downloads" className="rounded-2xl border border-border bg-card p-5">
           <h2 id="nop-downloads" className="mb-3 font-semibold">{t("flyer.download_title")}</h2>
           <ul className="flex flex-col gap-3">
-            {DOWNLOADS.map((d) => (
+            {downloadsFor(template).map((d) => (
               <li key={d.fmt} className="flex flex-wrap items-center justify-between gap-3">
                 <span className="text-sm text-muted-foreground">{t(d.hint)}</span>
                 <button type="button" className={primary} disabled={busy !== null || readOnly} title={readOnly ? t("portal.read_only") : undefined} onClick={() => void download(d.fmt)} data-format={d.fmt}>

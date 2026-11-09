@@ -3,6 +3,7 @@ import { createHash } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
 import { KIT_DIR, readKitContent, type NopTemplateId } from "./kit"
+import { isNopV2Template, readV2Html, type NopV2Id } from "./kit-v2"
 import type { NopAgentValues } from "./render"
 
 // Dashboard thumbnails, cached for 7 days. The key is a hash of EVERY
@@ -16,17 +17,19 @@ const redis = Redis.fromEnv()
 export const THUMB_TTL_SECONDS = 7 * 24 * 60 * 60
 /** Bump when the renderer's output for the same inputs changes. */
 const RENDERER_VERSION = "thumb-1"
+/** The same, for kit v2 (agent area in the footer). */
+const RENDERER_VERSION_V2 = "thumb-v2-1"
 
 const fileHash = (rel: string) => createHash("sha256").update(fs.readFileSync(path.join(KIT_DIR, rel))).digest("hex")
 
-export function thumbCacheKey(id: NopTemplateId, agent: NopAgentValues): string {
+export function thumbCacheKey(id: NopTemplateId | NopV2Id, agent: NopAgentValues): string {
   const content = readKitContent()
   const h = createHash("sha256")
-  for (const part of [
-    RENDERER_VERSION, id, content.program.kit_version,
-    fileHash("content.json"), fileHash(`html/${id}.html`), fileHash(content.default_logo),
-    agent.agentId, agent.displayName, agent.displayPhone, agent.displayEmail,
-  ]) h.update(part).update("\u0000")
+  // Kit v2 prints the enrollment domain from content.json and the page from its own HTML.
+  const kitParts = isNopV2Template(id)
+    ? [RENDERER_VERSION_V2, id, fileHash("content.json"), createHash("sha256").update(readV2Html(id, "letter")).digest("hex")]
+    : [RENDERER_VERSION, id, content.program.kit_version, fileHash("content.json"), fileHash(`html/${id}.html`), fileHash(content.default_logo)]
+  for (const part of [...kitParts, agent.agentId, agent.displayName, agent.displayPhone, agent.displayEmail]) h.update(part).update("\u0000")
   return `nop-thumb:${h.digest("hex")}`
 }
 

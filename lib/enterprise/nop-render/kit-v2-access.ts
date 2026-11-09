@@ -1,5 +1,6 @@
 import { Redis } from "@upstash/redis"
 import { isNopV2Template, v2Parts } from "./kit-v2"
+import type { AgentFlyerKit } from "./kit-v2-ids"
 
 // Which NOP flyers agents get, set by OneFlyer admin only.
 //
@@ -7,15 +8,15 @@ import { isNopV2Template, v2Parts } from "./kit-v2"
 //     agentKit     "v1" | "v2"   which kit fills Create (unset = v1, Basic Benefits' kit v1.1.1)
 //     spanishV2    "on" | "off"  whether agents may see kit-v2 Spanish flyers (unset = off; pending review)
 //
-// Kit v2 can't be given to agents until its agent information area exists
-// (AGENT_AREA_READY): Basic Benefits are still choosing where it goes. Until
-// then every agent route refuses every v2 flyer, whatever the settings say.
+// Kit v2's agent information area is the footer placement Basic Benefits
+// approved (footer-placement.ts), so admin may switch agents to kit v2.
+// Until admin does, every agent route refuses every v2 flyer.
 
 const redis = Redis.fromEnv()
 const KEY = "nop-flyers:settings"
 
-/** Flipped when the agent area (name, phone, QR, enrollment link) is built and approved. */
-export const AGENT_AREA_READY = false
+/** The agent area (name, phone, QR, enrollment link) is built and approved by Basic Benefits. */
+export const AGENT_AREA_READY = true
 
 export interface NopFlyerSettings {
   agentKit: "v1" | "v2"
@@ -46,4 +47,9 @@ export function agentMaySeeTemplate(template: string, settings: NopFlyerSettings
   if (!isNopV2Template(template)) return false
   if (!AGENT_AREA_READY || settings.agentKit !== "v2") return false
   return v2Parts(template).lang === "EN" || settings.spanishV2
+}
+
+/** What an agent's Home and Create list. */
+export function agentFlyerKit(settings: NopFlyerSettings): AgentFlyerKit {
+  return AGENT_AREA_READY && settings.agentKit === "v2" ? { kit: "v2", spanish: settings.spanishV2 } : { kit: "v1", spanish: true }
 }

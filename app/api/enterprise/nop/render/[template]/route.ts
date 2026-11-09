@@ -4,12 +4,17 @@ import { tNop, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 import { isNopTemplate, readKitContent } from "@/lib/enterprise/nop-render/kit"
 import { agentMaySeeTemplate, getNopFlyerSettings } from "@/lib/enterprise/nop-render/kit-v2-access"
+import { isNopV2Template, v2VersionStamp } from "@/lib/enterprise/nop-render/kit-v2"
+import { renderNopV2ForAgent } from "@/lib/enterprise/nop-render/render-v2"
 import { NOP_DOWNLOAD_FORMATS, NopRenderError, renderNopFlyer, type NopFormat } from "@/lib/enterprise/nop-render/render"
 import { loadNopAgent, nopStatusMessageKey } from "@/lib/enterprise/nop-render/agent-context"
 import { logNopRender } from "@/lib/enterprise/nop-render/log"
 import { getCachedThumb, setCachedThumb, thumbCacheKey } from "@/lib/enterprise/nop-render/thumb-cache"
 
 // GET /api/enterprise/nop/render/{NOP_P2_ES}?format=preview|print|home|social
+// GET /api/enterprise/nop/render/{NOP2_P2_EN_PRICE}?format=preview|print|home
+//   Kit v2: "print" is the print-shop page (0.125in bleed), "home" the Letter
+//   page; no social image. Only once admin has switched agents to kit v2.
 //
 // The only way a NOP flyer leaves OneFlyer. No AI anywhere: Basic Benefits'
 // master, the agent's display details and their LOCKED Agent ID. Roster
@@ -32,13 +37,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const lang = await nopLangForRequest(request, auth.email)
 
   const { template } = await params
-  // Kit-v2 flyers (and Spanish v2 until Basic Benefits approve them) are
-  // refused here exactly like an unknown template, so a direct URL reveals nothing.
-  if (!agentMaySeeTemplate(template, await getNopFlyerSettings(), isNopTemplate(template)) || !isNopTemplate(template)) {
+  // The kit agents aren't on (and Spanish v2 until Basic Benefits approve it)
+  // is refused here exactly like an unknown template, so a direct URL reveals nothing.
+  if (!(isNopTemplate(template) || isNopV2Template(template)) || !agentMaySeeTemplate(template, await getNopFlyerSettings(), isNopTemplate(template))) {
     return NextResponse.json({ error: "unknown_template" }, { status: 404 })
   }
+  const v2 = isNopV2Template(template)
   const format = new URL(request.url).searchParams.get("format") as NopFormat
-  if (!FORMATS.includes(format)) return NextResponse.json({ error: "format must be preview, print, home or social" }, { status: 422 })
+  if (!FORMATS.includes(format) || (v2 && format === "social")) {
+    return NextResponse.json({ error: v2 ? "format must be preview, print or home" : "format must be preview, print, home or social" }, { status: 422 })
+  }
   if (viewingAs && (NOP_DOWNLOAD_FORMATS as readonly string[]).includes(format)) {
     return NextResponse.json({ error: "read_only", message: "You're viewing an agent's portal read-only. Downloads are off." }, { status: 403 })
   }
@@ -73,7 +81,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   let rendered
   try {
-    rendered = await renderNopFlyer(template, values, format)
+    rendered = isNopV2Template(template)
+      ? await renderNopV2ForAgent(template, format === "print" ? "bleed" : "letter", values, format === "print" || format === "home" ? "pdf" : format === "thumb" ? "thumb" : "preview")
+      : await renderNopFlyer(template, values, format)
   } catch (err) {
     if (err instanceof NopRenderError && err.code === "field_too_long") {
       const fieldKey = `render.field_${err.field}` as NopStringKey
@@ -85,7 +95,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   // The compliance log records the agent's own activity; an admin's view is logged separately.
-  if (!viewingAs) await logNopRender({ agentId: agent.agentId, account: auth.email, template, format, kitVersion: readKitContent().program.kit_version })
+  const kitVersion = isNopV2Template(template) ? `v2 ${v2VersionStamp(template)}` : readKitContent().program.kit_version
+  if (!viewingAs) await logNopRender({ agentId: agent.agentId, account: auth.email, template, format, kitVersion })
   if (thumbKey) {
     await setCachedThumb(thumbKey, rendered.body)
     return new NextResponse(new Uint8Array(rendered.body), {

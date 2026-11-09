@@ -2,13 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { NextRequest } from "next/server"
 
 /**
- * Agent routes refuse every kit-v2 flyer (Spanish included) exactly like an
- * unknown template, so a direct URL or API call reveals nothing. The flyer
- * settings and kit-v2 previews are admin-only, and agents can't be switched to
- * kit v2 before it has an agent area.
+ * Until admin switches agents to kit v2, agent routes refuse every kit-v2
+ * flyer exactly like an unknown template, so a direct URL reveals nothing.
+ * Once switched: English kit v2 (Spanish only with its switch), rendered only
+ * through renderNopV2ForAgent, and kit v1.1.1 refused. The flyer settings and
+ * kit-v2 previews are admin-only.
  */
 
-const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], admins: new Set(["admin"]), saved: [] as unknown[] }))
+const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[] }))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => !!sub && s.admins.has(sub) }))
 vi.mock("@/lib/enterprise/nop-render/kit-v2-access", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/nop-render/kit-v2-access")>()),
@@ -19,7 +20,7 @@ vi.mock("@/lib/enterprise/nop-render/agent-context", () => ({
   loadNopAgent: async () => ({ agentId: "858980", profile: { orgId: "nop", name: "Pat", displayName: "Pat", displayPhone: "1", displayEmail: "a@x.test" }, status: "active", active: true }),
   nopStatusMessageKey: () => "dash.status_missing",
 }))
-vi.mock("@/lib/enterprise/nop-render/log", () => ({ logNopRender: async () => {} }))
+vi.mock("@/lib/enterprise/nop-render/log", () => ({ logNopRender: async (e: unknown) => { s.logged.push(e) } }))
 vi.mock("@/lib/enterprise/nop-render/thumb-cache", () => ({ getCachedThumb: async () => null, setCachedThumb: async () => {}, thumbCacheKey: () => "k" }))
 vi.mock("@/lib/enterprise/nop-render/render", () => ({
   NOP_DOWNLOAD_FORMATS: ["print", "home", "social"],
@@ -28,10 +29,15 @@ vi.mock("@/lib/enterprise/nop-render/render", () => ({
 }))
 vi.mock("@/lib/enterprise/nop-render/render-v2", () => ({
   renderNopV2: async (t: string) => (s.rendered.push(t), { body: Buffer.from("x"), contentType: "application/pdf", pagePoints: { w: 612, h: 792 }, usedFonts: [], ms: 1 }),
+  renderNopV2ForAgent: async (t: string, size: string, values: Record<string, string>, output: string) => (
+    s.rendered.push(`${t}:${size}:${output}`), s.values.push(values),
+    { body: Buffer.from("x"), contentType: output === "pdf" ? "application/pdf" : output === "thumb" ? "image/jpeg" : "image/png", pagePoints: { w: 612, h: 792 }, usedFonts: [], ms: 1, qr: "https://oneflyer.org/a/AAAAAAA" }
+  ),
 }))
+vi.mock("@/lib/enterprise/agents-store", async (orig) => ({ ...(await orig<typeof import("@/lib/enterprise/agents-store")>()), getAgentIdOwner: async (id: string) => (id === "858980" ? "agent@x.test" : null) }))
 vi.mock("@/lib/enterprise/nop-i18n/server", () => ({ nopLangForRequest: async () => "en" }))
 
-beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.saved.length = 0 })
+beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0 })
 afterEach(() => vi.unstubAllEnvs())
 
 async function cookie(sub: string) {
@@ -49,22 +55,44 @@ const thumb = () => import("@/app/api/enterprise/nop/thumbnail/[template]/route"
 const check = () => import("@/app/api/admin/enterprise/nop/render-check/route")
 const settings = () => import("@/app/api/admin/enterprise/nop/flyer-settings/route")
 
-describe("agents can't reach kit v2", () => {
-  it.each(["NOP2_P1_EN_PRICE", "NOP2_P2_EN_NOPRICE", "NOP2_P1_ES_PRICE", "NOP2_P3_ES_NOPRICE"])("%s: render and thumbnail answer 404 unknown_template, nothing rendered", async (id) => {
-    for (const settingsNow of [{ agentKit: "v1", spanishV2: false }, { agentKit: "v2", spanishV2: true }]) {
-      s.settings = settingsNow
-      for (const fmt of ["preview", "print", "home", "thumb"]) {
-        const r = await call(render, "GET", `/api/enterprise/nop/render/${id}?format=${fmt}`, "agent@x.test", { template: id })
-        expect(r.status).toBe(404)
-        expect(r.json.error).toBe("unknown_template")
-      }
-      expect((await call(thumb, "GET", `/api/enterprise/nop/thumbnail/${id}`, "agent@x.test", { template: id })).status).toBe(404)
+describe("agents and kit v2", () => {
+  it.each(["NOP2_P1_EN_PRICE", "NOP2_P2_EN_NOPRICE", "NOP2_P1_ES_PRICE", "NOP2_P3_ES_NOPRICE"])("%s: while agents are on kit v1.1.1, render and thumbnail answer 404 unknown_template, nothing rendered", async (id) => {
+    for (const fmt of ["preview", "print", "home", "thumb"]) {
+      const r = await call(render, "GET", `/api/enterprise/nop/render/${id}?format=${fmt}`, "agent@x.test", { template: id })
+      expect(r.status).toBe(404)
+      expect(r.json.error).toBe("unknown_template")
     }
+    expect((await call(thumb, "GET", `/api/enterprise/nop/thumbnail/${id}`, "agent@x.test", { template: id })).status).toBe(404)
     expect(s.rendered).toEqual([])
   })
 
-  it("kit v1.1.1 still works for agents (unchanged)", async () => {
+  it("kit v1.1.1 still works for agents while it's selected (unchanged)", async () => {
     expect((await call(render, "GET", "/api/enterprise/nop/render/NOP_P1_EN?format=print", "agent@x.test", { template: "NOP_P1_EN" })).status).toBe(200)
+  })
+
+  it("switched to v2: English kit v2 through the agent pipeline; print = bleed, home = Letter; no social; logged", async () => {
+    s.settings = { agentKit: "v2", spanishV2: false }
+    for (const [fmt, want] of [["print", "bleed:pdf"], ["home", "letter:pdf"], ["preview", "letter:preview"], ["thumb", "letter:thumb"]]) {
+      const r = await call(render, "GET", `/api/enterprise/nop/render/NOP2_P2_EN_PRICE?format=${fmt}`, "agent@x.test", { template: "NOP2_P2_EN_PRICE" })
+      expect(r.status, fmt).toBe(200)
+      expect(s.rendered.at(-1)).toBe(`NOP2_P2_EN_PRICE:${want}`)
+    }
+    // Only the roster-locked values reach the renderer; nothing from the request.
+    expect(s.values[0]).toEqual({ agentId: "858980", displayName: "Pat", displayPhone: "1", displayEmail: "a@x.test" })
+    expect(s.logged[0]).toMatchObject({ agentId: "858980", account: "agent@x.test", template: "NOP2_P2_EN_PRICE", format: "print", kitVersion: "v2 NOP-P2-EN · 10/2026" })
+    expect((await call(render, "GET", "/api/enterprise/nop/render/NOP2_P2_EN_PRICE?format=social", "agent@x.test", { template: "NOP2_P2_EN_PRICE" })).status).toBe(422)
+    expect((await call(thumb, "GET", "/api/enterprise/nop/thumbnail/NOP2_P2_EN_PRICE", "agent@x.test", { template: "NOP2_P2_EN_PRICE" })).status).toBe(200)
+  })
+
+  it("switched to v2: kit v1.1.1 and Spanish kit v2 (switch off) answer 404 like unknown templates", async () => {
+    s.settings = { agentKit: "v2", spanishV2: false }
+    for (const id of ["NOP_P1_EN", "NOP_ALL_ES", "NOP2_P1_ES_PRICE"]) {
+      expect((await call(render, "GET", `/api/enterprise/nop/render/${id}?format=print`, "agent@x.test", { template: id })).status, id).toBe(404)
+      expect((await call(thumb, "GET", `/api/enterprise/nop/thumbnail/${id}`, "agent@x.test", { template: id })).status, id).toBe(404)
+    }
+    expect(s.rendered).toEqual([])
+    s.settings = { agentKit: "v2", spanishV2: true }
+    expect((await call(render, "GET", "/api/enterprise/nop/render/NOP2_P1_ES_PRICE?format=print", "agent@x.test", { template: "NOP2_P1_ES_PRICE" })).status).toBe(200)
   })
 })
 
@@ -85,12 +113,20 @@ describe("admin-only kit-v2 tools", () => {
     expect(s.saved).toEqual([])
   })
 
-  it("Spanish starts off and can be switched by admin; agents can't be moved to v2 without an agent area", async () => {
-    expect((await call(settings, "GET", "/x", "admin")).json).toMatchObject({ spanishV2: false, agentKit: "v1", agentAreaReady: false })
+  it("Spanish starts off and can be switched by admin; admin can now move agents to kit v2", async () => {
+    expect((await call(settings, "GET", "/x", "admin")).json).toMatchObject({ spanishV2: false, agentKit: "v1", agentAreaReady: true })
     expect((await call(settings, "POST", "/x", "admin", undefined, { spanishV2: true })).status).toBe(200)
-    expect(s.saved).toEqual([{ spanishV2: true, agentKit: undefined }])
-    const r = await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })
-    expect(r.status).toBe(409)
-    expect(r.json.error).toBe("agent_area_missing")
+    expect((await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })).status).toBe(200)
+    expect(s.saved).toEqual([{ spanishV2: true, agentKit: undefined }, { spanishV2: undefined, agentKit: "v2" }])
+  })
+
+  it("render-check as a real agent: that agent's own file, every release check, logged under the admin", async () => {
+    const r = await call(check, "GET", "/api/admin/enterprise/nop/render-check?template=NOP2_P1_EN_PRICE&format=bleed&agentId=858980", "admin")
+    expect(r.status).toBe(200)
+    expect(s.rendered).toEqual(["NOP2_P1_EN_PRICE:bleed:pdf"])
+    expect(s.values[0]).toEqual({ agentId: "858980", displayName: "Pat", displayPhone: "1" })
+    expect(s.logged[0]).toMatchObject({ agentId: "858980", account: "admin:admin", format: "print", kitVersion: "v2 NOP-P1-EN · 10/2026" })
+    expect((await call(check, "GET", "/api/admin/enterprise/nop/render-check?template=NOP2_P1_EN_PRICE&format=letter&agentId=111111", "admin")).status).toBe(404)
+    expect((await call(check, "GET", "/api/admin/enterprise/nop/render-check?template=NOP2_P1_EN_PRICE&format=letter&agentId=858980", "agent@x.test")).status).toBe(401)
   })
 })
