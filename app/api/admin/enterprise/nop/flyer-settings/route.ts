@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const live = await checkEnrollDomain(domain)
     if (!live.ok) {
       const failed = live.checks.filter((c) => !c.ok).map((c) => `${c.url} (${c.error ?? `HTTP ${c.status}`})`).join(", ")
-      return NextResponse.json({ error: "enroll_url_not_loading", message: `Not switched: the enrollment URL doesn't load right now: ${failed}. Confirm the URL with Basic Benefits and set the enrollment domain first.`, checks: live.checks }, { status: 409 })
+      return NextResponse.json({ error: "enroll_url_not_loading", message: `Not switched: the enrollment URL doesn't load right now: ${failed}. Confirm the URL with the Neighborhood Outreach Program and set the enrollment domain first.`, checks: live.checks }, { status: 409 })
     }
   }
   const settings = await setNopFlyerSetting({ spanishV2: body.spanishV2 as boolean | undefined, agentKit: body.agentKit as "v1" | "v2" | undefined })
