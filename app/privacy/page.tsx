@@ -19,7 +19,7 @@ export const metadata = { title: "Privacy Policy", alternates: { canonical: "/pr
 // dashboard or by admin).
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="3 November 2026">
+    <LegalPage title="Privacy Policy" updated="9 November 2026">
       <p>
         OneFlyer is run by a small team. This page describes what we actually store and who
         actually sees it — not what a generic template says a company might do.
@@ -166,6 +166,124 @@ export default function PrivacyPage() {
         see how its marketing performs. Scan counts are not linked to your name or contact
         details.
       </p>
+
+      <H2 id="agent-pages">Information collected on agent pages</H2>
+      <p>
+        Some organizations use OneFlyer to give their agents personalized flyers and pages. This
+        section covers the Neighborhood Outreach Program&apos;s agents.
+      </p>
+      <p>
+        <strong>Scans.</strong> An agent&apos;s flyer may carry a QR code that opens a short
+        OneFlyer link, which takes you to the program&apos;s enrollment page. When it&apos;s
+        scanned, we count the scan for that agent. We record only that a scan happened and the
+        month it happened in. We don&apos;t record who scanned it, your IP address, or your device.
+      </p>
+      <p>
+        <strong>The contact forms.</strong> Some agents have a OneFlyer page with a form to ask
+        them to contact you: either the page their flyer&apos;s QR code opens, or their personal
+        page (oneflyer.org/p/…). If you submit one, we collect what you enter (your name, phone
+        number, and optionally your email address and a message), the date and time, the language
+        the page was shown in, and the exact consent statement you agreed to by checking the box,
+        with the agent&apos;s name as it was shown.
+      </p>
+      <p>
+        <strong>Who receives it.</strong> Your request goes to the agent whose flyer or page you
+        used, so they can contact you about health benefit options by phone call, text message, or
+        email, as the consent statement says. We email the agent to tell them a new request has
+        arrived. The program&apos;s administrator can also see agents&apos; requests and totals, to
+        run the program, and authorized OneFlyer staff can see them to run and support the service.
+        We don&apos;t sell your information, share it with other agents or businesses, or use it
+        for our own marketing.
+      </p>
+      <p>
+        <strong>If an agent&apos;s account changes.</strong> Requests are kept with the agent&apos;s
+        program ID rather than a personal login. If an agent&apos;s ID is reassigned or corrected,
+        OneFlyer staff may move the requests to the correct ID. Every such move is recorded.
+      </p>
+      <p>
+        <strong>How the agent uses it.</strong> The agent and the program are responsible for how
+        they contact you after they receive your request. To stop hearing from them, reply STOP to
+        a text, or tell the agent or the program.
+      </p>
+      <p>
+        <strong>Spam prevention.</strong> To prevent automated abuse, we briefly use your IP
+        address to limit repeated submissions. It isn&apos;t stored with your request.
+      </p>
+      <p>
+        <strong>How long we keep it.</strong> We keep a request while the agent is active in the
+        program. If the agent leaves the program, their requests are deleted automatically 12 months
+        after the date they left. We delete a request sooner if you ask us to, or if the program
+        asks us to.
+      </p>
+      <p>
+        <strong>Your choices.</strong> To have a request you made deleted, contact us through our{" "}
+        <a href="/contact" className="text-[var(--brand-teal-bright)] hover:underline">Contact page</a>{" "}
+        at oneflyer.org/contact and we&apos;ll remove it. You can also ask the agent or the
+        program. Deleting it from OneFlyer doesn&apos;t delete any copy the agent already made, for
+        example in their phone or email.
+      </p>
+
+      <div lang="es" className="flex flex-col gap-4">
+        <H2 id="agent-pages-es">Información recopilada en las páginas de agentes</H2>
+        <p>
+          Algunas organizaciones usan OneFlyer para dar a sus agentes volantes y páginas
+          personalizados. Esta sección se refiere a los agentes del Neighborhood Outreach Program.
+        </p>
+        <p>
+          <strong>Escaneos.</strong> El volante de un agente puede tener un código QR que abre un
+          enlace corto de OneFlyer, que lo lleva a la página de inscripción del programa. Cuando se
+          escanea, contamos el escaneo para ese agente. Solo registramos que hubo un escaneo y el
+          mes en que ocurrió. No registramos quién lo escaneó, su dirección IP ni su dispositivo.
+        </p>
+        <p>
+          <strong>Los formularios de contacto.</strong> Algunos agentes tienen una página de
+          OneFlyer con un formulario para pedirles que lo contacten: la página que abre el código QR
+          de su volante, o su página personal (oneflyer.org/p/…). Si usted envía uno, recopilamos
+          lo que escribe (su nombre, su número de teléfono y, si lo desea, su correo electrónico y
+          un mensaje), la fecha y la hora, el idioma en que se mostró la página y la declaración de
+          consentimiento exacta que aceptó al marcar la casilla, con el nombre del agente tal como
+          se mostró.
+        </p>
+        <p>
+          <strong>Quién la recibe.</strong> Su solicitud llega al agente cuyo volante o página usó,
+          para que pueda contactarlo sobre opciones de beneficios de salud por llamada telefónica,
+          mensaje de texto o correo electrónico, como indica la declaración de consentimiento. Le
+          enviamos un correo al agente para avisarle que llegó una nueva solicitud. El administrador
+          del programa también puede ver las solicitudes y los totales de los agentes, para
+          administrar el programa, y el personal autorizado de OneFlyer puede verlas para operar el
+          servicio y dar soporte. No vendemos su información, no la compartimos con otros agentes ni
+          negocios, ni la usamos para nuestro propio mercadeo.
+        </p>
+        <p>
+          <strong>Si cambia la cuenta de un agente.</strong> Las solicitudes se guardan con el
+          número de agente del programa, no con un inicio de sesión personal. Si el número de un
+          agente se reasigna o se corrige, el personal de OneFlyer puede pasar las solicitudes al
+          número correcto. Cada uno de esos cambios queda registrado.
+        </p>
+        <p>
+          <strong>Cómo la usa el agente.</strong> El agente y el programa son responsables de cómo
+          lo contactan después de recibir su solicitud. Para dejar de recibir sus mensajes, responda
+          STOP a un mensaje de texto, o avísele al agente o al programa.
+        </p>
+        <p>
+          <strong>Prevención de spam.</strong> Para evitar abusos automatizados, usamos brevemente
+          su dirección IP para limitar envíos repetidos. No se guarda con su solicitud.
+        </p>
+        <p>
+          <strong>Cuánto tiempo la guardamos.</strong> Guardamos una solicitud mientras el agente
+          esté activo en el programa. Si el agente deja el programa, sus solicitudes se eliminan
+          automáticamente 12 meses después de la fecha en que salió. Eliminamos una solicitud antes
+          si usted nos lo pide, o si el programa nos lo pide.
+        </p>
+        <p>
+          <strong>Sus opciones.</strong> Para que eliminemos una solicitud que usted hizo,
+          comuníquese con nosotros desde nuestra{" "}
+          <a href="/contact" className="text-[var(--brand-teal-bright)] hover:underline">página de contacto</a>{" "}
+          en oneflyer.org/contact y la eliminaremos. También puede pedírselo al agente o al
+          programa. Eliminarla de OneFlyer no elimina las copias que el agente ya haya hecho, por
+          ejemplo en su teléfono o su correo.
+        </p>
+      </div>
 
       <H2>How long we keep things</H2>
       <p>

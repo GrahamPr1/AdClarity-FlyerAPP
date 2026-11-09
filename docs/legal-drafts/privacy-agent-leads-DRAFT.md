@@ -1,7 +1,8 @@
 # DRAFT — Privacy Policy: agent pages (English and Spanish)
 
-> **Status: final text for review. Nothing on the live Privacy Policy
-> (`app/privacy/page.tsx`) has been changed.**
+> **Status: APPROVED and published in `app/privacy/page.tsx` (9 November 2026),
+> English and Spanish, with the deletion job live. This file is the record;
+> the page is the source of truth.**
 >
 > Publish both versions together, in the deploy that makes lead capture live:
 > the same deploy switches the 12-month deletion job from dry run to live

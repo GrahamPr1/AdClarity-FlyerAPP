@@ -25,8 +25,18 @@ describe("Privacy Policy", () => {
     expect(html).not.toContain("closes its OneFlyer account")
   })
 
-  it("is dated 3 November 2026", () => {
-    expect(html).toContain("Last updated 3 November 2026")
+  it("is dated 9 November 2026 (agent pages added)", () => {
+    expect(html).toContain("Last updated 9 November 2026")
+  })
+
+  it("has the agent-pages sections in English and Spanish, with the anchors the consent links to", () => {
+    const raw = renderToStaticMarkup(PrivacyPage())
+    expect(raw).toContain('id="agent-pages"')
+    expect(raw).toContain('id="agent-pages-es"')
+    expect(html).toContain("Information collected on agent pages")
+    expect(html).toContain("Información recopilada en las páginas de agentes")
+    expect(html).toContain("deleted automatically 12 months after the date they left")
+    expect(html).not.toContain("Basic Benefits")
   })
 })
 

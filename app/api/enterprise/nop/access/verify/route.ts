@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
   const roster = state.agentId ? await getRosterRecord(state.agentId) : null
   const stillHeld = state.account && state.agentId && (await getAgentIdOwner(state.agentId)) === state.account
     && (await getAccountAgentId(state.account)) === state.agentId
-  if (!roster || !stillHeld || roster.rosterEmail !== state.sendTo) {
+  // Removed from the program while the code was on its way: no sign-in.
+  if (!roster || !stillHeld || roster.rosterEmail !== state.sendTo || roster.status === "terminated") {
     const res = fail(lang, 409, "no_registration", "err.expired")
     clearFlowCookie(res)
     return res

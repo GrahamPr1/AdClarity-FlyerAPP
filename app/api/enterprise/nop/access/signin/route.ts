@@ -53,9 +53,9 @@ export async function POST(request: NextRequest) {
   const now = Date.now()
   const agent = await resolveAgent(typed)
   const found = agent ? await getRosterRecord(agent.agentId) : null
-  // A self sign-up waiting for approval gets the same reply as no account:
-  // otherwise signing in would tell a stranger their sign-up claimed the ID.
-  const roster = isPendingSelfSignup(found) ? null : found
+  // A self sign-up waiting for approval, and an agent removed from the
+  // program (terminated), get the same reply as no account and no code.
+  const roster = isPendingSelfSignup(found) || found?.status === "terminated" ? null : found
 
   // A capped real agent gets the neutral reply too: a distinct "daily
   // limit" error would tell a stranger this email belongs to an agent.

@@ -67,6 +67,8 @@ export default function AdminAgentPage() {
         </div>
       </section>
 
+      <ProgramMembership data={data} onChange={() => void mutate()} />
+
       <section className="mt-6">
         <h2 className="font-medium">Recent activity</h2>
         <ul className="mt-2 divide-y divide-border rounded-xl border border-border text-sm">
@@ -82,5 +84,61 @@ export default function AdminAgentPage() {
         </ul>
       </section>
     </div>
+  )
+}
+
+/**
+ * Remove from program (terminated: no sign-in, no flyers or Pro features, QR to the
+ * program's page, and the 12-month lead deletion clock starts) and its Undo. Logged.
+ */
+function ProgramMembership({ data, onChange }: { data: AgentDetail; onChange: () => void }) {
+  const [confirm, setConfirm] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—")
+  async function act(action: "remove" | "reactivate") {
+    setBusy(true)
+    setMsg(null)
+    const res = await fetch(`/api/admin/enterprise/agents/${encodeURIComponent(data.email)}/program`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) })
+    const body = await res.json().catch(() => ({}))
+    setBusy(false)
+    setConfirm(false)
+    setMsg(res.ok ? (action === "remove" ? "Removed from the program." : `Reactivated (${body.status}).`) : body.message ?? "Couldn't save.")
+    onChange()
+  }
+  return (
+    <section className="mt-6 rounded-xl border border-border bg-card p-5 text-sm" data-testid="program-membership">
+      <h2 className="font-medium">Program membership</h2>
+      {data.removal ? (
+        <>
+          <p className="mt-1">
+            <strong>Removed from the program</strong> on {day(data.removal.at)}{data.removal.by ? ` by ${data.removal.by}` : ""}. They can&apos;t sign in or use anything,
+            and their QR goes to the program&apos;s page. Their leads will be deleted on {day(data.removal.deleteAfter)} unless they&apos;re reactivated.
+          </p>
+          <button type="button" data-testid="program-reactivate" disabled={busy} onClick={() => void act("reactivate")} className="mt-3 min-h-11 rounded-lg border border-border px-4 font-medium disabled:opacity-50">
+            Undo: reactivate
+          </button>
+        </>
+      ) : !confirm ? (
+        <>
+          <p className="mt-1 text-muted-foreground">Removing stops sign-in and every feature, sends their QR to the program&apos;s page, and starts the 12-month countdown to deleting their leads. Undo restores everything.</p>
+          <button type="button" data-testid="program-remove" disabled={busy} onClick={() => setConfirm(true)} className="mt-3 min-h-11 rounded-lg border border-red-300 px-4 font-medium text-red-700 disabled:opacity-50 dark:border-red-800 dark:text-red-400">
+            Remove from program
+          </button>
+        </>
+      ) : (
+        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-red-300 bg-red-50 p-3 text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-100">
+          <span>Remove {data.name} (Agent ID {data.agentId}) from the program?</span>
+          <button type="button" data-testid="program-remove-confirm" disabled={busy} onClick={() => void act("remove")} className="min-h-11 rounded-lg border border-border bg-background px-3 font-medium">Yes, remove</button>
+          <button type="button" onClick={() => setConfirm(false)} className="min-h-11 rounded-lg px-3">Cancel</button>
+        </div>
+      )}
+      {msg && <p role="status" className="mt-2 text-muted-foreground">{msg}</p>}
+      {data.programLog.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1 text-muted-foreground" data-testid="program-log">
+          {data.programLog.map((l) => <li key={l.at}>{new Date(l.at).toLocaleString()}: {l.action === "remove" ? "removed" : `reactivated (${l.status})`} by {l.admin}</li>)}
+        </ul>
+      )}
+    </section>
   )
 }

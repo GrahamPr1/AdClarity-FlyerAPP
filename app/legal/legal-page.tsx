@@ -25,8 +25,8 @@ export function LegalPage({ title, updated, children }: { title: string; updated
   )
 }
 
-export function H2({ children }: { children: ReactNode }) {
-  return <h2 className="mt-4 text-base text-foreground">{children}</h2>
+export function H2({ children, id, lang }: { children: ReactNode; id?: string; lang?: string }) {
+  return <h2 id={id} lang={lang} className="mt-4 scroll-mt-20 text-base text-foreground">{children}</h2>
 }
 
 export function UL({ children }: { children: ReactNode }) {
