@@ -2,6 +2,8 @@ import { Redis } from "@upstash/redis"
 import type { AgentFlag, AgentProfile, EnterpriseOrg, RosterRecord } from "@/lib/types"
 import { deleteAgentProfile, getAgentProfile, getEnterpriseOrg, saveAgentProfile, saveEnterpriseOrg } from "@/lib/store"
 import { NOP_ORG_ID, NOP_ORG_NAME, isGenerationStatus, qrDestinationFor } from "./nop-roster"
+import { getEnrollDomain } from "./nop-enroll-domain"
+import { FOOTER_SPACE_PX, footerNameWidth, nameFitsKitV2Footer } from "./nop-render/footer-fit"
 import { clearRetentionClock, startRetentionClock } from "./portal/retention"
 
 // Redis layer for locked-agent registration. Additive: none of these keys
@@ -214,16 +216,21 @@ export async function adminReassignAgentId(agentId: string, expectedOwner: strin
     displayName: roster.agentName,
     displayPhone: roster.rosterPhone,
     displayEmail: roster.rosterEmail,
-  }))
+  }, await getEnrollDomain()))
   return { ok: true }
 }
 
 // ---- Profile ----------------------------------------------------------------
 
-/** System fields from the roster; only the display fields come from the agent. */
+/**
+ * System fields from the roster; only the display fields come from the agent.
+ * qrDestination is a snapshot for the record; every page and route reads the
+ * live enrollment domain setting instead.
+ */
 export function buildAgentProfile(
   roster: RosterRecord,
   display: { displayName: string; displayPhone: string; displayEmail: string },
+  domain: string,
 ): Omit<AgentProfile, "savedAt"> {
   return {
     name: display.displayName,
@@ -232,13 +239,22 @@ export function buildAgentProfile(
     email: display.displayEmail,
     headshotUrl: null,
     licenseStates: [],
-    qrDestination: qrDestinationFor(roster.agentId),
+    qrDestination: qrDestinationFor(roster.agentId, domain),
     orgId: NOP_ORG_ID,
     agentId: roster.agentId,
     referralCode: roster.referralCode,
     companyName: roster.companyName,
     ...display,
   }
+}
+
+/**
+ * Flags (for the admin) a display name that may not fit the kit-v2 footer.
+ * The agent isn't stopped: their kit-v2 download is what refuses it.
+ */
+export async function flagNameIfTooLongForFooter(agentId: string, account: string, displayName: string): Promise<void> {
+  if (nameFitsKitV2Footer(displayName)) return
+  await addAgentFlag({ type: "name_too_long_for_footer", agentId, account, nameWidthPx: Math.round(footerNameWidth(displayName)), spacePx: Math.floor(FOOTER_SPACE_PX) })
 }
 
 /** True when this account holds a NOP Agent ID. Drives the SMB generation guard. */

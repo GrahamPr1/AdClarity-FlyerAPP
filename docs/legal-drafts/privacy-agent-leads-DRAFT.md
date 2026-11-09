@@ -1,5 +1,7 @@
-# DRAFT — Privacy Policy: agent lead pages (NOP Phase 2)
+# DRAFT — Privacy Policy: agent lead pages (NOP Phases 2–3)
 
+> **Publish only when lead capture goes live, together with the 12-month deletion job and a reviewed Spanish version.**
+>
 > **Status: for review. Nothing on the live Privacy Policy (`app/privacy/page.tsx`) has been changed.**
 > The **Scans** paragraph applies as soon as the OneFlyer QR link reaches production.
 > The rest applies once a lead form is live: the QR lead page is switched on for the
@@ -16,7 +18,7 @@ Proposed new section, placed after **"Information collected on offer pages"**:
 
 ## Information collected on agent pages
 
-Some organizations use OneFlyer to give their independent agents personalized flyers.
+Some organizations use OneFlyer to give their agents personalized flyers.
 An agent's flyer may carry a QR code that opens a short OneFlyer link, which takes
 you to the organization's enrollment page.
 
@@ -29,15 +31,15 @@ with a button to enroll and a form to ask the agent to contact you. If you submi
 that form, we collect the information you enter (your name, phone
 number, and optionally your email address and a message), the date and time of your
 submission, the language the page was shown in, and the exact consent statement you
-agreed to by ticking the box.
+agreed to by ticking the box. Some agents also have a personal OneFlyer page
+(oneflyer.org/p/…) with the same form; what you submit there is collected and handled
+exactly as described in this section.
 
-**Who receives it.** Your information goes to the agent whose flyer you scanned, so they
-can contact you. We email the agent to tell them a new request has arrived. OneFlyer
+**Who receives it.** Your information goes to the agent whose flyer you scanned or whose
+page you visited, so they can contact you. We email the agent to tell them a new request has arrived. OneFlyer
 stores and delivers it on the agent's and their organization's behalf. Authorized
-OneFlyer staff can see it to run and support the service.
-[CHECK: Basic Benefits staff have no access today, not even to totals; only OneFlyer
-admins see per-agent totals. If Basic Benefits are given access, this sentence must
-name them.] We do not sell your information, share it
+OneFlyer staff can see it to run and support the service. The organization's own
+staff do not have access to it. We do not sell your information, share it
 with other agents or businesses, or use it for our own marketing.
 
 **If an agent's account changes.** Requests are kept with the agent's program ID
@@ -77,13 +79,11 @@ copy the agent already made, for example in their phone or email.
    than the deploy that adds the job, or state the gap. [CHECK]
 2. **"Left the program" (decided).** Only *terminated* or *removed from the roster*
    starts the 12-month clock. *Suspended* and *pending* don't.
-3. **Who at the organization can see requests.** Today: the agent, plus OneFlyer
-   admins. Basic Benefits staff have no access (the admin page is OneFlyer only, per
-   your decision 5). The brief's "the org can see totals" is met only through OneFlyer
-   admin for now. Confirm that's the intended rule. [CHECK]
+3. **Who at the organization can see requests (decided for now).** None. Only the
+   agent and OneFlyer admins. If Basic Benefits staff are ever given access, the
+   "Who receives it" paragraph must name them before that access goes live.
 4. **Consent wording.** The policy quotes no consent text. The form shows Basic
    Benefits' approved statement verbatim and stores it with each request. Confirm
    their statement is consistent with this section.
-5. **Spanish.** The live Privacy Policy is English only. The agent pages are bilingual.
-   Decide whether a Spanish version of this section is needed (it would need a
-   reviewed translation, not a machine one).
+5. **Spanish (decided).** A reviewed Spanish version (not a machine translation) is
+   published together with this section. Not built yet.

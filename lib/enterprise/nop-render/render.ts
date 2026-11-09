@@ -2,7 +2,6 @@ import type { BrowserContext, Page } from "playwright-core"
 import QRCode from "qrcode"
 import { acquireBrowser } from "@/lib/pdf/flyer-pdf"
 import {
-  enrollUrl,
   priceValues,
   readKitContent,
   readKitFileBase64,
@@ -13,7 +12,8 @@ import {
 } from "./kit"
 import { decodeQrFromPng } from "./qr-gate"
 import { getRosterRecord } from "@/lib/enterprise/agents-store"
-import { nopQrLink, nopQrTarget } from "@/lib/enterprise/nop-roster"
+import { nopQrLink, nopQrTarget, qrDestinationFor } from "@/lib/enterprise/nop-roster"
+import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
 import { agentIdForQrCode, getOrIssueAgentQrCode } from "@/lib/enterprise/nop-qr-code"
 
 // Renders Basic Benefits' NOP masters with an agent's details. No AI, no
@@ -77,14 +77,15 @@ function masterWithInlineFonts(id: NopTemplateId): string {
   return out
 }
 
-function textValues(content: KitContent, id: NopTemplateId, agent: NopAgentValues): Record<string, string> {
+/** `domain` is the enrollment domain setting: the printed address and the QR's forward come from the same value. */
+function textValues(content: KitContent, id: NopTemplateId, agent: NopAgentValues, domain: string): Record<string, string> {
   return {
     agent_name: agent.displayName,
     agent_phone: agent.displayPhone,
     agent_email: agent.displayEmail,
     agent_id: agent.agentId,
     agent_slug: agent.agentId,
-    enroll_domain: content.enroll_domain,
+    enroll_domain: `${domain}/`,
     version_stamp: versionStamp(content, id),
     ...priceValues(content, id),
   }
@@ -258,12 +259,12 @@ export function gate(decoded: string | null, expected: string) {
  * ID, and the link's live destination (the rule app/a/[code] follows) is the
  * enrollment URL. Issues the code on the agent's first flyer.
  */
-export async function checkedQrLink(agentId: string, enrollment: string): Promise<string> {
+export async function checkedQrLink(agentId: string, enrollment: string, domain: string): Promise<string> {
   const code = await getOrIssueAgentQrCode(agentId)
   const link = nopQrLink(code)
   const owner = await agentIdForQrCode(code)
   if (owner !== agentId) throw new NopRenderError("qr_mismatch", `${link} belongs to ${owner}, expected ${agentId}`)
-  const target = nopQrTarget(owner, await getRosterRecord(owner))
+  const target = nopQrTarget(owner, await getRosterRecord(owner), domain)
   if (target !== enrollment) throw new NopRenderError("qr_mismatch", `${link} forwards to ${target}, expected ${enrollment}`)
   return link
 }
@@ -275,7 +276,8 @@ export async function checkedQrLink(agentId: string, enrollment: string): Promis
 export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, format: NopFormat): Promise<NopRendered> {
   const t0 = Date.now()
   const content = readKitContent()
-  const expected = await checkedQrLink(agent.agentId, enrollUrl(content, agent.agentId))
+  const domain = await getEnrollDomain()
+  const expected = await checkedQrLink(agent.agentId, qrDestinationFor(agent.agentId, domain), domain)
   const dsf = format === "social" ? SOCIAL.w / DIGITAL_BASE_W : format === "preview" ? 1 : format === "thumb" ? THUMB_DSF : 2
   const { page, close } = await newPage(dsf)
   try {
@@ -283,7 +285,7 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
     if (format === "social") await toDigitalLayout(page)
     if (format === "home") await toHomeLayout(page)
 
-    await inject(page, textValues(content, id, agent), readKitFileBase64(content.default_logo), await qrSvg(expected))
+    await inject(page, textValues(content, id, agent, domain), readKitFileBase64(content.default_logo), await qrSvg(expected))
     await assertFonts(page)
     const tooWide = await fitAndCheck(page)
     if (tooWide.length) {
@@ -419,7 +421,7 @@ export async function inspectNopFlyer(id: NopTemplateId, agent: NopAgentValues):
   const { page, close } = await newPage(1)
   try {
     await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
-    await inject(page, textValues(content, id, agent), readKitFileBase64(content.default_logo), await qrSvg(nopQrLink(await getOrIssueAgentQrCode(agent.agentId))))
+    await inject(page, textValues(content, id, agent, await getEnrollDomain()), readKitFileBase64(content.default_logo), await qrSvg(nopQrLink(await getOrIssueAgentQrCode(agent.agentId))))
     await assertFonts(page)
     const tooWide = await fitAndCheck(page)
     const measured = await page.evaluate(() => {

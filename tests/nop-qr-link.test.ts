@@ -43,19 +43,25 @@ describe("the QR code and link", () => {
     expect(seen.size).toBe(NOP_QR_ALPHABET.length)
   })
 
+  const D = "neighbor.basicbenefits.com"
   it("forwards an active agent to exactly the enrollment URL the QR used to encode", () => {
-    expect(nopQrTarget("858980", { status: "active" })).toBe("https://neighbor.basicbenefits.com/858980")
-    expect(nopQrTarget("858980", { status: "active" })).toBe(qrDestinationFor("858980"))
+    expect(nopQrTarget("858980", { status: "active" }, D)).toBe("https://neighbor.basicbenefits.com/858980")
+    expect(nopQrTarget("858980", { status: "active" }, D)).toBe(qrDestinationFor("858980", D))
+  })
+
+  it("follows the enrollment domain it's given (the admin setting)", () => {
+    expect(nopQrTarget("858980", { status: "active" }, "join.basicbenefits.com")).toBe("https://join.basicbenefits.com/858980")
+    expect(nopQrTarget("858980", { status: "suspended" }, "join.basicbenefits.com")).toBe("https://join.basicbenefits.com/")
   })
 
   it.each<[string, AgentRosterStatus | null]>([["pending", "pending"], ["suspended", "suspended"], ["terminated", "terminated"], ["no roster record", null]])(
     "forwards %s to the program's enrollment page", (_l, status) => {
-      expect(nopQrTarget("858980", status ? { status } : null)).toBe("https://neighbor.basicbenefits.com/")
+      expect(nopQrTarget("858980", status ? { status } : null, D)).toBe("https://neighbor.basicbenefits.com/")
     })
 
   it("an unknown code, or anything that isn't an Agent ID, goes to the program's page", () => {
-    expect(nopQrTarget(null, null)).toBe(programEnrollmentUrl())
-    expect(nopQrTarget("858980/../evil", { status: "active" })).toBe(programEnrollmentUrl())
+    expect(nopQrTarget(null, null, D)).toBe(programEnrollmentUrl(D))
+    expect(nopQrTarget("858980/../evil", { status: "active" }, D)).toBe(programEnrollmentUrl(D))
   })
 })
 

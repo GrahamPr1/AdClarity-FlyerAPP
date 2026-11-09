@@ -8,6 +8,7 @@ import type { AdminAgentView } from "@/lib/enterprise/portal/store"
 import type { AgentFeature, AgentTier } from "@/lib/enterprise/portal/features"
 import { NOP_V2_TEMPLATES } from "@/lib/enterprise/nop-render/kit-v2-ids"
 import { AdminApprovedText, AdminAgentDataMove, AdminLeadDeletion } from "@/components/admin-nop-agent-data"
+import { AdminEnrollDomain } from "@/components/admin-nop-enroll-domain"
 
 // /admin/enterprise/agents: every agent account, by org; each org's Pro/Leader
 // feature switches; and the log of admin views of agent accounts. The admin
@@ -79,6 +80,8 @@ export default function AdminAgentsPage() {
           </div>
         ))}
       </section>
+
+      <AdminEnrollDomain />
 
       <section className="mt-6 rounded-xl border border-border bg-card p-5" data-testid="nop-flyer-settings">
         <h2 className="text-lg">NOP flyers</h2>

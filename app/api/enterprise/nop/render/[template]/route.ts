@@ -6,6 +6,7 @@ import { isNopTemplate, readKitContent } from "@/lib/enterprise/nop-render/kit"
 import { agentMaySeeTemplate, getNopFlyerSettings } from "@/lib/enterprise/nop-render/kit-v2-access"
 import { isNopV2Template, v2VersionStamp } from "@/lib/enterprise/nop-render/kit-v2"
 import { renderNopV2ForAgent } from "@/lib/enterprise/nop-render/render-v2"
+import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
 import { NOP_DOWNLOAD_FORMATS, NopRenderError, renderNopFlyer, type NopFormat } from "@/lib/enterprise/nop-render/render"
 import { loadNopAgent, nopStatusMessageKey } from "@/lib/enterprise/nop-render/agent-context"
 import { logNopRender } from "@/lib/enterprise/nop-render/log"
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   // Dashboard thumbnails: served from the 7-day cache when every input is
   // unchanged; only a fresh render is logged (format "thumb").
-  const thumbKey = format === "thumb" ? thumbCacheKey(template, values) : null
+  const thumbKey = format === "thumb" ? thumbCacheKey(template, values, await getEnrollDomain()) : null
   if (thumbKey) {
     const cached = await getCachedThumb(thumbKey)
     if (cached) {

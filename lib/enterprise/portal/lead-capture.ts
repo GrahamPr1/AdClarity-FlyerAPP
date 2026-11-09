@@ -1,6 +1,7 @@
 import { getAgentIdOwner, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { nopQrTarget, qrDestinationFor } from "@/lib/enterprise/nop-roster"
 import { agentIdForQrCode } from "@/lib/enterprise/nop-qr-code"
+import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
 import type { NopLang } from "@/lib/enterprise/nop-i18n"
 import { canUse } from "./features"
 import { loadPortalContext } from "./context"
@@ -23,10 +24,10 @@ export type QrLanding =
   | { state: "lead_page"; agentId: string; agentName: string; enrollUrl: string; owner: string; orgId: string; agentLang: NopLang }
 
 export async function qrLanding(code: string): Promise<QrLanding> {
-  const agentId = await agentIdForQrCode(code)
-  if (!agentId) return { state: "forward", agentId: null, onRoster: false, target: nopQrTarget(null, null) }
+  const [agentId, domain] = await Promise.all([agentIdForQrCode(code), getEnrollDomain()])
+  if (!agentId) return { state: "forward", agentId: null, onRoster: false, target: nopQrTarget(null, null, domain) }
   const roster = await getRosterRecord(agentId)
-  const forward: QrLanding = { state: "forward", agentId, onRoster: !!roster, target: nopQrTarget(agentId, roster) }
+  const forward: QrLanding = { state: "forward", agentId, onRoster: !!roster, target: nopQrTarget(agentId, roster, domain) }
   if (roster?.status !== "active") return forward
   const owner = await getAgentIdOwner(agentId)
   if (!owner) return forward
@@ -36,7 +37,7 @@ export async function qrLanding(code: string): Promise<QrLanding> {
     state: "lead_page",
     agentId,
     agentName: ctx.agent.profile.displayName ?? ctx.agent.profile.name,
-    enrollUrl: qrDestinationFor(agentId),
+    enrollUrl: qrDestinationFor(agentId, domain),
     owner,
     orgId: ctx.orgId,
     agentLang: ctx.agent.profile.preferredLanguage ?? "en",

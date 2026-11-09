@@ -9,7 +9,8 @@ import { NextRequest } from "next/server"
  * kit-v2 previews are admin-only.
  */
 
-const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[] }))
+const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[], enrollOk: true as boolean | undefined }))
+vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com", checkEnrollDomain: async () => ({ ok: s.enrollOk ?? true, checks: [{ url: "https://neighbor.basicbenefits.com/858980", ok: s.enrollOk ?? true, status: null, error: s.enrollOk === false ? "the domain doesn't resolve (no DNS record)" : null }] }) }))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => !!sub && s.admins.has(sub) }))
 vi.mock("@/lib/enterprise/nop-render/kit-v2-access", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/nop-render/kit-v2-access")>()),
@@ -37,7 +38,7 @@ vi.mock("@/lib/enterprise/nop-render/render-v2", () => ({
 vi.mock("@/lib/enterprise/agents-store", async (orig) => ({ ...(await orig<typeof import("@/lib/enterprise/agents-store")>()), getAgentIdOwner: async (id: string) => (id === "858980" ? "agent@x.test" : null) }))
 vi.mock("@/lib/enterprise/nop-i18n/server", () => ({ nopLangForRequest: async () => "en" }))
 
-beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0 })
+beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0; s.enrollOk = true })
 afterEach(() => vi.unstubAllEnvs())
 
 async function cookie(sub: string) {
@@ -118,6 +119,17 @@ describe("admin-only kit-v2 tools", () => {
     expect((await call(settings, "POST", "/x", "admin", undefined, { spanishV2: true })).status).toBe(200)
     expect((await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })).status).toBe(200)
     expect(s.saved).toEqual([{ spanishV2: true, agentKit: undefined }, { spanishV2: undefined, agentKit: "v2" }])
+  })
+
+  it("refuses to switch agents to kit v2 while the enrollment URL doesn't load", async () => {
+    s.enrollOk = false
+    const r = await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })
+    expect(r.status).toBe(409)
+    expect(r.json.error).toBe("enroll_url_not_loading")
+    expect(r.json.message).toContain("https://neighbor.basicbenefits.com/858980")
+    expect(s.saved).toEqual([])
+    // Spanish and switching back to v1 aren't held up by it.
+    expect((await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v1" })).status).toBe(200)
   })
 
   it("render-check as a real agent: that agent's own file, every release check, logged under the admin", async () => {

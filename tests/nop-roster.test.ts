@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest"
+
+const D = "neighbor.basicbenefits.com"
 import {
   AGENT_ID_RE,
   expectedEnrollmentUrl,
@@ -35,10 +37,10 @@ describe("Agent ID format", () => {
 
 describe("QR destination", () => {
   it("is derived from the kit's enroll_domain, not the roster", () => {
-    expect(qrDestinationFor("858980")).toBe("https://neighbor.basicbenefits.com/858980")
+    expect(qrDestinationFor("858980", "neighbor.basicbenefits.com")).toBe("https://neighbor.basicbenefits.com/858980")
   })
   it("matches the URL the brief names for the mismatch flag", () => {
-    expect(expectedEnrollmentUrl("858981")).toBe("https://neighbor.basicbenefits.com/" + "858981")
+    expect(expectedEnrollmentUrl("858981", "neighbor.basicbenefits.com")).toBe("https://neighbor.basicbenefits.com/" + "858981")
   })
 })
 
@@ -69,45 +71,45 @@ describe("CSV parsing", () => {
 
 describe("roster validation", () => {
   it("accepts a clean row and normalizes email and phone", () => {
-    const r = validateRosterCsv(`${HEADER}\n${row()}`)
+    const r = validateRosterCsv(`${HEADER}\n${row()}`, D)
     expect(r.rejected).toEqual([])
     expect(r.accepted[0]).toMatchObject({ rosterEmail: "pat@acme-agents.org", rosterPhone: "(270) 555-0142", status: "active" })
   })
 
   it("ignores extra columns such as test_case", () => {
-    const r = validateRosterCsv(`${HEADER},test_case\n${row()},"Happy path, with a comma"`)
+    const r = validateRosterCsv(`${HEADER},test_case\n${row()},"Happy path, with a comma"`, D)
     expect(r.accepted).toHaveLength(1)
   })
 
   it("rejects Basic Benefits' bracketed sample row with a reason per field", () => {
     const sample = `${HEADER}\n858980,Quinn's Test Group,[AGENT NAME],[REAL INBOX FOR VERIFICATION],[PHONE],[REFERRAL CODE],[ENROLLMENT URL],active`
-    const r = validateRosterCsv(sample)
+    const r = validateRosterCsv(sample, D)
     expect(r.accepted).toHaveLength(0)
     expect(r.rejected[0].line).toBe(2)
     expect(r.rejected[0].reasons.join("|")).toMatch(/agent_name.*roster_email.*roster_phone.*referral_code.*enrollment_url/)
   })
 
   it("rejects bad ids, emails and statuses rather than skipping them", () => {
-    const r = validateRosterCsv([HEADER, row({ agent_id: "85898O" }), row({ agent_id: "1", roster_email: "nope" }), row({ agent_id: "2", status: "retired" })].join("\n"))
+    const r = validateRosterCsv([HEADER, row({ agent_id: "85898O" }), row({ agent_id: "1", roster_email: "nope" }), row({ agent_id: "2", status: "retired" })].join("\n"), D)
     expect(r.accepted).toHaveLength(0)
     expect(r.rejected.map((x) => x.line)).toEqual([2, 3, 4])
   })
 
   it("rejects a duplicate agent_id within one file", () => {
-    const r = validateRosterCsv([HEADER, row(), row()].join("\n"))
+    const r = validateRosterCsv([HEADER, row(), row()].join("\n"), D)
     expect(r.accepted).toHaveLength(1)
     expect(r.rejected[0].reasons).toContain("agent_id appears more than once in this file")
   })
 
   it("flags, but keeps, an enrollment_url that doesn't match the id", () => {
-    const r = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "https://neighbor.basicbenefits.com/858981" })}`)
+    const r = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "https://neighbor.basicbenefits.com/858981" })}`, D)
     expect(r.accepted).toHaveLength(1)
     expect(r.accepted[0].enrollmentUrlMismatch).toBe(true)
     expect(r.flagged[0]).toMatchObject({ line: 2, agentId: "858980" })
   })
 
   it.each(["", "NA", "na", "N/A", " n/a "])("accepts referral_code %j as no code and stores it empty", (v) => {
-    const r = validateRosterCsv(`${HEADER}\n${row({ referral_code: v })}`)
+    const r = validateRosterCsv(`${HEADER}\n${row({ referral_code: v })}`, D)
     expect(r.rejected).toEqual([])
     expect(r.accepted[0].referralCode).toBe("")
     expect(r.flagged).toEqual([])
@@ -115,24 +117,24 @@ describe("roster validation", () => {
 
   it("still rejects other referral_code placeholders", () => {
     for (const v of ["[REFERRAL CODE]", "TBD"]) {
-      const r = validateRosterCsv(`${HEADER}\n${row({ referral_code: v })}`)
+      const r = validateRosterCsv(`${HEADER}\n${row({ referral_code: v })}`, D)
       expect(r.rejected[0].reasons.join("|")).toMatch(/referral_code/)
     }
   })
 
   it("accepts a blank enrollment_url and flags it", () => {
-    const r = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "" })}`)
+    const r = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "" })}`, D)
     expect(r.accepted).toHaveLength(1)
     expect(r.accepted[0]).toMatchObject({ enrollmentUrl: "", enrollmentUrlMismatch: true })
     expect(r.flagged[0].reason).toMatch(/enrollment_url is blank/)
   })
 
   it("assumes https:// for an enrollment_url without a scheme", () => {
-    const ok = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "neighbor.basicbenefits.com/858980" })}`)
+    const ok = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "neighbor.basicbenefits.com/858980" })}`, D)
     expect(ok.accepted[0]).toMatchObject({ enrollmentUrl: "https://neighbor.basicbenefits.com/858980", enrollmentUrlMismatch: false })
     expect(ok.flagged).toEqual([])
 
-    const other = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "join.basicbenefits.com" })}`)
+    const other = validateRosterCsv(`${HEADER}\n${row({ enrollment_url: "join.basicbenefits.com" })}`, D)
     expect(other.accepted[0]).toMatchObject({ enrollmentUrl: "https://join.basicbenefits.com", enrollmentUrlMismatch: true })
     expect(other.flagged[0].reason).toContain('(given as "join.basicbenefits.com")')
   })
@@ -142,7 +144,7 @@ describe("roster validation", () => {
       `${HEADER},test_case\r\n` +
       `858980,Quinn's Test Group,Quinn Pearl,quinn.pearl@basicbenefits.com,5029998888,NA,join.basicbenefits.com,active,"Happy path, with a comma"\r\n` +
       `858981,Brandi's Test Group,Brandi Ray,brandi.ray@basicbenefits.com,5028889999,NA,join.basicbenefits.com,active,"Second agent"\r\n`
-    const r = validateRosterCsv(csv)
+    const r = validateRosterCsv(csv, D)
     expect(r.rejected).toEqual([])
     expect(r.accepted.map((a) => [a.agentId, a.rosterPhone, a.referralCode])).toEqual([
       ["858980", "(502) 999-8888", ""],
@@ -150,11 +152,11 @@ describe("roster validation", () => {
     ])
     expect(r.flagged.map((f) => f.agentId)).toEqual(["858980", "858981"])
     // The QR destination never comes from the roster.
-    expect(qrDestinationFor("858980")).toBe("https://neighbor.basicbenefits.com/858980")
+    expect(qrDestinationFor("858980", "neighbor.basicbenefits.com")).toBe("https://neighbor.basicbenefits.com/858980")
   })
 
   it("refuses a file missing a required column", () => {
-    const r = validateRosterCsv("agent_id,agent_name\n1,x")
+    const r = validateRosterCsv("agent_id,agent_name\n1,x", D)
     expect(r.fileErrors.length).toBeGreaterThan(0)
     expect(r.accepted).toHaveLength(0)
   })

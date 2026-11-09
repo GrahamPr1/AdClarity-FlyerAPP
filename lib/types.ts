@@ -966,8 +966,10 @@ export interface AgentFlag {
    *   OneFlyer business account, so the ID can't be attached to it.
    * roster_email_changed: a re-import changed an agent's roster email; the
    *   old address stops working for code sign-in.
+   * name_too_long_for_footer: an agent registered with, or changed to, a
+   *   display name that may not fit the kit-v2 footer (footer-fit.ts).
    */
-  type: "email_mismatch" | "id_already_registered" | "business_account_conflict" | "roster_email_changed"
+  type: "email_mismatch" | "id_already_registered" | "business_account_conflict" | "roster_email_changed" | "name_too_long_for_footer"
   agentId: string
   /** The OneFlyer account that made the attempt. */
   account: string
@@ -978,6 +980,9 @@ export interface AgentFlag {
   /** roster_email_changed: the previous and new roster emails. */
   fromEmail?: string
   toEmail?: string
+  /** name_too_long_for_footer: the estimated width and the space, in CSS px. */
+  nameWidthPx?: number
+  spacePx?: number
   at: string
 }
 

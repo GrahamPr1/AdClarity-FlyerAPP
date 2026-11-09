@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { programEnrollmentUrl } from "@/lib/enterprise/nop-roster"
+import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
+import { DEFAULT_ENROLL_DOMAIN } from "@/lib/enterprise/nop-roster"
 import { countAgentScan } from "@/lib/enterprise/portal/agent-data"
 import { qrLanding } from "@/lib/enterprise/portal/lead-capture"
 
@@ -31,7 +33,7 @@ async function handle(request: NextRequest, { params }: { params: Promise<{ code
     console.error(`[nop-qr] lookup failed for ${code}; forwarding to the program page:`, err)
     return null
   })
-  if (!landing) return forward(programEnrollmentUrl())
+  if (!landing) return forward(programEnrollmentUrl(await getEnrollDomain().catch(() => DEFAULT_ENROLL_DOMAIN)))
   const counted = landing.state === "lead_page" || landing.onRoster
   if (counted && request.method === "GET") {
     await countAgentScan(landing.agentId!).catch((err) => console.error(`[nop-qr] scan count failed for ${landing.agentId}:`, err))

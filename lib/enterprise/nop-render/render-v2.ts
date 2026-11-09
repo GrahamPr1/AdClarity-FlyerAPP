@@ -6,7 +6,8 @@ import { KIT_V2_ORIGIN, V2_PAGE_POINTS, kitV2FileFor, readV2Html, v2HtmlForRende
 import { agentAreaHtml } from "./agent-area"
 import { assertOnlyFooterChanged, placeAgentAreaInFooter } from "./footer-placement"
 import { decodeQrFromPng } from "./qr-gate"
-import { enrollUrl, readKitContent } from "./kit"
+import { qrDestinationFor } from "@/lib/enterprise/nop-roster"
+import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
 
 // Renders a kit-v2 page. renderNopV2 is the page exactly as Basic Benefits
 // supplied it (admin checks). renderNopV2ForAgent adds the agent area in the
@@ -104,9 +105,9 @@ export interface NopV2AgentRendered extends NopV2Rendered {
 }
 
 /** The page markup with the agent area in the footer, after the locked-sections check. */
-export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, qrLink: string): Promise<string> {
+export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, qrLink: string, enrollment: string): Promise<string> {
   const src = readV2Html(id, size)
-  const area = agentAreaHtml({ name: agent.displayName, phone: agent.displayPhone, enrollUrl: enrollUrl(readKitContent(), agent.agentId), qrSvg: await qrSvg(qrLink) })
+  const area = agentAreaHtml({ name: agent.displayName, phone: agent.displayPhone, enrollUrl: enrollment, qrSvg: await qrSvg(qrLink) })
   const { pkg } = v2Parts(id)
   let placed: string
   try {
@@ -203,9 +204,11 @@ async function checkAgentQr(page: Page, expected: string): Promise<string> {
  *   - PDFs: one page, at Letter or bleed size as asked.
  */
 export async function renderNopV2ForAgent(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, output: NopV2Output): Promise<NopV2AgentRendered> {
-  const enrollment = enrollUrl(readKitContent(), agent.agentId)
-  const expected = await checkedQrLink(agent.agentId, enrollment)
-  const html = v2HtmlForRender(id, size, await v2AgentHtml(id, size, agent, expected))
+  // One read of the enrollment domain setting: the printed link and the QR's forward can't disagree.
+  const domain = await getEnrollDomain()
+  const enrollment = qrDestinationFor(agent.agentId, domain)
+  const expected = await checkedQrLink(agent.agentId, enrollment, domain)
+  const html = v2HtmlForRender(id, size, await v2AgentHtml(id, size, agent, expected, enrollment))
   let qr = ""
   const rendered = await renderV2Page(id, size, html, output, V2_AGENT_DSF, async (page) => {
     await checkAgentLayout(page, enrollment)
