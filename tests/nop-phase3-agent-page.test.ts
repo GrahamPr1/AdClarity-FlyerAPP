@@ -19,6 +19,7 @@ const s = vi.hoisted(() => ({
   issued: [] as string[], saved: [] as { agentId: string; lead: Record<string, unknown> }[], emails: [] as Record<string, unknown>[],
   puts: [] as string[], dels: [] as string[], texts: {} as Record<string, string>,
 }))
+vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com" }))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => sub === "admin" }))
 vi.mock("@/lib/enterprise/portal/store", () => ({ getAgentTier: async () => s.tier, getOrgFeatures: async () => s.features, touchLastActive: async () => {} }))
 vi.mock("@/lib/enterprise/nop-render/agent-context", () => ({

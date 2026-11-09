@@ -1,6 +1,7 @@
 import { Redis } from "@upstash/redis"
 import { getAgentIdOwner, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { qrDestinationFor } from "@/lib/enterprise/nop-roster"
+import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
 import { agentIdForQrCode } from "@/lib/enterprise/nop-qr-code"
 import type { NopLang } from "@/lib/enterprise/nop-i18n"
 import { CANONICAL_SITE_URL } from "@/lib/site-url"
@@ -171,7 +172,7 @@ export async function agentPageFor(code: string): Promise<AgentPageData | null> 
     phone: p.displayPhone ?? p.phone,
     email: p.displayEmail ?? p.email,
     licenseStates: p.licenseStates ?? [],
-    enrollUrl: qrDestinationFor(agentId),
+    enrollUrl: qrDestinationFor(agentId, await getEnrollDomain()),
     bookingUrl: settings.bookingUrl,
     photo: canUse(ctx, "agentPhoto") ? settings.photo : null,
     leads: canUse(ctx, "leads"),
