@@ -7,6 +7,7 @@ import type { AgentFlyerKit } from "./kit-v2-ids"
 //   nop-flyers:settings   hash
 //     agentKit     "v1" | "v2"   which kit fills Create (unset = v1, Basic Benefits' kit v1.1.1)
 //     spanishV2    "on" | "off"  whether agents may see kit-v2 Spanish flyers (unset = off; pending review)
+//   nop-flyers:settings-log   list, newest first: every change, who made it, before and after
 //
 // Kit v2's agent information area is the footer placement Basic Benefits
 // approved (footer-placement.ts), so admin may switch agents to kit v2.
@@ -21,6 +22,24 @@ export const AGENT_AREA_READY = true
 export interface NopFlyerSettings {
   agentKit: "v1" | "v2"
   spanishV2: boolean
+}
+
+const LOG_KEY = "nop-flyers:settings-log"
+
+export interface NopFlyerSettingsLogEntry {
+  at: string
+  admin: string
+  change: Partial<NopFlyerSettings>
+  before: NopFlyerSettings
+  after: NopFlyerSettings
+}
+
+export async function logNopFlyerSettingChange(entry: Omit<NopFlyerSettingsLogEntry, "at">): Promise<void> {
+  await redis.lpush(LOG_KEY, { ...entry, at: new Date().toISOString() })
+}
+
+export async function listNopFlyerSettingsLog(limit = 50): Promise<NopFlyerSettingsLogEntry[]> {
+  return redis.lrange<NopFlyerSettingsLogEntry>(LOG_KEY, 0, limit - 1)
 }
 
 export async function getNopFlyerSettings(): Promise<NopFlyerSettings> {

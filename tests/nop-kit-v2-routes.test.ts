@@ -9,13 +9,15 @@ import { NextRequest } from "next/server"
  * kit-v2 previews are admin-only.
  */
 
-const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[], enrollOk: true as boolean | undefined }))
+const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[], enrollOk: true as boolean | undefined, settingsLog: [] as unknown[] }))
 vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com", checkEnrollDomain: async () => ({ ok: s.enrollOk ?? true, checks: [{ url: "https://neighbor.basicbenefits.com/858980", ok: s.enrollOk ?? true, status: null, error: s.enrollOk === false ? "the domain doesn't resolve (no DNS record)" : null }] }) }))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => !!sub && s.admins.has(sub) }))
 vi.mock("@/lib/enterprise/nop-render/kit-v2-access", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/nop-render/kit-v2-access")>()),
   getNopFlyerSettings: async () => s.settings,
   setNopFlyerSetting: async (p: unknown) => (s.saved.push(p), s.settings),
+  logNopFlyerSettingChange: async (e: unknown) => { s.settingsLog.unshift(e) },
+  listNopFlyerSettingsLog: async () => s.settingsLog,
 }))
 vi.mock("@/lib/enterprise/nop-render/agent-context", () => ({
   loadNopAgent: async () => ({ agentId: "858980", profile: { orgId: "nop", name: "Pat", displayName: "Pat", displayPhone: "1", displayEmail: "a@x.test" }, status: "active", active: true }),
@@ -38,7 +40,7 @@ vi.mock("@/lib/enterprise/nop-render/render-v2", () => ({
 vi.mock("@/lib/enterprise/agents-store", async (orig) => ({ ...(await orig<typeof import("@/lib/enterprise/agents-store")>()), getAgentIdOwner: async (id: string) => (id === "858980" ? "agent@x.test" : null) }))
 vi.mock("@/lib/enterprise/nop-i18n/server", () => ({ nopLangForRequest: async () => "en" }))
 
-beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0; s.enrollOk = true })
+beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0; s.enrollOk = true; s.settingsLog.length = 0 })
 afterEach(() => vi.unstubAllEnvs())
 
 async function cookie(sub: string) {
@@ -119,6 +121,14 @@ describe("admin-only kit-v2 tools", () => {
     expect((await call(settings, "POST", "/x", "admin", undefined, { spanishV2: true })).status).toBe(200)
     expect((await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })).status).toBe(200)
     expect(s.saved).toEqual([{ spanishV2: true, agentKit: undefined }, { spanishV2: undefined, agentKit: "v2" }])
+  })
+
+  it("every change is logged with who, before and after; GET returns the log", async () => {
+    s.settings = { agentKit: "v2", spanishV2: false }
+    expect((await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v1" })).status).toBe(200)
+    expect(s.saved).toEqual([{ spanishV2: undefined, agentKit: "v1" }])
+    expect(s.settingsLog[0]).toMatchObject({ admin: "admin", change: { agentKit: "v1" }, before: { agentKit: "v2" } })
+    expect((await call(settings, "GET", "/x", "admin")).json.log).toHaveLength(1)
   })
 
   it("refuses to switch agents to kit v2 while the enrollment URL doesn't load", async () => {

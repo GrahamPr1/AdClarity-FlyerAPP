@@ -26,7 +26,9 @@ export default function AdminAgentsPage() {
   const [org, setOrg] = useState("")
   const [tier, setTier] = useState("")
   const [saving, setSaving] = useState<string | null>(null)
-  const flyers = useSWR<{ agentKit: "v1" | "v2"; spanishV2: boolean; agentAreaReady: boolean }>("/api/admin/enterprise/nop/flyer-settings", fetcher)
+  const flyers = useSWR<{ agentKit: "v1" | "v2"; spanishV2: boolean; agentAreaReady: boolean; log?: { at: string; admin: string; change: Record<string, unknown> }[] }>("/api/admin/enterprise/nop/flyer-settings", fetcher)
+  // Switching every agent's flyers is one click too easy to hit by mistake: it asks again first.
+  const [confirmV2, setConfirmV2] = useState(false)
   const [flyerMsg, setFlyerMsg] = useState<string | null>(null)
   const [testAgent, setTestAgent] = useState("")
   async function setFlyers(patch: Record<string, unknown>) {
@@ -90,18 +92,41 @@ export default function AdminAgentsPage() {
           <div className="mt-3 flex flex-col gap-3 text-sm">
             <p>
               Agents get: <strong>{flyers.data.agentKit === "v2" ? "kit v2" : "kit v1.1.1"}</strong>
-              {flyers.data.agentKit === "v1" && (
-                <button type="button" disabled={!flyers.data.agentAreaReady} onClick={() => void setFlyers({ agentKit: "v2" })}
+              {flyers.data.agentKit === "v1" && !confirmV2 && (
+                <button type="button" disabled={!flyers.data.agentAreaReady} onClick={() => setConfirmV2(true)} data-testid="switch-v2"
                   className="ml-3 min-h-11 rounded-lg border border-border px-3 disabled:opacity-50" title={flyers.data.agentAreaReady ? undefined : "Needs the agent information area first"}>
                   Switch agents to kit v2
                 </button>
               )}
+              {flyers.data.agentKit === "v2" && (
+                <button type="button" onClick={() => void setFlyers({ agentKit: "v1" })} data-testid="switch-v1"
+                  className="ml-3 min-h-11 rounded-lg border border-border px-3">
+                  Switch agents back to kit v1.1.1
+                </button>
+              )}
             </p>
+            {flyers.data.agentKit === "v1" && confirmV2 && (
+              <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                <span>Every agent&apos;s Home and Create will show kit v2 instead of kit v1.1.1. Only do this once a real agent&apos;s enrollment link is confirmed working.</span>
+                <button type="button" data-testid="switch-v2-confirm" onClick={() => { setConfirmV2(false); void setFlyers({ agentKit: "v2" }) }} className="min-h-11 rounded-lg border border-border bg-background px-3 font-medium">Yes, switch all agents to kit v2</button>
+                <button type="button" onClick={() => setConfirmV2(false)} className="min-h-11 rounded-lg px-3">Cancel</button>
+              </div>
+            )}
             <label className="flex min-h-11 items-center gap-3">
               <input type="checkbox" data-testid="spanish-v2" checked={flyers.data.spanishV2} onChange={(e) => void setFlyers({ spanishV2: e.target.checked })} />
               Spanish kit-v2 flyers visible to agents (pending the program&apos;s review; keep off)
             </label>
             {flyerMsg && <p role="alert" className="text-red-600">{flyerMsg}</p>}
+            {(flyers.data.log?.length ?? 0) > 0 && (
+              <details data-testid="flyer-settings-log">
+                <summary className="min-h-11 cursor-pointer py-2">Changes ({flyers.data.log!.length})</summary>
+                <ul className="mt-1 flex flex-col gap-1">
+                  {flyers.data.log!.map((l) => (
+                    <li key={l.at}>{new Date(l.at).toLocaleString()}: {Object.entries(l.change).map(([k, v]) => (k === "agentKit" ? `agents → kit ${v === "v2" ? "v2" : "v1.1.1"}` : `Spanish kit v2 ${v ? "on" : "off"}`)).join(", ")} by {l.admin}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
             <details>
               <summary className="min-h-11 cursor-pointer py-2">Preview kit v2 (admin only)</summary>
               <label className="mt-2 block">
