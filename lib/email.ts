@@ -280,6 +280,43 @@ export async function sendNopAgentLeadNotification(input: {
 }
 
 /**
+ * Tells a self-signed-up agent an admin approved (with a sign-in link) or
+ * rejected their sign-up, in the language they signed up in. A rejection
+ * never says why.
+ */
+export async function sendAgentSignupDecision(input: {
+  to: string
+  name: string
+  lang: NopLang
+  approved: boolean
+  programName: string
+  signInUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
+  const v = { program: input.programName, name: input.name }
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      subject: t(input.approved ? "email.approved_subject" : "email.rejected_subject", v),
+      html: `
+        <div lang="${input.lang}" style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
+          <p>${escape(t(input.approved ? "email.approved_intro" : "email.rejected_body", v))}</p>
+          ${input.approved ? `<p><a href="${escape(input.signInUrl)}">${escape(t("email.approved_cta"))}</a></p>` : ""}
+        </div>
+      `,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
  * Waitlist confirmation.
  *
  * Deliberately does NOT send yet — it logs. Sending real mail to people who
@@ -303,12 +340,12 @@ export async function sendWaitlistConfirmation(
 }
 
 /**
- * Sends a locked-agent registration code.
+ * Sends a NOP agent code (registration, self sign-up or sign-in).
  *
- * Always addressed by the caller to the roster email ON FILE, never to what
- * the agent typed: that is the whole point of the step. Two Agent IDs a digit
- * apart are easy to confuse, and only the real agent can read this inbox.
- * Never throws; returns false and logs on any failure.
+ * Imported-roster registration and sign-in: the caller addresses it to the
+ * roster email ON FILE, never to what the agent typed. Self sign-up: to the
+ * typed email, which is what the code proves; nothing is granted until an
+ * admin approves. Never throws; returns false and logs on any failure.
  */
 export async function sendAgentVerificationCode(
   rosterEmail: string,

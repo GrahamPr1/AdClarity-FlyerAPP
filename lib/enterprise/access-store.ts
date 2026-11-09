@@ -25,7 +25,8 @@ export const DAILY_CODES_PER_EMAIL = 10
 export const DAILY_CODES_PER_AGENT_ID = 10
 
 export interface FlowState {
-  kind: "register" | "signin"
+  /** signup: a self sign-up (no roster record needed), finished by verify. */
+  kind: "register" | "signin" | "signup"
   /** register: the Agent ID being claimed. signin: the ID the account holds. */
   agentId?: string
   /** The inbox the code went to (always the CURRENT roster email for register). */
@@ -39,6 +40,8 @@ export interface FlowState {
   lastSentAt: number
   step: "code" | "verified"
   createdAt: number
+  /** signup: what the agent typed on Get started, kept until the email is proven. */
+  signup?: { name: string; phone: string; lang: "en" | "es" }
 }
 
 const flowKey = (id: string) => `nop-access:${id}`

@@ -936,6 +936,11 @@ export interface AgentProfile {
   displayEmail?: string
   /** The language the agent registered in, or last chose. Used when no nop_lang cookie is set. */
   preferredLanguage?: "en" | "es"
+  /**
+   * A display-name change waiting for admin approval (the name prints on
+   * flyers). displayName keeps the approved name until then.
+   */
+  pendingName?: { name: string; requestedAt: string } | null
 }
 
 export type AgentRosterStatus = "pending" | "active" | "suspended" | "terminated"
@@ -955,6 +960,13 @@ export interface RosterRecord {
   enrollmentUrlMismatch: boolean
   status: AgentRosterStatus
   importedAt: string
+  /** "self": the agent signed up on /agent/start and waits for admin approval. Absent: imported. */
+  source?: "import" | "self"
+  /** self sign-ups: the language they signed up in (for the approval email). */
+  signupLang?: "en" | "es"
+  /** Admin approval of a self sign-up: who and when. */
+  approvedBy?: string
+  approvedAt?: string
 }
 
 /** A blocked registration attempt surfaced to the org admin. */
@@ -968,8 +980,10 @@ export interface AgentFlag {
    *   old address stops working for code sign-in.
    * name_too_long_for_footer: an agent registered with, or changed to, a
    *   display name that may not fit the kit-v2 footer (footer-fit.ts).
+   * signup_duplicate: a sign-up (email verified) for an Agent ID already
+   *   held or on the roster. The person saw the normal "we'll review" reply.
    */
-  type: "email_mismatch" | "id_already_registered" | "business_account_conflict" | "roster_email_changed" | "name_too_long_for_footer"
+  type: "email_mismatch" | "id_already_registered" | "business_account_conflict" | "roster_email_changed" | "name_too_long_for_footer" | "signup_duplicate"
   agentId: string
   /** The OneFlyer account that made the attempt. */
   account: string

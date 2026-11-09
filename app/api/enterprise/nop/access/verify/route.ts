@@ -4,10 +4,12 @@ import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 import { getAccountAgentId, getAgentIdOwner, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { MAX_CODE_ATTEMPTS, codeMatches, deleteFlow, updateFlow } from "@/lib/enterprise/access-store"
 import { accessRateLimit, clearFlowCookie, fail, readFlow, setSessionCookie } from "@/lib/enterprise/access-http"
+import { submitSignup } from "@/lib/enterprise/agent-signup"
 
 // POST /api/enterprise/nop/access/verify { code }
 //
-// Both flows. Register: a correct code moves on to the confirmation screen
+// All flows. Sign-up: a correct code submits the sign-up (agent-signup.ts).
+// Register: a correct code moves on to the confirmation screen
 // (name and ID ON FILE). Sign-in: a correct code signs the agent in and
 // sends them to their dashboard. Codes are single-use (the hash is dropped
 // on success) and compared in constant time; 5 wrong tries end the flow.
@@ -48,6 +50,18 @@ export async function POST(request: NextRequest) {
   if (state.kind === "register") {
     await updateFlow(id, { ...state, codeHash: null, step: "verified" })
     return confirmPayload(state.agentId!, lang)
+  }
+
+  // Self sign-up: the email is proven. Created or a duplicate, the answer is
+  // the same, and nobody is signed in: a pending sign-up waits for approval.
+  if (state.kind === "signup") {
+    await deleteFlow(id)
+    if (state.agentId && state.sendTo && state.signup) {
+      await submitSignup({ agentId: state.agentId, email: state.sendTo, name: state.signup.name, phone: state.signup.phone, lang: state.signup.lang })
+    }
+    const res = NextResponse.json({ ok: true, step: "submitted" })
+    clearFlowCookie(res)
+    return res
   }
 
   // Sign-in: re-check the agent still holds the ID and the code went to the
