@@ -41,6 +41,15 @@ export async function POST(request: NextRequest) {
     return ok
   }
 
+  // Self sign-up: the code goes to the typed email; nothing about the ID is looked up.
+  if (state.kind === "signup") {
+    if (!(await reserveDailySend(state.sendTo, state.agentId))) return fail(lang, 429, "daily_limit", "err.daily_limit")
+    const code = newCode()
+    await updateFlow(id, { ...state, codeHash: hashCode(id, code), resends: state.resends + 1, lastSentAt: now })
+    if (!(await sendAgentVerificationCode(state.sendTo, code, NOP_ORG_NAME, lang, "register"))) return fail(lang, 502, "send_failed", "err.send_failed")
+    return ok
+  }
+
   const roster = await getRosterRecord(state.agentId)
   if (!roster || roster.rosterEmail !== state.sendTo || roster.status === "terminated" || (state.kind === "register" && roster.status === "suspended")) {
     await deleteFlow(id)

@@ -199,13 +199,14 @@ export default function NopAdminPage() {
             {flags.data.flags.map((f) => (
               <tr key={f.id} className="border-t border-border">
                 <td className={`${td} text-muted-foreground`}>{new Date(f.at).toLocaleString()}</td>
-                <td className={td}>{{ email_mismatch: "Email mismatch", id_already_registered: "ID already registered", business_account_conflict: "Roster email is a business account", roster_email_changed: "Roster email changed", name_too_long_for_footer: "Name may not fit kit-v2 footer" }[f.type]}</td>
+                <td className={td}>{{ email_mismatch: "Email mismatch", id_already_registered: "ID already registered", business_account_conflict: "Roster email is a business account", roster_email_changed: "Roster email changed", name_too_long_for_footer: "Name may not fit kit-v2 footer", signup_duplicate: "Sign-up for a taken or listed ID" }[f.type]}</td>
                 <td className={td}>{f.agentId}</td>
                 <td className={`${td} break-all`}>{f.account}</td>
                 <td className={`${td} break-all`}>
                   {f.type === "email_mismatch" ? `typed ${f.attemptedEmail}`
                     : f.type === "id_already_registered" ? `held by ${f.heldBy}`
                     : f.type === "roster_email_changed" ? `${f.fromEmail} → ${f.toEmail}`
+                    : f.type === "signup_duplicate" ? `${f.attemptedEmail} signed up; ${f.heldBy ? `held by ${f.heldBy}` : "already on the roster"}; nothing created`
                     : f.type === "name_too_long_for_footer" ? `display name about ${f.nameWidthPx}px wide, footer has ${f.spacePx}px; kit-v2 downloads would be refused`
                     : `${f.attemptedEmail ?? ""} already has a business account; not attached (see "blocked by a business account" below)`}
                 </td>

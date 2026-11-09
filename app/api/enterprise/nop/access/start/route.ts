@@ -1,20 +1,29 @@
 import { NextRequest, NextResponse } from "next/server"
 import { rejectWhileViewingAs } from "@/lib/enterprise/portal/view-as"
 import { sendAgentVerificationCode } from "@/lib/email"
-import { AGENT_ID_RE, NOP_ORG_NAME, isValidEmail, maskEmail, normalizeEmail } from "@/lib/enterprise/nop-roster"
+import { AGENT_ID_RE, NOP_ORG_NAME, formatUsPhone, isValidEmail, maskEmail, normalizeEmail } from "@/lib/enterprise/nop-roster"
+import { isPendingSelfSignup } from "@/lib/enterprise/agent-signup"
+import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
+import type { NopLang } from "@/lib/enterprise/nop-i18n"
 import { addAgentFlag, getAccountAgentId, getAgentIdOwner, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { createFlow, hashCode, newCode, newFlowId, reserveDailySend } from "@/lib/enterprise/access-store"
 import { businessAccountBlocks } from "@/lib/enterprise/account-conversion"
 import { accessRateLimit, fail, setFlowCookie } from "@/lib/enterprise/access-http"
 
-// POST /api/enterprise/nop/access/start { agentId, email }
+// POST /api/enterprise/nop/access/start { agentId, email, name, phone, lang }
 //
-// "First time? Get started", step 1 of 3. No account and no session yet.
-// Every check the signed-in flow had runs here before a code is sent:
-// roster lookup, status, the typed email against the roster, the ID lock,
-// and — new — the roster email must not already be a business account.
-// The code goes to the roster email ON FILE (here equal to what was typed).
+// "First time? Get started", step 1. No account and no session yet.
+//
+// Imported roster agent (the ID is on an imported roster AND the typed email
+// is its roster email): the original flow, unchanged — code to the roster
+// email, then the confirmation screen, then an active account.
+//
+// Everyone else is a self sign-up (lib/enterprise/agent-signup.ts): the
+// typed details are checked, a code goes to the typed email, and verify
+// finishes it. Whether the Agent ID is free, held, or on the roster is NOT
+// looked at here and never changes the reply: verify answers "we'll review
+// your sign-up" either way, so nobody can test which IDs exist.
 
 const SIGNED_OUT = "(signed out)"
 
@@ -23,7 +32,7 @@ export async function POST(request: NextRequest) {
   const readOnly = rejectWhileViewingAs(request)
   if (readOnly) return readOnly
   const lang = await nopLangForRequest(request)
-  let body: { agentId?: unknown; email?: unknown }
+  let body: { agentId?: unknown; email?: unknown; name?: unknown; phone?: unknown; lang?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -39,13 +48,8 @@ export async function POST(request: NextRequest) {
   if (limited) return limited
 
   const roster = await getRosterRecord(agentId)
-  if (!roster) return fail(lang, 404, "not_recognized", "err.not_recognized")
+  if (!roster || roster.source === "self" || typed !== roster.rosterEmail) return selfSignup(lang, agentId, typed, body)
   if (roster.status === "suspended" || roster.status === "terminated") return fail(lang, 403, "inactive", "err.inactive")
-
-  if (typed !== roster.rosterEmail) {
-    await addAgentFlag({ type: "email_mismatch", agentId, account: SIGNED_OUT, attemptedEmail: typed })
-    return fail(lang, 403, "email_mismatch", "err.email_mismatch")
-  }
 
   const owner = await getAgentIdOwner(agentId)
   if (owner) {
@@ -77,6 +81,43 @@ export async function POST(request: NextRequest) {
     attempts: 0, resends: 0, lastSentAt: now, step: "code", createdAt: now,
   })
   const res = NextResponse.json({ ok: true, step: "code", sentTo: maskEmail(roster.rosterEmail) })
+  setFlowCookie(res, flowId)
+  return res
+}
+
+/** A self sign-up: check what was typed, then send a code to the typed email. Nothing about the Agent ID is looked up. */
+async function selfSignup(lang: NopLang, agentId: string, email: string, body: { name?: unknown; phone?: unknown; lang?: unknown }) {
+  const name = String(body.name ?? "").trim().replace(/\s+/g, " ")
+  const phone = formatUsPhone(String(body.phone ?? ""))
+  const signupLang: NopLang = body.lang === "es" ? "es" : body.lang === "en" ? "en" : lang
+  const fields: Record<string, string> = {}
+  if (!name) fields.name = tNop(lang, "val.full_name_required")
+  else if (name.length > 80) fields.name = tNop(lang, "val.name_long")
+  if (!phone) fields.phone = tNop(lang, "val.phone")
+  if (Object.keys(fields).length) return NextResponse.json({ error: "invalid_fields", fields }, { status: 422 })
+
+  // About the typed email only (the person's own): an email that already
+  // holds an active agent account should sign in instead; a business account
+  // can't take an Agent ID. A pending sign-up's email goes on, and verify
+  // treats it as a duplicate.
+  const held = await getAccountAgentId(email)
+  if (held && !isPendingSelfSignup(await getRosterRecord(held))) return fail(lang, 409, "account_registered", "err.account_registered", { agentId: held })
+  if (!held && (await businessAccountBlocks(email))) {
+    await addAgentFlag({ type: "business_account_conflict", agentId, account: email, attemptedEmail: email })
+    return fail(lang, 409, "business_account", "err.business_account")
+  }
+
+  if (!(await reserveDailySend(email, agentId))) return fail(lang, 429, "daily_limit", "err.daily_limit")
+  const flowId = newFlowId()
+  const code = newCode()
+  if (!(await sendAgentVerificationCode(email, code, NOP_ORG_NAME, lang, "register"))) return fail(lang, 502, "send_failed", "err.send_failed")
+  const now = Date.now()
+  await createFlow(flowId, {
+    kind: "signup", agentId, sendTo: email, codeHash: hashCode(flowId, code),
+    attempts: 0, resends: 0, lastSentAt: now, step: "code", createdAt: now,
+    signup: { name, phone: phone!, lang: signupLang },
+  })
+  const res = NextResponse.json({ ok: true, step: "code", sentTo: maskEmail(email) })
   setFlowCookie(res, flowId)
   return res
 }

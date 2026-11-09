@@ -12,7 +12,7 @@ export const en = {
   "page.sign_out": "Sign out",
   "profile.meta_title": "Agent profile",
   "profile.title": "Your agent profile",
-  "profile.intro": "Your Agent ID and program details come from your program administrator. The name, phone and email on your flyers are yours to edit.",
+  "profile.intro": "Your Agent ID and program details come from your program administrator. You can edit the phone and email on your flyers; a name change needs approval because it prints on your flyers.",
 
   // ---- Language toggle (bilingual on purpose, the same in both files) ----
   "lang.group": "Language / Idioma",
@@ -201,8 +201,8 @@ export const en = {
   "agent.business_note": "Not a program agent? Business customers log in here",
   "start.meta_title": "Get started",
   "start.title": "Get started as a program agent",
-  "start.intro": "Enter your Agent ID and the email your program administrator has on file for you. We'll send a code to that email.",
-  "start.email_label": "Email on file with your program",
+  "start.intro": "Enter your Agent ID and your details. We'll send a code to your email to confirm it, then review your sign-up.",
+  "start.email_label": "Email",
   "code.resend": "Resend code",
   "code.resend_wait": "Resend code in {s} s",
   "code.resent": "We sent a new code. Use the newest one.",
@@ -331,6 +331,18 @@ export const en = {
   "portal.followup_note": "Opens your own Messages or email app with the message ready. Nothing is sent until you press send.",
   "portal.followup_sms": "Open in Messages",
   "portal.followup_email": "Open in email",
+  "start.name_label": "Full name",
+  "start.phone_label": "Phone",
+  "start.lang_label": "Preferred language",
+  "val.full_name_required": "Enter your full name.",
+  "start.submitted_title": "Thanks. We'll review your sign-up.",
+  "start.submitted_body": "We'll email you when it's approved, with a link to sign in.",
+  "profile.name_pending": "Name change requested: {name}. Your flyers show it once it's approved.",
+  "email.approved_subject": "You're approved: {program}",
+  "email.approved_intro": "Hi {name}, your sign-up for the {program} has been approved. You can now sign in to OneFlyer and download your flyers.",
+  "email.approved_cta": "Sign in",
+  "email.rejected_subject": "Your sign-up: {program}",
+  "email.rejected_body": "Your sign-up for the {program} wasn't approved. If you have questions, contact your program administrator.",
 } as const
 
 export type NopStringKey = keyof typeof en

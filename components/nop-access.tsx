@@ -136,17 +136,25 @@ function CodeStep({
 
 type StartStep =
   | { name: "id" }
+  | { name: "submitted" }
   | { name: "code"; sentTo: string }
   | { name: "confirm"; agentId: string; agentName: string; display: Display }
 
-/** "First time? Get started": Agent ID + email -> code -> confirm. No password, no separate sign-up. */
+/**
+ * "First time? Get started": Agent ID, name, phone, email, language -> code.
+ * A self sign-up then ends on "we'll review your sign-up" (the same reply
+ * whatever the ID); an agent on an imported roster goes on to confirm.
+ */
 /** agentCode: a valid ?agent_ID= (lib/enterprise/nop-roster agentIdParam). Only prefills the Agent ID field. */
 export function NopGetStarted({ agentCode = null }: { agentCode?: string | null }) {
-  const { t, rich } = useNop()
+  const { t, rich, lang: pageLang } = useNop()
   const router = useRouter()
   const [step, setStep] = useState<StartStep>({ name: "id" })
   const [agentId, setAgentId] = useState(agentCode ?? "")
   const [email, setEmail] = useState("")
+  const [fullName, setFullName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [signupLang, setSignupLang] = useState<"en" | "es" | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{ message: string; field?: string; signIn?: boolean } | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -166,9 +174,11 @@ export function NopGetStarted({ agentCode = null }: { agentCode?: string | null 
             e.preventDefault()
             setBusy(true)
             setError(null)
-            const { ok, data } = await post("/api/enterprise/nop/access/start", { agentId, email }).catch(() => ({ ok: false, data: { message: t("common.network") } }))
+            setFieldErrors({})
+            const { ok, data } = await post("/api/enterprise/nop/access/start", { agentId, email, name: fullName, phone, lang: signupLang ?? pageLang }).catch(() => ({ ok: false, data: { message: t("common.network") } }))
             setBusy(false)
-            if (!ok) return setError({ message: data.message ?? t("common.generic"), field: data.field, signIn: data.error === "already_registered" })
+            if (!ok && data.fields) return setFieldErrors(data.fields)
+            if (!ok) return setError({ message: data.message ?? t("common.generic"), field: data.field, signIn: data.error === "already_registered" || data.error === "account_registered" })
             setStep({ name: "code", sentTo: data.sentTo })
           }}
         >
@@ -177,12 +187,26 @@ export function NopGetStarted({ agentCode = null }: { agentCode?: string | null 
               aria-invalid={error?.field === "agentId" ? true : undefined}
               onChange={(e) => setAgentId(e.target.value)} placeholder={t("reg.id_placeholder")} />
           </Field>
+          <Field id="fullName" label={t("start.name_label")} error={fieldErrors.name}>
+            <input id="fullName" name="name" autoComplete="name" className={field} value={fullName}
+              aria-invalid={fieldErrors.name ? true : undefined} onChange={(e) => setFullName(e.target.value)} />
+          </Field>
+          <Field id="phone" label={t("start.phone_label")} error={fieldErrors.phone}>
+            <input id="phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" className={field} value={phone} placeholder={t("display.phone_placeholder")}
+              aria-invalid={fieldErrors.phone ? true : undefined} onChange={(e) => setPhone(e.target.value)} />
+          </Field>
           <Field id="email" label={t("start.email_label")} error={error?.field === "email" ? error.message : undefined}>
             <input id="email" name="email" type="email" autoComplete="email" className={field} value={email}
               aria-invalid={error?.field === "email" ? true : undefined}
               onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <button type="submit" disabled={busy || !agentId.trim() || !email.trim()} className={primary}>
+          <Field id="signupLang" label={t("start.lang_label")}>
+            <select id="signupLang" name="lang" className={field} value={signupLang ?? pageLang} onChange={(e) => setSignupLang(e.target.value === "es" ? "es" : "en")}>
+              <option value="en">{t("lang.en")}</option>
+              <option value="es">{t("lang.es")}</option>
+            </select>
+          </Field>
+          <button type="submit" disabled={busy || !agentId.trim() || !email.trim() || !fullName.trim() || !phone.trim()} className={primary}>
             {busy ? t("reg.sending") : t("reg.send_code")}
           </button>
           {error && !error.field && (
@@ -208,7 +232,8 @@ export function NopGetStarted({ agentCode = null }: { agentCode?: string | null 
               }
               return data.message ?? t("common.generic")
             }
-            setStep({ name: "confirm", agentId: data.agentId, agentName: data.agentName, display: data.defaults })
+            if (data.step === "submitted") setStep({ name: "submitted" })
+            else setStep({ name: "confirm", agentId: data.agentId, agentName: data.agentName, display: data.defaults })
             return null
           }}
           onResend={async () => {
@@ -255,6 +280,13 @@ export function NopGetStarted({ agentCode = null }: { agentCode?: string | null 
             <button type="button" onClick={restart} className={secondary}>{t("reg.not_me")}</button>
           </div>
         </form>
+      )}
+
+      {step.name === "submitted" && (
+        <div role="status" data-testid="nop-signup-submitted" className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold">{t("start.submitted_title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("start.submitted_body")}</p>
+        </div>
       )}
 
       {step.name !== "id" && error && <div className="mt-4"><ErrorLine message={error.message} /></div>}

@@ -109,6 +109,23 @@ export async function agentIdForRosterEmail(email: string): Promise<string | nul
   return current.length === 1 ? current[0] : null
 }
 
+/** One roster record written outside an import: a self sign-up, or its approval. */
+export async function saveRosterRecord(record: RosterRecord): Promise<void> {
+  const previous = await getRosterRecord(record.agentId)
+  await redis.sadd(rosterIdsKey(NOP_ORG_ID), record.agentId)
+  await redis.set(rosterKey(NOP_ORG_ID, record.agentId), record)
+  if (previous && previous.rosterEmail !== record.rosterEmail) await redis.srem(rosterEmailKey(NOP_ORG_ID, previous.rosterEmail), record.agentId)
+  await redis.sadd(rosterEmailKey(NOP_ORG_ID, record.rosterEmail), record.agentId)
+}
+
+/** Removes a roster record entirely (a rejected self sign-up). The ID can then be claimed again. */
+export async function deleteRosterRecord(agentId: string): Promise<void> {
+  const previous = await getRosterRecord(agentId)
+  await redis.srem(rosterIdsKey(NOP_ORG_ID), agentId)
+  await redis.del(rosterKey(NOP_ORG_ID, agentId))
+  if (previous) await redis.srem(rosterEmailKey(NOP_ORG_ID, previous.rosterEmail), agentId)
+}
+
 export async function getRosterRecord(agentId: string): Promise<RosterRecord | null> {
   return (await redis.get<RosterRecord>(rosterKey(NOP_ORG_ID, agentId))) ?? null
 }

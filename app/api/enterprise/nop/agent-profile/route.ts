@@ -4,14 +4,16 @@ import { requireClientSession } from "@/lib/enterprise/agent-session"
 import { rejectWhileViewingAs, requirePortalViewer } from "@/lib/enterprise/portal/view-as"
 import { qrDestinationFor, validateDisplayFields } from "@/lib/enterprise/nop-roster"
 import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
-import { canGenerate, flagNameIfTooLongForFooter, getAccountAgentId, getRosterRecord } from "@/lib/enterprise/agents-store"
+import { canGenerate, getAccountAgentId, getRosterRecord } from "@/lib/enterprise/agents-store"
+import { requestNameChange } from "@/lib/enterprise/agent-signup"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 
 // GET   /api/enterprise/nop/agent-profile -> the agent's profile, with live roster status
 // PATCH /api/enterprise/nop/agent-profile { displayName, displayPhone, displayEmail }
 //
-// PATCH writes the three display fields (and the name/phone/email mirrors of
-// them) and nothing else. Any other key in the body is ignored.
+// PATCH writes the display phone and email (and their mirrors) and nothing
+// else; a different display name becomes a request for admin approval
+// (agent-signup.ts requestNameChange). Any other key in the body is ignored.
 
 async function loadAgent(email: string) {
   const agentId = await getAccountAgentId(email)
@@ -53,14 +55,21 @@ export async function PATCH(request: NextRequest) {
   const display = validateDisplayFields(body, await nopLangForRequest(request, auth.email))
   if (!display.ok) return NextResponse.json({ error: "invalid_fields", fields: display.errors }, { status: 422 })
 
+  // Phone and email save now. The name prints on flyers, so a new one waits
+  // for admin approval (pendingName) and the approved name stays meanwhile;
+  // typing the current name back cancels a waiting request.
   const { savedAt: _savedAt, ...rest } = profile
-  const saved = await saveAgentProfile(auth.email, {
+  const currentName = profile.displayName ?? profile.name
+  const newName = display.values.displayName
+  await saveAgentProfile(auth.email, {
     ...rest,
-    ...display.values,
-    name: display.values.displayName,
+    displayPhone: display.values.displayPhone,
+    displayEmail: display.values.displayEmail,
     phone: display.values.displayPhone,
     email: display.values.displayEmail,
+    ...(newName === currentName ? { pendingName: null } : {}),
   })
-  if (display.values.displayName !== profile.displayName) await flagNameIfTooLongForFooter(profile.agentId!, auth.email, display.values.displayName)
+  if (newName !== currentName && newName !== profile.pendingName?.name) await requestNameChange(auth.email, newName)
+  const saved = (await getAgentProfile(auth.email))!
   return NextResponse.json({ profile: { ...saved, qrDestination: qrDestinationFor(saved.agentId!, await getEnrollDomain()) } })
 }

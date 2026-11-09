@@ -63,7 +63,7 @@ export function DisplayInputs({ value, onChange, errors }: { value: Display; onC
 }
 
 type ProfileResponse = {
-  profile: Display & { agentId: string; companyName: string; referralCode: string; qrDestination: string }
+  profile: Display & { agentId: string; companyName: string; referralCode: string; qrDestination: string; pendingName?: { name: string } | null }
   status: string | null
   canGenerate: boolean
 }
@@ -78,13 +78,16 @@ export function NopProfileForm({ readOnly = false }: { readOnly?: boolean }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // A name change waiting for approval: the field shows the requested name, the flyers the approved one.
+  const [pendingName, setPendingName] = useState<string | null>(null)
 
   useEffect(() => {
     fetch("/api/enterprise/nop/agent-profile").then(async (r) => {
       if (r.status === 404) return setMissing(true)
       const d: ProfileResponse = await r.json()
       setData(d)
-      setDisplay({ displayName: d.profile.displayName, displayPhone: d.profile.displayPhone, displayEmail: d.profile.displayEmail })
+      setPendingName(d.profile.pendingName?.name ?? null)
+      setDisplay({ displayName: d.profile.pendingName?.name ?? d.profile.displayName, displayPhone: d.profile.displayPhone, displayEmail: d.profile.displayEmail })
     })
   }, [])
 
@@ -130,14 +133,16 @@ export function NopProfileForm({ readOnly = false }: { readOnly?: boolean }) {
             else setMessage(t("profile.save_failed"))
             return
           }
-          const p = (out as { profile: Display }).profile
-          setDisplay({ displayName: p.displayName, displayPhone: p.displayPhone, displayEmail: p.displayEmail })
+          const p = (out as { profile: Display & { pendingName?: { name: string } | null } }).profile
+          setPendingName(p.pendingName?.name ?? null)
+          setDisplay({ displayName: p.pendingName?.name ?? p.displayName, displayPhone: p.displayPhone, displayEmail: p.displayEmail })
           setMessage(t("profile.saved"))
         }}
       >
         <fieldset disabled={readOnly} className="contents">
           <DisplayInputs value={display} onChange={setDisplay} errors={errors} />
         </fieldset>
+        {pendingName && <p role="status" data-testid="name-pending" className="text-sm text-muted-foreground">{t("profile.name_pending", { name: pendingName })}</p>}
         <div className="flex items-center gap-3">
           <button type="submit" disabled={busy || readOnly} title={readOnly ? t("portal.read_only") : undefined} className={primary}>
             {busy ? t("profile.saving") : t("profile.save")}
