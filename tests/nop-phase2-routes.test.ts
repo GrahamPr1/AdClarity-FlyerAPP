@@ -100,6 +100,12 @@ describe("QR lead form", () => {
     expect(s.emails).toEqual([expect.objectContaining({ to: "agent@x.test", lang: "es", portalUrl: "https://oneflyer.org/agent/leads" })])
   })
 
+  it("the approved consent text's {agent_name} is filled in with the agent's name, and stored as shown", async () => {
+    s.consent = { ...s.consent, text: "By checking this box, I agree that {agent_name}, an agent with the Neighborhood Outreach Program, may contact me. See our Privacy Policy." }
+    expect((await submit(good)).status).toBe(200)
+    expect((s.saved[0].lead as { consent: { text: string } }).consent.text).toBe("By checking this box, I agree that Pat Lee, an agent with the Neighborhood Outreach Program, may contact me. See our Privacy Policy.")
+  })
+
   it.each([
     ["a Basic agent", () => { s.tier = "basic" }],
     ["a suspended Pro agent", () => { s.roster = { status: "suspended" }; s.active = false }],

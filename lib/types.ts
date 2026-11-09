@@ -967,6 +967,10 @@ export interface RosterRecord {
   /** Admin approval of a self sign-up: who and when. */
   approvedBy?: string
   approvedAt?: string
+  /** "Remove from program" (agent-membership.ts): the status it replaced, so Undo can restore it; who and when. */
+  statusBeforeRemoval?: AgentRosterStatus
+  removedBy?: string
+  removedAt?: string
 }
 
 /** A blocked registration attempt surfaced to the org admin. */

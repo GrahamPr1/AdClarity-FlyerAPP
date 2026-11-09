@@ -10,6 +10,8 @@ import type { AgentTier } from "./features"
 import { getAgentTier, getAgentTierSource, getLastActive, listAdminAgentViews, type AdminAgentView } from "./store"
 import { agentBillingLabel, getAgentBilling, type AgentBillingLabel } from "./agent-billing"
 import { summarizeAgentData } from "./agent-data"
+import { listProgramStatusLog, type ProgramStatusLogEntry } from "@/lib/enterprise/agent-membership"
+import { getRetentionClock } from "./retention"
 
 // OneFlyer admin's view of agent accounts. Read-only helpers; the routes that
 // change anything (tier, org switches, view-as) are in app/api/admin/enterprise.
@@ -86,6 +88,10 @@ export interface AgentDetail extends AgentRow {
   team: []
   recentActivity: NopRenderLogEntry[]
   views: AdminAgentView[]
+  /** Set while the agent is removed from the program (terminated): who, when, and when their leads will be deleted. */
+  removal: { by: string | null; at: string | null; deleteAfter: string | null } | null
+  /** Remove / reactivate history for this agent, newest first. */
+  programLog: ProgramStatusLogEntry[]
 }
 
 export async function getAgentDetail(email: string): Promise<AgentDetail | null> {
@@ -105,5 +111,7 @@ export async function getAgentDetail(email: string): Promise<AgentDetail | null>
     team: [],
     recentActivity: renders,
     views,
+    removal: roster?.status === "terminated" ? { by: roster.removedBy ?? null, at: roster.removedAt ?? null, deleteAfter: (await getRetentionClock(row.agentId))?.deleteAfter ?? null } : null,
+    programLog: await listProgramStatusLog({ agentId: row.agentId, limit: 20 }),
   }
 }

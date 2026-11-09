@@ -82,12 +82,26 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
       </div>
       <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm">
         <input type="checkbox" data-testid="lead-consent" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--brand-teal-bright)]" />
-        <span className="whitespace-pre-wrap">{consentText}</span>
+        <span className="whitespace-pre-wrap"><ConsentWithPrivacyLink text={consentText} /></span>
       </label>
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       <button type="submit" disabled={sending} className="min-h-12 rounded-lg bg-[var(--brand-teal-bright)] px-5 font-semibold text-[var(--primary-foreground)] disabled:opacity-60">
         {sending ? t("lead.sending") : t("lead.submit")}
       </button>
     </form>
+  )
+}
+
+/** "Privacy Policy" / "Política de Privacidad" in the approved wording links to the agent-pages section of the privacy page (English or Spanish). */
+const PRIVACY_PHRASE = /(Privacy Policy|Política de Privacidad)/
+function ConsentWithPrivacyLink({ text }: { text: string }) {
+  const m = PRIVACY_PHRASE.exec(text)
+  if (!m) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, m.index)}
+      <a href={m[1] === "Privacy Policy" ? "/privacy#agent-pages" : "/privacy#agent-pages-es"} target="_blank" rel="noopener" data-testid="consent-privacy-link" className="underline underline-offset-2">{m[1]}</a>
+      {text.slice(m.index + m[1].length)}
+    </>
   )
 }

@@ -5,7 +5,7 @@ import { NopLeadForm } from "@/components/nop-lead-form"
 import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { NOP_ORG_NAME } from "@/lib/enterprise/nop-roster"
-import { leadConsent } from "@/lib/enterprise/portal/lead-capture"
+import { fillConsent, leadConsent } from "@/lib/enterprise/portal/lead-capture"
 import { agentPageFor, approvedPackages } from "@/lib/enterprise/portal/agent-page"
 
 // /p/{code} — an active Pro/Leader agent's personal page, behind the org's
@@ -101,7 +101,7 @@ export default async function Page({ params }: { params: Promise<{ code: string 
                   <p className="mt-2 text-sm text-muted-foreground">{t("lead.coming_soon_body")}</p>
                 </div>
               ) : (
-                <NopLeadForm code={code} agentName={page.name} consentText={consent.text} consentVersion={consent.version} source="page" />
+                <NopLeadForm code={code} agentName={page.name} consentText={fillConsent(consent.text, page.name)} consentVersion={consent.version} source="page" />
               )}
             </section>
           )}

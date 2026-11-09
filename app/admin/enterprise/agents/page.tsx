@@ -7,7 +7,7 @@ import type { AgentRow } from "@/lib/enterprise/portal/admin"
 import type { AdminAgentView } from "@/lib/enterprise/portal/store"
 import type { AgentFeature, AgentTier } from "@/lib/enterprise/portal/features"
 import { NOP_V2_TEMPLATES } from "@/lib/enterprise/nop-render/kit-v2-ids"
-import { AdminApprovedText, AdminAgentDataMove, AdminLeadDeletion } from "@/components/admin-nop-agent-data"
+import { AdminApprovedText, AdminAgentDataMove, AdminLeadDeletion, AdminRetentionJob } from "@/components/admin-nop-agent-data"
 import { AdminEnrollDomain } from "@/components/admin-nop-enroll-domain"
 import { AdminNopSignups } from "@/components/admin-nop-signups"
 
@@ -166,6 +166,7 @@ export default function AdminAgentsPage() {
       <AdminApprovedText />
       <AdminAgentDataMove />
       <AdminLeadDeletion />
+      <AdminRetentionJob />
 
       <section className="mt-8">
         <div className="flex flex-wrap items-end gap-3">

@@ -48,3 +48,22 @@ export async function qrLanding(code: string): Promise<QrLanding> {
 export function leadConsent(orgId: string, lang: NopLang): Promise<ApprovedText> {
   return getApprovedText(orgId, "leadConsent", lang)
 }
+
+/** The fill-ins the consent text may use. {agent_name}: the agent's display name. */
+export const CONSENT_FIELDS = ["agent_name"] as const
+
+/**
+ * The consent text exactly as the person sees it and as it is stored with the
+ * lead: the approved wording with {agent_name} filled in. Page and API both
+ * call this with the same agent, so what is stored is what was shown.
+ */
+export function fillConsent(text: string, agentName: string): string {
+  return text.replace(/\{agent_name\}/g, agentName)
+}
+
+/** For the admin save: only known fill-ins. */
+export function checkConsentText(text: string): { ok: true } | { ok: false; message: string } {
+  const unknown = [...text.matchAll(/\{([^{}\s]*)\}/g)].map((m) => m[1]).filter((f) => !(CONSENT_FIELDS as readonly string[]).includes(f))
+  if (unknown.length) return { ok: false, message: `Unknown fill-in ${unknown.map((f) => `{${f}}`).join(", ")}. Use only {agent_name}.` }
+  return { ok: true }
+}
