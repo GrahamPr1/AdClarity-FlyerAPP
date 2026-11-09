@@ -4,7 +4,7 @@ import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { loadNopAgent } from "@/lib/enterprise/nop-render/agent-context"
-import { AGENT_CODE_PARAM, agentCodeParam, withAgentCode } from "@/lib/enterprise/nop-roster"
+import { agentIdParam, withAgentId } from "@/lib/enterprise/nop-roster"
 import { NopPageShell } from "../enterprise/nop/nop-page-shell"
 import { portalPageOrNull } from "@/lib/enterprise/portal/page"
 import { PortalHome } from "./portal-home"
@@ -29,8 +29,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const agent = session && session.sub !== ADMIN_SUB ? await loadNopAgent(session.sub) : null
   const { lang, source } = await nopLangForPage(session?.sub ?? null)
   const t = (k: Parameters<typeof tNop>[1]) => tNop(lang, k)
-  // Basic Benefits' "Open OneFlyer" link: carried to Get started (prefill only) and Sign in.
-  const agentCode = agentCodeParam((await searchParams)[AGENT_CODE_PARAM])
+  // The "Open OneFlyer" link's ?agent_ID=: carried to Get started (prefill only) and Sign in.
+  const agentCode = agentIdParam(await searchParams)
 
   return (
     <NopPageShell lang={lang} source={source} title={t("agent.title")} intro={t("agent.intro")}>
@@ -41,10 +41,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           </Link>
         ) : (
           <>
-            <Link href={withAgentCode("/agent/start", agentCode)} className={`${big} bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)]`}>
+            <Link href={withAgentId("/agent/start", agentCode)} className={`${big} bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)]`}>
               {t("agent.get_started")}
             </Link>
-            <Link href={withAgentCode("/agent/sign-in", agentCode)} className={`${big} border-2 border-[var(--brand-teal-bright)] text-foreground hover:bg-[var(--surface-sunken)]`}>
+            <Link href={withAgentId("/agent/sign-in", agentCode)} className={`${big} border-2 border-[var(--brand-teal-bright)] text-foreground hover:bg-[var(--surface-sunken)]`}>
               {t("agent.sign_in")}
             </Link>
           </>

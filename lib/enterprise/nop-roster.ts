@@ -16,20 +16,35 @@ export const NOP_ORG_NAME = kitContent.program.name
 export const AGENT_ID_RE = /^\d{1,10}$/
 
 /**
- * ?agent_code=<Agent ID> on Basic Benefits' "Open OneFlyer" link. Only ever
- * prefills the Agent ID field on Get started; it signs no one in and skips no
- * step. Nothing is looked up, so an unknown or inactive ID looks exactly like
- * a real one (the normal form, with its rate limits, answers on submit). A
- * malformed value is dropped. Returns the ID, or null.
+ * ?agent_ID=<Agent ID> on the program's "Open OneFlyer" link (any case:
+ * agent_id, agent_ID, AGENT_ID). ?agent_code= is still read, for links sent
+ * before the program switched names; agent_ID wins when both are valid. Only
+ * ever prefills the Agent ID field on Get started; it signs no one in and
+ * skips no step. Nothing is looked up, so an unknown or inactive ID looks
+ * exactly like a real one (the normal form, with its rate limits, answers on
+ * submit). A malformed or repeated value is dropped. Returns the ID, or null.
  */
-export const AGENT_CODE_PARAM = "agent_code"
-export function agentCodeParam(v: string | string[] | null | undefined): string | null {
-  return typeof v === "string" && AGENT_ID_RE.test(v.trim()) ? v.trim() : null
+export const AGENT_ID_PARAM = "agent_ID"
+const AGENT_ID_PARAM_NAMES = ["agent_id", "agent_code"] as const
+
+type QueryLike = URLSearchParams | Record<string, string | string[] | undefined>
+
+export function agentIdParam(query: QueryLike): string | null {
+  const entries: [string, string | string[] | undefined][] =
+    query instanceof URLSearchParams ? [...new Set(query.keys())].map((k) => [k, query.getAll(k).length === 1 ? query.get(k)! : query.getAll(k)]) : Object.entries(query)
+  for (const name of AGENT_ID_PARAM_NAMES) {
+    const values = entries.filter(([k]) => k.toLowerCase() === name).map(([, v]) => v)
+    // One key, one value: "?agent_id=1&agent_ID=2" or "?agent_ID=1&agent_ID=2" is ambiguous, so dropped.
+    if (values.length !== 1) continue
+    const v = values[0]
+    if (typeof v === "string" && AGENT_ID_RE.test(v.trim())) return v.trim()
+  }
+  return null
 }
 
-/** `path` with ?agent_code= when there's a valid one to carry. */
-export function withAgentCode(path: string, agentCode: string | null): string {
-  return agentCode ? `${path}?${AGENT_CODE_PARAM}=${agentCode}` : path
+/** `path` with ?agent_ID= when there's a valid one to carry. */
+export function withAgentId(path: string, agentId: string | null): string {
+  return agentId ? `${path}?${AGENT_ID_PARAM}=${agentId}` : path
 }
 
 export const ROSTER_STATUSES: readonly AgentRosterStatus[] = ["pending", "active", "suspended", "terminated"]
