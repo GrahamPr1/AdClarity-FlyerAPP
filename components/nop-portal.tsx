@@ -6,6 +6,7 @@ import { useState } from "react"
 import { useNop } from "@/components/nop-i18n"
 import type { NopStringKey } from "@/lib/enterprise/nop-i18n"
 import type { PortalTab } from "@/lib/enterprise/portal/features"
+import { UpgradeToPro } from "@/components/nop-agent-billing"
 
 // Client pieces of the agent portal: the bottom navigation, the read-only
 // banner an admin sees while viewing an agent's portal, and the short locked
@@ -76,8 +77,8 @@ export function ViewAsBanner({ name, email }: { name: string; email: string }) {
   )
 }
 
-/** A feature the agent's tier doesn't include: one label, one sentence. */
-export function ProLocked({ sentence }: { sentence: NopStringKey }) {
+/** A feature the agent's tier doesn't include: one label, one sentence, and the upgrade button when they may buy. */
+export function ProLocked({ sentence, upgrade = false, readOnly = false }: { sentence: NopStringKey; upgrade?: boolean; readOnly?: boolean }) {
   const { t } = useNop()
   return (
     <div data-testid="pro-locked" className="rounded-2xl border border-border bg-card p-6">
@@ -85,6 +86,7 @@ export function ProLocked({ sentence }: { sentence: NopStringKey }) {
         {t("portal.pro_label")}
       </span>
       <p className="mt-3 text-sm text-muted-foreground">{t(sentence)}</p>
+      {upgrade && <div className="mt-4"><UpgradeToPro readOnly={readOnly} /></div>}
     </div>
   )
 }

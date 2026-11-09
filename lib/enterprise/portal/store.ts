@@ -4,7 +4,9 @@ import { AGENT_FEATURES, defaultOrgFeatures, isAgentTier, type AgentFeature, typ
 
 // Redis for the agent portal. Own client, the same as agents-store.ts.
 //
-//   client:{email}:agent-tier            "basic" | "pro" | "leader" (unset = basic). Admin-set only.
+//   client:{email}:agent-tier            "basic" | "pro" | "leader" (unset = basic)
+//   client:{email}:agent-tier-source     "admin" | "stripe": who set the tier (unset = admin; before
+//                                        agent billing, every tier was admin-set). See agent-billing.ts.
 //   client:{email}:last-active           ISO time of the agent's last portal visit (written at most every 10 min)
 //   enterprise-org:{orgId}:features      hash, feature -> "on" | "off" (unset = the org default)
 //   admin-agent-views                    every admin view of an agent account, newest first
@@ -17,6 +19,7 @@ import { AGENT_FEATURES, defaultOrgFeatures, isAgentTier, type AgentFeature, typ
 const redis = Redis.fromEnv()
 
 const tierKey = (email: string) => `client:${email}:agent-tier`
+const tierSourceKey = (email: string) => `client:${email}:agent-tier-source`
 const lastActiveKey = (email: string) => `client:${email}:last-active`
 const featuresKey = (orgId: string) => `enterprise-org:${orgId}:features`
 const VIEWS_KEY = "admin-agent-views"
@@ -29,8 +32,15 @@ export async function getAgentTier(email: string): Promise<AgentTier> {
   return isAgentTier(v) ? v : "basic"
 }
 
-export async function setAgentTier(email: string, tier: AgentTier): Promise<void> {
-  await redis.set(tierKey(email), tier)
+export async function setAgentTier(email: string, tier: AgentTier, source: "admin" | "stripe" = "admin"): Promise<void> {
+  await Promise.all([redis.set(tierKey(email), tier), redis.set(tierSourceKey(email), source)])
+}
+
+/** Who set the tier: "admin", "stripe" (a paid subscription), or null when never set (Basic). */
+export async function getAgentTierSource(email: string): Promise<"admin" | "stripe" | null> {
+  const [tier, source] = await Promise.all([redis.get(tierKey(email)), redis.get<string>(tierSourceKey(email))])
+  if (source === "stripe" || source === "admin") return source
+  return tier == null ? null : "admin"
 }
 
 // ---- Org feature switches --------------------------------------------------------

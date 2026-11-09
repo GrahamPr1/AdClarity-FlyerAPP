@@ -24,7 +24,10 @@ const big =
 // Neighborhood Outreach Program agents, two choices and nothing else to read.
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const portal = await portalPageOrNull()
-  if (portal) return <PortalHome page={portal} />
+  if (portal) {
+    const billing = (await searchParams).billing
+    return <PortalHome page={portal} billingNotice={billing === "success" || billing === "cancelled" ? billing : null} />
+  }
   const session = await getSessionIdentity({ cookies: await cookies() })
   const agent = session && session.sub !== ADMIN_SUB ? await loadNopAgent(session.sub) : null
   const { lang, source } = await nopLangForPage(session?.sub ?? null)

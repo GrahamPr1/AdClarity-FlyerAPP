@@ -24,7 +24,8 @@
     "set-plan": "tsx scripts/set-plan.ts",
     "provision-account": "tsx scripts/provision-dev-account.ts",
     "remove-audit-account": "tsx scripts/remove-audit-account.ts",
-    "stripe:setup": "tsx scripts/stripe-sandbox-setup.ts"
+    "stripe:setup": "tsx scripts/stripe-sandbox-setup.ts",
+    "stripe:agent-setup": "tsx scripts/stripe-agent-setup.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

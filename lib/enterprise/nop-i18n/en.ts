@@ -343,6 +343,15 @@ export const en = {
   "email.approved_cta": "Sign in",
   "email.rejected_subject": "Your sign-up: {program}",
   "email.rejected_body": "Your sign-up for the {program} wasn't approved. If you have questions, contact your program administrator.",
+  "portal.upgrade_button": "Upgrade to Pro — $40/month + tax where applicable",
+  "portal.manage_billing": "Manage billing",
+  "portal.billing_title": "Your Pro plan",
+  "portal.billing_active": "Pro, $40/month + tax where applicable. Renews on {date}.",
+  "portal.billing_cancels": "Your Pro plan ends on {date}. You keep your leads and history.",
+  "portal.billing_past_due": "We couldn't charge your card. Update it in Manage billing to keep Pro.",
+  "portal.billing_success": "Thanks! Pro turns on as soon as your payment is confirmed, usually within a minute.",
+  "portal.billing_cancelled_checkout": "Checkout cancelled. You're still on Basic.",
+  "portal.billing_error": "Couldn't open billing right now. Please try again.",
 } as const
 
 export type NopStringKey = keyof typeof en

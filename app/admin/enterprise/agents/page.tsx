@@ -18,6 +18,16 @@ import { AdminNopSignups } from "@/components/admin-nop-signups"
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 type FeaturesResponse = { orgs: { id: string; name: string; features: Record<AgentFeature, boolean> }[]; features: { id: AgentFeature; label: string; tier: AgentTier }[] }
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "Never")
+const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "")
+/** Agent Pro billing, as the agent webhook last recorded it (lib/enterprise/portal/agent-billing.ts). */
+const BILLING_LABEL: Record<AgentRow["billing"], (paidUntil: string | null) => string> = {
+  paid_pro: (d) => `Paid Pro (renews ${day(d)})`,
+  admin_set: () => "Admin-set",
+  cancels: (d) => `Cancelled, Pro until ${day(d)}`,
+  past_due: () => "Past due",
+  cancelled: () => "Cancelled",
+  none: () => "—",
+}
 
 export default function AdminAgentsPage() {
   const agents = useSWR<{ agents: AgentRow[] }>("/api/admin/enterprise/agents", fetcher)
@@ -173,17 +183,17 @@ export default function AdminAgentsPage() {
             <div className="mt-2 overflow-x-auto rounded-xl border border-border">
               <table className="w-full text-sm" data-testid="agents-table">
                 <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground/70">
-                  <th className="px-4 py-3">Name</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Agent ID</th><th className="px-4 py-3">Tier</th><th className="px-4 py-3">Last active</th><th className="px-4 py-3">Flyers made</th><th className="px-4 py-3">QR scans</th><th className="px-4 py-3">Leads</th>
+                  <th className="px-4 py-3">Name</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Agent ID</th><th className="px-4 py-3">Tier</th><th className="px-4 py-3">Billing</th><th className="px-4 py-3">Last active</th><th className="px-4 py-3">Flyers made</th><th className="px-4 py-3">QR scans</th><th className="px-4 py-3">Leads</th>
                 </tr></thead>
                 <tbody>{list.map((a) => (
                   <tr key={a.email} className="border-b border-border last:border-0">
                     <td className="px-4 py-3"><Link href={`/admin/enterprise/agents/${encodeURIComponent(a.email)}`} className="text-[var(--brand-teal-bright)] hover:underline">{a.name}</Link></td>
-                    <td className="px-4 py-3">{a.email}</td><td className="px-4 py-3">{a.agentId}</td><td className="px-4 py-3 capitalize">{a.tier}</td>
+                    <td className="px-4 py-3">{a.email}</td><td className="px-4 py-3">{a.agentId}</td><td className="px-4 py-3 capitalize">{a.tier}</td><td className="px-4 py-3 whitespace-nowrap" data-testid="billing-label">{BILLING_LABEL[a.billing](a.paidUntil)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{when(a.lastActive)}</td><td className="px-4 py-3">{a.flyersMade}</td><td className="px-4 py-3">{a.scans}</td><td className="px-4 py-3">{a.leads}</td>
                   </tr>
                 ))}</tbody>
                 <tfoot><tr className="border-t border-border font-medium" data-testid="org-totals">
-                  <td className="px-4 py-3" colSpan={5}>Org totals</td><td className="px-4 py-3">{list.reduce((n, a) => n + a.flyersMade, 0)}</td>
+                  <td className="px-4 py-3" colSpan={6}>Org totals</td><td className="px-4 py-3">{list.reduce((n, a) => n + a.flyersMade, 0)}</td>
                   <td className="px-4 py-3">{list.reduce((n, a) => n + a.scans, 0)}</td><td className="px-4 py-3">{list.reduce((n, a) => n + a.leads, 0)}</td>
                 </tr></tfoot>
               </table>

@@ -8,6 +8,7 @@ import { listAgentLeads } from "@/lib/enterprise/portal/agent-data"
 import { followUpsForLeads } from "@/lib/enterprise/portal/follow-ups"
 import type { PortalContext } from "@/lib/enterprise/portal/context"
 import { PortalShell } from "../portal-shell"
+import { canBuyPro } from "@/lib/enterprise/portal/agent-billing"
 
 export const dynamic = "force-dynamic"
 
@@ -33,7 +34,7 @@ export default async function Page() {
       ) : ctx.tier !== "basic" && !ctx.active ? (
         <p data-testid="leads-inactive" className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">{tNop(lang, "portal.leads_inactive")}</p>
       ) : (
-        <ProLocked sentence="portal.leads_locked" />
+        <ProLocked sentence="portal.leads_locked" upgrade={canBuyPro(ctx)} readOnly={page.readOnly} />
       )}
     </PortalShell>
   )
