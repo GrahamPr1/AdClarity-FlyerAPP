@@ -99,6 +99,10 @@ export async function createAgentCheckout(email: string, origin: string): Promis
     mode: "subscription",
     customer,
     line_items: [{ price, quantity: 1 }],
+    // Card only (Apple Pay and Google Pay are cards and still show). Set on
+    // this session alone: the account's payment-method settings, which SMB
+    // checkout uses, are untouched.
+    payment_method_types: ["card"],
     // Tax-exclusive, like SMB: Stripe Tax adds tax where the account is registered.
     automatic_tax: { enabled: true },
     billing_address_collection: "required",
@@ -181,6 +185,16 @@ export async function recordAgentInvoice(invoice: Stripe.Invoice, paid: boolean)
     await saveAgentBilling(outcome.email, { failedPayments: (prev?.failedPayments ?? 0) + 1 })
   }
   return outcome
+}
+
+/**
+ * True for an event about an agent Pro checkout, subscription or its
+ * invoice: what agent checkouts stamp (oneflyer_product=agent_pro). Pure (no
+ * Stripe or Redis call), so the SMB webhook can skip these at no cost.
+ */
+export function isAgentProEvent(event: Stripe.Event): boolean {
+  const o = event.data.object as { metadata?: Record<string, string> | null; parent?: { subscription_details?: { metadata?: Record<string, string> | null } | null } | null }
+  return o.metadata?.oneflyer_product === "agent_pro" || o.parent?.subscription_details?.metadata?.oneflyer_product === "agent_pro"
 }
 
 /** The webhook's handler. Null: not an agent event (an SMB one, or a type this ignores). */

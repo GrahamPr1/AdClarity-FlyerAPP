@@ -21,6 +21,7 @@ import {
 } from "./store"
 import type { BillingEventSummary, BillingInterval, ClientRecord, DisputeRecord, MemberBilling, PlanId } from "./types"
 import { CLOSED_DISPUTE_STATUSES } from "./types"
+import { isAgentProEvent } from "./enterprise/portal/agent-billing"
 
 // ---------------------------------------------------------------------------
 // Self-serve billing: Stripe Checkout in, Stripe webhook back.
@@ -300,6 +301,8 @@ const invoiceTax = (invoice: Stripe.Invoice) => (invoice.total_taxes ?? []).redu
  * claim and Stripe retries.
  */
 export async function processStripeEvent(event: Stripe.Event): Promise<BillingEventSummary | null> {
+  // Agent Pro billing has its own webhook (lib/enterprise/portal/agent-billing.ts): not an SMB event, not in the activity log.
+  if (isAgentProEvent(event)) return null
   const base = { at: iso(event.created) ?? new Date().toISOString(), type: event.type, eventId: event.id }
 
   switch (event.type) {

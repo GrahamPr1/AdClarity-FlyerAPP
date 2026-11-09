@@ -152,7 +152,7 @@ describe("who can buy", () => {
     const res = await checkout()
     expect(res).toEqual({ status: 200, json: { url: "https://checkout.stripe.com/c/cs_1" } })
     const s = r.sessions[0]
-    expect(s).toMatchObject({ mode: "subscription", line_items: [{ price: AGENT_PRICE, quantity: 1 }], automatic_tax: { enabled: true } })
+    expect(s).toMatchObject({ mode: "subscription", line_items: [{ price: AGENT_PRICE, quantity: 1 }], automatic_tax: { enabled: true }, payment_method_types: ["card"] })
     expect(s.client_reference_id).toBeUndefined()
     expect(JSON.stringify(s)).not.toContain('"oneflyer_email"')
     expect(r.customers[0]).toEqual({ email: "agent@x.test", metadata: { oneflyer_agent_email: "agent@x.test" } })
