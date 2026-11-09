@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { NOP_LANG_COOKIE, NOP_LANG_COOKIE_MAX_AGE } from "@/lib/enterprise/nop-i18n"
+import { AGENT_CODE_PARAM, agentCodeParam, withAgentCode } from "@/lib/enterprise/nop-roster"
 
 // oneflyer.org/agente: the Spanish front door. Chooses Spanish (the same
-// cookie the EN/ES toggle sets) and shows /agent.
-export function GET(_request: NextRequest) {
+// cookie the EN/ES toggle sets) and shows /agent, carrying a valid
+// ?agent_code= (Basic Benefits' "Open OneFlyer" link) and nothing else.
+export function GET(request: NextRequest) {
+  const agentCode = agentCodeParam(request.nextUrl.searchParams.get(AGENT_CODE_PARAM))
   // Relative Location: correct behind any proxy, whatever host it was asked on.
-  const res = new NextResponse(null, { status: 307, headers: { Location: "/agent" } })
+  const res = new NextResponse(null, { status: 307, headers: { Location: withAgentCode("/agent", agentCode) } })
   res.cookies.set(NOP_LANG_COOKIE, "es", {
     httpOnly: false,
     secure: process.env.NODE_ENV === "production",
