@@ -240,6 +240,8 @@ export async function sendNopAgentLeadNotification(input: {
   lang: NopLang
   lead: { name: string; phone: string; email: string | null; message: string | null; consent?: { text: string } }
   portalUrl: string
+  /** The form was on the agent's personal page, not the flyer's QR lead page. */
+  fromPage?: boolean
 }): Promise<{ sent: boolean; reason?: string }> {
   const resend = getClient()
   if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
@@ -258,7 +260,7 @@ export async function sendNopAgentLeadNotification(input: {
       subject: t("email.lead_subject", { name: lead.name }),
       html: `
         <div lang="${input.lang}" style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
-          <p>${escape(t("email.lead_intro"))}</p>
+          <p>${escape(t(input.fromPage ? "email.lead_intro_page" : "email.lead_intro"))}</p>
           <table style="border-collapse:collapse;margin:12px 0">
             ${row(t("lead.name"), escape(lead.name))}
             ${row(t("lead.phone"), `<a href="tel:${escape(lead.phone.replace(/[^0-9+]/g, ""))}">${escape(lead.phone)}</a>`)}

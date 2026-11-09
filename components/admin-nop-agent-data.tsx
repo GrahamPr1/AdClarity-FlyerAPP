@@ -5,7 +5,7 @@ import useSWR from "swr"
 import type { AgentDataMove, LeadDeletion } from "@/lib/enterprise/portal/agent-data"
 
 // Admin pieces for NOP Phase 2 on /admin/enterprise/agents: the org's
-// approved wording (lead-form consent), moving an Agent ID's leads and scans
+// approved wording (consent, packages, follow-up messages), moving an Agent ID's leads and scans
 // to another Agent ID, and deleting leads on request. English only, like the
 // rest of admin.
 
@@ -13,7 +13,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "Never")
 const input = "mt-1 block min-h-11 w-full rounded-lg border border-border bg-background px-3"
 
-type TextRow = { id: string; key: string; label: string; lang: "en" | "es"; text: string; version: number; pending: boolean; updatedBy: string | null; updatedAt: string | null }
+type TextRow = { id: string; key: string; label: string; help: string | null; lang: "en" | "es"; text: string; version: number; pending: boolean; updatedBy: string | null; updatedAt: string | null }
 
 export function AdminApprovedText() {
   const texts = useSWR<{ texts: TextRow[] }>("/api/admin/enterprise/nop/approved-text", fetcher)
@@ -21,7 +21,7 @@ export function AdminApprovedText() {
     <section className="mt-6 rounded-xl border border-border bg-card p-5" data-testid="approved-text">
       <h2 className="text-lg">Approved wording (NOP)</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Shown word for word on agents&apos; public pages. While a text is still the placeholder, the page that needs it shows &ldquo;Coming soon&rdquo;. Paste only Basic Benefits&apos; final approved text; leave blank to go back to the placeholder.
+        Used word for word on agents&apos; public pages and in the follow-up messages agents open in their own apps. While a text is still the placeholder, the page that needs it shows &ldquo;Coming soon&rdquo; (a follow-up message just has no button). Paste only Basic Benefits&apos; final approved text; leave blank to go back to the placeholder.
       </p>
       {texts.data?.texts.map((t) => <TextEditor key={t.id} row={t} onSaved={() => void texts.mutate()} />)}
     </section>
@@ -47,8 +47,9 @@ function TextEditor({ row, onSaved }: { row: TextRow; onSaved: () => void }) {
       <label className="text-sm font-medium">
         {row.label} ({row.lang.toUpperCase()}){" "}
         <span className={row.pending ? "text-amber-600" : "text-muted-foreground"}>
-          {row.pending ? "· placeholder: public page shows Coming soon" : `· live, version ${row.version}, saved ${when(row.updatedAt)} by ${row.updatedBy}`}
+          {row.pending ? (row.key.startsWith("followUp") ? "· placeholder: no button for agents" : "· placeholder: public page shows Coming soon") : `· live, version ${row.version}, saved ${when(row.updatedAt)} by ${row.updatedBy}`}
         </span>
+        {row.help && <span className="mt-1 block text-xs font-normal text-muted-foreground">{row.help}</span>}
         <textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder={row.pending ? row.text : undefined} className={`${input} py-2`} />
       </label>
       <div className="mt-2 flex items-center gap-3">
