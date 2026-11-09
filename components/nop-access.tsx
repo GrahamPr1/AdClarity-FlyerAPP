@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useNop } from "@/components/nop-i18n"
 import { DisplayInputs, Field, field, post, primary, secondary, type Display } from "@/components/nop-agent"
+import { withAgentCode } from "@/lib/enterprise/nop-roster"
 
 // Passwordless agent access: "Get started" (Agent ID + email -> code ->
 // confirm) and "Sign in" (email -> code). Each server route is the
@@ -139,11 +140,12 @@ type StartStep =
   | { name: "confirm"; agentId: string; agentName: string; display: Display }
 
 /** "First time? Get started": Agent ID + email -> code -> confirm. No password, no separate sign-up. */
-export function NopGetStarted() {
+/** agentCode: a valid ?agent_code= (lib/enterprise/nop-roster agentCodeParam). Only prefills the Agent ID field. */
+export function NopGetStarted({ agentCode = null }: { agentCode?: string | null }) {
   const { t, rich } = useNop()
   const router = useRouter()
   const [step, setStep] = useState<StartStep>({ name: "id" })
-  const [agentId, setAgentId] = useState("")
+  const [agentId, setAgentId] = useState(agentCode ?? "")
   const [email, setEmail] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{ message: string; field?: string; signIn?: boolean } | null>(null)
@@ -186,10 +188,10 @@ export function NopGetStarted() {
           {error && !error.field && (
             <div className="flex flex-col gap-2">
               <ErrorLine message={error.message} />
-              {error.signIn && <Link href="/agent/sign-in" className="inline-flex min-h-11 items-center text-sm font-medium text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">{t("agent.sign_in")}</Link>}
+              {error.signIn && <Link href={withAgentCode("/agent/sign-in", agentCode)} className="inline-flex min-h-11 items-center text-sm font-medium text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)]">{t("agent.sign_in")}</Link>}
             </div>
           )}
-          <Link href="/agent/sign-in" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">{t("agent.sign_in")}</Link>
+          <Link href={withAgentCode("/agent/sign-in", agentCode)} className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">{t("agent.sign_in")}</Link>
         </form>
       )}
 
@@ -260,8 +262,8 @@ export function NopGetStarted() {
   )
 }
 
-/** "Already registered? Sign in": email -> code -> agent dashboard. */
-export function NopSignIn() {
+/** "Already registered? Sign in": email -> code -> agent dashboard. agentCode is only carried to the Get started link. */
+export function NopSignIn({ agentCode = null }: { agentCode?: string | null }) {
   const { t } = useNop()
   const router = useRouter()
   const [email, setEmail] = useState("")
@@ -295,7 +297,7 @@ export function NopSignIn() {
           </button>
           {error && !error.field && <ErrorLine message={error.message} />}
           <div className="flex flex-col text-sm">
-            <Link href="/agent/start" className="inline-flex min-h-11 items-center text-muted-foreground hover:text-foreground">{t("agent.get_started")}</Link>
+            <Link href={withAgentCode("/agent/start", agentCode)} className="inline-flex min-h-11 items-center text-muted-foreground hover:text-foreground">{t("agent.get_started")}</Link>
             <Link href="/login?next=/enterprise/nop/dashboard" className="inline-flex min-h-11 items-center text-muted-foreground hover:text-foreground">{t("signin.password_option")}</Link>
           </div>
         </form>

@@ -4,6 +4,7 @@ import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { loadNopAgent } from "@/lib/enterprise/nop-render/agent-context"
+import { AGENT_CODE_PARAM, agentCodeParam, withAgentCode } from "@/lib/enterprise/nop-roster"
 import { NopPageShell } from "../enterprise/nop/nop-page-shell"
 import { portalPageOrNull } from "@/lib/enterprise/portal/page"
 import { PortalHome } from "./portal-home"
@@ -21,13 +22,15 @@ const big =
 // oneflyer.org/agent (and /agente): the agent portal's Home for a signed-in
 // agent (or an admin viewing one, read-only); otherwise the one front door for
 // Neighborhood Outreach Program agents, two choices and nothing else to read.
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const portal = await portalPageOrNull()
   if (portal) return <PortalHome page={portal} />
   const session = await getSessionIdentity({ cookies: await cookies() })
   const agent = session && session.sub !== ADMIN_SUB ? await loadNopAgent(session.sub) : null
   const { lang, source } = await nopLangForPage(session?.sub ?? null)
   const t = (k: Parameters<typeof tNop>[1]) => tNop(lang, k)
+  // Basic Benefits' "Open OneFlyer" link: carried to Get started (prefill only) and Sign in.
+  const agentCode = agentCodeParam((await searchParams)[AGENT_CODE_PARAM])
 
   return (
     <NopPageShell lang={lang} source={source} title={t("agent.title")} intro={t("agent.intro")}>
@@ -38,10 +41,10 @@ export default async function Page() {
           </Link>
         ) : (
           <>
-            <Link href="/agent/start" className={`${big} bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)]`}>
+            <Link href={withAgentCode("/agent/start", agentCode)} className={`${big} bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)]`}>
               {t("agent.get_started")}
             </Link>
-            <Link href="/agent/sign-in" className={`${big} border-2 border-[var(--brand-teal-bright)] text-foreground hover:bg-[var(--surface-sunken)]`}>
+            <Link href={withAgentCode("/agent/sign-in", agentCode)} className={`${big} border-2 border-[var(--brand-teal-bright)] text-foreground hover:bg-[var(--surface-sunken)]`}>
               {t("agent.sign_in")}
             </Link>
           </>
