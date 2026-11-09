@@ -21,7 +21,7 @@ export function AdminApprovedText() {
     <section className="mt-6 rounded-xl border border-border bg-card p-5" data-testid="approved-text">
       <h2 className="text-lg">Approved wording (NOP)</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Used word for word on agents&apos; public pages and in the follow-up messages agents open in their own apps. While a text is still the placeholder, the page that needs it shows &ldquo;Coming soon&rdquo; (a follow-up message just has no button). Paste only Basic Benefits&apos; final approved text; leave blank to go back to the placeholder.
+        Used word for word on agents&apos; public pages and in the follow-up messages agents open in their own apps. While a text is still the placeholder, the page that needs it shows &ldquo;Coming soon&rdquo; (a follow-up message just has no button). Paste only the Neighborhood Outreach Program&apos;s final approved text; leave blank to go back to the placeholder.
       </p>
       {texts.data?.texts.map((t) => <TextEditor key={t.id} row={t} onSaved={() => void texts.mutate()} />)}
     </section>
@@ -186,13 +186,13 @@ export function AdminLeadDeletion() {
     <section className="mt-6 rounded-xl border border-border bg-card p-5" data-testid="lead-deletion">
       <h2 className="text-lg">Delete leads on request</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Leads are kept while an agent is active and deleted 12 months after the agent is terminated or removed from the roster. Delete sooner here when the person, or Basic Benefits, asks. Every deletion is logged without the person&apos;s details.
+        Leads are kept while an agent is active and deleted 12 months after the agent is terminated or removed from the roster. Delete sooner here when the person, or the Neighborhood Outreach Program, asks. Every deletion is logged without the person&apos;s details.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="text-sm">Request from
           <select value={mode} onChange={(e) => { setMode(e.target.value as "person" | "agent"); setFound(null) }} className={`${input} w-56`}>
             <option value="person">The person (find by phone or email)</option>
-            <option value="agent">Basic Benefits (all of one agent&apos;s leads)</option>
+            <option value="agent">Neighborhood Outreach Program (all of one agent&apos;s leads)</option>
           </select>
         </label>
         <label className="text-sm">{mode === "person" ? "Phone or email" : "Agent ID"}
@@ -227,7 +227,7 @@ export function AdminLeadDeletion() {
       <h3 className="mt-6 text-sm font-medium">Deletions</h3>
       <ul className="mt-2 divide-y divide-border rounded-xl border border-border text-sm" data-testid="deletion-log">
         {(log.data?.deletions ?? []).map((d, i) => (
-          <li key={i} className="flex flex-wrap gap-x-4 px-4 py-2"><span className="whitespace-nowrap">{when(d.at)}</span><span>{d.admin}</span><span>deleted {d.leadIds.length} lead{d.leadIds.length === 1 ? "" : "s"} of Agent {d.agentId}</span><span>asked by {d.requestedBy === "person" ? "the person" : "Basic Benefits"}</span>{d.note && <span className="text-muted-foreground">{d.note}</span>}</li>
+          <li key={i} className="flex flex-wrap gap-x-4 px-4 py-2"><span className="whitespace-nowrap">{when(d.at)}</span><span>{d.admin}</span><span>deleted {d.leadIds.length} lead{d.leadIds.length === 1 ? "" : "s"} of Agent {d.agentId}</span><span>asked by {d.requestedBy === "person" ? "the person" : "Neighborhood Outreach Program"}</span>{d.note && <span className="text-muted-foreground">{d.note}</span>}</li>
         ))}
         {log.data && log.data.deletions.length === 0 && <li className="px-4 py-3 text-muted-foreground">None yet.</li>}
       </ul>

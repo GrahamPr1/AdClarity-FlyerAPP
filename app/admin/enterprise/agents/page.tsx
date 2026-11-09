@@ -85,7 +85,7 @@ export default function AdminAgentsPage() {
 
       <section className="mt-6 rounded-xl border border-border bg-card p-5" data-testid="nop-flyer-settings">
         <h2 className="text-lg">NOP flyers</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Basic Benefits&apos; final flyers (kit v2), with the agent area in the footer as Basic Benefits approved. Agents get them only once you switch them here.</p>
+        <p className="mt-1 text-sm text-muted-foreground">The Neighborhood Outreach Program&apos;s final flyers (kit v2), with the agent area in the footer as the program approved. Agents get them only once you switch them here.</p>
         {flyers.data && (
           <div className="mt-3 flex flex-col gap-3 text-sm">
             <p>
@@ -99,7 +99,7 @@ export default function AdminAgentsPage() {
             </p>
             <label className="flex min-h-11 items-center gap-3">
               <input type="checkbox" data-testid="spanish-v2" checked={flyers.data.spanishV2} onChange={(e) => void setFlyers({ spanishV2: e.target.checked })} />
-              Spanish kit-v2 flyers visible to agents (pending Basic Benefits&apos; review; keep off)
+              Spanish kit-v2 flyers visible to agents (pending the program&apos;s review; keep off)
             </label>
             {flyerMsg && <p role="alert" className="text-red-600">{flyerMsg}</p>}
             <details>
@@ -109,7 +109,7 @@ export default function AdminAgentsPage() {
                 <input value={testAgent} onChange={(e) => setTestAgent(e.target.value.replace(/\D/g, ""))} inputMode="numeric" data-testid="v2-test-agent"
                   className="mt-1 block min-h-11 w-40 rounded-lg border border-border bg-background px-3" />
               </label>
-              <p className="mt-1 text-muted-foreground">With an Agent ID, each link is exactly the file that agent would download: their name, phone, enrollment link and QR, after every release check. It&apos;s logged under your account. Without one, the page as Basic Benefits supplied it.</p>
+              <p className="mt-1 text-muted-foreground">With an Agent ID, each link is exactly the file that agent would download: their name, phone, enrollment link and QR, after every release check. It&apos;s logged under your account. Without one, the page as the program supplied it.</p>
               <ul className="mt-2 grid gap-1 sm:grid-cols-2">
                 {NOP_V2_TEMPLATES.map((id) => (
                   <li key={id} className="flex flex-wrap gap-3">

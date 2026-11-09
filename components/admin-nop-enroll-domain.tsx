@@ -63,7 +63,7 @@ export function AdminEnrollDomain() {
           {!data.live.ok && (
             <p role="alert" data-testid="enroll-domain-warning" className="mt-3 rounded-lg border border-red-300 bg-red-50 p-3 text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-100">
               <strong>The current enrollment domain doesn&apos;t load.</strong> Every agent&apos;s QR and printed link lead to a page that doesn&apos;t work right now.
-              Don&apos;t switch agents to kit v2 until Basic Benefits confirm the URL and it loads.
+              Don&apos;t switch agents to kit v2 until the Neighborhood Outreach Program confirms the URL and it loads.
             </p>
           )}
           <p className="mt-3">

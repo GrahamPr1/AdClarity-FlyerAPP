@@ -5,12 +5,12 @@
 > **Status: for review. Nothing on the live Privacy Policy (`app/privacy/page.tsx`) has been changed.**
 > The **Scans** paragraph applies as soon as the OneFlyer QR link reaches production.
 > The rest applies once a lead form is live: the QR lead page is switched on for the
-> org (off by default) AND Basic Benefits' approved consent text is entered. Until
+> org (off by default) AND the program's approved consent text is entered. Until
 > then no form collects anything. Publish each part no later than the deploy or
 > switch that makes it true.
 >
 > This is wording drafted by an engineer, not legal advice. Items marked **[CHECK]**
-> depend on a decision only you (or Basic Benefits) can make.
+> depend on a decision only you (or the Neighborhood Outreach Program) can make.
 
 Proposed new section, placed after **"Information collected on offer pages"**:
 
@@ -70,7 +70,7 @@ copy the agent already made, for example in their phone or email.
 1. **Retention (decided).** Leads are kept while the agent is active. A 12-month
    clock starts when the roster marks the agent terminated (or the agent is removed
    from the roster), and the leads are due for deletion at its end. Admins can delete
-   sooner on request from the person or from Basic Benefits; every deletion is logged
+   sooner on request from the person or from the program; every deletion is logged
    without the person's details. **What exists now:** the clock's start date and
    due date are recorded on each roster import, and admin deletion works. **Not yet:**
    the scheduled job that deletes at the due date (it comes with the cron phase), and
@@ -80,10 +80,10 @@ copy the agent already made, for example in their phone or email.
 2. **"Left the program" (decided).** Only *terminated* or *removed from the roster*
    starts the 12-month clock. *Suspended* and *pending* don't.
 3. **Who at the organization can see requests (decided for now).** None. Only the
-   agent and OneFlyer admins. If Basic Benefits staff are ever given access, the
+   agent and OneFlyer admins. If the program's staff are ever given access, the
    "Who receives it" paragraph must name them before that access goes live.
-4. **Consent wording.** The policy quotes no consent text. The form shows Basic
-   Benefits' approved statement verbatim and stores it with each request. Confirm
+4. **Consent wording.** The policy quotes no consent text. The form shows the
+   program's approved statement verbatim and stores it with each request. Confirm
    their statement is consistent with this section.
 5. **Spanish (decided).** A reviewed Spanish version (not a machine translation) is
    published together with this section. Not built yet.
