@@ -31,6 +31,7 @@ vi.mock("@/lib/enterprise/nop-render/render", () => ({
 }))
 vi.mock("@/lib/enterprise/nop-render/kit", () => ({ isNopTemplate: () => true, readKitContent: () => ({ program: { kit_version: "1.1.1" } }) }))
 vi.mock("@/lib/enterprise/nop-i18n/server", () => ({ nopLangForRequest: async () => "en" }))
+vi.mock("@/lib/enterprise/portal/agent-data", () => ({ listAgentLeads: async () => [] }))
 
 beforeEach(() => {
   vi.stubEnv("SESSION_SECRET", "test-secret")

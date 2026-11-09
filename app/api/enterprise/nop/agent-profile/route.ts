@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { getAgentProfile, saveAgentProfile } from "@/lib/store"
 import { requireClientSession } from "@/lib/enterprise/agent-session"
 import { rejectWhileViewingAs, requirePortalViewer } from "@/lib/enterprise/portal/view-as"
-import { validateDisplayFields } from "@/lib/enterprise/nop-roster"
-import { canGenerate, getAccountAgentId, getRosterRecord } from "@/lib/enterprise/agents-store"
+import { qrDestinationFor, validateDisplayFields } from "@/lib/enterprise/nop-roster"
+import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
+import { canGenerate, flagNameIfTooLongForFooter, getAccountAgentId, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 
 // GET   /api/enterprise/nop/agent-profile -> the agent's profile, with live roster status
@@ -27,8 +28,10 @@ export async function GET(request: NextRequest) {
   const profile = await loadAgent(auth.email)
   if (!profile) return NextResponse.json({ error: "not_registered" }, { status: 404 })
   const roster = await getRosterRecord(profile.agentId!)
+  // The enrollment link shown is the live one (the domain setting), not the snapshot saved at registration.
+  const live = { ...profile, qrDestination: qrDestinationFor(profile.agentId!, await getEnrollDomain()) }
   return NextResponse.json(
-    { profile, status: roster?.status ?? null, canGenerate: await canGenerate(profile) },
+    { profile: live, status: roster?.status ?? null, canGenerate: await canGenerate(profile) },
     { headers: { "Cache-Control": "no-store" } },
   )
 }
@@ -58,5 +61,6 @@ export async function PATCH(request: NextRequest) {
     phone: display.values.displayPhone,
     email: display.values.displayEmail,
   })
-  return NextResponse.json({ profile: saved })
+  if (display.values.displayName !== profile.displayName) await flagNameIfTooLongForFooter(profile.agentId!, auth.email, display.values.displayName)
+  return NextResponse.json({ profile: { ...saved, qrDestination: qrDestinationFor(saved.agentId!, await getEnrollDomain()) } })
 }

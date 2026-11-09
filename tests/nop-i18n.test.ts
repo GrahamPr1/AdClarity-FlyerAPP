@@ -34,8 +34,8 @@ describe("dictionaries", () => {
     for (const [k, v] of Object.entries(es)) expect(tu.test(v), `${k}: ${v}`).toBe(false)
   })
   it("uses inscribirse only for customer enrollment", () => {
-    const enrol = Object.entries(es).filter(([, v]) => /inscrib|inscrip/i.test(v)).map(([k]) => k)
-    expect(enrol).toEqual(["profile.enrollment_link"])
+    const enrol = Object.entries(es).filter(([, v]) => /inscr[ií]b|inscrip/i.test(v)).map(([k]) => k)
+    expect(enrol).toEqual(["profile.enrollment_link", "lead.enroll_now"])
   })
 })
 

@@ -1,6 +1,8 @@
 import kitContent from "@/enterprise/nop/kit-v1.1.1/content.json"
 import type { AgentRosterStatus, RosterRecord } from "@/lib/types"
 import { tNop, type NopLang } from "./nop-i18n"
+import { CANONICAL_SITE_URL } from "@/lib/site-url"
+import { FOOTER_SPACE_PX, footerNameWidth, nameFitsKitV2Footer } from "./nop-render/footer-fit"
 
 // Pure, dependency-free roster logic for the Neighborhood Outreach Program.
 //
@@ -27,18 +29,69 @@ const COLUMNS = [
 ] as const
 
 /**
- * Where an agent's QR codes point. Derived from the kit's enroll_domain, never
- * taken from the roster: the roster's enrollment_url is NOP-typed data, and a
- * typo there would silently route an agent's commissions somewhere else.
+ * The enrollment domain the kit shipped with ("neighbor.basicbenefits.com").
+ * Only the default: the live value is the admin setting (getEnrollDomain in
+ * ./nop-enroll-domain.ts), which every caller passes in as `domain`.
  */
-export function qrDestinationFor(agentId: string): string {
-  const domain = kitContent.enroll_domain.replace(/\/+$/, "")
+export const DEFAULT_ENROLL_DOMAIN = kitContent.enroll_domain.replace(/\/+$/, "")
+
+/**
+ * What the enrollment domain setting may hold: a basicbenefits.com host, no
+ * scheme, path or port. Every agent's QR forwards there, so it can't point
+ * anywhere outside Basic Benefits.
+ */
+export function isValidEnrollDomain(v: string): boolean {
+  return v.length <= 253 && /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*basicbenefits\.com$/.test(v)
+}
+
+/**
+ * An agent's enrollment URL: where their QR link (nopQrLink) forwards while
+ * they're active, and the link printed on their flyers. Built from the
+ * enrollment domain setting, never taken from the roster: the roster's
+ * enrollment_url is NOP-typed data, and a typo there would silently route an
+ * agent's commissions somewhere else.
+ */
+export function qrDestinationFor(agentId: string, domain: string): string {
   return `https://${domain}/${agentId}`
 }
 
+/** The program's own enrollment page, for a QR whose agent is unknown or not active. */
+export function programEnrollmentUrl(domain: string): string {
+  return `https://${domain}/`
+}
+
+/**
+ * What an agent's flyer QR encodes: a OneFlyer link that forwards to the
+ * enrollment URL (app/a/[code]/route.ts), so OneFlyer can count the scan.
+ * Always oneflyer.org: it's printed, so it must outlive any deployment URL.
+ *
+ * The link carries a random short code, never the Agent ID: issued once per
+ * Agent ID (lib/enterprise/nop-qr-code.ts) and never changed, so every flyer
+ * an agent ever printed keeps working.
+ */
+export const NOP_QR_PATH = "/a"
+/** No 0/O/o, 1/l/I: nothing a person could misread off a printed URL. */
+export const NOP_QR_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz"
+export const NOP_QR_CODE_LENGTH = 7
+export const NOP_QR_CODE_RE = new RegExp(`^[${NOP_QR_ALPHABET}]{6,8}$`)
+
+export function nopQrLink(code: string): string {
+  return `${CANONICAL_SITE_URL}${NOP_QR_PATH}/${code}`
+}
+
+/**
+ * Where that link forwards. An active roster agent: their own enrollment URL,
+ * exactly as before the link existed. Anyone else (unknown code, pending,
+ * suspended, terminated, or not an Agent ID at all): the program's enrollment
+ * page, so no printed flyer ever credits an agent who isn't active.
+ */
+export function nopQrTarget(agentId: string | null, roster: Pick<RosterRecord, "status"> | null | undefined, domain: string): string {
+  return agentId && AGENT_ID_RE.test(agentId) && isGenerationStatus(roster) ? qrDestinationFor(agentId, domain) : programEnrollmentUrl(domain)
+}
+
 /** What enrollment_url should be. Used ONLY to flag a mismatch on import. */
-export function expectedEnrollmentUrl(agentId: string): string {
-  return qrDestinationFor(agentId)
+export function expectedEnrollmentUrl(agentId: string, domain: string): string {
+  return qrDestinationFor(agentId, domain)
 }
 
 export function normalizeEmail(v: string): string {
@@ -141,7 +194,7 @@ export interface RosterParseResult {
  * reasons — never silently dropped. An enrollment_url that disagrees with the
  * Agent ID is flagged but still accepted (it is not used for anything live).
  */
-export function validateRosterCsv(text: string): RosterParseResult {
+export function validateRosterCsv(text: string, domain: string): RosterParseResult {
   const result: RosterParseResult = { fileErrors: [], accepted: [], rejected: [], flagged: [] }
   const rows = parseCsv(text)
   if (rows.length === 0) {
@@ -209,13 +262,16 @@ export function validateRosterCsv(text: string): RosterParseResult {
     }
 
     const enrollmentUrl = get("enrollment_url")
-    const expected = expectedEnrollmentUrl(agentId)
+    const expected = expectedEnrollmentUrl(agentId, domain)
     const urlMismatch = enrollmentUrl !== expected
     if (enrollmentUrl === "") {
       result.flagged.push({ line, agentId, reason: `enrollment_url is blank, expected "${expected}"` })
     } else if (urlMismatch) {
       const typed = raw("enrollment_url") === enrollmentUrl ? "" : ` (given as "${raw("enrollment_url")}")`
       result.flagged.push({ line, agentId, reason: `enrollment_url is "${enrollmentUrl}"${typed}, expected "${expected}"` })
+    }
+    if (!nameFitsKitV2Footer(get("agent_name"))) {
+      result.flagged.push({ line, agentId, reason: `agent_name is about ${Math.round(footerNameWidth(get("agent_name")))}px wide; the kit-v2 footer has ${Math.floor(FOOTER_SPACE_PX)}px. Kit-v2 downloads would be refused until the agent shortens their display name.` })
     }
 
     result.accepted.push({

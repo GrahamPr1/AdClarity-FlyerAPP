@@ -5,8 +5,10 @@
 //   pro     everything in Phases 2–6 and 8, including results
 //   leader  everything in Pro, plus the team dashboard
 //
-// Every Pro/Leader feature can also be switched off per org. canUse() checks
-// both, and is the ONE place either rule lives.
+// Every Pro/Leader feature can also be switched off per org, and needs the
+// agent's roster record to be active right now (a suspended or terminated Pro
+// agent gets none of it). canUse() checks all three, and is the ONE place
+// these rules live.
 
 export const AGENT_TIERS = ["basic", "pro", "leader"] as const
 export type AgentTier = (typeof AGENT_TIERS)[number]
@@ -15,7 +17,7 @@ export function isAgentTier(v: unknown): v is AgentTier {
   return typeof v === "string" && (AGENT_TIERS as readonly string[]).includes(v)
 }
 
-export const AGENT_FEATURES = ["results", "leads", "agentPage", "followUps", "events", "recruiting", "team", "printRequests", "monthlyEmail"] as const
+export const AGENT_FEATURES = ["results", "leads", "qrLeadPage", "agentPage", "followUps", "events", "recruiting", "team", "printRequests", "monthlyEmail"] as const
 export type AgentFeature = (typeof AGENT_FEATURES)[number]
 
 export function isAgentFeature(v: unknown): v is AgentFeature {
@@ -26,6 +28,7 @@ export function isAgentFeature(v: unknown): v is AgentFeature {
 export const FEATURE_TIER: Record<AgentFeature, AgentTier> = {
   results: "pro",
   leads: "pro",
+  qrLeadPage: "pro",
   agentPage: "pro",
   followUps: "pro",
   events: "pro",
@@ -39,6 +42,7 @@ export const FEATURE_TIER: Record<AgentFeature, AgentTier> = {
 export const FEATURE_LABELS: Record<AgentFeature, string> = {
   results: "Results (scans and counts)",
   leads: "Lead capture",
+  qrLeadPage: "QR opens a page (Enroll now + lead form) instead of forwarding",
   agentPage: "Personal agent page + booking",
   followUps: "Follow-up messages",
   events: "Event kit",
@@ -52,18 +56,32 @@ const RANK: Record<AgentTier, number> = { basic: 0, pro: 1, leader: 2 }
 
 export type OrgFeatures = Record<AgentFeature, boolean>
 
-/** Basic Benefits approved every feature, so the NOP org starts with all of them on; any other org starts with none. */
+/**
+ * Off for every org until an admin switches them on, NOP included: changes
+ * Basic Benefits haven't approved yet. qrLeadPage changes where a printed QR
+ * lands, so it waits for their yes.
+ */
+export const FEATURES_OFF_BY_DEFAULT: readonly AgentFeature[] = ["qrLeadPage"]
+
+/** Basic Benefits approved the Phase 1 feature list, so the NOP org starts with those on; any other org starts with none. */
 export function defaultOrgFeatures(orgIsNop: boolean): OrgFeatures {
-  return Object.fromEntries(AGENT_FEATURES.map((f) => [f, orgIsNop])) as OrgFeatures
+  return Object.fromEntries(AGENT_FEATURES.map((f) => [f, orgIsNop && !FEATURES_OFF_BY_DEFAULT.includes(f)])) as OrgFeatures
 }
 
-/** Tier AND org switch. Nothing else unlocks a feature. */
-export function canUse(agent: { tier: AgentTier; orgFeatures: OrgFeatures }, feature: AgentFeature): boolean {
-  return RANK[agent.tier] >= RANK[FEATURE_TIER[feature]] && agent.orgFeatures[feature] === true
+/** What canUse needs to know about an agent. `active`: their roster record is active now. */
+export interface FeatureSubject {
+  tier: AgentTier
+  orgFeatures: OrgFeatures
+  active: boolean
+}
+
+/** Tier AND org switch AND an active roster record. Nothing else unlocks a feature. */
+export function canUse(agent: FeatureSubject, feature: AgentFeature): boolean {
+  return agent.active === true && RANK[agent.tier] >= RANK[FEATURE_TIER[feature]] && agent.orgFeatures[feature] === true
 }
 
 /** Every feature at once, for a page or the /api/enterprise/agent/portal answer. */
-export function entitlements(agent: { tier: AgentTier; orgFeatures: OrgFeatures }): Record<AgentFeature, boolean> {
+export function entitlements(agent: FeatureSubject): Record<AgentFeature, boolean> {
   return Object.fromEntries(AGENT_FEATURES.map((f) => [f, canUse(agent, f)])) as Record<AgentFeature, boolean>
 }
 
@@ -74,7 +92,7 @@ export function entitlements(agent: { tier: AgentTier; orgFeatures: OrgFeatures 
  * its tab completely, for every tier.
  */
 export type PortalTab = "home" | "create" | "leads" | "team"
-export function portalTabs(agent: { tier: AgentTier; orgFeatures: OrgFeatures }): PortalTab[] {
+export function portalTabs(agent: FeatureSubject): PortalTab[] {
   const tabs: PortalTab[] = ["home", "create"]
   if (agent.orgFeatures.leads) tabs.push("leads")
   if (canUse(agent, "team")) tabs.push("team")

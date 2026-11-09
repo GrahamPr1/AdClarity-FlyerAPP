@@ -616,6 +616,21 @@ export interface LeadRecord {
    * Absent on leads from before this field existed, which reads as false.
    */
   afterOfferEnded?: boolean
+  /** NOP agent leads only: the consent the person ticked, exactly as it was shown. SMB leads never have it. */
+  consent?: LeadConsent
+  /** NOP agent leads only: when the agent marked it contacted; null or absent = not yet. */
+  contactedAt?: string | null
+}
+
+export interface LeadConsent {
+  /** The approved wording shown beside the checkbox, verbatim. */
+  text: string
+  /** The approved-text record and version it came from. */
+  textId: string
+  version: number
+  lang: "en" | "es"
+  /** When the person submitted with the box ticked. */
+  at: string
 }
 
 /** Scans and clicks for one distribution channel of a flyer. */
@@ -863,6 +878,13 @@ export interface ContentAsset {
    */
   content: string
   createdAt: string
+  /**
+   * Set only on org-approved wording that a page shows verbatim (consent text
+   * and, later, follow-up, event and recruiting copy). These are never added
+   * to the org's asset index, so no generation ever reads them as a source.
+   * See lib/enterprise/portal/approved-text.ts.
+   */
+  approvedText?: { key: string; lang: "en" | "es"; version: number; updatedBy: string }
 }
 
 export interface EnterpriseOrg {
@@ -944,8 +966,10 @@ export interface AgentFlag {
    *   OneFlyer business account, so the ID can't be attached to it.
    * roster_email_changed: a re-import changed an agent's roster email; the
    *   old address stops working for code sign-in.
+   * name_too_long_for_footer: an agent registered with, or changed to, a
+   *   display name that may not fit the kit-v2 footer (footer-fit.ts).
    */
-  type: "email_mismatch" | "id_already_registered" | "business_account_conflict" | "roster_email_changed"
+  type: "email_mismatch" | "id_already_registered" | "business_account_conflict" | "roster_email_changed" | "name_too_long_for_footer"
   agentId: string
   /** The OneFlyer account that made the attempt. */
   account: string
@@ -956,6 +980,9 @@ export interface AgentFlag {
   /** roster_email_changed: the previous and new roster emails. */
   fromEmail?: string
   toEmail?: string
+  /** name_too_long_for_footer: the estimated width and the space, in CSS px. */
+  nameWidthPx?: number
+  spacePx?: number
   at: string
 }
 

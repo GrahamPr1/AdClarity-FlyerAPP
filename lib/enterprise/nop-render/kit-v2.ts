@@ -17,8 +17,8 @@ const HTML_DIR = path.join(KIT_V2_DIR, "html")
 /** A made-up origin the renderer intercepts. Never reaches a network. */
 export const KIT_V2_ORIGIN = "https://nop-kit-v2.invalid"
 
-import { NOP_V2_TEMPLATES, type NopV2Id, type NopV2Lang, type NopV2Pkg, type NopV2Pricing } from "./kit-v2-ids"
-export { NOP_V2_TEMPLATES, NOP_V2_PACKAGES, NOP_V2_LANGS, NOP_V2_PRICING } from "./kit-v2-ids"
+import { v2IdParts, type NopV2Id, type NopV2Lang, type NopV2Pkg, type NopV2Pricing } from "./kit-v2-ids"
+export { NOP_V2_TEMPLATES, NOP_V2_PACKAGES, NOP_V2_LANGS, NOP_V2_PRICING, isNopV2Template } from "./kit-v2-ids"
 export type { NopV2Id, NopV2Lang, NopV2Pkg, NopV2Pricing } from "./kit-v2-ids"
 export type NopV2Size = "letter" | "bleed"
 
@@ -29,13 +29,10 @@ const FILE_NAME: Record<NopV2Pkg, string> = {
   P3: "Health-Weight-Management",
 }
 
-export function isNopV2Template(v: string): v is NopV2Id {
-  return (NOP_V2_TEMPLATES as string[]).includes(v)
-}
+
 
 export function v2Parts(id: NopV2Id): { pkg: NopV2Pkg; lang: NopV2Lang; pricing: NopV2Pricing } {
-  const [, pkg, lang, pricing] = id.split("_") as [string, NopV2Pkg, NopV2Lang, NopV2Pricing]
-  return { pkg, lang, pricing }
+  return v2IdParts(id)
 }
 
 /** "NOP-P1-Everyday-Care-EN-Price-bleed.html" */
@@ -62,12 +59,18 @@ const DS_FONTS = "_ds/basic-benefits-design-system-65e9c885-f032-4927-be79-6ba6a
 export const ACCENT_METRICS = `<style>@font-face{font-family:'Opificio Rounded';src:url('${DS_FONTS}/Poppins-ExtraBold.ttf') format('truetype');font-weight:800;font-style:normal;ascent-override:70%;descent-override:19.8%;line-gap-override:4.9%;unicode-range:U+0020}</style>`
 
 /** The page with a <base> tag and ACCENT_METRICS added to <head>. The <body> is untouched. */
-export function v2HtmlForRender(id: NopV2Id, size: NopV2Size): string {
-  const html = readV2Html(id, size)
+export function v2HtmlForRender(id: NopV2Id, size: NopV2Size, html = readV2Html(id, size)): string {
   const head = /<head[^>]*>/i.exec(html)
   if (!head) throw new Error(`${v2FileName(id, size)} has no <head>`)
   const at = head.index + head[0].length
   return `${html.slice(0, at)}<base href="${KIT_V2_ORIGIN}/">${ACCENT_METRICS}${html.slice(at)}`
+}
+
+/** "NOP-P2-EN · 10/2026": the version stamp in the page's own footer. */
+export function v2VersionStamp(id: NopV2Id): string {
+  const m = />(NOP-P\d-(?:EN|ES) · [^<]+)</.exec(readV2Html(id, "letter"))
+  if (!m) throw new Error(`${v2FileName(id, "letter")} has no version stamp`)
+  return m[1]
 }
 
 /** The <body> element's markup, for proving a render leaves it as supplied. */

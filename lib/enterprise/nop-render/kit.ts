@@ -28,6 +28,7 @@ export function templateParts(id: NopTemplateId): { pkg: "P1" | "P2" | "P3" | "A
 
 export interface KitContent {
   program: { name: string; kit_version: string; effective_date: string }
+  /** The shipped default only; the live domain is the admin setting (lib/enterprise/nop-enroll-domain.ts). */
   enroll_domain: string
   default_logo: string
   version_stamp_format: string
@@ -52,10 +53,6 @@ export function readThumbnail(id: NopTemplateId): Buffer {
   return fs.readFileSync(path.join(KIT_DIR, "digital", `${id}_Digital.png`))
 }
 
-/** "https://neighbor.basicbenefits.com/858980". The QR target and the printed URL's domain. */
-export function enrollUrl(content: KitContent, agentId: string): string {
-  return `https://${content.enroll_domain.replace(/\/+$/, "")}/${agentId}`
-}
 
 /** Every price field the template has, resolved through template_price_fields. */
 export function priceValues(content: KitContent, id: NopTemplateId): Record<string, string> {
