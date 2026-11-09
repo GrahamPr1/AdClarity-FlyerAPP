@@ -5,7 +5,7 @@ import { CANONICAL_SITE_URL } from "@/lib/site-url"
 import type { LeadRecord } from "@/lib/types"
 import { LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS, LeadSchema } from "@/lib/leads"
 import { parseNopLang, tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
-import { leadConsent, qrLanding } from "@/lib/enterprise/portal/lead-capture"
+import { fillConsent, leadConsent, qrLanding } from "@/lib/enterprise/portal/lead-capture"
 import { agentPageFor } from "@/lib/enterprise/portal/agent-page"
 import { saveAgentLead } from "@/lib/enterprise/portal/agent-data"
 
@@ -79,7 +79,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     code,
     ...parsed.data,
     createdAt: now,
-    consent: { text: consent.text, textId: consent.id, version: consent.version, lang, at: now },
+    // The words the person agreed to: the approved text with their agent's name filled in, as the form showed it.
+    consent: { text: fillConsent(consent.text, landing.agentName), textId: consent.id, version: consent.version, lang, at: now },
     contactedAt: null,
   }
   await saveAgentLead(agentId, lead)
@@ -90,10 +91,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   return NextResponse.json({ ok: true })
 }
 
-async function formTarget(code: string, fromPage: boolean): Promise<{ agentId: string; orgId: string; owner: string; agentLang: NopLang } | null> {
+async function formTarget(code: string, fromPage: boolean): Promise<{ agentId: string; agentName: string; orgId: string; owner: string; agentLang: NopLang } | null> {
   if (fromPage) {
     const page = await agentPageFor(code)
-    return page?.leads ? page : null
+    return page?.leads ? { ...page, agentName: page.name } : null
   }
   const landing = await qrLanding(code)
   return landing.state === "lead_page" ? landing : null

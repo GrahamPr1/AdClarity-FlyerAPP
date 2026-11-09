@@ -135,7 +135,8 @@ export async function listAgentDataMoves(limit = 100): Promise<AgentDataMove[]> 
 
 // ---- Admin: delete leads on request (before the retention clock runs out) ------
 
-export type DeletionRequester = "person" | "basic_benefits"
+/** Who asked: the person, the program ("basic_benefits", the stored value), or the 12-month retention job. */
+export type DeletionRequester = "person" | "basic_benefits" | "retention"
 
 export interface LeadDeletion {
   admin: string

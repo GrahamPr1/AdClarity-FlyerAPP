@@ -5,7 +5,7 @@ import { NopLeadForm } from "@/components/nop-lead-form"
 import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { NOP_ORG_NAME } from "@/lib/enterprise/nop-roster"
-import { leadConsent, qrLanding } from "@/lib/enterprise/portal/lead-capture"
+import { fillConsent, leadConsent, qrLanding } from "@/lib/enterprise/portal/lead-capture"
 
 // /a/{code}/contact — option (a): where a QR scan lands instead of forwarding,
 // only while qrLanding says "lead_page" (org switch on, active Pro/Leader agent
@@ -51,7 +51,7 @@ export default async function Page({ params }: { params: Promise<{ code: string 
               <p className="mt-2 text-sm text-muted-foreground">{tNop(lang, "lead.coming_soon_body")}</p>
             </section>
           ) : (
-            <NopLeadForm code={code} agentName={landing.agentName} consentText={consent.text} consentVersion={consent.version} />
+            <NopLeadForm code={code} agentName={landing.agentName} consentText={fillConsent(consent.text, landing.agentName)} consentVersion={consent.version} />
           )}
         </div>
       </NopLangProvider>

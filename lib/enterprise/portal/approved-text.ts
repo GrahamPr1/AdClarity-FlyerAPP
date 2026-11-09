@@ -38,6 +38,7 @@ const FOLLOW_UP_HELP =
 
 /** Extra guidance under a text's label in admin. */
 export const APPROVED_TEXT_HELP: Partial<Record<ApprovedTextKey, string>> = {
+  leadConsent: "{agent_name} is filled in with the agent's name. \"Privacy Policy\" (or \"Política de Privacidad\") becomes a link to the privacy page. Shown next to the checkbox and stored with every lead exactly as shown.",
   followUp1: FOLLOW_UP_HELP,
   followUp2: FOLLOW_UP_HELP,
   followUp3: FOLLOW_UP_HELP,

@@ -4,19 +4,20 @@ import { Redis } from "@upstash/redis"
 // not terminated, they stay. From the moment the roster says terminated (or
 // the agent is removed from the roster), a 12-month clock runs; when it
 // expires, the leads are to be deleted. Sooner deletion, on request from the
-// person or from Basic Benefits, is an admin action (agent-data.ts).
+// person or from the program, is an admin action (agent-data.ts).
 //
 //   nop-agent:{agentId}:retention   {"endedAt", "reason", "deleteAfter"}
 //   nop-retention-due               zset: Agent ID, scored by deleteAfter (ms)
 //
-// This file only RECORDS the clock. Nothing deletes on schedule yet: the job
-// that reads nop-retention-due arrives with the phase that adds cron jobs.
+// This file records the clock; the daily job that deletes when it runs out
+// is retention-job.ts (Vercel cron -> /api/cron/nop-lead-retention).
 
 const redis = Redis.fromEnv()
 
 export const RETENTION_MONTHS = 12
 const clockKey = (agentId: string) => `nop-agent:${agentId}:retention`
-const DUE_KEY = "nop-retention-due"
+export const RETENTION_DUE_KEY = "nop-retention-due"
+const DUE_KEY = RETENTION_DUE_KEY
 
 export type RetentionReason = "terminated" | "removed_from_roster"
 
