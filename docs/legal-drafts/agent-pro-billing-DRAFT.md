@@ -14,6 +14,11 @@
 >
 > Wording drafted by an engineer, not legal advice. Every claim matches the
 > code in `lib/enterprise/portal/agent-billing.ts`.
+>
+> 10 November 2026: free-trial paragraphs added (Terms and Refund, EN and ES),
+> matching `lib/enterprise/portal/pro-trial.ts` (off by default; days set in
+> admin; card required; one trial per agent ever, and none after a paid
+> subscription). Still unpublished.
 
 ---
 
@@ -39,6 +44,14 @@ store your full card number — Stripe holds it.
 **Renewal.** Pro renews automatically every month at the current price until
 you cancel. If we change the price, we'll email you at least 30 days before it
 applies to you.
+
+**Free trial.** We may offer a free trial of Pro. If one is offered when you
+upgrade, it lasts the number of days shown there. You still enter a card at
+checkout. When the trial ends, Pro renews at $40 per month plus any tax that
+applies, and your card is charged, unless you cancel before the trial ends. If
+you cancel during the trial, you aren't charged, and your account moves to
+Basic when the trial ends. Each agent can have one free trial, ever, and not
+after having paid for Pro.
 
 **Cancelling.** Cancel anytime from your agent portal → Manage billing. You
 keep Pro until the end of the month you've already paid for; then your account
@@ -70,6 +83,8 @@ The "Limits of liability" section applies to agent accounts as written.
   deliver what you paid for, email support@oneflyer.org and we'll refund you.
 - **Removed from the program.** If you're removed from the program, your Pro
   plan ends right away and we refund the unused part of that month.
+- **Free trial.** Cancelling during a free trial costs nothing. Once the trial
+  ends and your card is charged, the rules above apply.
 - **What you keep.** Your leads, scan counts and flyers stay. Lead requests are
   kept and deleted as the Privacy Policy describes.
 - **Your QR codes.** Flyers you've already printed keep working whatever your
@@ -102,6 +117,15 @@ Stripe.
 que usted lo cancele. Si cambiamos el precio, le avisaremos por correo
 electrónico al menos 30 días antes de que se le aplique.
 
+**Prueba gratuita.** Es posible que ofrezcamos una prueba gratuita de Pro. Si
+se le ofrece una al mejorar su plan, dura el número de días que se indica ahí.
+Aun así, debe ingresar una tarjeta en el pago. Cuando termina la prueba, Pro se
+renueva a $40 al mes más los impuestos que correspondan, y se cobra a su
+tarjeta, a menos que cancele antes de que termine la prueba. Si cancela durante
+la prueba, no se le cobra, y su cuenta pasa a Básico cuando termina la prueba.
+Cada agente puede tener una sola prueba gratuita, y no después de haber pagado
+Pro.
+
 **Cancelación.** Cancele en cualquier momento desde su portal de agente →
 Administrar facturación. Conserva Pro hasta el final del mes que ya pagó;
 después, su cuenta pasa a Básico. Sus contactos y su historial se conservan.
@@ -133,6 +157,9 @@ como está escrita.
   lo que usted pagó, escriba a support@oneflyer.org y le haremos el reembolso.
 - **Si lo retiran del programa.** Si lo retiran del programa, su plan Pro termina
   de inmediato y le reembolsamos la parte no usada de ese mes.
+- **Prueba gratuita.** Cancelar durante una prueba gratuita no cuesta nada. Una
+  vez que termina la prueba y se cobra a su tarjeta, se aplican las reglas
+  anteriores.
 - **Lo que conserva.** Sus contactos, sus escaneos y sus volantes se conservan.
   Las solicitudes de contacto se guardan y se eliminan como lo describe la
   Política de Privacidad.

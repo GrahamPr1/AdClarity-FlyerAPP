@@ -36,8 +36,8 @@ function StatusBanner({ messageKey }: { messageKey: NopStringKey }) {
   )
 }
 
-/** Fetches a rendered file and hands it to the browser as a download. */
-function useNopDownload(template: string) {
+/** Fetches a rendered file and hands it to the browser as a download. onDone: after a successful one. */
+function useNopDownload(template: string, onDone?: () => void) {
   const { t } = useNop()
   const [busy, setBusy] = useState<Fmt | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -62,6 +62,7 @@ function useNopDownload(template: string) {
       a.remove()
       // Delayed: Safari cancels a download whose object URL vanishes at once.
       window.setTimeout(() => URL.revokeObjectURL(url), 30_000)
+      onDone?.()
     } catch {
       setError(t("common.network"))
     } finally {
@@ -76,9 +77,9 @@ function useNopDownload(template: string) {
  * the card is never empty while it renders), a tap through to the full
  * preview, and the three downloads right on the card.
  */
-function FlyerCard({ id, active, readOnly }: { id: string; active: boolean; readOnly: boolean }) {
+function FlyerCard({ id, active, readOnly, onDownloaded }: { id: string; active: boolean; readOnly: boolean; onDownloaded?: () => void }) {
   const { t } = useNop()
-  const { busy, error, download } = useNopDownload(id)
+  const { busy, error, download } = useNopDownload(id, onDownloaded)
   const [thumb, setThumb] = useState<"loading" | "ready" | "failed">("loading")
   const labels = flyerLabels(id)
   const name = [t(labels.eyebrow), t(labels.name), labels.pricing && t(labels.pricing)].filter(Boolean).join(" · ")
@@ -136,8 +137,19 @@ function FlyerCard({ id, active, readOnly }: { id: string; active: boolean; read
   )
 }
 
-export function NopDashboard({ active, statusKey, readOnly = false, kit }: { active: boolean; statusKey: NopStringKey | null; readOnly?: boolean; kit: AgentFlyerKit }) {
+/** A Basic agent's one line about Pro after a download (upsell: they can buy Pro and their org has lead capture). Never blocks. */
+export function ProAfterDownload() {
+  const { t } = useNop()
+  return (
+    <p role="status" data-testid="pro-after-download" className="mt-4 rounded-xl border border-border bg-[var(--surface-soft)] p-3 text-sm">
+      {t("pro.after_download")} <Link href="/agent/pro" className="font-medium text-[var(--brand-teal-bright)] underline-offset-2 hover:underline">{t("pro.see_all")}</Link>
+    </p>
+  )
+}
+
+export function NopDashboard({ active, statusKey, readOnly = false, kit, upsell = false }: { active: boolean; statusKey: NopStringKey | null; readOnly?: boolean; kit: AgentFlyerKit; upsell?: boolean }) {
   const { lang, t } = useNop()
+  const [downloaded, setDownloaded] = useState(false)
   // Which flyers to show. Follows the page language until the agent picks
   // one, then it is their own choice: an agent reading English may hand
   // out Spanish flyers, and switching the page language leaves it alone.
@@ -172,17 +184,19 @@ export function NopDashboard({ active, statusKey, readOnly = false, kit }: { act
 
       <ul className="grid gap-5 sm:grid-cols-2" data-testid="nop-templates">
         {agentTemplates(kit, flyerLang).map((id) => (
-          <FlyerCard key={id} id={id} active={active} readOnly={readOnly} />
+          <FlyerCard key={id} id={id} active={active} readOnly={readOnly} onDownloaded={() => setDownloaded(true)} />
         ))}
       </ul>
+      {upsell && downloaded && <ProAfterDownload />}
     </div>
   )
 }
 
 /** The agent's actual flyer, rendered by the server, then the three downloads. */
-export function NopFlyerPreview({ template, active, statusKey, agentName, readOnly = false }: { template: string; active: boolean; statusKey: NopStringKey | null; agentName: string; readOnly?: boolean }) {
+export function NopFlyerPreview({ template, active, statusKey, agentName, readOnly = false, upsell = false }: { template: string; active: boolean; statusKey: NopStringKey | null; agentName: string; readOnly?: boolean; upsell?: boolean }) {
   const { t } = useNop()
-  const { busy, error, download } = useNopDownload(template)
+  const [downloaded, setDownloaded] = useState(false)
+  const { busy, error, download } = useNopDownload(template, () => setDownloaded(true))
   const [preview, setPreview] = useState<{ url?: string; error?: string } | null>(null)
 
   // Rendered once on arrival; nothing is downloadable until it has rendered
@@ -241,6 +255,7 @@ export function NopFlyerPreview({ template, active, statusKey, agentName, readOn
             ))}
           </ul>
           {error && <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-400">{error}</p>}
+          {upsell && downloaded && <ProAfterDownload />}
         </section>
       )}
 

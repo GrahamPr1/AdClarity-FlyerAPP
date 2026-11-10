@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { rejectWhileViewingAs } from "@/lib/enterprise/portal/view-as"
 import { requireAgentFeature } from "@/lib/enterprise/portal/api"
-import { createAgentCheckout } from "@/lib/enterprise/portal/agent-billing"
+import { agentTrialDays, createAgentCheckout } from "@/lib/enterprise/portal/agent-billing"
 
 // POST /api/enterprise/agent/billing/checkout -> { url } (Stripe Checkout for agent Pro, $40/month + tax)
 //
 // Only the agent themselves (never an admin viewing as them), only an ACTIVE
 // roster agent (pending, suspended or rejected can't buy), and only from
 // Basic. Pro is granted by the webhook once Stripe confirms payment, never here.
+// With the free trial on (pro-trial.ts) and not used yet, the session has the trial days.
 export const dynamic = "force-dynamic"
 
 export async function POST(request: NextRequest) {
@@ -19,7 +20,8 @@ export async function POST(request: NextRequest) {
   if (!ctx.active) return NextResponse.json({ error: "not_active" }, { status: 403 })
   if (ctx.tier !== "basic") return NextResponse.json({ error: "already_pro" }, { status: 409 })
   try {
-    const out = await createAgentCheckout(ctx.email, request.nextUrl.origin)
+    const trialDays = await agentTrialDays(ctx.email, ctx.agent.agentId)
+    const out = await createAgentCheckout(ctx.email, request.nextUrl.origin, { agentId: ctx.agent.agentId, trialDays })
     if (out.kind === "unavailable") return NextResponse.json({ error: "unavailable" }, { status: 503 })
     if (out.kind === "already_subscribed") return NextResponse.json({ error: "already_subscribed" }, { status: 409 })
     return NextResponse.json({ url: out.url })

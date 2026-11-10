@@ -179,6 +179,27 @@ export async function agentPageFor(code: string): Promise<AgentPageData | null> 
   }
 }
 
+/**
+ * The Basic agent's preview of the page they'd get with Pro (/agent/page/preview,
+ * signed in only, never public): their real name, phone and email, the
+ * program's enrollment link and packages; no photo or booking link (Pro
+ * settings), and the form shown as a note.
+ */
+export async function agentPagePreviewFor(ctx: NonNullable<Awaited<ReturnType<typeof loadPortalContext>>>): Promise<Pick<AgentPageData, "name" | "phone" | "email" | "licenseStates" | "enrollUrl" | "bookingUrl" | "photo" | "leads" | "orgId">> {
+  const p = ctx.agent.profile
+  return {
+    orgId: ctx.orgId,
+    name: p.displayName ?? p.name,
+    phone: p.displayPhone ?? p.phone,
+    email: p.displayEmail ?? p.email,
+    licenseStates: p.licenseStates ?? [],
+    enrollUrl: qrDestinationFor(ctx.agent.agentId, await getEnrollDomain()),
+    bookingUrl: null,
+    photo: null,
+    leads: ctx.orgFeatures.leads,
+  }
+}
+
 /** The org's approved package texts in this language. A package whose text is still a placeholder isn't shown. */
 export async function approvedPackages(orgId: string, lang: NopLang): Promise<{ pkg: string; heading: string; body: string }[]> {
   const texts = await Promise.all(AGENT_PAGE_PACKAGES.map(({ key }) => getApprovedText(orgId, key, lang)))

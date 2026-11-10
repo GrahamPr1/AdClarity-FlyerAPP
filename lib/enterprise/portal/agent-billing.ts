@@ -2,6 +2,7 @@ import { Redis } from "@upstash/redis"
 import type Stripe from "stripe"
 import { getStripe, isEntitledStatus, subscriptionPeriod } from "@/lib/stripe"
 import { getAgentTier, getAgentTierSource, setAgentTier } from "./store"
+import { markProTrialUsed, proTrialDaysFor } from "./pro-trial"
 
 // Agent Pro billing ($40/month, tax-exclusive), entirely separate from SMB
 // billing: its own Stripe price, customers, metadata key, webhook endpoint
@@ -44,6 +45,12 @@ export interface AgentBilling {
 /** Whether the portal offers "Upgrade to Pro": an active roster agent on Basic, with agent billing configured. */
 export function canBuyPro(ctx: { tier: string; active: boolean }): boolean {
   return ctx.tier === "basic" && ctx.active && !!agentProPriceId()
+}
+
+/** The free-trial days this agent would get at checkout, or null (trial off, or already had one or a subscription). */
+export async function agentTrialDays(email: string, agentId: string): Promise<number | null> {
+  const billing = await getAgentBilling(email)
+  return proTrialDaysFor(email, agentId, !!billing?.subscriptionId)
 }
 
 /** The agent Pro price, from env (sandbox and live differ). Null: agent billing is off. */
@@ -89,7 +96,12 @@ export async function linkAgentCustomer(email: string, customerId: string): Prom
 export type AgentCheckoutResult = { kind: "checkout"; url: string } | { kind: "already_subscribed" } | { kind: "unavailable" }
 
 /** Stripe Checkout for agent Pro. The caller has already checked the agent may buy (active, Basic). */
-export async function createAgentCheckout(email: string, origin: string): Promise<AgentCheckoutResult> {
+/**
+ * Stripe Checkout for agent Pro. With trialDays (the optional free trial, when
+ * on and they haven't had one): Stripe still takes the card, and charges it
+ * when the trial ends unless they cancel.
+ */
+export async function createAgentCheckout(email: string, origin: string, opts: { agentId?: string; trialDays?: number | null } = {}): Promise<AgentCheckoutResult> {
   const price = agentProPriceId()
   if (!price) return { kind: "unavailable" }
   const billing = await getAgentBilling(email)
@@ -107,7 +119,12 @@ export async function createAgentCheckout(email: string, origin: string): Promis
     automatic_tax: { enabled: true },
     billing_address_collection: "required",
     customer_update: { address: "auto", name: "auto" },
-    subscription_data: { metadata: { [AGENT_EMAIL_METADATA_KEY]: email, oneflyer_product: "agent_pro" } },
+    subscription_data: {
+      metadata: { [AGENT_EMAIL_METADATA_KEY]: email, oneflyer_product: "agent_pro", ...(opts.agentId ? { oneflyer_agent_id: opts.agentId } : {}) },
+      ...(opts.trialDays ? { trial_period_days: opts.trialDays } : {}),
+    },
+    // A card is always collected, trial or not.
+    payment_method_collection: "always",
     metadata: { [AGENT_EMAIL_METADATA_KEY]: email, oneflyer_product: "agent_pro" },
     success_url: `${origin}/agent?billing=success`,
     cancel_url: `${origin}/agent?billing=cancelled`,
@@ -153,6 +170,8 @@ export async function syncAgentSubscription(subscriptionId: string): Promise<Age
   }
   const period = subscriptionPeriod(sub)
   await redis.set(customerKey(customerId), email)
+  // A subscription that started with a free trial uses up this agent's one trial.
+  if (sub.trial_start) await markProTrialUsed(email, sub.metadata?.oneflyer_agent_id ?? null, new Date(sub.trial_start * 1000))
   await saveAgentBilling(email, {
     customerId,
     subscriptionId: sub.id,

@@ -12,6 +12,7 @@ import { flyerLabels } from "@/lib/enterprise/nop-render/flyer-labels"
 import { PortalShell } from "../../portal-shell"
 import { NopPrintRequest } from "@/components/nop-print-request"
 import { canUse } from "@/lib/enterprise/portal/features"
+import { canBuyPro } from "@/lib/enterprise/portal/agent-billing"
 
 export const dynamic = "force-dynamic"
 
@@ -43,6 +44,7 @@ export default async function Page({ params }: { params: Promise<{ template: str
         statusKey={ctx.agent.active ? null : nopStatusMessageKey(ctx.agent.status)}
         agentName={ctx.agent.profile.displayName ?? ctx.agent.profile.name}
         readOnly={page.readOnly}
+        upsell={canBuyPro(ctx) && ctx.orgFeatures.leads}
       />
       {canUse(ctx, "printRequests") && <NopPrintRequest template={template} readOnly={page.readOnly} />}
     </PortalShell>
