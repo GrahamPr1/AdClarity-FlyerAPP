@@ -486,6 +486,52 @@ export async function sendEventHiddenNotice(input: {
 }
 
 /**
+ * The monthly results email to a Pro/Leader agent (monthly-email.ts), in their
+ * language: last month's numbers and one link to the portal. Rows for features
+ * the org has off are left out. The footer says how to turn it off.
+ */
+export async function sendMonthlyResults(input: {
+  to: string
+  lang: NopLang
+  /** "2026-11" */
+  month: string
+  results: { scans: number; leads: number; rsvps: number | null; recruits: number | null }
+  portalUrl: string
+  profileUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
+  const [y, m] = input.month.split("-").map(Number)
+  const monthName = new Intl.DateTimeFormat(input.lang === "es" ? "es-US" : "en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, 15)))
+  const r = input.results
+  const body = agentMail(input.lang, [
+    { p: t("monthly.intro", { month: monthName }) },
+    { rows: [
+      { label: t("portal.results_scans"), value: String(r.scans) },
+      { label: t("portal.results_leads"), value: String(r.leads) },
+      ...(r.rsvps !== null ? [{ label: t("monthly.rsvps"), value: String(r.rsvps) }] : []),
+      ...(r.recruits !== null ? [{ label: t("monthly.recruits"), value: String(r.recruits) }] : []),
+    ] },
+    { link: { label: t("monthly.open"), url: input.portalUrl } },
+    { small: t("monthly.turn_off", { url: input.profileUrl }) },
+  ], t("email.footer_agent"))
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      ...(SUPPORT_REPLY_TO ? { replyTo: SUPPORT_REPLY_TO } : {}),
+      subject: t("monthly.subject", { month: monthName }),
+      ...body,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
  * Waitlist confirmation.
  *
  * Deliberately does NOT send yet — it logs. Sending real mail to people who

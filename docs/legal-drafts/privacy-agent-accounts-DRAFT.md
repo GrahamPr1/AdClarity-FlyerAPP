@@ -1,7 +1,9 @@
 # DRAFT — Privacy Policy: Agent accounts (English and Spanish)
 
-> **Status: DRAFT, not published.** For approval before the Recruiting kit and
-> the Team dashboard are switched on. Placement: a new section after the Spanish "Información
+> **Status: APPROVED (10 November 2026), EN and ES, and published in
+> `app/privacy/page.tsx` with the site-wide Analytics addition, in the deploy
+> that merged account deletion and Part 8. This file is the record; the page is
+> the source of truth.** Placement: a new section after the Spanish "Información
 > recopilada en las páginas de agentes" (`#agent-pages-es`): English
 > `id="agent-accounts"`, then Spanish `id="agent-accounts-es"` (`lang="es"`).
 >
@@ -37,13 +39,23 @@ which agent invited you.
 - your personal page settings: your booking link and, where the program allows
   it, the photo you upload (stored privately and shown only on your page);
 - the events you set up, with the details you write for them;
+- print requests you make: which flyer, how many copies, the name and address
+  to ship them to, and any notes;
 - the requests and RSVPs people send you (see the agent pages sections above);
+- whether you've turned off the monthly results email;
 - when you last used your account.
 
 To stop automated abuse, we briefly use your IP address to limit repeated
 sign-in attempts. It isn't stored with your account. Google Analytics and
 Google Tag Manager don't run on the agent portal or on your public pages; only
 Vercel Web Analytics, which uses no cookies and doesn't identify you, does.
+
+**Emails we send you.** We email you your sign-in codes, the program's
+decision on your sign-up, each new request or RSVP, the day before your
+events, the list of who's coming, and a notice if an administrator takes one
+of your event pages down or puts it back. If you have Pro, we also email you a
+summary of last month's results on the 1st of each month, unless nothing
+happened that month; you can turn it off in your profile.
 
 **What's public.** Your name, phone number and the program's enrollment link,
 which includes your Agent ID, are printed on your flyers with your QR code.
@@ -54,8 +66,8 @@ details is shown on its public page.
 
 **Who can see your account.** Authorized OneFlyer staff and the program's
 administrators can see your account details, your plan and billing status,
-your activity (flyers made, scans, requests), and the requests and RSVPs you
-received. They can open a read-only view of your portal to help you; each time
+your activity (flyers made, scans, requests), the requests and RSVPs you
+received, and your print requests, to quote, print and ship them. They can open a read-only view of your portal to help you; each time
 they do, it's recorded. If you invited another agent, you can see that
 agent's name, when they signed up, and whether their sign-up is waiting,
 approved or no longer active. If the program makes you a team leader, you also
@@ -75,7 +87,8 @@ your QR code takes people to the program's own page, and your personal and
 event pages come down. A paid Pro subscription ends right away, and we refund
 the unused part of the current month. Twelve months after you leave, we
 delete your account automatically: your profile, page settings and photo,
-events, the requests and RSVPs you received, and your scan counts. If the
+events, print requests, the requests and RSVPs you received, and your scan
+counts. If the
 program reinstates you within that time, your account comes back as it was
 and nothing is deleted.
 
@@ -122,8 +135,11 @@ invitación de otro agente, registramos qué agente lo invitó.
   programa lo permite, la foto que suba (se guarda de forma privada y solo se
   muestra en su página);
 - los eventos que organiza, con los detalles que escribe;
+- las solicitudes de impresión que hace: qué volante, cuántas copias, el
+  nombre y la dirección de envío, y cualquier nota;
 - las solicitudes y confirmaciones que le envían (consulte las secciones
   anteriores sobre las páginas de agentes);
+- si desactivó el correo mensual de resultados;
 - la última vez que usó su cuenta.
 
 Para evitar abusos automatizados, usamos brevemente su dirección IP para
@@ -131,6 +147,15 @@ limitar los intentos repetidos de iniciar sesión. No se guarda con su cuenta.
 Google Analytics y Google Tag Manager no funcionan en el portal de agentes ni
 en sus páginas públicas; solo funciona Vercel Web Analytics, que no usa cookies
 y no lo identifica.
+
+**Correos que le enviamos.** Le enviamos por correo sus códigos para iniciar
+sesión, la decisión del programa sobre su registro, cada nueva solicitud o
+confirmación, el día antes de sus eventos, la lista de quiénes asistirán, y un
+aviso si un administrador retira una de sus páginas de eventos o la vuelve a
+publicar. Si
+tiene Pro, también le enviamos un resumen de los resultados del mes anterior el
+día 1 de cada mes, salvo que ese mes no haya habido actividad; puede
+desactivarlo en su perfil.
 
 **Lo que es público.** Su nombre, su número de teléfono y el enlace de
 inscripción del programa, que incluye su número de agente, se imprimen en sus
@@ -143,7 +168,8 @@ detalles de un evento se muestra en su página pública.
 **Quién puede ver su cuenta.** El personal autorizado de OneFlyer y los
 administradores del programa pueden ver los datos de su cuenta, su plan y el
 estado de su facturación, su actividad (volantes hechos, escaneos,
-solicitudes) y las solicitudes y confirmaciones que recibió. Pueden abrir una
+solicitudes), las solicitudes y confirmaciones que recibió, y sus solicitudes
+de impresión, para cotizarlas, imprimirlas y enviarlas. Pueden abrir una
 vista de solo lectura de su portal para ayudarle; cada vez que lo hacen, queda
 registrado. Si usted invitó a otro agente, puede ver el nombre de ese agente,
 cuándo se registró y si su registro está en espera, aprobado o ya no está
@@ -165,8 +191,9 @@ QR lleva a las personas a la página del propio programa, y su página personal
 y sus páginas de eventos dejan de estar disponibles. Una suscripción Pro pagada
 termina de inmediato, y le reembolsamos la parte no usada del mes en curso.
 Doce meses después de que salga, eliminamos su cuenta automáticamente: su
-perfil, la configuración y la foto de su página, sus eventos, las solicitudes
-y confirmaciones que recibió y sus totales de escaneos. Si el programa lo
+perfil, la configuración y la foto de su página, sus eventos, sus solicitudes
+de impresión, las solicitudes y confirmaciones que recibió y sus totales de
+escaneos. Si el programa lo
 reincorpora dentro de ese plazo, su cuenta vuelve tal como estaba y no se
 elimina nada.
 

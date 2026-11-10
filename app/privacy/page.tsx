@@ -84,6 +84,12 @@ export default function PrivacyPage() {
         We also use Vercel Web Analytics, which is cookieless and does not identify individual
         visitors.
       </p>
+      <p>
+        Program and agent pages are different. Google Analytics and Google Tag Manager don&apos;t
+        run on the agent portal (oneflyer.org/agent and /agente), on agents&apos; own pages (/p/…,
+        /e/… and /a/…), or on the program administrators&apos; pages (/program). Only Vercel Web
+        Analytics runs there.
+      </p>
 
       <H2>What we don&apos;t collect</H2>
       <p>
@@ -302,6 +308,195 @@ export default function PrivacyPage() {
           en oneflyer.org/contact y la eliminaremos. También puede pedírselo al agente o al
           programa. Eliminarla de OneFlyer no elimina las copias que el agente ya haya hecho, por
           ejemplo en su teléfono o su correo.
+        </p>
+      </div>
+
+      <H2 id="agent-accounts">Agent accounts</H2>
+      <p>
+        This section is for agents in the Neighborhood Outreach Program who have a OneFlyer account.
+        The sections above on the agent pages cover the people who use your flyers and pages.
+      </p>
+      <p>
+        <strong>When you sign up.</strong> We collect your Agent ID, full name, phone number, email
+        address and preferred language. We confirm your email with a one-time code. Your sign-up
+        then waits for the program&apos;s approval. If it isn&apos;t approved, your account is
+        removed, but we keep a record of what you submitted and of the decision. If you sign up
+        through another agent&apos;s invitation link, we record which agent invited you.
+      </p>
+      <p><strong>While you use your account.</strong> We keep:</p>
+      <UL>
+        <li>your profile: the name, phone and email you show on your flyers and pages, your language, and any name change you ask for (name changes need the program&apos;s approval);</li>
+        <li>a record of every flyer you preview or download: which flyer, which format, and when;</li>
+        <li>how many times your QR code was scanned, by month;</li>
+        <li>your personal page settings: your booking link and, where the program allows it, the photo you upload (stored privately and shown only on your page);</li>
+        <li>the events you set up, with the details you write for them;</li>
+        <li>print requests you make: which flyer, how many copies, the name and address to ship them to, and any notes;</li>
+        <li>the requests and RSVPs people send you (see the agent pages sections above);</li>
+        <li>whether you&apos;ve turned off the monthly results email;</li>
+        <li>when you last used your account.</li>
+      </UL>
+      <p>
+        To stop automated abuse, we briefly use your IP address to limit repeated sign-in attempts.
+        It isn&apos;t stored with your account. Google Analytics and Google Tag Manager don&apos;t
+        run on the agent portal or on your public pages; only Vercel Web Analytics, which uses no
+        cookies and doesn&apos;t identify you, does.
+      </p>
+      <p>
+        <strong>Emails we send you.</strong> We email you your sign-in codes, the program&apos;s
+        decision on your sign-up, each new request or RSVP, the day before your events, the list of
+        who&apos;s coming, and a notice if an administrator takes one of your event pages down or
+        puts it back. If you have Pro, we also email you a summary of last month&apos;s results on
+        the 1st of each month, unless nothing happened that month; you can turn it off in your
+        profile.
+      </p>
+      <p>
+        <strong>What&apos;s public.</strong> Your name, phone number and the program&apos;s
+        enrollment link, which includes your Agent ID, are printed on your flyers with your QR code.
+        Some flyer versions also print your email address. If you have a personal page or an event
+        page, it shows your name, phone number and email address, and your photo and booking link if
+        you added them. Anything you write in an event&apos;s details is shown on its public page.
+      </p>
+      <p>
+        <strong>Who can see your account.</strong> Authorized OneFlyer staff and the program&apos;s
+        administrators can see your account details, your plan and billing status, your activity
+        (flyers made, scans, requests), the requests and RSVPs you received, and your print
+        requests, to quote, print and ship them. They can open a read-only view of your portal to
+        help you; each time they do, it&apos;s recorded. If you invited another agent, you can see
+        that agent&apos;s name, when they signed up, and whether their sign-up is waiting, approved
+        or no longer active. If the program makes you a team leader, you also see, for each approved
+        agent you invited, how many flyers they&apos;ve downloaded, how many requests they&apos;ve
+        received, and when they last used OneFlyer: counts only, never the people who sent the
+        requests. The agent who invited you sees the same about you.
+      </p>
+      <p>
+        <strong>Billing.</strong> If you pay for Pro, you enter your card on Stripe&apos;s checkout
+        and billing pages. Stripe handles your card details; we never see or store your card number.
+        We keep your Stripe customer and subscription references, your subscription status, when
+        your current period ends, when you last paid, and whether a payment failed.
+      </p>
+      <p>
+        <strong>If you leave or are removed from the program.</strong> You can no longer sign in,
+        your QR code takes people to the program&apos;s own page, and your personal and event pages
+        come down. A paid Pro subscription ends right away, and we refund the unused part of the
+        current month. Twelve months after you leave, we delete your account automatically: your
+        profile, page settings and photo, events, print requests, the requests and RSVPs you
+        received, and your scan counts. If the program reinstates you within that time, your account
+        comes back as it was and nothing is deleted.
+      </p>
+      <p>
+        <strong>How long we keep it.</strong> We keep your account while you&apos;re in the program,
+        and for 12 months after you leave, unless you ask us to delete it sooner. After we delete an
+        account, we keep the record of flyers you downloaded, because the program requires a record
+        of every flyer made, and it may be given to the program. We also keep our administrative
+        records: your sign-up and the program&apos;s decision on it, and the log of what OneFlyer
+        staff and the program&apos;s administrators did with your account, including the deletion.
+      </p>
+      <p>
+        <strong>Your choices.</strong> To get a copy of your information, correct it, or have it
+        deleted, email <a href="mailto:support@oneflyer.org"
+        className="text-[var(--brand-teal-bright)] hover:underline">support@oneflyer.org</a> from
+        the address on your account. If you have a paid Pro subscription, deleting your account
+        cancels it right away and we refund the unused part of the current month. You can change the
+        phone number and email address you show, and your language, yourself in your portal; a name
+        change goes to the program for approval.
+      </p>
+
+      <div lang="es" className="flex flex-col gap-4">
+        <H2 id="agent-accounts-es">Cuentas de agentes</H2>
+        <p>
+          Esta sección es para los agentes del Neighborhood Outreach Program que tienen una cuenta
+          de OneFlyer. Las secciones anteriores sobre las páginas de agentes se refieren a las
+          personas que usan sus volantes y páginas.
+        </p>
+        <p>
+          <strong>Cuando se registra.</strong> Recopilamos su número de agente, su nombre completo,
+          su número de teléfono, su correo electrónico y su idioma preferido. Confirmamos su correo
+          con un código de un solo uso. Luego su registro espera la aprobación del programa. Si no
+          se aprueba, eliminamos su cuenta, pero guardamos un registro de lo que envió y de la
+          decisión. Si se registra con el enlace de invitación de otro agente, registramos qué
+          agente lo invitó.
+        </p>
+        <p><strong>Mientras usa su cuenta.</strong> Guardamos:</p>
+        <UL>
+          <li>su perfil: el nombre, el teléfono y el correo que muestra en sus volantes y páginas, su idioma y cualquier cambio de nombre que solicite (los cambios de nombre necesitan la aprobación del programa);</li>
+          <li>un registro de cada volante que ve o descarga: qué volante, en qué formato y cuándo;</li>
+          <li>cuántas veces se escaneó su código QR, por mes;</li>
+          <li>la configuración de su página personal: su enlace para citas y, si el programa lo permite, la foto que suba (se guarda de forma privada y solo se muestra en su página);</li>
+          <li>los eventos que organiza, con los detalles que escribe;</li>
+          <li>las solicitudes de impresión que hace: qué volante, cuántas copias, el nombre y la dirección de envío, y cualquier nota;</li>
+          <li>las solicitudes y confirmaciones que le envían (consulte las secciones anteriores sobre las páginas de agentes);</li>
+          <li>si desactivó el correo mensual de resultados;</li>
+          <li>la última vez que usó su cuenta.</li>
+        </UL>
+        <p>
+          Para evitar abusos automatizados, usamos brevemente su dirección IP para limitar los
+          intentos repetidos de iniciar sesión. No se guarda con su cuenta. Google Analytics y
+          Google Tag Manager no funcionan en el portal de agentes ni en sus páginas públicas; solo
+          funciona Vercel Web Analytics, que no usa cookies y no lo identifica.
+        </p>
+        <p>
+          <strong>Correos que le enviamos.</strong> Le enviamos por correo sus códigos para iniciar
+          sesión, la decisión del programa sobre su registro, cada nueva solicitud o confirmación,
+          el día antes de sus eventos, la lista de quiénes asistirán, y un aviso si un administrador
+          retira una de sus páginas de eventos o la vuelve a publicar. Si tiene Pro, también le
+          enviamos un resumen de los resultados del mes anterior el día 1 de cada mes, salvo que ese
+          mes no haya habido actividad; puede desactivarlo en su perfil.
+        </p>
+        <p>
+          <strong>Lo que es público.</strong> Su nombre, su número de teléfono y el enlace de
+          inscripción del programa, que incluye su número de agente, se imprimen en sus volantes
+          junto con su código QR. Algunas versiones de los volantes también imprimen su correo
+          electrónico. Si tiene una página personal o una página de evento, esta muestra su nombre,
+          su número de teléfono y su correo electrónico, y su foto y su enlace para citas si los
+          agregó. Todo lo que escriba en los detalles de un evento se muestra en su página pública.
+        </p>
+        <p>
+          <strong>Quién puede ver su cuenta.</strong> El personal autorizado de OneFlyer y los
+          administradores del programa pueden ver los datos de su cuenta, su plan y el estado de su
+          facturación, su actividad (volantes hechos, escaneos, solicitudes), las solicitudes y
+          confirmaciones que recibió, y sus solicitudes de impresión, para cotizarlas, imprimirlas y
+          enviarlas. Pueden abrir una vista de solo lectura de su portal para ayudarle; cada vez que
+          lo hacen, queda registrado. Si usted invitó a otro agente, puede ver el nombre de ese
+          agente, cuándo se registró y si su registro está en espera, aprobado o ya no está activo.
+          Si el programa lo nombra líder de equipo, también ve, de cada agente aprobado que invitó,
+          cuántos volantes ha descargado, cuántas solicitudes ha recibido y cuándo usó OneFlyer por
+          última vez: solo totales, nunca las personas que enviaron las solicitudes. El agente que
+          lo invitó a usted ve lo mismo sobre usted.
+        </p>
+        <p>
+          <strong>Facturación.</strong> Si paga Pro, usted escribe los datos de su tarjeta en las
+          páginas de pago y facturación de Stripe. Stripe maneja los datos de su tarjeta; nosotros
+          nunca vemos ni guardamos el número. Guardamos las referencias de cliente y de suscripción
+          de Stripe, el estado de su suscripción, cuándo termina su período actual, cuándo pagó por
+          última vez y si algún pago falló.
+        </p>
+        <p>
+          <strong>Si deja el programa o se le retira.</strong> Ya no puede iniciar sesión, su código
+          QR lleva a las personas a la página del propio programa, y su página personal y sus
+          páginas de eventos dejan de estar disponibles. Una suscripción Pro pagada termina de
+          inmediato, y le reembolsamos la parte no usada del mes en curso. Doce meses después de que
+          salga, eliminamos su cuenta automáticamente: su perfil, la configuración y la foto de su
+          página, sus eventos, sus solicitudes de impresión, las solicitudes y confirmaciones que
+          recibió y sus totales de escaneos. Si el programa lo reincorpora dentro de ese plazo, su
+          cuenta vuelve tal como estaba y no se elimina nada.
+        </p>
+        <p>
+          <strong>Cuánto tiempo la guardamos.</strong> Guardamos su cuenta mientras esté en el
+          programa y durante 12 meses después de que salga, a menos que nos pida eliminarla antes.
+          Después de eliminar una cuenta, guardamos el registro de los volantes que descargó, porque
+          el programa exige un registro de cada volante hecho, y es posible que se le entregue al
+          programa. También guardamos nuestros registros administrativos: su registro en el programa
+          y la decisión del programa sobre él, y el registro de lo que hicieron con su cuenta el
+          personal de OneFlyer y los administradores del programa, incluida la eliminación.
+        </p>
+        <p>
+          <strong>Sus opciones.</strong> Para obtener una copia de su información, corregirla o
+          pedir que la eliminemos, escriba a <a href="mailto:support@oneflyer.org"
+          className="text-[var(--brand-teal-bright)] hover:underline">support@oneflyer.org</a> desde
+          el correo de su cuenta. Si tiene una suscripción Pro pagada, eliminar su cuenta la cancela
+          de inmediato y le reembolsamos la parte no usada del mes en curso. Usted mismo puede
+          cambiar en su portal el teléfono y el correo que muestra, y su idioma; un cambio de nombre
+          pasa al programa para su aprobación.
         </p>
       </div>
 

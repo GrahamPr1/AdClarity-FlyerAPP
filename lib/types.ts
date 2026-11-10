@@ -945,6 +945,8 @@ export interface AgentProfile {
    * flyers). displayName keeps the approved name until then.
    */
   pendingName?: { name: string; requestedAt: string } | null
+  /** False: the agent turned off the monthly results email (portal profile). Unset: on. */
+  monthlyEmail?: boolean
 }
 
 export type AgentRosterStatus = "pending" | "active" | "suspended" | "terminated"
