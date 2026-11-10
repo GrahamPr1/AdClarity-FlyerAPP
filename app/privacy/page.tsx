@@ -19,7 +19,7 @@ export const metadata = { title: "Privacy Policy", alternates: { canonical: "/pr
 // dashboard or by admin).
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="9 November 2026">
+    <LegalPage title="Privacy Policy" updated="10 November 2026">
       <p>
         OneFlyer is run by a small team. This page describes what we actually store and who
         actually sees it — not what a generic template says a company might do.
@@ -180,11 +180,13 @@ export default function PrivacyPage() {
       </p>
       <p>
         <strong>The contact forms.</strong> Some agents have a OneFlyer page with a form to ask
-        them to contact you: either the page their flyer&apos;s QR code opens, or their personal
-        page (oneflyer.org/p/…). If you submit one, we collect what you enter (your name, phone
-        number, and optionally your email address and a message), the date and time, the language
-        the page was shown in, and the exact consent statement you agreed to by checking the box,
-        with the agent&apos;s name as it was shown.
+        them to contact you: the page their flyer&apos;s QR code opens, their personal page
+        (oneflyer.org/p/…), or a page for an event they&apos;re hosting (oneflyer.org/e/…), where
+        you can RSVP. If you submit one, we collect what you enter (your name, phone number, and
+        optionally your email address and a message, plus, for an event, how many guests
+        you&apos;re bringing), the date and time, the language the page was shown in, and the exact
+        consent statement you agreed to by checking the box, with the agent&apos;s name as it was
+        shown.
       </p>
       <p>
         <strong>Who receives it.</strong> Your request goes to the agent whose flyer or page you
@@ -194,6 +196,14 @@ export default function PrivacyPage() {
         run the program, and authorized OneFlyer staff can see them to run and support the service.
         We don&apos;t sell your information, share it with other agents or businesses, or use it
         for our own marketing.
+      </p>
+      <p>
+        <strong>Events.</strong> When you RSVP to an event, the agent hosting it receives your RSVP
+        like any other request, and the day before the event they get an email listing everyone
+        who RSVP&apos;d. If you gave your email address, we send you one reminder email the day
+        before the event, in the language you used, with the time, the place and how to reach the
+        agent. Replies to it go to the agent. We don&apos;t send it if the event is cancelled or
+        taken down, and we don&apos;t send text messages.
       </p>
       <p>
         <strong>If an agent&apos;s account changes.</strong> Requests are kept with the agent&apos;s
@@ -238,11 +248,12 @@ export default function PrivacyPage() {
         <p>
           <strong>Los formularios de contacto.</strong> Algunos agentes tienen una página de
           OneFlyer con un formulario para pedirles que lo contacten: la página que abre el código QR
-          de su volante, o su página personal (oneflyer.org/p/…). Si usted envía uno, recopilamos
-          lo que escribe (su nombre, su número de teléfono y, si lo desea, su correo electrónico y
-          un mensaje), la fecha y la hora, el idioma en que se mostró la página y la declaración de
-          consentimiento exacta que aceptó al marcar la casilla, con el nombre del agente tal como
-          se mostró.
+          de su volante, su página personal (oneflyer.org/p/…) o la página de un evento que
+          organizan (oneflyer.org/e/…), donde puede confirmar su asistencia. Si usted envía uno,
+          recopilamos lo que escribe (su nombre, su número de teléfono y, si lo desea, su correo
+          electrónico y un mensaje, y, en el caso de un evento, cuántos acompañantes llevará), la
+          fecha y la hora, el idioma en que se mostró la página y la declaración de consentimiento
+          exacta que aceptó al marcar la casilla, con el nombre del agente tal como se mostró.
         </p>
         <p>
           <strong>Quién la recibe.</strong> Su solicitud llega al agente cuyo volante o página usó,
@@ -253,6 +264,15 @@ export default function PrivacyPage() {
           administrar el programa, y el personal autorizado de OneFlyer puede verlas para operar el
           servicio y dar soporte. No vendemos su información, no la compartimos con otros agentes ni
           negocios, ni la usamos para nuestro propio mercadeo.
+        </p>
+        <p>
+          <strong>Eventos.</strong> Cuando usted confirma su asistencia a un evento, el agente que
+          lo organiza recibe su confirmación como cualquier otra solicitud, y el día antes del
+          evento recibe un correo con la lista de todas las personas que confirmaron. Si usted dio
+          su correo electrónico, le enviamos un solo correo de recordatorio el día antes del evento,
+          en el idioma que usó, con la hora, el lugar y cómo comunicarse con el agente. Las
+          respuestas a ese correo le llegan al agente. No lo enviamos si el evento se cancela o se
+          retira, y no enviamos mensajes de texto.
         </p>
         <p>
           <strong>Si cambia la cuenta de un agente.</strong> Las solicitudes se guardan con el

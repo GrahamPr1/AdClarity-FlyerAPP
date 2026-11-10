@@ -1,7 +1,10 @@
 # DRAFT — Privacy Policy: event pages and reminder emails (English and Spanish)
 
-> **Status: DRAFT, not published.** For approval before events are switched on
-> for the program. Once approved, it goes into the existing "Information
+> **Status: APPROVED (10 November 2026), EN and ES, and published in
+> `app/privacy/page.tsx` in the deploy that merged events (still switched
+> off). This file is the record; the page is the source of truth.**
+>
+> Originally: for approval before events are switched on for the program. Once approved, it goes into the existing "Information
 > collected on agent pages" sections of `app/privacy/page.tsx` (English
 > `#agent-pages`, Spanish `#agent-pages-es`), in the same deploy or before the
 > program's events switch is turned on.
