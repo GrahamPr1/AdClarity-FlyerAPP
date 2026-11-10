@@ -3,6 +3,7 @@ import { nopQrTarget, qrDestinationFor } from "@/lib/enterprise/nop-roster"
 import { agentIdForQrCode } from "@/lib/enterprise/nop-qr-code"
 import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
 import type { NopLang } from "@/lib/enterprise/nop-i18n"
+import type { LeadRecord } from "@/lib/types"
 import { canUse } from "./features"
 import { loadPortalContext } from "./context"
 import { getApprovedText, type ApprovedText } from "./approved-text"
@@ -47,6 +48,31 @@ export async function qrLanding(code: string): Promise<QrLanding> {
 /** The consent line for the lead form in this language; pending = show "Coming soon" and accept nothing. */
 export function leadConsent(orgId: string, lang: NopLang): Promise<ApprovedText> {
   return getApprovedText(orgId, "leadConsent", lang)
+}
+
+/**
+ * The optional text-message consent (a second checkbox, never required) in this
+ * language; pending = the checkbox isn't shown and nothing is recorded as asked.
+ */
+export function smsConsent(orgId: string, lang: NopLang): Promise<ApprovedText> {
+  return getApprovedText(orgId, "smsConsent", lang)
+}
+
+/** What a lead stores about texting: asked or not, the answer, the exact words, and the phone it covers. */
+export type SmsConsentCheck =
+  | { ok: true; value: NonNullable<LeadRecord["smsConsent"]> | null }
+  | { ok: false; error: "sms_consent_changed" }
+
+/**
+ * The lead's text-message consent from the form body. Not offered (pending
+ * text): null. Offered: agreed yes or no, with the words shown. A tick against
+ * wording that changed since the page loaded is refused, like the main consent.
+ */
+export function checkSmsConsent(body: Record<string, unknown>, sms: ApprovedText, agentName: string, phone: string, lang: NopLang, at: string): SmsConsentCheck {
+  if (sms.pending) return { ok: true, value: null }
+  const agreed = body.smsConsent === true
+  if (agreed && body.smsConsentVersion !== sms.version) return { ok: false, error: "sms_consent_changed" }
+  return { ok: true, value: { agreed, text: fillConsent(sms.text, agentName), textId: sms.id, version: sms.version, lang, at, phone } }
 }
 
 /** The fill-ins the consent text may use. {agent_name}: the agent's display name. */

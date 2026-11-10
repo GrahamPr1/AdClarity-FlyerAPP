@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   const lang = parseNopLang(body?.lang)
   if (!isApprovedTextKey(body?.key) || !lang || typeof body?.text !== "string") return NextResponse.json({ error: "invalid" }, { status: 400 })
   if (body.text.length > MAX_APPROVED_TEXT) return NextResponse.json({ error: "too_long", message: `At most ${MAX_APPROVED_TEXT} characters.` }, { status: 422 })
-  if (body.key === "leadConsent") {
+  if (body.key === "leadConsent" || body.key === "smsConsent") {
     const check = checkConsentText(body.text)
     if (!check.ok) return NextResponse.json({ error: "invalid_consent", message: check.message }, { status: 422 })
   }

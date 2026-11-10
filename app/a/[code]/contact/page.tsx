@@ -5,7 +5,7 @@ import { NopLeadForm } from "@/components/nop-lead-form"
 import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { NOP_ORG_NAME } from "@/lib/enterprise/nop-roster"
-import { fillConsent, leadConsent, qrLanding } from "@/lib/enterprise/portal/lead-capture"
+import { fillConsent, leadConsent, qrLanding, smsConsent } from "@/lib/enterprise/portal/lead-capture"
 
 // /a/{code}/contact — option (a): where a QR scan lands instead of forwarding,
 // only while qrLanding says "lead_page" (org switch on, active Pro/Leader agent
@@ -29,7 +29,7 @@ export default async function Page({ params }: { params: Promise<{ code: string 
   const { lang } = await nopLangForPage(null)
   const landing = await qrLanding(code)
   if (landing.state !== "lead_page") redirect(landing.target)
-  const consent = await leadConsent(landing.orgId, lang)
+  const [consent, sms] = await Promise.all([leadConsent(landing.orgId, lang), smsConsent(landing.orgId, lang)])
 
   return (
     <main lang={lang} className="min-h-screen bg-background text-foreground">
@@ -51,7 +51,7 @@ export default async function Page({ params }: { params: Promise<{ code: string 
               <p className="mt-2 text-sm text-muted-foreground">{tNop(lang, "lead.coming_soon_body")}</p>
             </section>
           ) : (
-            <NopLeadForm code={code} agentName={landing.agentName} consentText={fillConsent(consent.text, landing.agentName)} consentVersion={consent.version} />
+            <NopLeadForm code={code} agentName={landing.agentName} consentText={fillConsent(consent.text, landing.agentName)} consentVersion={consent.version} sms={sms.pending ? null : { text: fillConsent(sms.text, landing.agentName), version: sms.version }} />
           )}
         </div>
       </NopLangProvider>

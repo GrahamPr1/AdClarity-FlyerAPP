@@ -58,7 +58,8 @@ describe("privacy policy matches what we actually run", () => {
     expect(PRIVACY).not.toMatch(/no third-party analytics/i)
   })
 
-  it("still promises no ad retargeting, which remains true", () => {
-    expect(PRIVACY).toMatch(/no ad retargeting/i)
+  it("discloses the Meta Pixel on the business site (Meta ads), and no longer promises no advertising or retargeting", () => {
+    expect(PRIVACY).toMatch(/Meta Pixel/)
+    expect(PRIVACY).not.toMatch(/no ad retargeting|no advertising trackers|runs no advertising/i)
   })
 })

@@ -15,18 +15,21 @@ import type { FollowUp } from "@/lib/enterprise/portal/follow-ups"
  * with the text ready; nothing is sent until they press send there. Shown but
  * not tappable while an admin views as the agent.
  */
-/** eventTitles: the event title for each RSVP's eventId (RSVPs are leads with an eventId). */
-export function NopAgentLeads({ leads, followUps = {}, readOnly, eventTitles = {} }: { leads: LeadRecord[]; followUps?: Record<string, FollowUp[]>; readOnly: boolean; eventTitles?: Record<string, string> }) {
+/**
+ * eventTitles: the event title for each RSVP's eventId (RSVPs are leads with an eventId).
+ * textsOptedOut: leads whose number is on the SMS opt-out list (they show "No texts" even if they once said yes).
+ */
+export function NopAgentLeads({ leads, followUps = {}, readOnly, eventTitles = {}, textsOptedOut = {} }: { leads: LeadRecord[]; followUps?: Record<string, FollowUp[]>; readOnly: boolean; eventTitles?: Record<string, string>; textsOptedOut?: Record<string, boolean> }) {
   return (
     <ul data-testid="leads-list" className="flex flex-col gap-3">
-      {leads.map((lead) => <LeadCard key={lead.id} lead={lead} followUps={followUps[lead.id] ?? []} readOnly={readOnly} eventTitle={lead.eventId ? eventTitles[lead.eventId] ?? null : null} />)}
+      {leads.map((lead) => <LeadCard key={lead.id} lead={lead} followUps={followUps[lead.id] ?? []} readOnly={readOnly} eventTitle={lead.eventId ? eventTitles[lead.eventId] ?? null : null} optedOut={!!textsOptedOut[lead.id]} />)}
     </ul>
   )
 }
 
 const action = "inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-border px-3 text-sm font-medium hover:bg-[var(--surface-soft)]"
 
-function LeadCard({ lead: initial, followUps, readOnly, eventTitle }: { lead: LeadRecord; followUps: FollowUp[]; readOnly: boolean; eventTitle: string | null }) {
+function LeadCard({ lead: initial, followUps, readOnly, eventTitle, optedOut }: { lead: LeadRecord; followUps: FollowUp[]; readOnly: boolean; eventTitle: string | null; optedOut: boolean }) {
   const { t, lang } = useNop()
   const [lead, setLead] = useState(initial)
   const [busy, setBusy] = useState(false)
@@ -65,6 +68,11 @@ function LeadCard({ lead: initial, followUps, readOnly, eventTitle }: { lead: Le
         </p>
       )}
       <p className="mt-0.5 text-xs text-muted-foreground">{t("portal.lead_received", { date: when })}</p>
+      {lead.smsConsent?.agreed && (
+        optedOut
+          ? <p data-testid="lead-texts" data-texts="opted-out" className="mt-1 text-xs font-medium text-muted-foreground">{t("sms.badge_opted_out")}</p>
+          : <p data-testid="lead-texts" data-texts="ok" className="mt-1 inline-flex rounded-full border border-[var(--brand-teal-bright)] px-2 py-0.5 text-xs font-medium text-[var(--brand-teal-bright)]">{t("sms.badge_ok")}</p>
+      )}
       <p className="mt-2 text-sm">{lead.phone}{lead.email ? ` · ${lead.email}` : ""}</p>
       {lead.message && <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{lead.message}</p>}
       <div className="mt-3 flex gap-2">

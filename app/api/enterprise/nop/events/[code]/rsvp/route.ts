@@ -5,7 +5,7 @@ import { CANONICAL_SITE_URL } from "@/lib/site-url"
 import type { LeadRecord } from "@/lib/types"
 import { LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS, LeadSchema } from "@/lib/leads"
 import { parseNopLang, tNop, type NopStringKey } from "@/lib/enterprise/nop-i18n"
-import { fillConsent, leadConsent } from "@/lib/enterprise/portal/lead-capture"
+import { checkSmsConsent, fillConsent, leadConsent, smsConsent } from "@/lib/enterprise/portal/lead-capture"
 import { EVENT_LIMITS, eventPageFor } from "@/lib/enterprise/portal/events"
 import { saveAgentLead } from "@/lib/enterprise/portal/agent-data"
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const page = await eventPageFor(code)
   if (!page || !page.open) return NextResponse.json({ error: "unavailable", message: tNop(lang, "event.rsvp_closed") }, { status: 404 })
-  const consent = await leadConsent(page.orgId, lang)
+  const [consent, sms] = await Promise.all([leadConsent(page.orgId, lang), smsConsent(page.orgId, lang)])
   if (consent.pending) return NextResponse.json({ error: "coming_soon", message: tNop(lang, "lead.err_unavailable") }, { status: 409 })
 
   const { allowed } = await checkRateLimit(`nop-rsvp:${page.agentId}:${clientIp(request.headers)}`, LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS)
@@ -51,6 +51,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!Number.isInteger(guests) || guests < 0 || guests > EVENT_LIMITS.maxGuests) return NextResponse.json({ error: "invalid", field: "guests", message: tNop(lang, "event.err_guests") }, { status: 422 })
 
   const now = new Date().toISOString()
+  const smsCheck = checkSmsConsent(body, sms, page.agentName, parsed.data.phone, lang, now)
+  if (!smsCheck.ok) return NextResponse.json({ error: smsCheck.error, message: tNop(lang, "lead.err_generic") }, { status: 409 })
   const lead: LeadRecord = {
     id: crypto.randomUUID(),
     flyerId: `nop-event:${page.event.id}`,
@@ -58,6 +60,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ...parsed.data,
     createdAt: now,
     consent: { text: fillConsent(consent.text, page.agentName), textId: consent.id, version: consent.version, lang, at: now },
+    smsConsent: smsCheck.value,
     contactedAt: null,
     eventId: page.event.id,
     guests,

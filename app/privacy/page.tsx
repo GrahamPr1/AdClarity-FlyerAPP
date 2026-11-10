@@ -68,34 +68,53 @@ export default function PrivacyPage() {
 
       <H2>Analytics</H2>
       <p>
-        We use Google Analytics to see which pages people visit and where they give up, so we
-        know what to fix. It sets cookies and sends Google your IP address, page URL and general
-        location. We do not send it your email, your business details, or anything you type into
-        the product.
+        On OneFlyer&apos;s own website (every page except the program, agent and offer pages listed
+        below), we use two tools to understand visits and measure our ads:
+      </p>
+      <UL>
+        <li>
+          <strong>Google Analytics</strong>, to see which pages people visit and where they give up,
+          so we know what to fix. It sets cookies and sends Google your IP address, page URL and
+          general location.
+        </li>
+        <li>
+          <strong>The Meta Pixel</strong>, to measure how our ads on Facebook and Instagram perform,
+          for example whether someone who saw an ad later visited the site or signed up. It sets
+          cookies and sends Meta your IP address, the pages you visit, your browser and device, and
+          actions such as signing up or starting a subscription. Meta may connect this with your
+          Facebook or Instagram account if you have one. When you type your email address into our
+          sign-up or sign-in form, the pixel may send it to Meta in a scrambled (hashed) form so
+          Meta can match the visit to your account. We may also use these visits to show our ads to
+          people who have visited the site.
+        </li>
+      </UL>
+      <p>
+        We don&apos;t send either tool your business details or anything you type into the product.
       </p>
       <p>
-        If you are in the UK or the EEA, analytics cookies are switched <strong>off</strong> for
-        you by default — we use Google&apos;s consent mode with storage denied for those regions,
-        so you are counted without being individually tracked unless you later opt in. Advertising
-        and personalisation signals are switched off for <em>everyone</em>, everywhere, because
-        this site runs no advertising.
+        If you are in the UK or the EEA, Google Analytics cookies are switched <strong>off</strong>
+        for you by default — we use Google&apos;s consent mode with storage denied for those
+        regions, so you are counted without being individually tracked unless you later opt in.
+        Google&apos;s advertising and personalisation signals are switched off for everyone.
       </p>
       <p>
         We also use Vercel Web Analytics, which is cookieless and does not identify individual
         visitors.
       </p>
       <p>
-        Program and agent pages are different. Google Analytics and Google Tag Manager don&apos;t
-        run on the agent portal (oneflyer.org/agent and /agente), on agents&apos; own pages (/p/…,
-        /e/… and /a/…), or on the program administrators&apos; pages (/program). Only Vercel Web
-        Analytics runs there.
+        Program and agent pages are different. Google Analytics, Google Tag Manager and the Meta
+        Pixel don&apos;t run on the agent portal (oneflyer.org/agent and /agente), on agents&apos;
+        own pages (/p/…, /e/… and /a/…), on businesses&apos; offer pages (/r/…), or on the program
+        administrators&apos; pages (/program). Only Vercel Web Analytics runs there, except on offer
+        pages, which run none.
       </p>
 
       <H2>What we don&apos;t collect</H2>
       <p>
-        No advertising trackers, no ad retargeting, no selling or renting of your data to anyone,
-        ever. Payments are processed by Stripe: you enter your card on Stripe&apos;s own checkout
-        and billing pages, so we never see or store full card numbers.
+        We never sell or rent your data to anyone. The only advertising tool we use is the Meta
+        Pixel on OneFlyer&apos;s own website, described above. Payments are processed by Stripe: you
+        enter your card on Stripe&apos;s own checkout and billing pages, so we never see or store
+        full card numbers.
       </p>
 
       <H2>Who processes it</H2>
@@ -118,6 +137,10 @@ export default function PrivacyPage() {
         <li>
           <strong>Google Analytics</strong> — which pages get visited and where people drop off.
           See the Analytics section above for what is and isn&apos;t sent.
+        </li>
+        <li>
+          <strong>Meta</strong> — the Meta Pixel on OneFlyer&apos;s own website, to measure our ads
+          on Facebook and Instagram. See the Analytics section above for what it receives.
         </li>
         <li>
           <strong>Unsplash</strong> — stock photography. When a flyer has no photo of your own,
@@ -212,6 +235,15 @@ export default function PrivacyPage() {
         taken down, and we don&apos;t send text messages.
       </p>
       <p>
+        <strong>Text messages.</strong> Some forms have a second, optional box to agree to get text
+        messages from the agent about your request and upcoming events. You don&apos;t have to tick
+        it to send the form. Either way, we record your answer, the exact words you saw, the
+        language, the date and time, and the phone number it applies to. To stop text messages,
+        reply STOP, or tell the agent, the program or us. We then keep your number on a do-not-text
+        list, so it isn&apos;t texted again, even if your request is later deleted. We don&apos;t
+        sell your number or share it for anyone else&apos;s marketing.
+      </p>
+      <p>
         <strong>If an agent&apos;s account changes.</strong> Requests are kept with the agent&apos;s
         program ID rather than a personal login. If an agent&apos;s ID is reassigned or corrected,
         OneFlyer staff may move the requests to the correct ID. Every such move is recorded.
@@ -281,6 +313,17 @@ export default function PrivacyPage() {
           retira, y no enviamos mensajes de texto.
         </p>
         <p>
+          <strong>Mensajes de texto.</strong> Algunos formularios tienen una segunda casilla,
+          opcional, para aceptar recibir mensajes de texto del agente sobre su solicitud y próximos
+          eventos. No tiene que marcarla para enviar el formulario. En cualquier caso, registramos
+          su respuesta, las palabras exactas que vio, el idioma, la fecha y la hora, y el número de
+          teléfono al que se aplica. Para dejar de recibir mensajes de texto, responda STOP o
+          avísele al agente, al programa o a nosotros. Después guardamos su número en una lista de
+          números a los que no se envían mensajes de texto, para que no se le vuelva a escribir,
+          aunque después se elimine su solicitud. No vendemos su número ni lo compartimos para el
+          mercadeo de otros.
+        </p>
+        <p>
           <strong>Si cambia la cuenta de un agente.</strong> Las solicitudes se guardan con el
           número de agente del programa, no con un inicio de sesión personal. Si el número de un
           agente se reasigna o se corrige, el personal de OneFlyer puede pasar las solicitudes al
@@ -337,8 +380,7 @@ export default function PrivacyPage() {
       </UL>
       <p>
         To stop automated abuse, we briefly use your IP address to limit repeated sign-in attempts.
-        It isn&apos;t stored with your account. Google Analytics and Google Tag Manager don&apos;t
-        run on the agent portal or on your public pages; only Vercel Web Analytics, which uses no
+        It isn&apos;t stored with your account. Google Analytics, Google Tag Manager and the Meta Pixel don&apos;t run on the agent portal or on your public pages; only Vercel Web Analytics, which uses no
         cookies and doesn&apos;t identify you, does.
       </p>
       <p>
@@ -386,10 +428,8 @@ export default function PrivacyPage() {
       <p>
         <strong>How long we keep it.</strong> We keep your account while you&apos;re in the program,
         and for 12 months after you leave, unless you ask us to delete it sooner. After we delete an
-        account, we keep the record of flyers you downloaded, because the program requires a record
-        of every flyer made, and it may be given to the program. We also keep our administrative
-        records: your sign-up and the program&apos;s decision on it, and the log of what OneFlyer
-        staff and the program&apos;s administrators did with your account, including the deletion.
+        account, we keep the record of flyers you downloaded, with your Agent ID only (no name or email address), because the program requires a record
+        of every flyer made, and it may be given to the program. We also keep our administrative records of what happened, with your name, phone number and email address removed: your Agent ID, the dates, who acted, and what they did (for example, your sign-up and the program&apos;s decision on it, and the deletion itself).
       </p>
       <p>
         <strong>Your choices.</strong> To get a copy of your information, correct it, or have it
@@ -430,8 +470,7 @@ export default function PrivacyPage() {
         </UL>
         <p>
           Para evitar abusos automatizados, usamos brevemente su dirección IP para limitar los
-          intentos repetidos de iniciar sesión. No se guarda con su cuenta. Google Analytics y
-          Google Tag Manager no funcionan en el portal de agentes ni en sus páginas públicas; solo
+          intentos repetidos de iniciar sesión. No se guarda con su cuenta. Google Analytics, Google Tag Manager y el píxel de Meta no funcionan en el portal de agentes ni en sus páginas públicas; solo
           funciona Vercel Web Analytics, que no usa cookies y no lo identifica.
         </p>
         <p>
@@ -483,11 +522,8 @@ export default function PrivacyPage() {
         <p>
           <strong>Cuánto tiempo la guardamos.</strong> Guardamos su cuenta mientras esté en el
           programa y durante 12 meses después de que salga, a menos que nos pida eliminarla antes.
-          Después de eliminar una cuenta, guardamos el registro de los volantes que descargó, porque
-          el programa exige un registro de cada volante hecho, y es posible que se le entregue al
-          programa. También guardamos nuestros registros administrativos: su registro en el programa
-          y la decisión del programa sobre él, y el registro de lo que hicieron con su cuenta el
-          personal de OneFlyer y los administradores del programa, incluida la eliminación.
+          Después de eliminar una cuenta, guardamos el registro de los volantes que descargó, solo con su número de agente (sin su nombre ni su correo electrónico), porque el programa exige un registro de cada volante hecho, y es posible que se le entregue al
+          programa. También guardamos nuestros registros administrativos de lo que ocurrió, sin su nombre, su número de teléfono ni su correo electrónico: su número de agente, las fechas, quién actuó y qué hizo (por ejemplo, su registro en el programa, la decisión del programa sobre él y la propia eliminación).
         </p>
         <p>
           <strong>Sus opciones.</strong> Para obtener una copia de su información, corregirla o

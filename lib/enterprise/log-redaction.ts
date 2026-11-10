@@ -10,9 +10,11 @@ import { Redis } from "@upstash/redis"
 //   agent-flags:nop           blocked registrations and other flags
 //   admin-agent-views         admins opening the account (the per-email copy is deleted)
 //   nop-admin-actions         every admin action (details that mention them)
+//   nop-render-log:{agentId}  the flyer download record, and its global index
+//   nop-render-log            (nop-render-log): kept, with the Agent ID only
 //
-// Admins' own identities (who did it) stay. The flyer download record is not
-// touched here: it's the program's record (see agent-account-deletion.ts).
+// Admins' own identities (who did it) stay, including an admin who made a
+// print file for the agent.
 //
 // Each entry is replaced where it stands, by exact match, in one script per
 // list, so entries pushed meanwhile are neither lost nor reordered.
@@ -100,6 +102,8 @@ async function redactList(key: string, fields: string[], who: AgentIdentity): Pr
 export async function redactAgentFromLogs(who: AgentIdentity): Promise<number> {
   let n = 0
   for (const [name, key] of Object.entries(LOGS) as [keyof typeof LOGS, string][]) n += await redactList(key, ABOUT_AGENT[name], who)
+  // The download record keeps every entry, with the Agent ID only: the agent's email (account) goes.
+  for (const key of [`nop-render-log:${who.agentId}`, "nop-render-log"]) n += await redactList(key, [], who)
   await redis.del(...who.emails.filter(Boolean).map((e) => `admin-agent-views:${e.toLowerCase()}`))
   return n
 }

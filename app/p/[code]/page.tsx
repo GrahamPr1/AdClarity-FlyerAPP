@@ -5,7 +5,7 @@ import { NopLeadForm } from "@/components/nop-lead-form"
 import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { NOP_ORG_NAME } from "@/lib/enterprise/nop-roster"
-import { fillConsent, leadConsent } from "@/lib/enterprise/portal/lead-capture"
+import { fillConsent, leadConsent, smsConsent } from "@/lib/enterprise/portal/lead-capture"
 import { agentPageFor, approvedPackages } from "@/lib/enterprise/portal/agent-page"
 
 // /p/{code} — an active Pro/Leader agent's personal page, behind the org's
@@ -31,7 +31,7 @@ export default async function Page({ params }: { params: Promise<{ code: string 
   const page = await agentPageFor(code)
   if (!page) notFound()
   const { lang } = await nopLangForPage(null)
-  const [packages, consent] = await Promise.all([approvedPackages(page.orgId, lang), page.leads ? leadConsent(page.orgId, lang) : null])
+  const [packages, consent, sms] = await Promise.all([approvedPackages(page.orgId, lang), page.leads ? leadConsent(page.orgId, lang) : null, page.leads ? smsConsent(page.orgId, lang) : null])
   const t = (k: Parameters<typeof tNop>[1], v?: Record<string, string>) => tNop(lang, k, v)
   const digits = page.phone.replace(/[^0-9+]/g, "")
   const action = "flex min-h-11 flex-1 items-center justify-center rounded-lg border border-border px-3 text-sm font-medium hover:bg-[var(--surface-soft)]"
@@ -101,7 +101,7 @@ export default async function Page({ params }: { params: Promise<{ code: string 
                   <p className="mt-2 text-sm text-muted-foreground">{t("lead.coming_soon_body")}</p>
                 </div>
               ) : (
-                <NopLeadForm code={code} agentName={page.name} consentText={fillConsent(consent.text, page.name)} consentVersion={consent.version} source="page" />
+                <NopLeadForm code={code} agentName={page.name} consentText={fillConsent(consent.text, page.name)} consentVersion={consent.version} source="page" sms={sms && !sms.pending ? { text: fillConsent(sms.text, page.name), version: sms.version } : null} />
               )}
             </section>
           )}
