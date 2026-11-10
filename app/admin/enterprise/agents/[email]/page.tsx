@@ -91,6 +91,8 @@ export default function AdminAgentPage() {
  * Remove from program (terminated: no sign-in, no flyers or Pro features, QR to the
  * program's page, and the 12-month lead deletion clock starts) and its Undo. Logged.
  */
+const money = (cents: number, currency: string | null) => new Intl.NumberFormat("en-US", { style: "currency", currency: (currency ?? "usd").toUpperCase() }).format(cents / 100)
+
 function ProgramMembership({ data, onChange }: { data: AgentDetail; onChange: () => void }) {
   const [confirm, setConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -103,7 +105,10 @@ function ProgramMembership({ data, onChange }: { data: AgentDetail; onChange: ()
     const body = await res.json().catch(() => ({}))
     setBusy(false)
     setConfirm(false)
-    setMsg(res.ok ? (action === "remove" ? "Removed from the program." : `Reactivated (${body.status}).`) : body.message ?? "Couldn't save.")
+    const b = body.billing as { cancelled: boolean; refunded: number; currency: string | null; error?: string } | undefined
+    const billingNote = b?.error ? ` Their Pro subscription couldn't be cancelled (${b.error}): cancel and refund it in Stripe.`
+      : b?.cancelled ? ` Their Pro subscription was cancelled${b.refunded ? ` and ${money(b.refunded, b.currency)} refunded` : ""}.` : ""
+    setMsg(res.ok ? (action === "remove" ? `Removed from the program.${billingNote}` : `Reactivated (${body.status}). Billing isn't restarted; they can subscribe again.`) : body.message ?? "Couldn't save.")
     onChange()
   }
   return (
@@ -121,7 +126,7 @@ function ProgramMembership({ data, onChange }: { data: AgentDetail; onChange: ()
         </>
       ) : !confirm ? (
         <>
-          <p className="mt-1 text-muted-foreground">Removing stops sign-in and every feature, sends their QR to the program&apos;s page, and starts the 12-month countdown to deleting their leads. Undo restores everything.</p>
+          <p className="mt-1 text-muted-foreground">Removing stops sign-in and every feature, sends their QR to the program&apos;s page, and starts the 12-month countdown to deleting their leads. A paid Pro subscription ends right away and the unused part of the month is refunded. Undo restores everything except billing (they can subscribe again).</p>
           <button type="button" data-testid="program-remove" disabled={busy} onClick={() => setConfirm(true)} className="mt-3 min-h-11 rounded-lg border border-red-300 px-4 font-medium text-red-700 disabled:opacity-50 dark:border-red-800 dark:text-red-400">
             Remove from program
           </button>
@@ -136,7 +141,13 @@ function ProgramMembership({ data, onChange }: { data: AgentDetail; onChange: ()
       {msg && <p role="status" className="mt-2 text-muted-foreground">{msg}</p>}
       {data.programLog.length > 0 && (
         <ul className="mt-3 flex flex-col gap-1 text-muted-foreground" data-testid="program-log">
-          {data.programLog.map((l) => <li key={l.at}>{new Date(l.at).toLocaleString()}: {l.action === "remove" ? "removed" : `reactivated (${l.status})`} by {l.admin}</li>)}
+          {data.programLog.map((l) => (
+            <li key={l.at}>
+              {new Date(l.at).toLocaleString()}: {l.action === "remove" ? "removed" : `reactivated (${l.status})`} by {l.admin}
+              {l.billing?.cancelled && `; Pro cancelled${l.billing.refunded ? `, ${money(l.billing.refunded, l.billing.currency)} refunded` : ""}`}
+              {l.billing?.error && `; Pro cancellation failed (${l.billing.error})`}
+            </li>
+          ))}
         </ul>
       )}
     </section>

@@ -17,6 +17,9 @@ const r = vi.hoisted(() => ({
   customers: [] as Record<string, unknown>[],
   ctx: { email: "agent@x.test", tier: "basic", active: true } as Record<string, unknown> | null,
   viewingAs: false,
+  stripeOps: [] as Record<string, unknown>[],
+  paidInvoice: null as Record<string, unknown> | null,
+  failCancel: false,
 }))
 vi.mock("@upstash/redis", () => {
   const fake = {
@@ -29,7 +32,13 @@ vi.mock("@upstash/redis", () => {
 vi.mock("@/lib/stripe", async (orig) => ({
   ...(await orig<typeof import("@/lib/stripe")>()),
   getStripe: () => ({
-    subscriptions: { retrieve: async (id: string) => r.subs.get(id) },
+    subscriptions: {
+      retrieve: async (id: string) => r.subs.get(id),
+      cancel: async (id: string, p: unknown, o: unknown) => { if (r.failCancel) throw new Error("stripe down"); r.stripeOps.push({ op: "cancel", id, p, o }); return { id, status: "canceled" } },
+    },
+    invoices: { list: async () => ({ data: r.paidInvoice ? [r.paidInvoice] : [] }) },
+    invoicePayments: { list: async () => ({ data: [{ status: "paid", payment: { payment_intent: "pi_1" } }] }) },
+    refunds: { create: async (p: unknown, o: unknown) => (r.stripeOps.push({ op: "refund", p, o }), { id: "re_1" }) },
     customers: { create: async (p: Record<string, unknown>) => (r.customers.push(p), { id: `cus_${r.customers.length}` }) },
     checkout: { sessions: { create: async (p: Record<string, unknown>) => (r.sessions.push(p), { id: "cs_1", url: "https://checkout.stripe.com/c/cs_1" }) } },
     billingPortal: { sessions: { create: async () => ({ url: "https://billing.stripe.com/p/1" }) } },
@@ -60,6 +69,7 @@ beforeEach(() => {
   r.kv.clear(); r.subs.clear(); r.sessions.length = 0; r.customers.length = 0
   r.ctx = { email: "agent@x.test", tier: "basic", active: true }
   r.viewingAs = false
+  r.stripeOps.length = 0; r.paidInvoice = null; r.failCancel = false
 })
 afterEach(() => vi.unstubAllEnvs())
 
@@ -201,5 +211,51 @@ describe("webhook", () => {
     expect(await post(event)).toEqual({ status: 200, json: { received: true, duplicate: true } })
     const { getAgentTier } = await store()
     expect(await getAgentTier("agent@x.test")).toBe("pro")
+  })
+})
+
+describe("removed from the program", () => {
+  // Period 1_800_000_000 .. 1_802_592_000 (30 days); "now" is 10 days in: 2/3 unused.
+  const NOW = new Date((1_800_000_000 + 10 * 86400) * 1000)
+
+  it("a paid Pro subscription is cancelled right away and the unused 2/3 refunded; Basic at once", async () => {
+    const { syncAgentSubscription, endAgentProOnRemoval, getAgentBilling } = await lib()
+    const { getAgentTier } = await store()
+    sub("sub_1", "active"); await syncAgentSubscription("sub_1")
+    r.paidInvoice = { id: "in_1", amount_paid: 4240, currency: "usd" }
+    const out = await endAgentProOnRemoval("agent@x.test", NOW)
+    expect(out).toEqual({ cancelled: true, subscriptionId: "sub_1", refunded: 2826, currency: "usd" })
+    expect(r.stripeOps).toEqual([
+      { op: "cancel", id: "sub_1", p: { prorate: false, invoice_now: false }, o: { idempotencyKey: "agent-removal-cancel-sub_1" } },
+      { op: "refund", p: { payment_intent: "pi_1", amount: 2826, reason: "requested_by_customer", metadata: { oneflyer_product: "agent_pro", oneflyer_reason: "removed_from_program" } }, o: { idempotencyKey: "agent-removal-refund-in_1" } },
+    ])
+    expect(await getAgentTier("agent@x.test")).toBe("basic")
+    expect((await getAgentBilling("agent@x.test"))?.status).toBe("canceled")
+  })
+
+  it("no paid subscription, or an admin-set Pro: Stripe isn't touched", async () => {
+    const { endAgentProOnRemoval } = await lib()
+    const { setAgentTier, getAgentTier } = await store()
+    expect(await endAgentProOnRemoval("agent@x.test", NOW)).toMatchObject({ cancelled: false })
+    await setAgentTier("agent@x.test", "pro")
+    expect(await endAgentProOnRemoval("agent@x.test", NOW)).toMatchObject({ cancelled: false })
+    expect(await getAgentTier("agent@x.test")).toBe("pro")
+    expect(r.stripeOps).toEqual([])
+  })
+
+  it("a subscription already cancelling at period end still ends now and refunds the rest", async () => {
+    const { syncAgentSubscription, endAgentProOnRemoval } = await lib()
+    sub("sub_1", "active", { cancel_at_period_end: true }); await syncAgentSubscription("sub_1")
+    r.paidInvoice = { id: "in_1", amount_paid: 4000, currency: "usd" }
+    expect((await endAgentProOnRemoval("agent@x.test", NOW)).refunded).toBe(2666)
+  })
+
+  it("if Stripe fails, nothing is refunded and the error is reported (the removal itself stands)", async () => {
+    const { syncAgentSubscription, endAgentProOnRemoval } = await lib()
+    sub("sub_1", "active"); await syncAgentSubscription("sub_1")
+    r.paidInvoice = { id: "in_1", amount_paid: 4240, currency: "usd" }
+    r.failCancel = true
+    expect(await endAgentProOnRemoval("agent@x.test", NOW)).toMatchObject({ cancelled: false, subscriptionId: "sub_1", error: "stripe down" })
+    expect(r.stripeOps).toEqual([])
   })
 })
