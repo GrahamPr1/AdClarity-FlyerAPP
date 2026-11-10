@@ -8,6 +8,8 @@ import { deleteAgentRecruiting } from "./portal/recruiting"
 import { deleteTeamPicks } from "./portal/team"
 import { endAgentProOnRemoval, getAgentBilling, type RemovalBillingOutcome } from "./portal/agent-billing"
 import { RETENTION_DUE_KEY } from "./portal/retention"
+import { getAgentProfile } from "@/lib/store"
+import { redactAgentFromLogs } from "./log-redaction"
 
 // Deleting an agent account: by an admin (owner or program admin) on request,
 // or by the 12-month retention job for an agent removed from the program
@@ -21,8 +23,9 @@ import { RETENTION_DUE_KEY } from "./portal/retention"
 // Kept: the flyer download record (nop-render-log, a record the program
 // requires), the agent's QR code mapping (it belongs to the Agent ID; with
 // no roster record it forwards to the program's page), and the admin logs of
-// who did what. The deletion log keeps the Agent ID, who, when, why and the
-// counts, never the person's details.
+// who did what, with the agent's name, phone and email redacted from them
+// (log-redaction.ts). The deletion log keeps the Agent ID, who, when, why and
+// the counts, never the person's details.
 //
 // A paid Pro subscription is cancelled first, with the unused part refunded,
 // as on Remove. If Stripe refuses, nothing is deleted.
@@ -70,6 +73,8 @@ export interface AccountDeletion {
   events: number
   photo: boolean
   billing: { cancelled: boolean; refunded: number; currency: string | null } | null
+  /** Log entries that had their name, phone or email redacted. */
+  redacted?: number
 }
 
 export type DeleteResult = { ok: true; deletion: AccountDeletion } | { ok: false; reason: "not_found" | "billing_failed"; message?: string }
@@ -79,6 +84,14 @@ export async function deleteAgentAccount(agentId: string, opts: { by: string; re
   if (!summary) return { ok: false, reason: "not_found" }
   const roster = await getRosterRecord(agentId)
   const account = summary.account
+  // Who they were, for redacting the logs once everything else is gone.
+  const profile = account ? await getAgentProfile(account) : null
+  const identity = {
+    agentId,
+    emails: [account, roster?.rosterEmail, profile?.email, profile?.displayEmail].filter((v): v is string => !!v),
+    names: [roster?.agentName, profile?.name, profile?.displayName, profile?.pendingName?.name].filter((v): v is string => !!v),
+    phones: [roster?.rosterPhone, profile?.phone, profile?.displayPhone].filter((v): v is string => !!v),
+  }
 
   // Billing first: if Stripe refuses, stop with everything in place.
   let billing: RemovalBillingOutcome | null = null
@@ -117,9 +130,11 @@ export async function deleteAgentAccount(agentId: string, opts: { by: string; re
     )
   }
 
+  const redacted = await redactAgentFromLogs(identity)
+
   const deletion: AccountDeletion = {
     at: new Date().toISOString(), agentId, by: opts.by, reason: opts.reason, note: opts.note,
-    leads: leadIds.length, events, photo: !!photo,
+    leads: leadIds.length, events, photo: !!photo, redacted,
     billing: billing && (billing.cancelled || billing.subscriptionId) ? { cancelled: billing.cancelled, refunded: billing.refunded, currency: billing.currency } : null,
   }
   await redis.lpush(LOG_KEY, deletion)
