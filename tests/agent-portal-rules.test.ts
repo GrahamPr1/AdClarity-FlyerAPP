@@ -42,13 +42,14 @@ describe("org switches", () => {
     for (const tier of AGENT_TIERS) expect(canUse(agent(tier, off), feature as AgentFeature)).toBe(false)
   })
 
-  it("start ON for the NOP org (the program approved them) and OFF for any other org; the QR lead page, agent photos, events and recruiting are OFF everywhere", () => {
+  it("start ON for the NOP org (the program approved them) and OFF for any other org; the QR lead page, agent photos, events, recruiting and the team dashboard are OFF everywhere", () => {
     const nop = defaultOrgFeatures(true)
     expect(nop.qrLeadPage).toBe(false)
     expect(nop.agentPhoto).toBe(false)
     expect(nop.events).toBe(false)
     expect(nop.recruiting).toBe(false)
-    expect(AGENT_FEATURES.filter((f) => !["qrLeadPage", "agentPhoto", "events", "recruiting"].includes(f)).every((f) => nop[f])).toBe(true)
+    expect(nop.team).toBe(false)
+    expect(AGENT_FEATURES.filter((f) => !["qrLeadPage", "agentPhoto", "events", "recruiting", "team"].includes(f)).every((f) => nop[f])).toBe(true)
     expect(Object.values(defaultOrgFeatures(false)).some(Boolean)).toBe(false)
   })
 })
