@@ -146,7 +146,7 @@ type StartStep =
  * whatever the ID); an agent on an imported roster goes on to confirm.
  */
 /** agentCode: a valid ?agent_ID= (lib/enterprise/nop-roster agentIdParam). Only prefills the Agent ID field. */
-export function NopGetStarted({ agentCode = null }: { agentCode?: string | null }) {
+export function NopGetStarted({ agentCode = null, recruitRef = null }: { agentCode?: string | null; /** A recruit link's code (?ref=), sent with the sign-up. */ recruitRef?: string | null }) {
   const { t, rich, lang: pageLang } = useNop()
   const router = useRouter()
   const [step, setStep] = useState<StartStep>({ name: "id" })
@@ -175,7 +175,7 @@ export function NopGetStarted({ agentCode = null }: { agentCode?: string | null 
             setBusy(true)
             setError(null)
             setFieldErrors({})
-            const { ok, data } = await post("/api/enterprise/nop/access/start", { agentId, email, name: fullName, phone, lang: signupLang ?? pageLang }).catch(() => ({ ok: false, data: { message: t("common.network") } }))
+            const { ok, data } = await post("/api/enterprise/nop/access/start", { agentId, email, name: fullName, phone, lang: signupLang ?? pageLang, ...(recruitRef ? { ref: recruitRef } : {}) }).catch(() => ({ ok: false, data: { message: t("common.network") } }))
             setBusy(false)
             if (!ok && data.fields) return setFieldErrors(data.fields)
             if (!ok) return setError({ message: data.message ?? t("common.generic"), field: data.field, signIn: data.error === "already_registered" || data.error === "account_registered" })

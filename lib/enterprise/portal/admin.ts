@@ -10,6 +10,7 @@ import type { AgentTier } from "./features"
 import { getAgentTier, getAgentTierSource, getLastActive, listAdminAgentViews, type AdminAgentView } from "./store"
 import { agentBillingLabel, getAgentBilling, type AgentBillingLabel } from "./agent-billing"
 import { summarizeAgentData } from "./agent-data"
+import { listRecruits, recruiterFor, type Recruit, type Recruiter } from "./recruiting"
 import { listProgramStatusLog, type ProgramStatusLogEntry } from "@/lib/enterprise/agent-membership"
 import { getRetentionClock } from "./retention"
 
@@ -83,8 +84,10 @@ export async function listAgentRows(): Promise<AgentRow[]> {
 export interface AgentDetail extends AgentRow {
   companyName: string
   phone: string
-  /** Phase 6: filled from the roster's recruiter field. */
-  recruiter: null
+  /** Who recruited this agent (their sign-up came through that agent's recruit link), if anyone. */
+  recruiter: Recruiter | null
+  /** Agents who signed up through this agent's recruit link, newest first. */
+  recruits: Recruit[]
   team: []
   recentActivity: NopRenderLogEntry[]
   views: AdminAgentView[]
@@ -107,7 +110,8 @@ export async function getAgentDetail(email: string): Promise<AgentDetail | null>
     ...row,
     companyName: roster?.companyName ?? profile?.companyName ?? "",
     phone: profile?.displayPhone ?? profile?.phone ?? "",
-    recruiter: null,
+    recruiter: await recruiterFor(roster?.recruitedBy),
+    recruits: await listRecruits(row.agentId),
     team: [],
     recentActivity: renders,
     views,

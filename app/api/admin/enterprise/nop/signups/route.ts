@@ -5,6 +5,7 @@ import { sendAgentSignupDecision } from "@/lib/email"
 import { NOP_ORG_NAME } from "@/lib/enterprise/nop-roster"
 import { CANONICAL_SITE_URL } from "@/lib/site-url"
 import { nameFitsKitV2Footer } from "@/lib/enterprise/nop-render/footer-fit"
+import { recruiterFor } from "@/lib/enterprise/portal/recruiting"
 
 // GET  /api/admin/enterprise/nop/signups -> pending self sign-ups, pending name changes, decision log
 // POST /api/admin/enterprise/nop/signups { agentId, action: "approve" | "reject" | "approve_name" | "reject_name" }
@@ -16,7 +17,7 @@ const ACTIONS = ["approve", "reject", "approve_name", "reject_name"] as const
 async function state() {
   const [signups, nameChanges, log] = await Promise.all([listPendingSignups(), listPendingNameChanges(), listSignupLog()])
   return {
-    signups: signups.map((s) => ({ ...s, nameFits: nameFitsKitV2Footer(s.name) })),
+    signups: await Promise.all(signups.map(async (s) => ({ ...s, nameFits: nameFitsKitV2Footer(s.name), recruiter: await recruiterFor(s.recruitedBy) }))),
     nameChanges: nameChanges.map((n) => ({ ...n, nameFits: nameFitsKitV2Footer(n.requestedName) })),
     log,
   }

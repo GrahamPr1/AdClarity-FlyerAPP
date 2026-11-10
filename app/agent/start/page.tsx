@@ -8,6 +8,7 @@ import { loadNopAgent } from "@/lib/enterprise/nop-render/agent-context"
 import { NopGetStarted } from "@/components/nop-access"
 import { agentIdParam } from "@/lib/enterprise/nop-roster"
 import { NopPageShell } from "../../enterprise/nop/nop-page-shell"
+import { parseRecruitRef, resolveRecruiter } from "@/lib/enterprise/portal/recruiting"
 
 export const dynamic = "force-dynamic"
 
@@ -17,9 +18,14 @@ export async function generateMetadata() {
 }
 
 // "First time? Get started". Signed out by design: the account is created
-// at the end. A signed-in agent has nothing to do here.
+// at the end. A signed-in agent has nothing to do here. Through a recruit link
+// (?ref=, recruiting.ts) it says who invited them, and that this agent will see
+// their name and whether they're approved.
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const agentCode = agentIdParam(await searchParams)
+  const params = await searchParams
+  const agentCode = agentIdParam(params)
+  const ref = parseRecruitRef(params.ref)
+  const recruiter = await resolveRecruiter(ref)
   const session = await getSessionIdentity({ cookies: await cookies() })
   if (session && session.sub !== ADMIN_SUB && (await loadNopAgent(session.sub))) redirect("/agent")
   const { lang, source } = await nopLangForPage(null)
@@ -31,7 +37,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       intro={tNop(lang, "start.intro")}
       headerAction={<Link href="/agent" className="inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground">{tNop(lang, "page.back_agent")}</Link>}
     >
-      <NopGetStarted agentCode={agentCode} />
+      {recruiter && (
+        <p data-testid="recruit-invited" className="mb-6 rounded-xl border border-border bg-card p-4 text-sm">
+          {tNop(lang, "recruit.invited_by", { name: recruiter.name })}{" "}
+          <span className="text-muted-foreground">{tNop(lang, "recruit.invited_note", { name: recruiter.name })}</span>
+        </p>
+      )}
+      <NopGetStarted agentCode={agentCode} recruitRef={recruiter ? ref : null} />
     </NopPageShell>
   )
 }

@@ -9,6 +9,8 @@ import { canUse } from "@/lib/enterprise/portal/features"
 import { formatEventWhen, listAgentEvents } from "@/lib/enterprise/portal/events"
 import { canBuyPro } from "@/lib/enterprise/portal/agent-billing"
 import { ProLocked } from "@/components/nop-portal"
+import { NopRecruitShare } from "@/components/nop-recruit-share"
+import { getOrCreateRecruitCode, listRecruits, recruitLink, RECRUIT_FLYER_READY, type RecruitStatus } from "@/lib/enterprise/portal/recruiting"
 
 export const dynamic = "force-dynamic"
 
@@ -21,7 +23,7 @@ const PACKAGES = ["P1", "P2", "P3", "ALL"] as const
 
 const link = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-border px-3 text-sm font-medium hover:bg-[var(--surface-sunken)]"
 
-/** Create: everything an agent can make. Today, Basic Benefits' flyers; events and recruiting arrive in later phases. */
+/** Create: everything an agent can make: the program's flyers, events, and the recruit link. */
 export default async function Page() {
   const page = await requirePortalPage()
   const t = (k: NopStringKey) => tNop(page.lang, k)
@@ -69,6 +71,7 @@ export default async function Page() {
       </ul>
       )}
       {page.ctx.orgFeatures.events && <EventsSection page={page} />}
+      {page.ctx.orgFeatures.recruiting && <RecruitingSection page={page} />}
     </PortalShell>
   )
 }
@@ -98,6 +101,40 @@ async function EventsSection({ page }: { page: Awaited<ReturnType<typeof require
             </ul>
           )}
           {!page.readOnly && <Link href="/agent/events/new" data-testid="event-new" className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--brand-teal-bright)] px-4 text-sm font-semibold text-[var(--primary-foreground)]">{t("event.new")}</Link>}
+        </div>
+      )}
+    </section>
+  )
+}
+
+const RECRUIT_STATUS: Record<RecruitStatus, NopStringKey> = { pending: "recruit.status_pending", approved: "recruit.status_approved", inactive: "recruit.status_inactive" }
+
+/** Recruiting (Pro): the agent's recruit link and QR, and who signed up through it; Basic sees the Pro note with the upgrade. */
+async function RecruitingSection({ page }: { page: Awaited<ReturnType<typeof requirePortalPage>> }) {
+  const t = (k: NopStringKey) => tNop(page.lang, k)
+  const can = canUse(page.ctx, "recruiting")
+  const [code, recruits] = can ? await Promise.all([getOrCreateRecruitCode(page.ctx.agent.agentId), listRecruits(page.ctx.agent.agentId)]) : [null, []]
+  const day = new Intl.DateTimeFormat(page.lang === "es" ? "es-US" : "en-US", { month: "short", day: "numeric", year: "numeric" })
+  return (
+    <section aria-labelledby="recruiting" data-testid="create-recruiting" className="mt-8">
+      <h2 id="recruiting" className="mb-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">{t("recruit.section_title")}</h2>
+      {!code ? (
+        <ProLocked sentence="recruit.locked" upgrade={canBuyPro(page.ctx)} readOnly={page.readOnly} />
+      ) : (
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="mb-3 text-sm text-muted-foreground">{t("recruit.section_intro")}</p>
+          <NopRecruitShare link={recruitLink(code)} flyerReady={RECRUIT_FLYER_READY} />
+          <h3 className="mt-6 text-sm font-semibold">{t("recruit.list_title")}</h3>
+          {recruits.length === 0 ? <p className="mt-2 text-sm text-muted-foreground" data-testid="recruits-none">{t("recruit.none")}</p> : (
+            <ul className="mt-2 divide-y divide-border" data-testid="recruits">
+              {recruits.map((r) => (
+                <li key={r.agentId} data-testid="recruit" data-status={r.status} className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                  <span className="font-medium">{r.name}</span>
+                  <span className="text-muted-foreground">{t(RECRUIT_STATUS[r.status])} · {day.format(new Date(r.signedUpAt))}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </section>

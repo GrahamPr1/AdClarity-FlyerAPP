@@ -975,6 +975,9 @@ export interface RosterRecord {
   statusBeforeRemoval?: AgentRosterStatus
   removedBy?: string
   removedAt?: string
+  /** Self sign-up through an agent's recruit link (recruiting.ts): the recruiting agent's ID, and when. */
+  recruitedBy?: string
+  recruitedAt?: string
 }
 
 /** A blocked registration attempt surfaced to the org admin. */

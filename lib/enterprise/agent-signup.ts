@@ -15,6 +15,7 @@ import {
   saveRosterRecord,
 } from "./agents-store"
 import { getEnrollDomain } from "./nop-enroll-domain"
+import { addRecruit, removeRecruit, resolveRecruiter } from "./portal/recruiting"
 
 // Self sign-up for NOP agents (no imported roster needed).
 //
@@ -47,6 +48,8 @@ export interface SignupDetails {
   phone: string
   email: string
   lang: NopLang
+  /** The recruit link's code it came through, if any. */
+  ref?: string | null
 }
 
 export interface SignupLogEntry {
@@ -92,6 +95,9 @@ export async function submitSignup(d: SignupDetails): Promise<"created" | "dupli
   if (!lock.ok) return duplicate(lock.reason === "id_taken" ? lock.heldBy : undefined)
 
   const now = new Date().toISOString()
+  // Through an agent's recruit link: recorded only if that agent can recruit right now (and isn't signing up themselves).
+  const recruiter = await resolveRecruiter(d.ref ?? null)
+  const recruitedBy = recruiter && recruiter.agentId !== d.agentId ? recruiter.agentId : null
   const record: RosterRecord = {
     agentId: d.agentId,
     companyName: "",
@@ -105,6 +111,7 @@ export async function submitSignup(d: SignupDetails): Promise<"created" | "dupli
     importedAt: now,
     source: "self",
     signupLang: d.lang,
+    ...(recruitedBy ? { recruitedBy, recruitedAt: now } : {}),
   }
   // No client:{email}:createdAt yet: it would make a rejected email look
   // like a business account and block it from signing up again. Approval sets it.
@@ -114,6 +121,7 @@ export async function submitSignup(d: SignupDetails): Promise<"created" | "dupli
     preferredLanguage: d.lang,
   })
   await flagNameIfTooLongForFooter(d.agentId, d.email, d.name)
+  if (recruitedBy) await addRecruit(recruitedBy, d.agentId, new Date(now))
   return "created"
 }
 
@@ -129,12 +137,14 @@ export interface PendingSignup {
   email: string
   lang: NopLang
   submittedAt: string
+  /** The recruiting agent's ID, if they signed up through a recruit link. */
+  recruitedBy: string | null
 }
 
 export async function listPendingSignups(): Promise<PendingSignup[]> {
   return (await listRoster())
     .filter((r) => isPendingSelfSignup(r))
-    .map((r) => ({ agentId: r.agentId, name: r.agentName, phone: r.rosterPhone, email: r.rosterEmail, lang: r.signupLang ?? "en", submittedAt: r.importedAt }))
+    .map((r) => ({ agentId: r.agentId, name: r.agentName, phone: r.rosterPhone, email: r.rosterEmail, lang: r.signupLang ?? "en", submittedAt: r.importedAt, recruitedBy: r.recruitedBy ?? null }))
     .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt))
 }
 
@@ -159,6 +169,7 @@ export async function rejectSignup(agentId: string, admin: string): Promise<Deci
   const owner = await getAgentIdOwner(agentId)
   if (owner) await adminUnlockAgentId(agentId, owner)
   await deleteRosterRecord(agentId)
+  if (record.recruitedBy) await removeRecruit(record.recruitedBy, agentId)
   const entry = await log({ admin, action: "reject", agentId, account: record.rosterEmail, name: record.agentName, phone: record.rosterPhone, lang: record.signupLang })
   return { ok: true, entry, lang: record.signupLang ?? "en", email: record.rosterEmail, name: record.agentName }
 }

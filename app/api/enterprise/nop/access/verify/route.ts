@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   if (state.kind === "signup") {
     await deleteFlow(id)
     if (state.agentId && state.sendTo && state.signup) {
-      await submitSignup({ agentId: state.agentId, email: state.sendTo, name: state.signup.name, phone: state.signup.phone, lang: state.signup.lang })
+      await submitSignup({ agentId: state.agentId, email: state.sendTo, name: state.signup.name, phone: state.signup.phone, lang: state.signup.lang, ref: state.signup.ref ?? null })
     }
     const res = NextResponse.json({ ok: true, step: "submitted" })
     clearFlowCookie(res)

@@ -46,7 +46,7 @@ export function NopAgentDetailAdmin({ base }: { base: string }) {
 
       <dl className="mt-6 rounded-xl border border-border bg-card p-5 text-sm">
         {row("Agent ID", data.agentId)}{row("Company", data.companyName || "—")}{row("Phone", data.phone || "—")}{row("Roster status", data.status)}
-        {row("Recruiter", "—")}{row("Team", "—")}{row("Last active", when(data.lastActive))}{row("Flyers made", data.flyersMade)}{row("Leads", data.leads)}
+        {row("Recruited by", data.recruiter ? `${data.recruiter.name || "—"} (Agent ID ${data.recruiter.agentId})` : "—")}{row("Recruits", data.recruits.length)}{row("Team", "—")}{row("Last active", when(data.lastActive))}{row("Flyers made", data.flyersMade)}{row("Leads", data.leads)}
       </dl>
 
       <section className="mt-6 rounded-xl border border-border bg-card p-5">
@@ -69,6 +69,22 @@ export function NopAgentDetailAdmin({ base }: { base: string }) {
       </section>
 
       <ProgramMembership data={data} onChange={() => void mutate()} />
+
+      {data.recruits.length > 0 && (
+        <section className="mt-6" data-testid="admin-recruits">
+          <h2 className="font-medium">Recruits</h2>
+          <p className="text-sm text-muted-foreground">Agents who signed up through this agent&apos;s recruit link.</p>
+          <ul className="mt-2 divide-y divide-border rounded-xl border border-border text-sm">
+            {data.recruits.map((r) => (
+              <li key={r.agentId} className="flex flex-wrap gap-x-4 px-4 py-2">
+                <span>{r.name}</span><span className="text-muted-foreground">Agent ID {r.agentId}</span>
+                <span className="capitalize">{r.status === "pending" ? "Waiting for approval" : r.status === "approved" ? "Approved" : "No longer active"}</span>
+                <span className="text-muted-foreground">signed up {when(r.signedUpAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-6">
         <h2 className="font-medium">Recent activity</h2>

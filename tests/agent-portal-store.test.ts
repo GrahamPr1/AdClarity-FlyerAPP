@@ -38,11 +38,11 @@ describe("agent tier", () => {
 describe("org switches", () => {
   it("NOP defaults on; a stored off wins; another org defaults off", async () => {
     const { getOrgFeatures, setOrgFeature } = await import("@/lib/enterprise/portal/store")
-    expect((await getOrgFeatures("nop")).recruiting).toBe(true)
-    const after = await setOrgFeature("nop", "recruiting", false)
-    expect(after.recruiting).toBe(false)
+    expect((await getOrgFeatures("nop")).followUps).toBe(true)
+    const after = await setOrgFeature("nop", "followUps", false)
+    expect(after.followUps).toBe(false)
     expect(after.leads).toBe(true)
-    expect(r.h.get("enterprise-org:nop:features")).toEqual({ recruiting: "off" })
+    expect(r.h.get("enterprise-org:nop:features")).toEqual({ followUps: "off" })
     expect((await getOrgFeatures("northstar")).leads).toBe(false)
   })
 })

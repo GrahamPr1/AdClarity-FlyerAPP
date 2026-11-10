@@ -3,6 +3,7 @@ import { rejectWhileViewingAs } from "@/lib/enterprise/portal/view-as"
 import { sendAgentVerificationCode } from "@/lib/email"
 import { AGENT_ID_RE, NOP_ORG_NAME, formatUsPhone, isValidEmail, maskEmail, normalizeEmail } from "@/lib/enterprise/nop-roster"
 import { isPendingSelfSignup } from "@/lib/enterprise/agent-signup"
+import { parseRecruitRef } from "@/lib/enterprise/portal/recruiting"
 import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
 import type { NopLang } from "@/lib/enterprise/nop-i18n"
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
   const readOnly = rejectWhileViewingAs(request)
   if (readOnly) return readOnly
   const lang = await nopLangForRequest(request)
-  let body: { agentId?: unknown; email?: unknown; name?: unknown; phone?: unknown; lang?: unknown }
+  let body: { agentId?: unknown; email?: unknown; name?: unknown; phone?: unknown; lang?: unknown; ref?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
 }
 
 /** A self sign-up: check what was typed, then send a code to the typed email. Nothing about the Agent ID is looked up. */
-async function selfSignup(lang: NopLang, agentId: string, email: string, body: { name?: unknown; phone?: unknown; lang?: unknown }) {
+async function selfSignup(lang: NopLang, agentId: string, email: string, body: { name?: unknown; phone?: unknown; lang?: unknown; ref?: unknown }) {
   const name = String(body.name ?? "").trim().replace(/\s+/g, " ")
   const phone = formatUsPhone(String(body.phone ?? ""))
   const signupLang: NopLang = body.lang === "es" ? "es" : body.lang === "en" ? "en" : lang
@@ -115,7 +116,7 @@ async function selfSignup(lang: NopLang, agentId: string, email: string, body: {
   await createFlow(flowId, {
     kind: "signup", agentId, sendTo: email, codeHash: hashCode(flowId, code),
     attempts: 0, resends: 0, lastSentAt: now, step: "code", createdAt: now,
-    signup: { name, phone: phone!, lang: signupLang },
+    signup: { name, phone: phone!, lang: signupLang, ref: parseRecruitRef(body.ref) },
   })
   const res = NextResponse.json({ ok: true, step: "code", sentTo: maskEmail(email) })
   setFlowCookie(res, flowId)
