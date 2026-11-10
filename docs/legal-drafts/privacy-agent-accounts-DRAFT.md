@@ -49,8 +49,9 @@ Google Tag Manager don't run on the agent portal or on your public pages; only
 Vercel Web Analytics, which uses no cookies and doesn't identify you, does.
 
 **Emails we send you.** We email you your sign-in codes, the program's
-decision on your sign-up, each new request or RSVP, and the day before your
-events, the list of who's coming. If you have Pro, we also email you a
+decision on your sign-up, each new request or RSVP, the day before your
+events, the list of who's coming, and a notice if an administrator takes one
+of your event pages down or puts it back. If you have Pro, we also email you a
 summary of last month's results on the 1st of each month, unless nothing
 happened that month; you can turn it off in your profile.
 
@@ -147,7 +148,9 @@ y no lo identifica.
 
 **Correos que le enviamos.** Le enviamos por correo sus códigos para iniciar
 sesión, la decisión del programa sobre su registro, cada nueva solicitud o
-confirmación y, el día antes de sus eventos, la lista de quiénes asistirán. Si
+confirmación, el día antes de sus eventos, la lista de quiénes asistirán, y un
+aviso si un administrador retira una de sus páginas de eventos o la vuelve a
+publicar. Si
 tiene Pro, también le enviamos un resumen de los resultados del mes anterior el
 día 1 de cada mes, salvo que ese mes no haya habido actividad; puede
 desactivarlo en su perfil.
