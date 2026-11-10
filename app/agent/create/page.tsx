@@ -8,8 +8,10 @@ import { PortalShell } from "../portal-shell"
 import { canUse } from "@/lib/enterprise/portal/features"
 import { formatEventWhen, listAgentEvents } from "@/lib/enterprise/portal/events"
 import { canBuyPro } from "@/lib/enterprise/portal/agent-billing"
+import { flyerLabels } from "@/lib/enterprise/nop-render/flyer-labels"
 import { ProLocked } from "@/components/nop-portal"
 import { NopRecruitShare } from "@/components/nop-recruit-share"
+import { listAgentPrintRequests } from "@/lib/enterprise/portal/print-requests"
 import { getOrCreateRecruitCode, listRecruits, recruitLink, RECRUIT_FLYER_READY, type RecruitStatus } from "@/lib/enterprise/portal/recruiting"
 
 export const dynamic = "force-dynamic"
@@ -72,6 +74,7 @@ export default async function Page() {
       )}
       {page.ctx.orgFeatures.events && <EventsSection page={page} />}
       {page.ctx.orgFeatures.recruiting && <RecruitingSection page={page} />}
+      {page.ctx.orgFeatures.printRequests && <PrintRequestsSection page={page} />}
     </PortalShell>
   )
 }
@@ -133,6 +136,39 @@ async function RecruitingSection({ page }: { page: Awaited<ReturnType<typeof req
                   <span className="text-muted-foreground">{t(RECRUIT_STATUS[r.status])} · {day.format(new Date(r.signedUpAt))}</span>
                 </li>
               ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** Print requests (Pro): the agent's requests and where each is; Basic sees the Pro note. Requests are made on a flyer's page. */
+async function PrintRequestsSection({ page }: { page: Awaited<ReturnType<typeof requirePortalPage>> }) {
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(page.lang, k, v)
+  const requests = canUse(page.ctx, "printRequests") ? await listAgentPrintRequests(page.ctx.email) : null
+  const day = new Intl.DateTimeFormat(page.lang === "es" ? "es-US" : "en-US", { month: "short", day: "numeric", year: "numeric" })
+  const STATUS: Record<string, NopStringKey> = { Requested: "print.status_requested", Fulfilled: "print.status_fulfilled", Cancelled: "print.status_cancelled" }
+  return (
+    <section aria-labelledby="prints" data-testid="create-prints" className="mt-8">
+      <h2 id="prints" className="mb-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">{t("print.list_title")}</h2>
+      {!requests ? (
+        <ProLocked sentence="print.locked" upgrade={canBuyPro(page.ctx)} readOnly={page.readOnly} />
+      ) : (
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">{t("print.list_intro")}</p>
+          {requests.length === 0 ? <p className="mt-3 text-sm" data-testid="prints-none">{t("print.none")}</p> : (
+            <ul className="mt-3 divide-y divide-border">
+              {requests.map((r) => {
+                const l = flyerLabels(r.flyerId)
+                return (
+                  <li key={r.id} data-testid="print-item" data-status={r.status} className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <span><span className="font-medium">{t(l.name)}</span> · {t("print.copies", { n: String(r.quantity) })}</span>
+                    <span className="text-muted-foreground">{t(STATUS[r.status])} · {day.format(new Date(r.createdAt))}</span>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

@@ -14,8 +14,8 @@ import { RETENTION_DUE_KEY } from "./portal/retention"
 // (retention-job.ts). Both use deleteAgentAccount.
 //
 // Deleted: the account and profile, tier and billing record, page settings
-// and photo, events, leads and RSVPs, scan counts, the recruit link and
-// recruits list, the Leader's sent flyers, and the roster record and ID lock
+// and photo, events, leads and RSVPs, scan counts, print requests, the recruit
+// link and recruits list, the Leader's sent flyers, and the roster record and ID lock
 // (so the Agent ID can be issued again).
 //
 // Kept: the flyer download record (nop-render-log, a record the program
@@ -111,8 +111,8 @@ export async function deleteAgentAccount(agentId: string, opts: { by: string; re
       `client:${account}:agent-tier-source`,
       `client:${account}:agent-billing`,
       `client:${account}:last-active`,
-      // Only an agent-only account's sign-up date; a business account's stays.
-      ...(password === null && plan === null ? [`client:${account}:createdAt`] : []),
+      // Only an agent-only account's sign-up date and print requests; a business account's stay.
+      ...(password === null && plan === null ? [`client:${account}:createdAt`, `print-requests:${account}`] : []),
       ...(customerId ? [`agent-billing:customer:${customerId}`] : []),
     )
   }

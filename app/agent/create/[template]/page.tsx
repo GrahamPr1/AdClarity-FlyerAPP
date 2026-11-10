@@ -10,6 +10,8 @@ import { requirePortalPage } from "@/lib/enterprise/portal/page"
 import { NopFlyerPreview } from "@/components/nop-dashboard"
 import { flyerLabels } from "@/lib/enterprise/nop-render/flyer-labels"
 import { PortalShell } from "../../portal-shell"
+import { NopPrintRequest } from "@/components/nop-print-request"
+import { canUse } from "@/lib/enterprise/portal/features"
 
 export const dynamic = "force-dynamic"
 
@@ -42,6 +44,7 @@ export default async function Page({ params }: { params: Promise<{ template: str
         agentName={ctx.agent.profile.displayName ?? ctx.agent.profile.name}
         readOnly={page.readOnly}
       />
+      {canUse(ctx, "printRequests") && <NopPrintRequest template={template} readOnly={page.readOnly} />}
     </PortalShell>
   )
 }
