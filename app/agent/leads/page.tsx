@@ -9,6 +9,7 @@ import { followUpsForLeads } from "@/lib/enterprise/portal/follow-ups"
 import type { PortalContext } from "@/lib/enterprise/portal/context"
 import { PortalShell } from "../portal-shell"
 import { canBuyPro } from "@/lib/enterprise/portal/agent-billing"
+import { getEvent } from "@/lib/enterprise/portal/events"
 
 export const dynamic = "force-dynamic"
 
@@ -44,5 +45,8 @@ async function LeadsList({ ctx, readOnly, empty }: { ctx: PortalContext; readOnl
   const leads = await listAgentLeads(ctx.agent.agentId)
   if (leads.length === 0) return <p data-testid="leads-empty" className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">{empty}</p>
   // Follow-ups only after canUse allows them (followUpsForLeads checks).
-  return <NopAgentLeads leads={leads} followUps={await followUpsForLeads(ctx, leads)} readOnly={readOnly} />
+  // RSVPs (leads with an eventId) show which event they're for.
+  const eventIds = [...new Set(leads.flatMap((l) => (l.eventId ? [l.eventId] : [])))]
+  const eventTitles = Object.fromEntries((await Promise.all(eventIds.map(getEvent))).flatMap((e) => (e ? [[e.id, e.title]] : [])))
+  return <NopAgentLeads leads={leads} followUps={await followUpsForLeads(ctx, leads)} readOnly={readOnly} eventTitles={eventTitles} />
 }

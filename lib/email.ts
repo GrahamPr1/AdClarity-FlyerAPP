@@ -242,6 +242,8 @@ export async function sendNopAgentLeadNotification(input: {
   portalUrl: string
   /** The form was on the agent's personal page, not the flyer's QR lead page. */
   fromPage?: boolean
+  /** An RSVP on one of the agent's event pages. */
+  event?: { title: string; guests: number }
 }): Promise<{ sent: boolean; reason?: string }> {
   const resend = getClient()
   if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
@@ -257,15 +259,16 @@ export async function sendNopAgentLeadNotification(input: {
       from: FROM_ADDRESS,
       to: input.to,
       ...(lead.email ? { replyTo: lead.email } : {}),
-      subject: t("email.lead_subject", { name: lead.name }),
+      subject: input.event ? t("email.rsvp_subject", { name: lead.name, title: input.event.title }) : t("email.lead_subject", { name: lead.name }),
       html: `
         <div lang="${input.lang}" style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
-          <p>${escape(t(input.fromPage ? "email.lead_intro_page" : "email.lead_intro"))}</p>
+          <p>${escape(input.event ? t("email.rsvp_intro", { title: input.event.title }) : t(input.fromPage ? "email.lead_intro_page" : "email.lead_intro"))}</p>
           <table style="border-collapse:collapse;margin:12px 0">
             ${row(t("lead.name"), escape(lead.name))}
             ${row(t("lead.phone"), `<a href="tel:${escape(lead.phone.replace(/[^0-9+]/g, ""))}">${escape(lead.phone)}</a>`)}
             ${lead.email ? row(t("portal.lead_email"), `<a href="mailto:${escape(lead.email)}">${escape(lead.email)}</a>`) : ""}
             ${lead.message ? row(t("lead.message_optional").replace(/\s*\(.*\)$/, ""), `<span style="white-space:pre-wrap">${escape(lead.message)}</span>`) : ""}
+            ${input.event ? row(t("email.rsvp_guests"), String(input.event.guests)) : ""}
           </table>
           <p><a href="${escape(input.portalUrl)}">${escape(t("email.lead_open"))}</a></p>
           ${lead.consent ? `<p style="color:#888;font-size:12px">☑ ${escape(lead.consent.text)}</p>` : ""}
@@ -306,6 +309,48 @@ export async function sendAgentSignupDecision(input: {
         <div lang="${input.lang}" style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
           <p>${escape(t(input.approved ? "email.approved_intro" : "email.rejected_body", v))}</p>
           ${input.approved ? `<p><a href="${escape(input.signInUrl)}">${escape(t("email.approved_cta"))}</a></p>` : ""}
+        </div>
+      `,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
+ * The day-before reminder to someone who RSVP'd with an email, in the language
+ * they used on the RSVP form. Reply goes to the agent.
+ */
+export async function sendEventReminder(input: {
+  to: string
+  lang: NopLang
+  firstName: string
+  title: string
+  when: string
+  place: string
+  agentName: string
+  agentPhone: string
+  agentEmail: string
+  pageUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      replyTo: input.agentEmail,
+      subject: t("email.reminder_subject", { title: input.title }),
+      html: `
+        <div lang="${input.lang}" style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
+          <p>${escape(t("email.reminder_body", { first: input.firstName, title: input.title, when: input.when, place: input.place }))}</p>
+          <p>${escape(t("email.reminder_host", { name: input.agentName, phone: input.agentPhone }))}</p>
+          <p><a href="${escape(input.pageUrl)}">${escape(input.pageUrl.replace(/^https?:\/\//, ""))}</a></p>
+          <p style="color:#888;font-size:12px">${escape(t("email.reminder_footer", { name: input.agentName }))}</p>
         </div>
       `,
     })

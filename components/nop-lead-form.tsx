@@ -5,14 +5,17 @@ import { useNop } from "@/components/nop-i18n"
 import { LEAD_LIMITS } from "@/lib/leads"
 
 /**
- * The form on a NOP agent's QR lead page, or (source "page") their personal
- * page. The consent line is the org's
+ * The form on a NOP agent's QR lead page, (source "page") their personal
+ * page, or (source "event") an event page, where it's the RSVP: a guest
+ * count, its own wording, POST /api/enterprise/nop/events/{code}/rsvp. The consent line is the org's
  * approved text, passed in verbatim, beside a checkbox that starts unticked.
  * POST /api/enterprise/nop/leads/{code} enforces everything; the form
  * just reports what the server said. Every control is at least 44px tall.
  */
-export function NopLeadForm({ code, agentName, consentText, consentVersion, source }: { code: string; agentName: string; consentText: string; consentVersion: number; source?: "page" }) {
+export function NopLeadForm({ code, agentName, consentText, consentVersion, source }: { code: string; agentName: string; consentText: string; consentVersion: number; source?: "page" | "event" }) {
   const { t, lang } = useNop()
+  const rsvp = source === "event"
+  const [guests, setGuests] = useState(0)
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
@@ -33,10 +36,10 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
     setSending(true)
     setError(null)
     try {
-      const res = await fetch(`/api/enterprise/nop/leads/${encodeURIComponent(code)}`, {
+      const res = await fetch(rsvp ? `/api/enterprise/nop/events/${encodeURIComponent(code)}/rsvp` : `/api/enterprise/nop/leads/${encodeURIComponent(code)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, email, message, website, consent, consentVersion, lang, source }),
+        body: JSON.stringify({ name, phone, email, message, website, consent, consentVersion, lang, ...(rsvp ? { guests } : { source }) }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) return setError(json.message ?? t("lead.err_generic"))
@@ -51,15 +54,15 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
   if (sent) {
     return (
       <div role="status" data-testid="lead-sent" className="mt-6 rounded-2xl border border-border bg-card p-6">
-        <p className="font-semibold">{t("lead.sent", { first: name.trim().split(/\s+/)[0] })}</p>
-        <p className="mt-1.5 text-sm text-muted-foreground">{t("lead.sent_body", { name: agentName })}</p>
+        <p className="font-semibold">{t(rsvp ? "event.rsvp_sent" : "lead.sent", { first: name.trim().split(/\s+/)[0] })}</p>
+        <p className="mt-1.5 text-sm text-muted-foreground">{rsvp ? t("event.rsvp_sent_body") : t("lead.sent_body", { name: agentName })}</p>
       </div>
     )
   }
 
   return (
     <form onSubmit={submit} data-testid="lead-form" className="mt-6 flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">{t("lead.intro", { name: agentName })}</p>
+      <p className="text-sm text-muted-foreground">{t(rsvp ? "event.rsvp_intro" : "lead.intro", { name: agentName })}</p>
       <div>
         <label htmlFor="lead-name" className="mb-1.5 block text-sm font-medium">{t("lead.name")}</label>
         <input id="lead-name" autoComplete="name" className={field} value={name} onChange={(e) => setName(e.target.value)} required maxLength={LEAD_LIMITS.name} />
@@ -72,6 +75,14 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
         <label htmlFor="lead-email" className="mb-1.5 block text-sm font-medium">{t("lead.email_optional")}</label>
         <input id="lead-email" type="email" autoComplete="email" className={field} value={email} onChange={(e) => setEmail(e.target.value)} maxLength={LEAD_LIMITS.email} />
       </div>
+      {rsvp && (
+        <div>
+          <label htmlFor="rsvp-guests" className="mb-1.5 block text-sm font-medium">{t("event.guests_label")}</label>
+          <select id="rsvp-guests" className={field} value={guests} onChange={(e) => setGuests(Number(e.target.value))}>
+            {Array.from({ length: 11 }, (_, n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+      )}
       <div>
         <label htmlFor="lead-message" className="mb-1.5 block text-sm font-medium">{t("lead.message_optional")}</label>
         <textarea id="lead-message" rows={3} className={field} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={LEAD_LIMITS.message} />
@@ -86,7 +97,7 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
       </label>
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       <button type="submit" disabled={sending} className="min-h-12 rounded-lg bg-[var(--brand-teal-bright)] px-5 font-semibold text-[var(--primary-foreground)] disabled:opacity-60">
-        {sending ? t("lead.sending") : t("lead.submit")}
+        {sending ? t("lead.sending") : t(rsvp ? "event.rsvp_submit" : "lead.submit")}
       </button>
     </form>
   )

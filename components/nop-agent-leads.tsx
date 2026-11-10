@@ -15,17 +15,18 @@ import type { FollowUp } from "@/lib/enterprise/portal/follow-ups"
  * with the text ready; nothing is sent until they press send there. Shown but
  * not tappable while an admin views as the agent.
  */
-export function NopAgentLeads({ leads, followUps = {}, readOnly }: { leads: LeadRecord[]; followUps?: Record<string, FollowUp[]>; readOnly: boolean }) {
+/** eventTitles: the event title for each RSVP's eventId (RSVPs are leads with an eventId). */
+export function NopAgentLeads({ leads, followUps = {}, readOnly, eventTitles = {} }: { leads: LeadRecord[]; followUps?: Record<string, FollowUp[]>; readOnly: boolean; eventTitles?: Record<string, string> }) {
   return (
     <ul data-testid="leads-list" className="flex flex-col gap-3">
-      {leads.map((lead) => <LeadCard key={lead.id} lead={lead} followUps={followUps[lead.id] ?? []} readOnly={readOnly} />)}
+      {leads.map((lead) => <LeadCard key={lead.id} lead={lead} followUps={followUps[lead.id] ?? []} readOnly={readOnly} eventTitle={lead.eventId ? eventTitles[lead.eventId] ?? null : null} />)}
     </ul>
   )
 }
 
 const action = "inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-border px-3 text-sm font-medium hover:bg-[var(--surface-soft)]"
 
-function LeadCard({ lead: initial, followUps, readOnly }: { lead: LeadRecord; followUps: FollowUp[]; readOnly: boolean }) {
+function LeadCard({ lead: initial, followUps, readOnly, eventTitle }: { lead: LeadRecord; followUps: FollowUp[]; readOnly: boolean; eventTitle: string | null }) {
   const { t, lang } = useNop()
   const [lead, setLead] = useState(initial)
   const [busy, setBusy] = useState(false)
@@ -58,6 +59,11 @@ function LeadCard({ lead: initial, followUps, readOnly }: { lead: LeadRecord; fo
         <p className="font-semibold">{lead.name}</p>
         {lead.contactedAt && <span data-testid="lead-contacted" className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs">{t("portal.lead_contacted")}</span>}
       </div>
+      {lead.eventId && (
+        <p data-testid="lead-rsvp" className="mt-1 text-sm font-medium text-[var(--brand-teal-bright)]">
+          {t("event.rsvp_badge", { title: eventTitle ?? "—" })}{lead.guests ? ` · ${t("event.rsvp_guests", { n: String(lead.guests) })}` : ""}
+        </p>
+      )}
       <p className="mt-0.5 text-xs text-muted-foreground">{t("portal.lead_received", { date: when })}</p>
       <p className="mt-2 text-sm">{lead.phone}{lead.email ? ` · ${lead.email}` : ""}</p>
       {lead.message && <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{lead.message}</p>}

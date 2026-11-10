@@ -620,6 +620,10 @@ export interface LeadRecord {
   consent?: LeadConsent
   /** NOP agent leads only: when the agent marked it contacted; null or absent = not yet. */
   contactedAt?: string | null
+  /** NOP event RSVPs (lib/enterprise/portal/events.ts): the event, how many guests come along, and when the day-before reminder went. */
+  eventId?: string
+  guests?: number
+  reminderSentAt?: string | null
 }
 
 export interface LeadConsent {

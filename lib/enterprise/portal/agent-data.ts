@@ -50,6 +50,12 @@ export async function saveAgentLead(agentId: string, lead: LeadRecord): Promise<
   await tx.exec()
 }
 
+/** Rewrites one lead the agent already holds (an RSVP's reminder time). Never adds one. */
+export async function updateAgentLead(agentId: string, lead: LeadRecord): Promise<void> {
+  if ((await redis.zscore(leadsKey(agentId), lead.id)) === null) return
+  await redis.set(leadKey(lead.id), lead)
+}
+
 /** Newest first. */
 export async function listAgentLeads(agentId: string): Promise<LeadRecord[]> {
   const ids = (await redis.zrange<string[]>(leadsKey(agentId), 0, -1, { rev: true })) ?? []
