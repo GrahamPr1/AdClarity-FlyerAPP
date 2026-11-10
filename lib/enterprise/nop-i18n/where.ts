@@ -395,5 +395,10 @@ export const NOP_STRING_WHERE: Record<NopStringKey, { where: string; note?: stri
   "email.reminder_body": { where: "Day-before reminder" },
   "email.reminder_host": { where: "Day-before reminder" },
   "email.reminder_footer": { where: "Day-before reminder, footer" },
+  "email.lead_reply": { where: "New-lead and RSVP email to the agent, when the person gave an email" },
+  "email.lead_call": { where: "New-lead and RSVP email to the agent, when the person gave only a phone number" },
+  "email.footer_agent": { where: "Footer of the lead, RSVP and approval emails to agents" },
+  "email.approved_signin_how": { where: "Email to the agent when approved (under the sign-in link)" },
+  "email.approved_contacts": { where: "Email to the agent when approved; {from} is OneFlyer's sending address" },
   "event.rsvp_count_one": { where: "Event page in the portal, exactly one RSVP" },
 }

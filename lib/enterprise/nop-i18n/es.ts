@@ -424,5 +424,10 @@ export const es: Record<NopStringKey, string> = {
   "email.reminder_body": "Hola, {first}: le recordamos que {title} es mañana, {when}, en {place}.",
   "email.reminder_host": "¿Preguntas? Comuníquese con {name} al {phone}.",
   "email.reminder_footer": "Recibe este mensaje porque confirmó su asistencia en la página del evento de {name}.",
+  "email.lead_reply": "Responda a este correo para escribirle a {name}.",
+  "email.lead_call": "{name} no dejó un correo electrónico. Llámele al número de arriba.",
+  "email.footer_agent": "Recibe este correo porque tiene una cuenta de agente en OneFlyer (oneflyer.org).",
+  "email.approved_signin_how": "Para iniciar sesión, use este correo electrónico. Le enviaremos un código cada vez.",
+  "email.approved_contacts": "Agregue {from} a sus contactos para que los avisos de nuevos contactos no lleguen al correo no deseado.",
   "event.rsvp_count_one": "1 confirmación, {guests} personas en total",
 }

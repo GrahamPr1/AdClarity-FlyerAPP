@@ -423,6 +423,11 @@ export const en = {
   "email.reminder_body": "Hi {first}, this is a reminder that {title} is tomorrow, {when}, at {place}.",
   "email.reminder_host": "Questions? Contact {name} at {phone}.",
   "email.reminder_footer": "You're getting this because you RSVP'd on {name}'s event page.",
+  "email.lead_reply": "Reply to this email to write to {name}.",
+  "email.lead_call": "{name} didn't leave an email address. Call them at the number above.",
+  "email.footer_agent": "You're receiving this because you have an agent account on OneFlyer (oneflyer.org).",
+  "email.approved_signin_how": "To sign in, use this email address. We'll email you a code each time.",
+  "email.approved_contacts": "Add {from} to your contacts so lead alerts don't go to spam.",
   "event.rsvp_count_one": "1 RSVP, {guests} people in all",
 } as const
 
