@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getSessionIdentity } from "@/lib/auth"
-import { isAdminSession } from "@/lib/admin"
+import { audit, requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { isNopTemplate } from "@/lib/enterprise/nop-render/kit"
 import { NopRenderError, renderNopFlyer, type NopFormat } from "@/lib/enterprise/nop-render/render"
 import { isNopV2Template } from "@/lib/enterprise/nop-render/kit-v2"
@@ -38,8 +37,8 @@ const TEST_AGENT = {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getSessionIdentity(request)
-  if (!(await isAdminSession(session?.sub))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const who = await requireNopAdmin(request)
+  if ("response" in who) return who.response
 
   const url = new URL(request.url)
   const template = url.searchParams.get("template") ?? "NOP_P2_EN"
@@ -56,7 +55,8 @@ export async function GET(request: NextRequest) {
       try {
         const values = { agentId, displayName: agent.profile.displayName ?? agent.profile.name, displayPhone: agent.profile.displayPhone ?? agent.profile.phone }
         const r = await renderNopV2ForAgent(template, size === "bleed" ? "bleed" : "letter", values, size === "preview" ? "preview" : "pdf")
-        if (size !== "preview") await logNopRender({ agentId, account: `admin:${session!.sub}`, template, format: size === "bleed" ? "print" : "home", kitVersion: `v2 ${v2VersionStamp(template)}` })
+        if (size !== "preview") await audit(who, "flyer_as_agent", `${template} ${size} for agent ${agentId}`)
+        if (size !== "preview") await logNopRender({ agentId, account: `admin:${who.admin}`, template, format: size === "bleed" ? "print" : "home", kitVersion: `v2 ${v2VersionStamp(template)}` })
         const ext = r.contentType === "application/pdf" ? "pdf" : "png"
         return new NextResponse(new Uint8Array(r.body), {
           headers: {

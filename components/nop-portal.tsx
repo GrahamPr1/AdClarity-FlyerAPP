@@ -53,7 +53,7 @@ export function PortalNav({ tabs }: { tabs: PortalTab[] }) {
 }
 
 /** Shown only to an admin viewing an agent's portal. Exit clears the read-only view. */
-export function ViewAsBanner({ name, email }: { name: string; email: string }) {
+export function ViewAsBanner({ name, email, exitBase = "/admin/enterprise/agents" }: { name: string; email: string; exitBase?: string }) {
   const { t } = useNop()
   const router = useRouter()
   const [busy, setBusy] = useState(false)
@@ -66,7 +66,7 @@ export function ViewAsBanner({ name, email }: { name: string; email: string }) {
         onClick={async () => {
           setBusy(true)
           await fetch("/api/admin/enterprise/view-as", { method: "DELETE" }).catch(() => {})
-          router.push(`/admin/enterprise/agents/${encodeURIComponent(email)}`)
+          router.push(`${exitBase}/${encodeURIComponent(email)}`)
           router.refresh()
         }}
         className="min-h-11 rounded-lg bg-black px-4 font-semibold text-white disabled:opacity-60"

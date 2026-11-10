@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/enterprise/portal/admin"
+import { audit, requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { listRoster } from "@/lib/enterprise/agents-store"
 import { AGENT_ID_RE } from "@/lib/enterprise/nop-roster"
 import { deleteAgentLeads, listAgentLeadIds, listAgentLeads, listLeadDeletions, type DeletionRequester } from "@/lib/enterprise/portal/agent-data"
@@ -20,7 +20,7 @@ const digits = (v: string) => v.replace(/\D/g, "")
 const brief = (l: { id: string; name: string; phone: string; email: string | null; createdAt: string }) => ({ id: l.id, name: l.name, phone: l.phone, email: l.email, createdAt: l.createdAt })
 
 export async function GET(request: NextRequest) {
-  const a = await requireAdmin(request)
+  const a = await requireNopAdmin(request)
   if ("response" in a) return a.response
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? ""
   const agentId = request.nextUrl.searchParams.get("agentId")?.trim() ?? ""
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const a = await requireAdmin(request)
+  const a = await requireNopAdmin(request)
   if ("response" in a) return a.response
   const body = (await request.json().catch(() => null)) as { agentId?: unknown; leadIds?: unknown; expectedCount?: unknown; requestedBy?: unknown; note?: unknown; confirm?: unknown } | null
   const agentId = typeof body?.agentId === "string" ? body.agentId : ""
@@ -67,5 +67,6 @@ export async function POST(request: NextRequest) {
   }
   const done = await deleteAgentLeads(a.admin, agentId, ids, requestedBy, note)
   if (!done) return NextResponse.json({ error: "not_found", message: "None of those leads belong to that Agent ID." }, { status: 404 })
+  await audit(a, "lead_deletion", `${done.leadIds.length} lead(s) of agent ${agentId}`)
   return NextResponse.json({ deletion: done })
 }

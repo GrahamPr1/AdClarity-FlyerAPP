@@ -48,6 +48,9 @@ moves to Basic. Your leads and history stay.
 can't be collected, your account moves to Basic. Your leads and history stay,
 and you can subscribe again any time.
 
+**If you're removed from the program.** If you're removed from the program,
+your Pro plan ends right away and we refund the unused part of that month.
+
 **Pro set by the program.** The program may give you Pro without you paying
 for it. That Pro is managed by the program, not by your card, and these
 billing terms don't apply to it.
@@ -65,6 +68,8 @@ The "Limits of liability" section applies to agent accounts as written.
   for, then your account moves to Basic and doesn't renew.
 - **Refunds.** We don't refund a partial month. If the product failed to
   deliver what you paid for, email support@oneflyer.org and we'll refund you.
+- **Removed from the program.** If you're removed from the program, your Pro
+  plan ends right away and we refund the unused part of that month.
 - **What you keep.** Your leads, scan counts and flyers stay. Lead requests are
   kept and deleted as the Privacy Policy describes.
 - **Your QR codes.** Flyers you've already printed keep working whatever your
@@ -105,6 +110,9 @@ después, su cuenta pasa a Básico. Sus contactos y su historial se conservan.
 tanto. Si aun así no se puede cobrar, su cuenta pasa a Básico. Sus contactos y
 su historial se conservan, y puede volver a suscribirse en cualquier momento.
 
+**Si lo retiran del programa.** Si lo retiran del programa, su plan Pro termina
+de inmediato y le reembolsamos la parte no usada de ese mes.
+
 **Pro asignado por el programa.** El programa puede darle Pro sin que usted lo
 pague. Ese Pro lo administra el programa, no su tarjeta, y estos términos de
 facturación no se le aplican.
@@ -123,6 +131,8 @@ como está escrita.
   que pagó; después, su cuenta pasa a Básico y no se renueva.
 - **Reembolsos.** No reembolsamos meses parciales. Si el producto no cumplió con
   lo que usted pagó, escriba a support@oneflyer.org y le haremos el reembolso.
+- **Si lo retiran del programa.** Si lo retiran del programa, su plan Pro termina
+  de inmediato y le reembolsamos la parte no usada de ese mes.
 - **Lo que conserva.** Sus contactos, sus escaneos y sus volantes se conservan.
   Las solicitudes de contacto se guardan y se eliminan como lo describe la
   Política de Privacidad.
@@ -132,9 +142,18 @@ como está escrita.
 
 ---
 
+## Placement (decided)
+
+Each page gets the English section, then the Spanish one, with its own anchor
+and `lang="es"`, the same as the privacy policy:
+
+- Terms: `#agents` (English), `#agents-es` (Spanish).
+- Refund policy: `#agent-pro` (English), `#agent-pro-es` (Spanish).
+
 ## Before publishing
 
 - Spanish: review by a qualified translator (not a machine translation).
-- Where the Spanish lives: the Terms and Refund pages are English only today.
-  Either a Spanish section on each page or separate Spanish pages; decide
-  before the billing go-live deploy.
+- Publish in the billing go-live deploy, not before.
+- The removal refund is built: Remove from program cancels a paid Pro
+  subscription immediately and refunds the unused part of the month, prorated
+  by time (`endAgentProOnRemoval` in `lib/enterprise/portal/agent-billing.ts`).

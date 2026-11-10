@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/enterprise/portal/admin"
+import { audit, requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { DEFAULT_ENROLL_DOMAIN } from "@/lib/enterprise/nop-roster"
 import { ENROLL_CHECK_AGENT_ID, checkEnrollDomain, enrollUrlsToCheck, getEnrollDomain, listEnrollDomainLog, setEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
 
@@ -16,13 +16,13 @@ async function state() {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin(request)
+  const auth = await requireNopAdmin(request)
   if ("response" in auth) return auth.response
   return NextResponse.json(await state(), { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin(request)
+  const auth = await requireNopAdmin(request)
   if ("response" in auth) return auth.response
   let body: { domain?: unknown }
   try {
@@ -39,5 +39,6 @@ export async function POST(request: NextRequest) {
       : "Not saved: these don't load right now."
     return NextResponse.json({ error: out.reason, message, checks: out.checks ?? [] }, { status: 422 })
   }
+  await audit(auth, "enroll_domain", `${out.entry.from} -> ${out.entry.to}`)
   return NextResponse.json({ saved: out.entry, ...(await state()) })
 }

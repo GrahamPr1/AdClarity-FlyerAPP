@@ -16,6 +16,12 @@ import type { LeadRecord } from "@/lib/types"
  */
 
 const s = vi.hoisted(() => ({ texts: {} as Record<string, string>, tier: "pro", active: true, features: {} as Record<string, boolean>, leads: [] as unknown[] }))
+vi.mock("@/lib/enterprise/program-admins", async (orig) => ({
+  ...(await orig<typeof import("@/lib/enterprise/program-admins")>()),
+  audit: async () => {},
+  logNopAdminAction: async () => {},
+  programAdminFrom: async () => null,
+}))
 vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com" }))
 vi.mock("@/lib/enterprise/portal/approved-text", async (orig) => {
   const real = await orig<typeof import("@/lib/enterprise/portal/approved-text")>()

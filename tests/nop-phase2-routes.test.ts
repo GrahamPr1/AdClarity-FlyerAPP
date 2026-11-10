@@ -21,6 +21,12 @@ const s = vi.hoisted(() => ({
   saved: [] as { agentId: string; lead: Record<string, unknown> }[], emails: [] as unknown[], leads: [] as unknown[], marked: [] as unknown[],
   admins: new Set(["admin"]), moves: [] as unknown[], moveResult: "ok" as "ok" | "stale", deleted: [] as unknown[],
 }))
+vi.mock("@/lib/enterprise/program-admins", async (orig) => ({
+  ...(await orig<typeof import("@/lib/enterprise/program-admins")>()),
+  audit: async () => {},
+  logNopAdminAction: async () => {},
+  programAdminFrom: async () => null,
+}))
 vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com" }))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => !!sub && s.admins.has(sub) }))
 vi.mock("@/lib/enterprise/portal/store", () => ({ getAgentTier: async () => s.tier, getOrgFeatures: async () => s.features, touchLastActive: async () => {} }))

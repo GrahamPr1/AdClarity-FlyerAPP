@@ -244,3 +244,66 @@ export function agentBillingLabel(tier: string, source: "admin" | "stripe" | nul
   if (billing?.subscriptionId) return "cancelled"
   return "none"
 }
+
+// ---- Removed from the program ---------------------------------------------------
+
+export interface RemovalBillingOutcome {
+  /** A paid Pro subscription was cancelled (immediately). */
+  cancelled: boolean
+  subscriptionId: string | null
+  /** The prorated refund of the unused part of the current period, in cents (0 when nothing to refund). */
+  refunded: number
+  currency: string | null
+  /** Set when Stripe refused something: the removal itself still stands; finish it in Stripe. */
+  error?: string
+}
+
+/**
+ * When an admin removes an agent from the program: a paid Pro subscription
+ * ends RIGHT AWAY (not at period end) and the unused part of the current
+ * period is refunded, prorated by time, on the payment that paid for it.
+ * Pro goes back to Basic at once (the webhook confirms it). An admin-set Pro
+ * has no subscription and is left alone. Undo does not restart billing.
+ * Idempotency keys make a retry safe: the same subscription is cancelled and
+ * the same invoice refunded at most once.
+ */
+export async function endAgentProOnRemoval(email: string, now = new Date()): Promise<RemovalBillingOutcome> {
+  const billing = await getAgentBilling(email)
+  const none: RemovalBillingOutcome = { cancelled: false, subscriptionId: null, refunded: 0, currency: null }
+  if (!billing?.subscriptionId || !billing.status || !isEntitledStatus(billing.status)) return none
+  const stripe = getStripe()
+  const subscriptionId = billing.subscriptionId
+  try {
+    const sub = await stripe.subscriptions.retrieve(subscriptionId)
+    if (!isEntitledStatus(sub.status)) return { ...none, subscriptionId }
+    const period = subscriptionPeriod(sub)
+    // The invoice that paid for the current period, and what paid it.
+    const invoices = await stripe.invoices.list({ subscription: subscriptionId, status: "paid", limit: 1 })
+    const invoice = invoices.data[0]
+    let refundable = 0
+    let paymentRef: { payment_intent: string } | { charge: string } | null = null
+    if (invoice && invoice.amount_paid > 0) {
+      const unused = Math.max(0, Math.min(1, (period.end - now.getTime()) / (period.end - period.start)))
+      refundable = Math.floor(invoice.amount_paid * unused)
+      const payments = await stripe.invoicePayments.list({ invoice: invoice.id!, limit: 10 })
+      const paid = payments.data.find((p) => p.status === "paid") ?? payments.data[0]
+      const pi = paid?.payment.payment_intent, ch = paid?.payment.charge
+      paymentRef = pi ? { payment_intent: typeof pi === "string" ? pi : pi.id } : ch ? { charge: typeof ch === "string" ? ch : ch.id } : null
+    }
+    await stripe.subscriptions.cancel(subscriptionId, { prorate: false, invoice_now: false }, { idempotencyKey: `agent-removal-cancel-${subscriptionId}` })
+    if (refundable > 0 && paymentRef && invoice) {
+      await stripe.refunds.create(
+        { ...paymentRef, amount: refundable, reason: "requested_by_customer", metadata: { oneflyer_product: "agent_pro", oneflyer_reason: "removed_from_program" } },
+        { idempotencyKey: `agent-removal-refund-${invoice.id}` },
+      )
+    }
+    // Basic now; the subscription.deleted webhook lands on the same.
+    if ((await getAgentTierSource(email)) === "stripe") await setAgentTier(email, "basic", "stripe")
+    await saveAgentBilling(email, { status: "canceled", cancelAtPeriodEnd: false })
+    return { cancelled: true, subscriptionId, refunded: refundable && paymentRef ? refundable : 0, currency: invoice?.currency ?? null }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`[agent billing] removal: cancelling/refunding ${subscriptionId} failed:`, message)
+    return { ...none, subscriptionId, error: message }
+  }
+}

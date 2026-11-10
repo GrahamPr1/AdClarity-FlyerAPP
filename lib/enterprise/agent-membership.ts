@@ -1,6 +1,7 @@
 import { Redis } from "@upstash/redis"
 import { getAgentIdOwner, getRosterRecord, saveRosterRecord } from "./agents-store"
 import { clearRetentionClock, startRetentionClock, type RetentionClock } from "./portal/retention"
+import { endAgentProOnRemoval, type RemovalBillingOutcome } from "./portal/agent-billing"
 
 // "Remove from program" and its Undo, for admins on the agent's admin page.
 //
@@ -10,6 +11,10 @@ import { clearRetentionClock, startRetentionClock, type RetentionClock } from ".
 // terminated agent: no flyers, no Pro features, the QR forwards to the
 // program's page, the personal and lead pages are gone, and code sign-in is
 // refused (the same neutral reply as an unknown email).
+//
+// A paid Pro subscription ends right away, with the unused part of the month
+// refunded (agent-billing.ts endAgentProOnRemoval). Undo doesn't restart it:
+// the agent can subscribe again.
 //
 // Undo (reactivate) restores the status the agent had before, and clears the
 // clock, so nothing is deleted. Both are logged with the admin:
@@ -27,6 +32,8 @@ export interface ProgramStatusLogEntry {
   account: string | null
   /** remove: the status replaced; reactivate: the status restored. */
   status: string
+  /** remove: what happened to a paid Pro subscription. */
+  billing?: RemovalBillingOutcome
 }
 
 async function log(entry: Omit<ProgramStatusLogEntry, "at">): Promise<ProgramStatusLogEntry> {
@@ -41,7 +48,7 @@ export async function listProgramStatusLog(opts: { agentId?: string; limit?: num
   return (opts.agentId ? all.filter((e) => e.agentId === opts.agentId) : all).slice(0, opts.limit ?? 100)
 }
 
-export type MembershipResult = { ok: true; status: string; clock: RetentionClock | null } | { ok: false; reason: "no_roster_record" | "already_removed" | "not_removed" }
+export type MembershipResult = { ok: true; status: string; clock: RetentionClock | null; billing?: RemovalBillingOutcome } | { ok: false; reason: "no_roster_record" | "already_removed" | "not_removed" }
 
 export async function removeFromProgram(agentId: string, admin: string): Promise<MembershipResult> {
   const record = await getRosterRecord(agentId)
@@ -50,8 +57,10 @@ export async function removeFromProgram(agentId: string, admin: string): Promise
   const now = new Date()
   await saveRosterRecord({ ...record, status: "terminated", statusBeforeRemoval: record.status, removedBy: admin, removedAt: now.toISOString() })
   const clock = await startRetentionClock(agentId, "terminated", now)
-  await log({ admin, action: "remove", agentId, account: await getAgentIdOwner(agentId), status: record.status })
-  return { ok: true, status: "terminated", clock }
+  const account = await getAgentIdOwner(agentId)
+  const billing = account ? await endAgentProOnRemoval(account, now) : undefined
+  await log({ admin, action: "remove", agentId, account, status: record.status, ...(billing?.cancelled || billing?.error ? { billing } : {}) })
+  return { ok: true, status: "terminated", clock, ...(billing ? { billing } : {}) }
 }
 
 export async function reactivateInProgram(agentId: string, admin: string): Promise<MembershipResult> {

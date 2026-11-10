@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { ADMIN_SUB, getSessionIdentity } from "@/lib/auth"
 import { isAdminSession } from "@/lib/admin"
+import { programAdminFrom } from "@/lib/enterprise/program-admins"
 
 // "View as agent": a OneFlyer admin opens an agent's real portal, read-only.
 //
@@ -73,18 +74,26 @@ export function rejectWhileViewingAs(req: CookieReader): NextResponse | null {
  *   - an admin with a valid view-as cookie that THEY started: that agent, read-only
  * Anyone else gets null. An admin without the cookie is not an agent.
  */
-export type PortalViewer = { email: string; viewAs: null } | { email: string; viewAs: { admin: string } }
+/** viewAs.from: "program" when a program admin (/program) is viewing, so the banner's exit goes back there. */
+export type PortalViewer = { email: string; viewAs: null } | { email: string; viewAs: { admin: string; from: "admin" | "program" } }
 
 export async function resolvePortalViewer(req: CookieReader): Promise<PortalViewer | null> {
   const session = await getSessionIdentity(req)
-  if (!session) return null
   const token = req.cookies.get(VIEW_AS_COOKIE)?.value
-  if (token && (await isAdminSession(session.sub))) {
+  if (session && token && (await isAdminSession(session.sub))) {
     const p = await verifyViewAsToken(token)
-    if (p && p.admin === session.sub) return { email: p.agent, viewAs: { admin: session.sub } }
+    if (p && p.admin === session.sub) return { email: p.agent, viewAs: { admin: session.sub, from: "admin" } }
     return null
   }
-  if (session.sub === ADMIN_SUB) return null
+  // A program admin (their own /program session, never a dashboard one) viewing an agent they opened.
+  if (token) {
+    const pa = await programAdminFrom(req)
+    if (pa) {
+      const p = await verifyViewAsToken(token)
+      return p && p.admin === pa.email ? { email: p.agent, viewAs: { admin: pa.email, from: "program" } } : null
+    }
+  }
+  if (!session || session.sub === ADMIN_SUB) return null
   return { email: session.sub, viewAs: null }
 }
 

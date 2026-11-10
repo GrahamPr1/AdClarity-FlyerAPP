@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
-import { listAgentRows, requireAdmin } from "@/lib/enterprise/portal/admin"
+import { listAgentRows } from "@/lib/enterprise/portal/admin"
+import { audit, requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { reactivateInProgram, removeFromProgram } from "@/lib/enterprise/agent-membership"
 
 // POST /api/admin/enterprise/agents/{email}/program { action: "remove" | "reactivate" }
-// Admin only. Remove from program (terminated + the 12-month lead retention
+// The owner or a program admin. Remove from program (terminated + the 12-month lead retention
 // clock) or Undo it. Both logged with the admin (agent-membership.ts).
 export const dynamic = "force-dynamic"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ email: string }> }) {
-  const auth = await requireAdmin(request)
+  const auth = await requireNopAdmin(request)
   if ("response" in auth) return auth.response
   const email = decodeURIComponent((await params).email).trim().toLowerCase()
   let action: unknown
@@ -25,5 +26,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const message = { no_roster_record: "This agent has no roster record.", already_removed: "Already removed from the program.", not_removed: "This agent isn't removed." }[out.reason]
     return NextResponse.json({ error: out.reason, message }, { status: 409 })
   }
+  await audit(auth, action === "remove" ? "remove_from_program" : "reactivate", `agent ${row.agentId}${out.billing?.cancelled ? `, Pro cancelled, ${out.billing.refunded} cents refunded` : ""}`)
   return NextResponse.json(out)
 }

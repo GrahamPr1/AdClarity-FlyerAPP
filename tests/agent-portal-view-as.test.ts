@@ -8,6 +8,12 @@ import { NextRequest } from "next/server"
  */
 
 const r = vi.hoisted(() => ({ calls: [] as string[], admins: new Set<string>(["admin"]) }))
+vi.mock("@/lib/enterprise/program-admins", async (orig) => ({
+  ...(await orig<typeof import("@/lib/enterprise/program-admins")>()),
+  audit: async () => {},
+  logNopAdminAction: async () => {},
+  programAdminFrom: async () => null,
+}))
 vi.mock("@upstash/redis", () => {
   const record = (name: string) => async (...args: unknown[]) => { r.calls.push(`${name} ${String(args[0])}`); return null }
   const fake = new Proxy({}, { get: (_t, name: string) => (name === "then" ? undefined : name === "pipeline" || name === "multi" ? () => fake : record(name)) })
@@ -55,7 +61,7 @@ describe("who a portal request is for", () => {
     const { resolvePortalViewer } = await import("@/lib/enterprise/portal/view-as")
     expect(await resolvePortalViewer(req("/", { cookie: await sessionCookie("agent@x.test") }))).toEqual({ email: "agent@x.test", viewAs: null })
     const cookie = `${await sessionCookie("admin")}; ${await viewAsCookie("admin", "agent@x.test")}`
-    expect(await resolvePortalViewer(req("/", { cookie }))).toEqual({ email: "agent@x.test", viewAs: { admin: "admin" } })
+    expect(await resolvePortalViewer(req("/", { cookie }))).toEqual({ email: "agent@x.test", viewAs: { admin: "admin", from: "admin" } })
   })
 
   it("an admin without the cookie, or with another admin's cookie, is nobody", async () => {

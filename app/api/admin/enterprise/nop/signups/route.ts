@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/enterprise/portal/admin"
+import { audit, requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { approveSignup, decideNameChange, listPendingNameChanges, listPendingSignups, listSignupLog, rejectSignup } from "@/lib/enterprise/agent-signup"
 import { sendAgentSignupDecision } from "@/lib/email"
 import { NOP_ORG_NAME } from "@/lib/enterprise/nop-roster"
@@ -23,13 +23,13 @@ async function state() {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin(request)
+  const auth = await requireNopAdmin(request)
   if ("response" in auth) return auth.response
   return NextResponse.json(await state(), { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin(request)
+  const auth = await requireNopAdmin(request)
   if ("response" in auth) return auth.response
   let body: { agentId?: unknown; action?: unknown }
   try {
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
   if (action === "approve_name" || action === "reject_name") {
     const out = await decideNameChange(agentId, auth.admin, action === "approve_name")
     if (!out.ok) return NextResponse.json({ error: "not_pending", message: "No name change is waiting for that Agent ID." }, { status: 409 })
+    await audit(auth, action, `agent ${agentId}`)
     return NextResponse.json(await state())
   }
 
@@ -53,5 +54,6 @@ export async function POST(request: NextRequest) {
     to: out.email, name: out.name, lang: out.lang, approved: action === "approve", programName: NOP_ORG_NAME, signInUrl: `${CANONICAL_SITE_URL}/agent/sign-in`,
   })
   if (!email.sent) console.error(`[nop] ${action} email to agent ${agentId} not sent: ${email.reason}`)
+  await audit(auth, `signup_${action}`, `agent ${agentId}`)
   return NextResponse.json({ ...(await state()), emailSent: email.sent })
 }
