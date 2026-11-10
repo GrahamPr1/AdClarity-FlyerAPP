@@ -29,6 +29,17 @@ describe("Privacy Policy", () => {
     expect(html).toContain("Last updated 10 November 2026")
   })
 
+  it("has the Agent accounts section in English and Spanish, and says agent/program pages run no GA or GTM", () => {
+    const raw = renderToStaticMarkup(PrivacyPage())
+    expect(raw).toContain('id="agent-accounts"')
+    expect(raw).toContain('id="agent-accounts-es"')
+    expect(html).toContain("Twelve months after you leave, we delete your account automatically")
+    expect(html).toContain("Doce meses después de que salga, eliminamos su cuenta automáticamente")
+    expect(html).toContain("Program and agent pages are different. Google Analytics and Google Tag Manager don't run on the agent portal")
+    expect(raw).toContain('href="mailto:support@oneflyer.org"')
+    expect(html).not.toMatch(/Basic Benefits/)
+  })
+
   it("covers event pages, RSVPs and the day-before reminder, in English and Spanish", () => {
     expect(html).toContain("a page for an event they're hosting (oneflyer.org/e/…), where you can RSVP")
     expect(html).toContain("we send you one reminder email the day before the event")

@@ -1,7 +1,9 @@
 # DRAFT — Privacy Policy: Agent accounts (English and Spanish)
 
-> **Status: DRAFT, not published.** For approval before the Recruiting kit, the
-> Team dashboard, print requests and the monthly results email are switched on. Placement: a new section after the Spanish "Información
+> **Status: APPROVED (10 November 2026), EN and ES, and published in
+> `app/privacy/page.tsx` with the site-wide Analytics addition, in the deploy
+> that merged account deletion and Part 8. This file is the record; the page is
+> the source of truth.** Placement: a new section after the Spanish "Información
 > recopilada en las páginas de agentes" (`#agent-pages-es`): English
 > `id="agent-accounts"`, then Spanish `id="agent-accounts-es"` (`lang="es"`).
 >
