@@ -16,10 +16,58 @@ const ALERT_RECIPIENT = process.env.ALERT_EMAIL?.trim()
 // properly branded "from".
 const FROM_ADDRESS = process.env.RESEND_FROM_ADDRESS ?? "OneFlyer <onboarding@resend.dev>"
 
+/** The bare address in FROM_ADDRESS, for "add us to your contacts". */
+export const FROM_EMAIL = FROM_ADDRESS.match(/<([^>]+)>/)?.[1] ?? FROM_ADDRESS
+
+/**
+ * Where a reply to an agent email goes when there's no person to reply to
+ * (sign-in codes, approvals). Unset: no reply-to, as before. Set it only to an
+ * inbox that can receive mail.
+ */
+const SUPPORT_REPLY_TO = process.env.EMAIL_REPLY_TO?.trim() || undefined
+
 function getClient(): Resend | null {
   const key = process.env.RESEND_API_KEY
   if (!key) return null
   return new Resend(key)
+}
+
+const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+
+/** One piece of an agent email; each renders the same in HTML and plain text. */
+type MailBlock =
+  | { p: string }
+  | { code: string }
+  | { rows: { label: string; value: string; href?: string; pre?: boolean }[] }
+  | { link: { label: string; url: string } }
+  | { small: string }
+
+/**
+ * Builds an agent email's HTML and plain-text bodies from the same blocks, so
+ * the two never drift apart, with the footer saying who sent it and why.
+ */
+function agentMail(lang: NopLang, blocks: MailBlock[], footer: string): { html: string; text: string } {
+  const html = blocks.map((b) => {
+    if ("p" in b) return `<p>${escapeHtml(b.p)}</p>`
+    if ("code" in b) return `<p style="font-size:24px;font-weight:600;letter-spacing:4px">${escapeHtml(b.code)}</p>`
+    if ("small" in b) return `<p style="color:#888;font-size:12px">${escapeHtml(b.small)}</p>`
+    if ("link" in b) return `<p><a href="${escapeHtml(b.link.url)}">${escapeHtml(b.link.label)}</a></p>`
+    return `<table style="border-collapse:collapse;margin:12px 0">${b.rows.map((r) => {
+      const value = r.href ? `<a href="${escapeHtml(r.href)}">${escapeHtml(r.value)}</a>` : r.pre ? `<span style="white-space:pre-wrap">${escapeHtml(r.value)}</span>` : escapeHtml(r.value)
+      return `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top">${escapeHtml(r.label)}</td><td style="padding:4px 0">${value}</td></tr>`
+    }).join("")}</table>`
+  }).join("\n")
+  const text = blocks.map((b) => {
+    if ("p" in b) return b.p
+    if ("code" in b) return b.code
+    if ("small" in b) return b.small
+    if ("link" in b) return `${b.link.label}: ${b.link.url}`
+    return b.rows.map((r) => `${r.label}: ${r.value}`).join("\n")
+  }).join("\n\n")
+  return {
+    html: `<div lang="${lang}" style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">\n${html}\n<hr style="margin:16px 0;border:none;border-top:1px solid #ddd">\n<p style="color:#888;font-size:12px">${escapeHtml(footer)}</p>\n</div>`,
+    text: `${text}\n\n--\n${footer}\n`,
+  }
 }
 
 /**
@@ -242,35 +290,36 @@ export async function sendNopAgentLeadNotification(input: {
   portalUrl: string
   /** The form was on the agent's personal page, not the flyer's QR lead page. */
   fromPage?: boolean
+  /** An RSVP on one of the agent's event pages. */
+  event?: { title: string; guests: number }
 }): Promise<{ sent: boolean; reason?: string }> {
   const resend = getClient()
   if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
 
-  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
   const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
   const { lead } = input
-  const row = (label: string, value: string) =>
-    `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top">${escape(label)}</td><td style="padding:4px 0">${value}</td></tr>`
+  const body = agentMail(input.lang, [
+    { p: input.event ? t("email.rsvp_intro", { title: input.event.title }) : t(input.fromPage ? "email.lead_intro_page" : "email.lead_intro") },
+    { rows: [
+      { label: t("lead.name"), value: lead.name },
+      { label: t("lead.phone"), value: lead.phone, href: `tel:${lead.phone.replace(/[^0-9+]/g, "")}` },
+      ...(lead.email ? [{ label: t("portal.lead_email"), value: lead.email, href: `mailto:${lead.email}` }] : []),
+      ...(lead.message ? [{ label: t("lead.message_optional").replace(/\s*\(.*\)$/, ""), value: lead.message, pre: true }] : []),
+      ...(input.event ? [{ label: t("email.rsvp_guests"), value: String(input.event.guests) }] : []),
+    ] },
+    { p: t(lead.email ? "email.lead_reply" : "email.lead_call", { name: lead.name }) },
+    { link: { label: t("email.lead_open"), url: input.portalUrl } },
+    ...(lead.consent ? [{ small: `☑ ${lead.consent.text}` }] : []),
+  ], t("email.footer_agent"))
 
   try {
+    const replyTo = lead.email ?? SUPPORT_REPLY_TO
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: input.to,
-      ...(lead.email ? { replyTo: lead.email } : {}),
-      subject: t("email.lead_subject", { name: lead.name }),
-      html: `
-        <div lang="${input.lang}" style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
-          <p>${escape(t(input.fromPage ? "email.lead_intro_page" : "email.lead_intro"))}</p>
-          <table style="border-collapse:collapse;margin:12px 0">
-            ${row(t("lead.name"), escape(lead.name))}
-            ${row(t("lead.phone"), `<a href="tel:${escape(lead.phone.replace(/[^0-9+]/g, ""))}">${escape(lead.phone)}</a>`)}
-            ${lead.email ? row(t("portal.lead_email"), `<a href="mailto:${escape(lead.email)}">${escape(lead.email)}</a>`) : ""}
-            ${lead.message ? row(t("lead.message_optional").replace(/\s*\(.*\)$/, ""), `<span style="white-space:pre-wrap">${escape(lead.message)}</span>`) : ""}
-          </table>
-          <p><a href="${escape(input.portalUrl)}">${escape(t("email.lead_open"))}</a></p>
-          ${lead.consent ? `<p style="color:#888;font-size:12px">☑ ${escape(lead.consent.text)}</p>` : ""}
-        </div>
-      `,
+      ...(replyTo ? { replyTo } : {}),
+      subject: input.event ? t("email.rsvp_subject", { name: lead.name, title: input.event.title }) : t("email.lead_subject", { name: lead.name }),
+      ...body,
     })
     if (error) return { sent: false, reason: error.message }
     return { sent: true }
@@ -282,7 +331,8 @@ export async function sendNopAgentLeadNotification(input: {
 /**
  * Tells a self-signed-up agent an admin approved (with a sign-in link) or
  * rejected their sign-up, in the language they signed up in. A rejection
- * never says why.
+ * never says why. The approval asks them to add our address to their
+ * contacts, so lead alerts don't land in spam.
  */
 export async function sendAgentSignupDecision(input: {
   to: string
@@ -294,20 +344,139 @@ export async function sendAgentSignupDecision(input: {
 }): Promise<{ sent: boolean; reason?: string }> {
   const resend = getClient()
   if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
-  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
   const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
   const v = { program: input.programName, name: input.name }
+  const body = input.approved
+    ? agentMail(input.lang, [
+        { p: t("email.approved_intro", v) },
+        { link: { label: t("email.approved_cta"), url: input.signInUrl } },
+        { p: t("email.approved_signin_how") },
+        { p: t("email.approved_contacts", { from: FROM_EMAIL }) },
+      ], t("email.footer_agent"))
+    : agentMail(input.lang, [{ p: t("email.rejected_body", v) }], "OneFlyer · oneflyer.org")
   try {
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: input.to,
+      ...(SUPPORT_REPLY_TO ? { replyTo: SUPPORT_REPLY_TO } : {}),
       subject: t(input.approved ? "email.approved_subject" : "email.rejected_subject", v),
-      html: `
-        <div lang="${input.lang}" style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
-          <p>${escape(t(input.approved ? "email.approved_intro" : "email.rejected_body", v))}</p>
-          ${input.approved ? `<p><a href="${escape(input.signInUrl)}">${escape(t("email.approved_cta"))}</a></p>` : ""}
-        </div>
-      `,
+      ...body,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
+ * The day-before reminder to someone who RSVP'd with an email, in the language
+ * they used on the RSVP form. Reply goes to the agent.
+ */
+export async function sendEventReminder(input: {
+  to: string
+  lang: NopLang
+  firstName: string
+  title: string
+  when: string
+  place: string
+  agentName: string
+  agentPhone: string
+  agentEmail: string
+  pageUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
+  const body = agentMail(input.lang, [
+    { p: t("email.reminder_body", { first: input.firstName, title: input.title, when: input.when, place: input.place }) },
+    { p: t("email.reminder_host", { name: input.agentName, phone: input.agentPhone }) },
+    { link: { label: input.pageUrl.replace(/^https?:\/\//, ""), url: input.pageUrl } },
+  ], t("email.reminder_footer", { name: input.agentName }))
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      replyTo: input.agentEmail,
+      subject: t("email.reminder_subject", { title: input.title }),
+      ...body,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
+ * The agent's day-before email for one of their events, in the agent's
+ * language: when and where, and everyone who RSVP'd (name, guests, phone,
+ * email), so they have the list in hand. Sent once per event.
+ */
+export async function sendEventAgentReminder(input: {
+  to: string
+  lang: NopLang
+  title: string
+  when: string
+  place: string
+  rsvps: { name: string; phone: string; email: string | null; guests: number }[]
+  eventUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
+  const people = input.rsvps.reduce((n, r) => n + 1 + r.guests, 0)
+  const body = agentMail(input.lang, [
+    { p: t("email.agent_reminder_body", { title: input.title, when: input.when, place: input.place }) },
+    { p: input.rsvps.length === 0 ? t("email.agent_reminder_none") : t(input.rsvps.length === 1 ? "email.agent_reminder_count_one" : "email.agent_reminder_count", { n: String(input.rsvps.length), guests: String(people) }) },
+    ...(input.rsvps.length ? [{ rows: input.rsvps.map((r) => ({
+      label: r.name,
+      value: [r.phone, r.email, r.guests ? t("email.agent_reminder_guests", { n: String(r.guests) }) : ""].filter(Boolean).join(" · "),
+    })) }] : []),
+    ...(input.rsvps.some((r) => r.email) ? [{ p: t("email.agent_reminder_sent") }] : []),
+    { link: { label: t("email.agent_reminder_open"), url: input.eventUrl } },
+  ], t("email.footer_agent"))
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      ...(SUPPORT_REPLY_TO ? { replyTo: SUPPORT_REPLY_TO } : {}),
+      subject: t("email.agent_reminder_subject", { title: input.title }),
+      ...body,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
+ * Tells an agent an admin took down (hid) one of their event pages, or put it
+ * back, in the agent's language.
+ */
+export async function sendEventHiddenNotice(input: {
+  to: string
+  lang: NopLang
+  title: string
+  hidden: boolean
+  eventUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
+  const body = agentMail(input.lang, [
+    { p: t(input.hidden ? "email.event_hidden_body" : "email.event_unhidden_body", { title: input.title }) },
+    ...(input.hidden ? [{ p: t("email.event_hidden_next") }] : []),
+    { link: { label: t("email.agent_reminder_open"), url: input.eventUrl } },
+  ], t("email.footer_agent"))
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      ...(SUPPORT_REPLY_TO ? { replyTo: SUPPORT_REPLY_TO } : {}),
+      subject: t(input.hidden ? "email.event_hidden_subject" : "email.event_unhidden_subject", { title: input.title }),
+      ...body,
     })
     if (error) return { sent: false, reason: error.message }
     return { sent: true }
@@ -365,14 +534,13 @@ export async function sendAgentVerificationCode(
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: rosterEmail,
+      ...(SUPPORT_REPLY_TO ? { replyTo: SUPPORT_REPLY_TO } : {}),
       subject: tNop(lang, purpose === "signin" ? "email.subject_signin" : "email.subject", { program: programName, code }),
-      html: `
-        <div lang="${lang}">
-          <p>${tNop(lang, purpose === "signin" ? "email.intro_signin" : "email.intro", { program: programName })}</p>
-          <p style="font-size:24px;font-weight:600;letter-spacing:4px">${code}</p>
-          <p>${tNop(lang, purpose === "signin" ? "email.expires_signin" : "email.expires")}</p>
-        </div>
-      `,
+      ...agentMail(lang, [
+        { p: tNop(lang, purpose === "signin" ? "email.intro_signin" : "email.intro", { program: programName }) },
+        { code },
+        { p: tNop(lang, purpose === "signin" ? "email.expires_signin" : "email.expires") },
+      ], "OneFlyer · oneflyer.org"),
     })
     if (error) {
       console.error("[email] Resend rejected the agent verification email:", error.message)

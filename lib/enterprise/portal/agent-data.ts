@@ -12,13 +12,17 @@ import { statsMonth } from "@/lib/stats-month"
 //   nop-agent-data-moves         every admin move, newest first, never trimmed
 //
 // Lead records don't name their agent: ownership is membership of the
-// agent's zset, so a move is one atomic script over two keys per ID.
+// agent's zset, so a move is one atomic script over three keys per ID. Events
+// (events.ts) move in the same script; their records name the agent, so the
+// move then rewrites agentId on each one, keeping RSVPs with their event.
 
 const redis = Redis.fromEnv()
 
 const scansKey = (agentId: string) => `nop-agent:${agentId}:scans`
 const leadsKey = (agentId: string) => `nop-agent:${agentId}:leads`
 const leadKey = (id: string) => `nop-lead:${id}`
+const eventsKey = (agentId: string) => `nop-agent:${agentId}:events`
+const eventKey = (id: string) => `nop-event:${id}`
 const MOVES_KEY = "nop-agent-data-moves"
 
 // ---- Scans -------------------------------------------------------------------
@@ -50,6 +54,12 @@ export async function saveAgentLead(agentId: string, lead: LeadRecord): Promise<
   await tx.exec()
 }
 
+/** Rewrites one lead the agent already holds (an RSVP's reminder time). Never adds one. */
+export async function updateAgentLead(agentId: string, lead: LeadRecord): Promise<void> {
+  if ((await redis.zscore(leadsKey(agentId), lead.id)) === null) return
+  await redis.set(leadKey(lead.id), lead)
+}
+
 /** Newest first. */
 export async function listAgentLeads(agentId: string): Promise<LeadRecord[]> {
   const ids = (await redis.zrange<string[]>(leadsKey(agentId), 0, -1, { rev: true })) ?? []
@@ -77,11 +87,13 @@ export async function setAgentLeadContacted(agentId: string, leadId: string, con
 export interface AgentDataSummary {
   leads: number
   scans: number
+  /** Shown and logged; the stale check is on leads and scans. */
+  events?: number
 }
 
 export async function summarizeAgentData(agentId: string): Promise<AgentDataSummary> {
-  const [leads, scans] = await Promise.all([redis.zcard(leadsKey(agentId)), getAgentScans(agentId)])
-  return { leads, scans: scans.total }
+  const [leads, scans, events] = await Promise.all([redis.zcard(leadsKey(agentId)), getAgentScans(agentId), redis.zcard(eventsKey(agentId))])
+  return { leads, scans: scans.total, events }
 }
 
 export interface AgentDataMove {
@@ -92,9 +104,10 @@ export interface AgentDataMove {
   at: string
 }
 
-// KEYS: from scans, from leads, to scans, to leads. ARGV: expected leads, expected scan total.
+// KEYS: from scans, from leads, to scans, to leads, from events, to events.
+// ARGV: expected leads, expected scan total. Returns "ok:<events moved>".
 // Refuses ("stale") if the source changed since the admin saw the preview.
-// Leads: union into the target, keeping each lead's original timestamp.
+// Leads and events: union into the target, keeping their scores.
 // Scans: every field (total and each month) added onto the target's.
 const MOVE = `
 local leads = redis.call("ZCARD", KEYS[2])
@@ -107,7 +120,12 @@ end
 local fields = redis.call("HGETALL", KEYS[1])
 for i = 1, #fields, 2 do redis.call("HINCRBY", KEYS[3], fields[i], tonumber(fields[i + 1])) end
 redis.call("DEL", KEYS[1])
-return "ok"`
+local events = redis.call("ZCARD", KEYS[5])
+if events > 0 then
+  redis.call("ZUNIONSTORE", KEYS[6], 2, KEYS[6], KEYS[5], "AGGREGATE", "MIN")
+  redis.call("DEL", KEYS[5])
+end
+return "ok:" .. events`
 
 export type MoveResult = { ok: true; move: AgentDataMove } | { ok: false; reason: "stale" | "same_id" }
 
@@ -120,13 +138,23 @@ export async function moveAgentData(admin: string, from: string, to: string, exp
   if (from === to) return { ok: false, reason: "same_id" }
   const out = await redis.eval<string[], string>(
     MOVE,
-    [scansKey(from), leadsKey(from), scansKey(to), leadsKey(to)],
+    [scansKey(from), leadsKey(from), scansKey(to), leadsKey(to), eventsKey(from), eventsKey(to)],
     [String(expected.leads), String(expected.scans)],
   )
-  if (out !== "ok") return { ok: false, reason: "stale" }
-  const move: AgentDataMove = { admin, from, to, moved: expected, at: new Date().toISOString() }
+  if (!String(out).startsWith("ok")) return { ok: false, reason: "stale" }
+  const events = Number(String(out).split(":")[1] ?? 0)
+  if (events > 0) await reassignEvents(from, to)
+  const move: AgentDataMove = { admin, from, to, moved: { leads: expected.leads, scans: expected.scans, events }, at: new Date().toISOString() }
   await redis.lpush(MOVES_KEY, move)
   return { ok: true, move }
+}
+
+/** After a move: every event now listed under `to` that still names `from` gets `to`. */
+async function reassignEvents(from: string, to: string): Promise<void> {
+  const ids = ((await redis.zrange<string[]>(eventsKey(to), 0, -1)) ?? []).map(String)
+  if (ids.length === 0) return
+  const records = await redis.mget<({ agentId: string } | null)[]>(...ids.map(eventKey))
+  await Promise.all(records.map((e, i) => (e && e.agentId === from ? redis.set(eventKey(ids[i]), { ...e, agentId: to }) : null)))
 }
 
 export async function listAgentDataMoves(limit = 100): Promise<AgentDataMove[]> {

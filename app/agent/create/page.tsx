@@ -5,6 +5,10 @@ import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { agentFlyerKit, getNopFlyerSettings } from "@/lib/enterprise/nop-render/kit-v2-access"
 import { NOP_V2_PACKAGES, NOP_V2_PRICING } from "@/lib/enterprise/nop-render/kit-v2-ids"
 import { PortalShell } from "../portal-shell"
+import { canUse } from "@/lib/enterprise/portal/features"
+import { formatEventWhen, listAgentEvents } from "@/lib/enterprise/portal/events"
+import { canBuyPro } from "@/lib/enterprise/portal/agent-billing"
+import { ProLocked } from "@/components/nop-portal"
 
 export const dynamic = "force-dynamic"
 
@@ -64,6 +68,38 @@ export default async function Page() {
         ))}
       </ul>
       )}
+      {page.ctx.orgFeatures.events && <EventsSection page={page} />}
     </PortalShell>
+  )
+}
+
+/** Events (Pro): the agent's events, soonest first, and "New event"; Basic sees the Pro note with the upgrade. */
+async function EventsSection({ page }: { page: Awaited<ReturnType<typeof requirePortalPage>> }) {
+  const t = (k: NopStringKey) => tNop(page.lang, k)
+  const events = canUse(page.ctx, "events") ? await listAgentEvents(page.ctx.agent.agentId) : null
+  return (
+    <section aria-labelledby="events" data-testid="create-events" className="mt-8">
+      <h2 id="events" className="mb-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">{t("event.section_title")}</h2>
+      {!events ? (
+        <ProLocked sentence="event.locked" upgrade={canBuyPro(page.ctx)} readOnly={page.readOnly} />
+      ) : (
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">{t("event.section_intro")}</p>
+          {events.length === 0 ? <p className="mt-3 text-sm">{t("event.none")}</p> : (
+            <ul className="mt-3 divide-y divide-border">
+              {events.map((e) => (
+                <li key={e.id}>
+                  <Link href={`/agent/events/${e.id}`} data-event={e.id} className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-2 hover:underline">
+                    <span className="font-medium">{e.title}</span>
+                    <span className="text-sm text-muted-foreground">{e.cancelledAt ? t("event.cancelled_badge") : formatEventWhen(e, page.lang)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!page.readOnly && <Link href="/agent/events/new" data-testid="event-new" className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--brand-teal-bright)] px-4 text-sm font-semibold text-[var(--primary-foreground)]">{t("event.new")}</Link>}
+        </div>
+      )}
+    </section>
   )
 }

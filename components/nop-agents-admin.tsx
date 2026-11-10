@@ -11,6 +11,7 @@ import { AdminApprovedText, AdminAgentDataMove, AdminLeadDeletion, AdminRetentio
 import { AdminEnrollDomain } from "@/components/admin-nop-enroll-domain"
 import { AdminNopSignups } from "@/components/admin-nop-signups"
 import { AdminNopActivity, AdminProgramAdmins } from "@/components/admin-program-admins"
+import { AdminNopEvents } from "@/components/admin-nop-events"
 
 // /admin/enterprise/agents: every agent account, by org; each org's Pro/Leader
 // feature switches; and the log of admin views of agent accounts. The admin
@@ -210,6 +211,8 @@ export function NopAgentsAdmin({ base, role }: { base: string; role: "owner" | "
           </div>
         ))}
       </section>
+
+      <AdminNopEvents />
 
       <section className="mt-10">
         <h2 className="text-lg">Admin views of agent accounts</h2>
