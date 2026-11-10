@@ -286,7 +286,7 @@ export async function sendLeadNotification(input: {
 export async function sendNopAgentLeadNotification(input: {
   to: string
   lang: NopLang
-  lead: { name: string; phone: string; email: string | null; message: string | null; consent?: { text: string } }
+  lead: { name: string; phone: string; email: string | null; message: string | null; consent?: { text: string }; smsConsent?: { agreed: boolean } | null }
   portalUrl: string
   /** The form was on the agent's personal page, not the flyer's QR lead page. */
   fromPage?: boolean
@@ -306,6 +306,7 @@ export async function sendNopAgentLeadNotification(input: {
       ...(lead.email ? [{ label: t("portal.lead_email"), value: lead.email, href: `mailto:${lead.email}` }] : []),
       ...(lead.message ? [{ label: t("lead.message_optional").replace(/\s*\(.*\)$/, ""), value: lead.message, pre: true }] : []),
       ...(input.event ? [{ label: t("email.rsvp_guests"), value: String(input.event.guests) }] : []),
+      ...(lead.smsConsent?.agreed ? [{ label: t("sms.email_label"), value: t("sms.badge_ok") }] : []),
     ] },
     { p: t(lead.email ? "email.lead_reply" : "email.lead_call", { name: lead.name }) },
     { link: { label: t("email.lead_open"), url: input.portalUrl } },

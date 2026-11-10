@@ -5,7 +5,7 @@ import { CANONICAL_SITE_URL } from "@/lib/site-url"
 import type { LeadRecord } from "@/lib/types"
 import { LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS, LeadSchema } from "@/lib/leads"
 import { parseNopLang, tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
-import { fillConsent, leadConsent, qrLanding } from "@/lib/enterprise/portal/lead-capture"
+import { checkSmsConsent, fillConsent, leadConsent, qrLanding, smsConsent } from "@/lib/enterprise/portal/lead-capture"
 import { agentPageFor } from "@/lib/enterprise/portal/agent-page"
 import { saveAgentLead } from "@/lib/enterprise/portal/agent-data"
 
@@ -20,6 +20,9 @@ import { saveAgentLead } from "@/lib/enterprise/portal/agent-data"
 //     placeholder, nothing is accepted either;
 //   - the consent box must be ticked; the exact approved text shown, its
 //     version and the time are stored with the lead;
+//   - the text-message box is optional and separate: when its wording is
+//     approved, the answer (yes or no), the words shown and the phone number
+//     are stored with the lead; it never blocks a submission;
 //   - the lead is saved under the Agent ID before the agent is emailed.
 // The IP is only a rate-limit key and is never stored.
 
@@ -47,7 +50,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const fromPage = body.source === "page"
   const landing = await formTarget(code, fromPage)
   if (!landing) return NextResponse.json({ error: "unavailable", message: tNop(lang, "lead.err_unavailable") }, { status: 404 })
-  const consent = await leadConsent(landing.orgId, lang)
+  const [consent, sms] = await Promise.all([leadConsent(landing.orgId, lang), smsConsent(landing.orgId, lang)])
   if (consent.pending) return NextResponse.json({ error: "coming_soon", message: tNop(lang, "lead.err_unavailable") }, { status: 409 })
   const { agentId } = landing
 
@@ -72,6 +75,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const now = new Date().toISOString()
+  const smsCheck = checkSmsConsent(body, sms, landing.agentName, parsed.data.phone, lang, now)
+  if (!smsCheck.ok) return NextResponse.json({ error: smsCheck.error, message: tNop(lang, "lead.err_generic") }, { status: 409 })
   const lead: LeadRecord = {
     id: crypto.randomUUID(),
     // Which form it came from: the QR lead page, or the agent's own page.
@@ -81,6 +86,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     createdAt: now,
     // The words the person agreed to: the approved text with their agent's name filled in, as the form showed it.
     consent: { text: fillConsent(consent.text, landing.agentName), textId: consent.id, version: consent.version, lang, at: now },
+    smsConsent: smsCheck.value,
     contactedAt: null,
   }
   await saveAgentLead(agentId, lead)

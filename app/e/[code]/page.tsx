@@ -5,7 +5,7 @@ import { NopLeadForm } from "@/components/nop-lead-form"
 import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { NOP_ORG_NAME } from "@/lib/enterprise/nop-roster"
-import { fillConsent, leadConsent } from "@/lib/enterprise/portal/lead-capture"
+import { fillConsent, leadConsent, smsConsent } from "@/lib/enterprise/portal/lead-capture"
 import { eventPageFor, formatEventWhen } from "@/lib/enterprise/portal/events"
 
 // /e/{code} — an agent's event page (lib/enterprise/portal/events.ts): what,
@@ -44,7 +44,7 @@ export default async function Page({ params }: { params: Promise<{ code: string 
     )
   }
   const { event } = page
-  const consent = page.open ? await leadConsent(page.orgId, lang) : null
+  const [consent, sms] = page.open ? await Promise.all([leadConsent(page.orgId, lang), smsConsent(page.orgId, lang)]) : [null, null]
   const digits = page.phone.replace(/[^0-9+]/g, "")
   const place = [event.locationName, event.address].filter(Boolean).join(", ")
   const map = event.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}` : null
@@ -82,7 +82,7 @@ export default async function Page({ params }: { params: Promise<{ code: string 
                   <p className="mt-2 text-sm text-muted-foreground">{t("lead.coming_soon_body")}</p>
                 </div>
               ) : (
-                <NopLeadForm code={code} agentName={page.agentName} consentText={fillConsent(consent.text, page.agentName)} consentVersion={consent.version} source="event" />
+                <NopLeadForm code={code} agentName={page.agentName} consentText={fillConsent(consent.text, page.agentName)} consentVersion={consent.version} source="event" sms={sms && !sms.pending ? { text: fillConsent(sms.text, page.agentName), version: sms.version } : null} />
               )}
             </section>
           )}

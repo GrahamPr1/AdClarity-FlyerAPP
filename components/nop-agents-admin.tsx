@@ -14,6 +14,7 @@ import { AdminNopActivity, AdminProgramAdmins } from "@/components/admin-program
 import { AdminNopEvents } from "@/components/admin-nop-events"
 import { AdminNopPrintRequests } from "@/components/admin-nop-print-requests"
 import { AdminNopMonthlyEmail } from "@/components/admin-nop-monthly-email"
+import { AdminNopSmsOptOuts } from "@/components/admin-nop-sms-optouts"
 
 // /admin/enterprise/agents: every agent account, by org; each org's Pro/Leader
 // feature switches; and the log of admin views of agent accounts. The admin
@@ -217,6 +218,7 @@ export function NopAgentsAdmin({ base, role }: { base: string; role: "owner" | "
       <AdminNopEvents />
       <AdminNopPrintRequests />
       <AdminNopMonthlyEmail />
+      <AdminNopSmsOptOuts />
 
       <section className="mt-10">
         <h2 className="text-lg">Admin views of agent accounts</h2>

@@ -9,10 +9,20 @@ import { LEAD_LIMITS } from "@/lib/leads"
  * page, or (source "event") an event page, where it's the RSVP: a guest
  * count, its own wording, POST /api/enterprise/nop/events/{code}/rsvp. The consent line is the org's
  * approved text, passed in verbatim, beside a checkbox that starts unticked.
+ * Below it, once the org has approved its wording, an OPTIONAL second checkbox
+ * for text messages (sms): also unticked, never required to submit.
  * POST /api/enterprise/nop/leads/{code} enforces everything; the form
  * just reports what the server said. Every control is at least 44px tall.
  */
-export function NopLeadForm({ code, agentName, consentText, consentVersion, source }: { code: string; agentName: string; consentText: string; consentVersion: number; source?: "page" | "event" }) {
+export function NopLeadForm({ code, agentName, consentText, consentVersion, source, sms = null }: {
+  code: string
+  agentName: string
+  consentText: string
+  consentVersion: number
+  source?: "page" | "event"
+  /** The approved text-message consent, filled in; null while it's a placeholder (no checkbox). */
+  sms?: { text: string; version: number } | null
+}) {
   const { t, lang } = useNop()
   const rsvp = source === "event"
   const [guests, setGuests] = useState(0)
@@ -21,6 +31,7 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
   const [email, setEmail] = useState("")
   const [message, setMessage] = useState("")
   const [consent, setConsent] = useState(false)
+  const [smsOk, setSmsOk] = useState(false)
   // Honeypot. Off-screen and out of the tab order; people never fill it.
   const [website, setWebsite] = useState("")
   const [sending, setSending] = useState(false)
@@ -39,7 +50,7 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
       const res = await fetch(rsvp ? `/api/enterprise/nop/events/${encodeURIComponent(code)}/rsvp` : `/api/enterprise/nop/leads/${encodeURIComponent(code)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, email, message, website, consent, consentVersion, lang, ...(rsvp ? { guests } : { source }) }),
+        body: JSON.stringify({ name, phone, email, message, website, consent, consentVersion, lang, ...(sms ? { smsConsent: smsOk, smsConsentVersion: sms.version } : {}), ...(rsvp ? { guests } : { source }) }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) return setError(json.message ?? t("lead.err_generic"))
@@ -95,6 +106,12 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
         <input type="checkbox" data-testid="lead-consent" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--brand-teal-bright)]" />
         <span className="whitespace-pre-wrap"><ConsentWithPrivacyLink text={consentText} /></span>
       </label>
+      {sms && (
+        <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm">
+          <input type="checkbox" data-testid="lead-sms" checked={smsOk} onChange={(e) => setSmsOk(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--brand-teal-bright)]" />
+          <span className="whitespace-pre-wrap">{sms.text}</span>
+        </label>
+      )}
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       <button type="submit" disabled={sending} className="min-h-12 rounded-lg bg-[var(--brand-teal-bright)] px-5 font-semibold text-[var(--primary-foreground)] disabled:opacity-60">
         {sending ? t("lead.sending") : t(rsvp ? "event.rsvp_submit" : "lead.submit")}

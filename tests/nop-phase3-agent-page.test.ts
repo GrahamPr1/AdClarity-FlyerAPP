@@ -271,6 +271,31 @@ describe("the page's lead form", () => {
     expect(s.emails[0]).toMatchObject({ to: "agent@x.test", fromPage: true })
   })
 
+  it("text-message consent: not offered while its wording is the placeholder (null stored, even if sent)", async () => {
+    s.texts = { "leadConsent:en": "I agree to be contacted." }
+    expect((await submit({ ...good, smsConsent: true, smsConsentVersion: 2 })).status).toBe(200)
+    expect(s.saved[0].lead.smsConsent).toBeNull()
+  })
+
+  it("text-message consent offered: optional (unticked still submits, stored as no), ticked stored as yes with the words, language, time and phone", async () => {
+    s.texts = { "leadConsent:en": "I agree to be contacted.", "smsConsent:en": "Optional: texts from {agent_name}. Reply STOP to opt out." }
+    expect((await submit(good)).status).toBe(200)
+    expect(s.saved[0].lead.smsConsent).toMatchObject({ agreed: false, version: 2, lang: "en", phone: "(270) 555-0199" })
+    expect((await submit({ ...good, smsConsent: true, smsConsentVersion: 2 })).status).toBe(200)
+    const yes = s.saved[1].lead.smsConsent as Record<string, unknown>
+    expect(yes).toMatchObject({ agreed: true, textId: "approved-text:nop:smsConsent:en", version: 2, lang: "en", phone: "(270) 555-0199" })
+    expect(yes.text).toMatch(/^Optional: texts from .+\. Reply STOP to opt out\.$/)
+    expect(yes.text).not.toContain("{agent_name}")
+    expect(typeof yes.at).toBe("string")
+    expect(s.emails[1].lead).toMatchObject({ smsConsent: expect.objectContaining({ agreed: true }) })
+  })
+
+  it("a tick against text-message wording that changed since the page loaded is refused", async () => {
+    s.texts = { "leadConsent:en": "I agree to be contacted.", "smsConsent:en": "Optional: texts from {agent_name}." }
+    expect((await submit({ ...good, smsConsent: true, smsConsentVersion: 1 })).status).toBe(409)
+    expect((await submit({ ...good, smsConsent: false, smsConsentVersion: 1 })).status).toBe(200)
+  })
+
   it("while the consent text is the placeholder: nothing accepted", async () => {
     expect((await submit(good)).status).toBe(409)
     expect(s.saved).toEqual([])

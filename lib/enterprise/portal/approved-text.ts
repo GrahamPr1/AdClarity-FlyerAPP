@@ -3,7 +3,7 @@ import type { ContentAsset } from "@/lib/types"
 import type { NopLang } from "@/lib/enterprise/nop-i18n"
 
 // Org-approved wording shown or sent verbatim: the consent line on an agent's
-// lead form, the package descriptions on an agent's page, and the follow-up
+// lead form, the optional text-message consent under it, the package descriptions on an agent's page, and the follow-up
 // messages an agent opens in their own Messages or email app. Stored as ContentAsset records (locked, text)
 // under the usual content-asset:{id} key, but deliberately NOT in the org's
 // asset index, so the enterprise generation pipeline never reads them.
@@ -16,7 +16,7 @@ import type { NopLang } from "@/lib/enterprise/nop-i18n"
 
 const redis = Redis.fromEnv()
 
-export const APPROVED_TEXT_KEYS = ["leadConsent", "packageP1", "packageP2", "packageP3", "followUp1", "followUp2", "followUp3"] as const
+export const APPROVED_TEXT_KEYS = ["leadConsent", "smsConsent", "packageP1", "packageP2", "packageP3", "followUp1", "followUp2", "followUp3"] as const
 export type ApprovedTextKey = (typeof APPROVED_TEXT_KEYS)[number]
 
 export function isApprovedTextKey(v: unknown): v is ApprovedTextKey {
@@ -25,6 +25,7 @@ export function isApprovedTextKey(v: unknown): v is ApprovedTextKey {
 
 export const APPROVED_TEXT_LABELS: Record<ApprovedTextKey, string> = {
   leadConsent: "Lead form consent",
+  smsConsent: "Lead form: optional text-message consent (second checkbox)",
   packageP1: "Agent page: package P1 (Everyday Care). First line is the heading",
   packageP2: "Agent page: package P2 (Complete Virtual Care). First line is the heading",
   packageP3: "Agent page: package P3 (Health & Weight Management). First line is the heading",
@@ -39,6 +40,8 @@ const FOLLOW_UP_HELP =
 /** Extra guidance under a text's label in admin. */
 export const APPROVED_TEXT_HELP: Partial<Record<ApprovedTextKey, string>> = {
   leadConsent: "{agent_name} is filled in with the agent's name. \"Privacy Policy\" (or \"Política de Privacidad\") becomes a link to the privacy page. Shown next to the checkbox and stored with every lead exactly as shown.",
+  smsConsent:
+    "Optional second checkbox under the consent line on every lead form (personal page, QR lead page, event RSVP); unchecked by default and never required. {agent_name} is filled in with the agent's name. While it's the placeholder, the checkbox doesn't appear. Stored with every lead (yes or no), exactly as shown, with the phone number it applies to.",
   followUp1: FOLLOW_UP_HELP,
   followUp2: FOLLOW_UP_HELP,
   followUp3: FOLLOW_UP_HELP,
@@ -47,6 +50,7 @@ export const APPROVED_TEXT_HELP: Partial<Record<ApprovedTextKey, string>> = {
 const PLACEHOLDER_MARK = "[PENDING ORG APPROVAL"
 export const APPROVED_TEXT_PLACEHOLDER: Record<ApprovedTextKey, string> = {
   leadConsent: `${PLACEHOLDER_MARK} — consent text]`,
+  smsConsent: `${PLACEHOLDER_MARK} — text-message consent]`,
   packageP1: `${PLACEHOLDER_MARK} — package P1 text]`,
   packageP2: `${PLACEHOLDER_MARK} — package P2 text]`,
   packageP3: `${PLACEHOLDER_MARK} — package P3 text]`,

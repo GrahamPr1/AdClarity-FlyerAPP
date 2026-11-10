@@ -624,6 +624,24 @@ export interface LeadRecord {
   eventId?: string
   guests?: number
   reminderSentAt?: string | null
+  /**
+   * NOP agent leads: the separate, optional text-message consent. Null or
+   * absent: the form didn't offer it (its wording wasn't approved yet).
+   * Agreed or not, with the exact words shown and the phone it applies to.
+   */
+  smsConsent?: LeadSmsConsent | null
+}
+
+export interface LeadSmsConsent {
+  agreed: boolean
+  /** The approved wording shown beside the second checkbox, verbatim, with the agent's name filled in. */
+  text: string
+  textId: string
+  version: number
+  lang: "en" | "es"
+  at: string
+  /** The number the consent covers: the phone given on the same form. */
+  phone: string
 }
 
 export interface LeadConsent {

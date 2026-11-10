@@ -4,6 +4,7 @@ import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { requirePortalPage } from "@/lib/enterprise/portal/page"
 import { ProLocked } from "@/components/nop-portal"
 import { NopAgentLeads } from "@/components/nop-agent-leads"
+import { normalizeUsPhone, optedOutAmong } from "@/lib/enterprise/sms-optout"
 import { listAgentLeads } from "@/lib/enterprise/portal/agent-data"
 import { followUpsForLeads } from "@/lib/enterprise/portal/follow-ups"
 import type { PortalContext } from "@/lib/enterprise/portal/context"
@@ -48,5 +49,8 @@ async function LeadsList({ ctx, readOnly, empty }: { ctx: PortalContext; readOnl
   // RSVPs (leads with an eventId) show which event they're for.
   const eventIds = [...new Set(leads.flatMap((l) => (l.eventId ? [l.eventId] : [])))]
   const eventTitles = Object.fromEntries((await Promise.all(eventIds.map(getEvent))).flatMap((e) => (e ? [[e.id, e.title]] : [])))
-  return <NopAgentLeads leads={leads} followUps={await followUpsForLeads(ctx, leads)} readOnly={readOnly} eventTitles={eventTitles} />
+  // Leads who said yes to texts but whose number is now on the SMS opt-out list.
+  const optedOut = await optedOutAmong(leads.filter((l) => l.smsConsent?.agreed).map((l) => l.phone))
+  const textsOptedOut = Object.fromEntries(leads.flatMap((l) => { const p = normalizeUsPhone(l.phone); return l.smsConsent?.agreed && p && optedOut.has(p) ? [[l.id, true]] : [] }))
+  return <NopAgentLeads leads={leads} followUps={await followUpsForLeads(ctx, leads)} readOnly={readOnly} eventTitles={eventTitles} textsOptedOut={textsOptedOut} />
 }
