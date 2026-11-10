@@ -307,7 +307,10 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
         ? { x: TRIM.x, y: TRIM.y, width: DIGITAL_BASE_W, height: SOCIAL.h / dsf }
         : { x: TRIM.x, y: TRIM.y, width: TRIM.w, height: TRIM.h }
       const png = await page.screenshot({ type: "png", clip })
-      const qr = decodeQrFromPng(png)
+      // The gate reads the QR from a close crop of this same page state, as
+      // for thumbnails and PDFs: in a whole-page image at preview scale the
+      // code is too small for the reader to decode reliably.
+      const qr = decodeQrFromPng(await page.screenshot({ type: "png", clip: await qrRegion(page) }))
       gate(qr, expected)
       return { body: png, contentType: "image/png", qr: qr!, ms: Date.now() - t0 }
     }
