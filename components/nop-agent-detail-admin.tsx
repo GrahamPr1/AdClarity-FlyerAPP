@@ -69,6 +69,7 @@ export function NopAgentDetailAdmin({ base }: { base: string }) {
       </section>
 
       <ProgramMembership data={data} onChange={() => void mutate()} />
+      <DeleteAccount agentId={data.agentId} base={base} />
 
       {data.recruits.length > 0 && (
         <section className="mt-6" data-testid="admin-recruits">
@@ -167,6 +168,66 @@ function ProgramMembership({ data, onChange }: { data: AgentDetail; onChange: ()
           ))}
         </ul>
       )}
+    </section>
+  )
+}
+
+type DeletionSummary = { agentId: string; account: string | null; name: string | null; leads: number; events: number; photo: boolean; paidPro: boolean }
+
+/**
+ * Delete account (owner and program admins): what goes and what stays, then the
+ * Agent ID typed again to confirm. Permanent. The server checks and logs it.
+ */
+function DeleteAccount({ agentId, base }: { agentId: string; base: string }) {
+  const router = useRouter()
+  const [summary, setSummary] = useState<DeletionSummary | null>(null)
+  const [typed, setTyped] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const btn = "min-h-11 rounded-lg border border-border px-4 text-sm font-medium disabled:opacity-50"
+
+  async function preview() {
+    setBusy(true); setMsg(null)
+    const res = await fetch(`/api/admin/enterprise/nop/agent-deletion?agentId=${encodeURIComponent(agentId)}`)
+    const body = await res.json().catch(() => ({}))
+    setBusy(false)
+    if (res.ok) setSummary(body.summary)
+    else setMsg(body.message ?? "Couldn't load what would be deleted.")
+  }
+  async function remove() {
+    setBusy(true); setMsg(null)
+    const res = await fetch("/api/admin/enterprise/nop/agent-deletion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId, confirmAgentId: typed.trim(), confirm: true }) })
+    const body = await res.json().catch(() => ({}))
+    setBusy(false)
+    if (!res.ok) return setMsg(body.message ?? "Couldn't delete the account.")
+    router.push(base)
+  }
+
+  return (
+    <section className="mt-6 rounded-xl border border-red-300 bg-card p-5 dark:border-red-800" data-testid="delete-account">
+      <h2 className="font-medium">Delete account</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Permanently deletes the agent&apos;s account and profile, page settings and photo, events, leads and RSVPs, and scan counts, and frees the Agent ID.
+        A paid Pro subscription is cancelled first and the unused part refunded. Kept: the flyer download record, and the admin logs. This can&apos;t be undone.
+      </p>
+      {!summary ? (
+        <button type="button" className={`${btn} mt-3`} disabled={busy} onClick={() => void preview()} data-testid="delete-preview">Delete account…</button>
+      ) : (
+        <div className="mt-3 flex flex-col gap-3 text-sm">
+          <p data-testid="delete-summary">
+            Will delete: Agent ID {summary.agentId}{summary.name ? ` (${summary.name})` : ""}{summary.account ? `, account ${summary.account}` : ""}; {summary.leads} lead{summary.leads === 1 ? "" : "s"} and RSVPs; {summary.events} event{summary.events === 1 ? "" : "s"}{summary.photo ? "; their photo" : ""}.
+            {summary.paidPro && <strong> Their paid Pro subscription will be cancelled and the unused part refunded.</strong>}
+          </p>
+          <label className="font-medium">Type the Agent ID to confirm
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} inputMode="numeric" data-testid="delete-confirm-id" className="mt-1 block min-h-11 w-48 rounded-lg border border-border bg-background px-3" />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={`${btn} border-red-400 text-red-700 dark:text-red-300`} disabled={busy || typed.trim() !== summary.agentId} onClick={() => void remove()} data-testid="delete-confirm">Delete permanently</button>
+            <button type="button" className={btn} disabled={busy} onClick={() => { setSummary(null); setTyped("") }}>Keep the account</button>
+          </div>
+        </div>
+      )}
+      {msg && <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-400">{msg}</p>}
     </section>
   )
 }

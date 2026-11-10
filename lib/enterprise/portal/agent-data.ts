@@ -163,8 +163,8 @@ export async function listAgentDataMoves(limit = 100): Promise<AgentDataMove[]> 
 
 // ---- Admin: delete leads on request (before the retention clock runs out) ------
 
-/** Who asked: the person, the program ("basic_benefits", the stored value), or the 12-month retention job. */
-export type DeletionRequester = "person" | "basic_benefits" | "retention"
+/** Who asked: the person, the program ("basic_benefits", the stored value), the 12-month retention job, or an agent account deletion. */
+export type DeletionRequester = "person" | "basic_benefits" | "retention" | "account_deleted"
 
 export interface LeadDeletion {
   admin: string
@@ -202,4 +202,9 @@ export async function listAgentLeadIds(agentId: string): Promise<string[]> {
 
 export async function listLeadDeletions(limit = 100): Promise<LeadDeletion[]> {
   return redis.lrange<LeadDeletion>(DELETIONS_KEY, 0, limit - 1)
+}
+
+/** Account deletion: the Agent ID's scan counts. */
+export async function deleteAgentScans(agentId: string): Promise<void> {
+  await redis.del(scansKey(agentId))
 }

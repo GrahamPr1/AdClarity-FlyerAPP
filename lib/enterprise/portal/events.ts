@@ -247,3 +247,15 @@ export async function eventPageFor(code: string, now = new Date()): Promise<Even
     open: state === "open", state,
   }
 }
+
+/** Account deletion (agent-account-deletion.ts): every event of this agent, its public code, and the indexes. Returns how many. */
+export async function deleteAgentEvents(agentId: string): Promise<number> {
+  const events = await listAgentEvents(agentId)
+  for (const e of events) {
+    await redis.del(eventKey(e.id), codeKey(e.code))
+    await redis.zrem(EVENTS_BY_START_KEY, e.id)
+    await redis.zrem(ALL_EVENTS_KEY, e.id)
+  }
+  await redis.del(agentEventsKey(agentId))
+  return events.length
+}

@@ -116,3 +116,10 @@ export async function recruiterFor(agentId: string | null | undefined): Promise<
   const r = await getRosterRecord(agentId)
   return { agentId, name: r?.agentName ?? "" }
 }
+
+/** Account deletion: the agent's recruit code and list, and their place on their own recruiter's list. */
+export async function deleteAgentRecruiting(agentId: string, recruitedBy: string | null | undefined): Promise<void> {
+  const code = await redis.get<string>(agentCodeKey(agentId))
+  await redis.del(agentCodeKey(agentId), recruitsKey(agentId), ...(code ? [codeKey(String(code))] : []))
+  if (recruitedBy) await removeRecruit(recruitedBy, agentId)
+}

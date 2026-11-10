@@ -119,3 +119,8 @@ export async function picksForMember(recruitedBy: string | null | undefined): Pr
   const picks = await listPicks(recruitedBy)
   return picks.length ? { leaderName: ctx.agent.profile.displayName ?? ctx.agent.profile.name, picks } : null
 }
+
+/** Account deletion: the Leader's sent flyers. */
+export async function deleteTeamPicks(agentId: string): Promise<void> {
+  await redis.del(picksKey(agentId))
+}

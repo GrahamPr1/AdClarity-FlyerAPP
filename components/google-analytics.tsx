@@ -2,7 +2,7 @@
 
 import Script from "next/script"
 import { usePathname } from "next/navigation"
-import { isOfferPagePath } from "@/lib/offer-page"
+import { isUntrackedPath } from "@/lib/offer-page"
 
 /**
  * Google Analytics 4.
@@ -43,8 +43,8 @@ export function GoogleAnalytics() {
   const id = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim()
   if (!id) return null
   // A client component so it can see the path while server-rendering: offer
-  // pages get no tag at all (see isOfferPagePath).
-  if (isOfferPagePath(pathname)) return null
+  // pages get no tag at all (see isUntrackedPath: offer pages and agent/program pages).
+  if (isUntrackedPath(pathname)) return null
 
   return (
     <>

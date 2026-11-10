@@ -2,11 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { NextRequest } from "next/server"
 
 /**
- * The 12-month lead deletion job, and the consent fill-in.
+ * The 12-month deletion job, and the consent fill-in.
  *  - only agents whose clock ran out; a dry run deletes nothing and logs what
- *    it would; live deletes all of that agent's leads (logged as "retention")
- *    and takes them off the due list; an agent back on the roster has the
- *    clock cleared instead;
+ *    it would; live deletes that agent's whole account (leads, events,
+ *    profile...; agent-account-deletion.ts, reason "retention") and takes them
+ *    off the due list; an agent back on the roster has the clock cleared
+ *    instead; a Stripe refusal leaves them due for tomorrow;
  *  - the cron route needs Vercel's CRON_SECRET and is dry unless
  *    NOP_RETENTION_LIVE=on; admins can only ever start a dry run.
  */
@@ -18,7 +19,8 @@ const r = vi.hoisted(() => ({
   clocks: new Map<string, { endedAt: string; reason: string; deleteAfter: string }>(),
   roster: new Map<string, { status: string }>(),
   leads: new Map<string, string[]>(),
-  deletions: [] as { admin: string; agentId: string; leadIds: string[]; requestedBy: string; note: string }[],
+  deletions: [] as { by: string; agentId: string; leads: number; reason: string; note: string }[],
+  billingFails: new Set<string>(),
   cleared: [] as string[],
 }))
 vi.mock("@upstash/redis", () => {
@@ -37,12 +39,15 @@ vi.mock("@/lib/enterprise/portal/retention", () => ({
   clearRetentionClock: async (id: string) => { r.cleared.push(id); r.clocks.delete(id); r.due.delete(id) },
 }))
 vi.mock("@/lib/enterprise/agents-store", () => ({ getRosterRecord: async (id: string) => r.roster.get(id) ?? null }))
-vi.mock("@/lib/enterprise/portal/agent-data", () => ({
-  listAgentLeadIds: async (id: string) => r.leads.get(id) ?? [],
-  deleteAgentLeads: async (admin: string, agentId: string, leadIds: string[], requestedBy: string, note: string) => {
-    r.deletions.push({ admin, agentId, leadIds, requestedBy, note })
+vi.mock("@/lib/enterprise/agent-account-deletion", () => ({
+  summarizeAgentAccount: async (id: string) => (r.leads.has(id) ? { agentId: id, account: `${id}@x.test`, leads: r.leads.get(id)!.length, events: 1, photo: false, paidPro: false } : null),
+  deleteAgentAccount: async (agentId: string, o: { by: string; reason: string; note: string }) => {
+    if (r.billingFails.has(agentId)) return { ok: false, reason: "billing_failed", message: "stripe down" }
+    const leads = r.leads.get(agentId)?.length ?? 0
+    r.deletions.push({ by: o.by, agentId, leads, reason: o.reason, note: o.note })
     r.leads.delete(agentId)
-    return { admin, agentId, leadIds, requestedBy, note, at: "x" }
+    r.due.delete(agentId)
+    return { ok: true, deletion: { agentId, leads, events: 1 } }
   },
 }))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => sub === "admin@x.test" }))
@@ -55,7 +60,7 @@ function agent(id: string, opts: { endedAt: string; deleteAfter: string; status?
 }
 
 beforeEach(() => {
-  r.due.clear(); r.runs.length = 0; r.clocks.clear(); r.roster.clear(); r.leads.clear(); r.deletions.length = 0; r.cleared.length = 0
+  r.due.clear(); r.runs.length = 0; r.clocks.clear(); r.roster.clear(); r.leads.clear(); r.deletions.length = 0; r.cleared.length = 0; r.billingFails.clear()
   vi.stubEnv("SESSION_SECRET", "test-secret")
   agent("100001", { endedAt: "2026-11-01T00:00:00Z", deleteAfter: "2027-11-01T00:00:00Z", leads: 3 }) // due, terminated
   agent("100002", { endedAt: "2026-11-15T00:00:00Z", deleteAfter: "2027-11-15T00:00:00Z", status: null, leads: 1 }) // due, removed from roster
@@ -71,8 +76,8 @@ describe("the job", () => {
     const run = await (await job()).runRetentionJob({ live: false, by: "daily job", now: NOW })
     expect(run).toMatchObject({ mode: "dry_run", totalLeads: 4, totalDeleted: 0 })
     expect(run.agents).toEqual([
-      { agentId: "100001", leads: 3, deleted: 0 },
-      { agentId: "100002", leads: 1, deleted: 0 },
+      { agentId: "100001", leads: 3, events: 1, account: true, deleted: 0 },
+      { agentId: "100002", leads: 1, events: 1, account: true, deleted: 0 },
       { agentId: "100004", leads: 0, deleted: 0, skipped: "back_on_roster" },
     ])
     expect(r.deletions).toEqual([])
@@ -81,14 +86,23 @@ describe("the job", () => {
     expect(r.runs).toHaveLength(1)
   })
 
-  it("live: deletes all leads of due agents only, logged as retention; clears the clock of an agent who came back", async () => {
+  it("live: deletes the whole account of due agents only, as retention; clears the clock of an agent who came back", async () => {
     const run = await (await job()).runRetentionJob({ live: true, by: "daily job", now: NOW })
     expect(run).toMatchObject({ mode: "live", totalLeads: 4, totalDeleted: 4 })
-    expect(r.deletions.map((d) => [d.agentId, d.leadIds.length, d.requestedBy, d.admin])).toEqual([["100001", 3, "retention", "retention job"], ["100002", 1, "retention", "retention job"]])
+    expect(run.agents[0]).toMatchObject({ agentId: "100001", accountDeleted: true, events: 1 })
+    expect(r.deletions.map((d) => [d.agentId, d.leads, d.reason, d.by])).toEqual([["100001", 3, "retention", "retention job"], ["100002", 1, "retention", "retention job"]])
     expect(r.deletions[0].note).toBe("12 months after terminated on 2026-11-01")
     expect(r.leads.get("100003")).toHaveLength(5)
     expect(r.cleared).toEqual(["100004"])
     expect([...r.due.keys()]).toEqual(["100003"])
+  })
+
+  it("if Stripe refuses, that agent stays due and nothing of theirs is deleted", async () => {
+    r.billingFails.add("100001")
+    const run = await (await job()).runRetentionJob({ live: true, by: "daily job", now: NOW })
+    expect(run.agents[0]).toMatchObject({ agentId: "100001", skipped: "billing_failed", deleted: 0 })
+    expect(r.leads.get("100001")).toHaveLength(3)
+    expect(r.due.has("100001")).toBe(true)
   })
 
   it("a second live run finds nothing to do", async () => {
