@@ -25,8 +25,8 @@ export const DAILY_CODES_PER_EMAIL = 10
 export const DAILY_CODES_PER_AGENT_ID = 10
 
 export interface FlowState {
-  /** signup: a self sign-up (no roster record needed), finished by verify. */
-  kind: "register" | "signin" | "signup"
+  /** signup: a self sign-up (no roster record needed), finished by verify. program-admin: /program sign-in. */
+  kind: "register" | "signin" | "signup" | "program-admin"
   /** register: the Agent ID being claimed. signin: the ID the account holds. */
   agentId?: string
   /** The inbox the code went to (always the CURRENT roster email for register). */

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/enterprise/portal/admin"
+import { audit, requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { AGENT_AREA_READY, getNopFlyerSettings, listNopFlyerSettingsLog, logNopFlyerSettingChange, setNopFlyerSetting } from "@/lib/enterprise/nop-render/kit-v2-access"
 import { checkEnrollDomain, getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
 
@@ -13,14 +13,14 @@ import { checkEnrollDomain, getEnrollDomain } from "@/lib/enterprise/nop-enroll-
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin(request)
+  const auth = await requireNopAdmin(request)
   if ("response" in auth) return auth.response
   const [settings, log] = await Promise.all([getNopFlyerSettings(), listNopFlyerSettingsLog()])
   return NextResponse.json({ ...settings, agentAreaReady: AGENT_AREA_READY, log }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin(request)
+  const auth = await requireNopAdmin(request)
   if ("response" in auth) return auth.response
   let body: { spanishV2?: unknown; agentKit?: unknown }
   try {
@@ -46,5 +46,6 @@ export async function POST(request: NextRequest) {
   const settings = await setNopFlyerSetting(change)
   await logNopFlyerSettingChange({ admin: auth.admin, change: JSON.parse(JSON.stringify(change)), before, after: settings })
   console.log(`[nop] ${auth.admin} set flyer settings ${JSON.stringify(body)}`)
+  await audit(auth, "flyer_settings", JSON.stringify(body))
   return NextResponse.json({ ...settings, agentAreaReady: AGENT_AREA_READY })
 }

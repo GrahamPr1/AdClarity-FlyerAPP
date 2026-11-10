@@ -10,6 +10,12 @@ import { NextRequest } from "next/server"
  */
 
 const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[], enrollOk: true as boolean | undefined, settingsLog: [] as unknown[] }))
+vi.mock("@/lib/enterprise/program-admins", async (orig) => ({
+  ...(await orig<typeof import("@/lib/enterprise/program-admins")>()),
+  audit: async () => {},
+  logNopAdminAction: async () => {},
+  programAdminFrom: async () => null,
+}))
 vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com", checkEnrollDomain: async () => ({ ok: s.enrollOk ?? true, checks: [{ url: "https://neighbor.basicbenefits.com/858980", ok: s.enrollOk ?? true, status: null, error: s.enrollOk === false ? "the domain doesn't resolve (no DNS record)" : null }] }) }))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => !!sub && s.admins.has(sub) }))
 vi.mock("@/lib/enterprise/nop-render/kit-v2-access", async (orig) => ({

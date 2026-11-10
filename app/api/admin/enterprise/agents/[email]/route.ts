@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getAgentDetail, requireAdmin } from "@/lib/enterprise/portal/admin"
+import { getAgentDetail } from "@/lib/enterprise/portal/admin"
+import { requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { logAdminAgentView } from "@/lib/enterprise/portal/store"
 
 // GET /api/admin/enterprise/agents/{email} -> one agent's account (admin only).
@@ -7,7 +8,7 @@ import { logAdminAgentView } from "@/lib/enterprise/portal/store"
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ email: string }> }) {
-  const auth = await requireAdmin(request)
+  const auth = await requireNopAdmin(request)
   if ("response" in auth) return auth.response
   const email = decodeURIComponent((await params).email).trim().toLowerCase()
   const detail = await getAgentDetail(email)

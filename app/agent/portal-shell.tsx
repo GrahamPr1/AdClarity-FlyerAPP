@@ -18,7 +18,7 @@ export function PortalShell({ page, title, intro, children }: { page: PortalPage
     <main lang={lang} className="min-h-screen bg-background text-foreground">
       {/* Never persist a language to the agent's account while an admin is viewing it. */}
       <NopLangProvider lang={lang} persist={source === "profile" && !readOnly}>
-        {readOnly && <ViewAsBanner name={name} email={ctx.email} />}
+        {readOnly && <ViewAsBanner name={name} email={ctx.email} exitBase={page.viewer.viewAs?.from === "program" ? "/program/agents" : "/admin/enterprise/agents"} />}
         <div className="mx-auto max-w-xl px-4 pt-6 pb-28 sm:px-6">
           <div className="mb-6 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2 font-semibold">

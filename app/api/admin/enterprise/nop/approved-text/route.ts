@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/enterprise/portal/admin"
+import { audit, requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { NOP_ORG_ID } from "@/lib/enterprise/nop-roster"
 import { parseNopLang, NOP_LANGS } from "@/lib/enterprise/nop-i18n"
 import { APPROVED_TEXT_HELP, APPROVED_TEXT_KEYS, APPROVED_TEXT_LABELS, MAX_APPROVED_TEXT, getApprovedText, isApprovedTextKey, saveApprovedText } from "@/lib/enterprise/portal/approved-text"
@@ -15,14 +15,14 @@ import { checkConsentText } from "@/lib/enterprise/portal/lead-capture"
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
-  const a = await requireAdmin(request)
+  const a = await requireNopAdmin(request)
   if ("response" in a) return a.response
   const texts = await Promise.all(APPROVED_TEXT_KEYS.flatMap((key) => NOP_LANGS.map((lang) => getApprovedText(NOP_ORG_ID, key, lang))))
   return NextResponse.json({ texts: texts.map((t) => ({ ...t, label: APPROVED_TEXT_LABELS[t.key], help: APPROVED_TEXT_HELP[t.key] ?? null })) }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function POST(request: NextRequest) {
-  const a = await requireAdmin(request)
+  const a = await requireNopAdmin(request)
   if ("response" in a) return a.response
   const body = (await request.json().catch(() => null)) as { key?: unknown; lang?: unknown; text?: unknown } | null
   const lang = parseNopLang(body?.lang)
@@ -36,5 +36,7 @@ export async function POST(request: NextRequest) {
     const check = checkFollowUpText(body.text)
     if (!check.ok) return NextResponse.json({ error: "invalid_follow_up", message: check.message }, { status: 422 })
   }
-  return NextResponse.json({ text: await saveApprovedText(NOP_ORG_ID, body.key, lang, body.text, a.admin) })
+  const saved = await saveApprovedText(NOP_ORG_ID, body.key, lang, body.text, a.admin)
+  await audit(a, "approved_text", `${body.key} (${lang})${body.text.trim() ? "" : " back to placeholder"}`)
+  return NextResponse.json({ text: saved })
 }
