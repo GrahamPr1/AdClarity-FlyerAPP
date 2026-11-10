@@ -1,7 +1,7 @@
 # DRAFT — Privacy Policy: Agent accounts (English and Spanish)
 
-> **Status: DRAFT, not published.** For approval before the Recruiting kit is
-> switched on. Placement: a new section after the Spanish "Información
+> **Status: DRAFT, not published.** For approval before the Recruiting kit and
+> the Team dashboard are switched on. Placement: a new section after the Spanish "Información
 > recopilada en las páginas de agentes" (`#agent-pages-es`): English
 > `id="agent-accounts"`, then Spanish `id="agent-accounts-es"` (`lang="es"`).
 >
@@ -56,8 +56,11 @@ your activity (flyers made, scans, requests), and the requests and RSVPs you
 received. They can open a read-only view of your portal to help you; each time
 they do, it's recorded. If you invited another agent, you can see that
 agent's name, when they signed up, and whether their sign-up is waiting,
-approved or no longer active. You can't see anything else about them, and they
-see the same about no one but the agents they invite.
+approved or no longer active. If the program makes you a team leader, you also
+see, for each approved agent you invited, how many flyers they've downloaded,
+how many requests they've received, and when they last used OneFlyer: counts
+only, never the people who sent the requests. The agent who invited you sees
+the same about you.
 
 **Billing.** If you pay for Pro, you enter your card on Stripe's checkout and
 billing pages. Stripe handles your card details; we never see or store your
@@ -132,8 +135,11 @@ solicitudes) y las solicitudes y confirmaciones que recibió. Pueden abrir una
 vista de solo lectura de su portal para ayudarle; cada vez que lo hacen, queda
 registrado. Si usted invitó a otro agente, puede ver el nombre de ese agente,
 cuándo se registró y si su registro está en espera, aprobado o ya no está
-activo. No puede ver nada más sobre esa persona, y los demás agentes solo ven
-lo mismo sobre los agentes que ellos invitan.
+activo. Si el programa lo nombra líder de equipo, también ve, de cada agente
+aprobado que invitó, cuántos volantes ha descargado, cuántas solicitudes ha
+recibido y cuándo usó OneFlyer por última vez: solo totales, nunca las
+personas que enviaron las solicitudes. El agente que lo invitó a usted ve lo
+mismo sobre usted.
 
 **Facturación.** Si paga Pro, usted escribe los datos de su tarjeta en las
 páginas de pago y facturación de Stripe. Stripe maneja los datos de su
@@ -171,7 +177,10 @@ muestra, y su idioma; un cambio de nombre pasa al programa para su aprobación.
   and profile; `nop-signups:log` keeps name, phone, email, language and the
   decision. Duplicate attempts are flagged with the email used.
 - **Recruiter:** `recruitedBy` on the roster record (`portal/recruiting.ts`).
-  The recruiter sees name, sign-up date and status only.
+  The recruiter sees name, sign-up date and status. A Leader (tier set by an
+  admin) also sees, for approved recruits, flyer downloads, lead count and last
+  active (`portal/team.ts`), never lead details. Leaders' "Send to team" puts a
+  program flyer on their recruits' Home; no text from the Leader.
 - **Profile:** display name/phone/email, language, `pendingName`
   (`lib/types.ts` AgentProfile).
 - **Downloads and previews:** `nop-render-log`, never trimmed; a compliance
