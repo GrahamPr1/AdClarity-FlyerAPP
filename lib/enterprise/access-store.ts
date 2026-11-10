@@ -41,7 +41,7 @@ export interface FlowState {
   step: "code" | "verified"
   createdAt: number
   /** signup: what the agent typed on Get started, kept until the email is proven. */
-  signup?: { name: string; phone: string; lang: "en" | "es" }
+  signup?: { name: string; phone: string; lang: "en" | "es"; /** A recruit link's code, checked again when the sign-up is submitted. */ ref?: string | null }
 }
 
 const flowKey = (id: string) => `nop-access:${id}`

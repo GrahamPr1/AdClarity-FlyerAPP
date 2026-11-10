@@ -65,7 +65,8 @@ export type OrgFeatures = Record<AgentFeature, boolean>
  * public page, which they haven't said yes to either.
  */
 // events: off until the privacy policy covers event pages and their reminder email; admin turns it on.
-export const FEATURES_OFF_BY_DEFAULT: readonly AgentFeature[] = ["qrLeadPage", "agentPhoto", "events"]
+// recruiting: off until the owner has reviewed it (recruiters see their recruits' names and status); admin turns it on.
+export const FEATURES_OFF_BY_DEFAULT: readonly AgentFeature[] = ["qrLeadPage", "agentPhoto", "events", "recruiting"]
 
 /** Basic Benefits approved the Phase 1 feature list, so the NOP org starts with those on; any other org starts with none. */
 export function defaultOrgFeatures(orgIsNop: boolean): OrgFeatures {

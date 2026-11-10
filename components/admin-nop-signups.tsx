@@ -8,7 +8,7 @@ import useSWR from "swr"
 // Approve / Reject are logged with the admin's account; the agent is
 // emailed (approved: with a sign-in link; rejected: no reason given).
 
-type Signup = { agentId: string; name: string; phone: string; email: string; lang: "en" | "es"; submittedAt: string; nameFits: boolean }
+type Signup = { agentId: string; name: string; phone: string; email: string; lang: "en" | "es"; submittedAt: string; nameFits: boolean; recruiter: { agentId: string; name: string } | null }
 type NameChange = { agentId: string; account: string; currentName: string; requestedName: string; requestedAt: string; nameFits: boolean }
 type LogEntry = { at: string; admin: string; action: "approve" | "reject" | "approve_name" | "reject_name"; agentId: string; account: string; name: string; previousName?: string }
 type State = { signups: Signup[]; nameChanges: NameChange[]; log: LogEntry[] }
@@ -51,6 +51,7 @@ export function AdminNopSignups() {
                   <span>
                     <strong>{s.name}</strong> · Agent ID <span className="font-mono">{s.agentId}</span>
                     <span className="block text-muted-foreground">{s.phone} · {s.email} · {s.lang === "es" ? "Spanish" : "English"} · signed up {when(s.submittedAt)}</span>
+                    {s.recruiter && <span className="block text-muted-foreground" data-testid="signup-recruiter">Recruited by {s.recruiter.name || "—"} (Agent ID {s.recruiter.agentId})</span>}
                     {!s.nameFits && <span className="block text-amber-700 dark:text-amber-300">Name may not fit the kit-v2 footer</span>}
                   </span>
                   <span className="flex gap-2">
