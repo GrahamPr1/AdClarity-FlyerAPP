@@ -29,13 +29,32 @@ describe("Privacy Policy", () => {
     expect(html).toContain("Last updated 10 November 2026")
   })
 
+  it("says honestly that the business site uses GA and the Meta Pixel, and agent/program pages neither; no 'no advertising' claims left", () => {
+    expect(html).toContain("we use two tools to understand visits and measure our ads")
+    expect(html).toContain("to measure how our ads on Facebook and Instagram perform")
+    expect(html).toContain("the pixel may send it to Meta in a scrambled (hashed) form")
+    expect(html).toContain("We may also use these visits to show our ads to people who have visited the site.")
+    expect(html).toContain("Google Analytics, Google Tag Manager and the Meta Pixel don't run on the agent portal")
+    expect(html).toContain("the Meta Pixel on OneFlyer's own website, to measure our ads on Facebook and Instagram")
+    expect(html).not.toMatch(/no advertising trackers|runs no advertising|no ad retargeting/i)
+  })
+
+  it("covers SMS consent, log redaction and the download record (EN and ES)", () => {
+    expect(html).toContain("Some forms have a second, optional box to agree to get text messages")
+    expect(html).toContain("Algunos formularios tienen una segunda casilla, opcional")
+    expect(html).toContain("with your name, phone number and email address removed: your Agent ID")
+    expect(html).toContain("sin su nombre, su número de teléfono ni su correo electrónico: su número de agente")
+    expect(html).toContain("with your Agent ID only (no name or email address)")
+    expect(html).toContain("solo con su número de agente (sin su nombre ni su correo electrónico)")
+  })
+
   it("has the Agent accounts section in English and Spanish, and says agent/program pages run no GA or GTM", () => {
     const raw = renderToStaticMarkup(PrivacyPage())
     expect(raw).toContain('id="agent-accounts"')
     expect(raw).toContain('id="agent-accounts-es"')
     expect(html).toContain("Twelve months after you leave, we delete your account automatically")
     expect(html).toContain("Doce meses después de que salga, eliminamos su cuenta automáticamente")
-    expect(html).toContain("Program and agent pages are different. Google Analytics and Google Tag Manager don't run on the agent portal")
+    expect(html).toContain("Program and agent pages are different. Google Analytics, Google Tag Manager and the Meta Pixel don't run on the agent portal")
     expect(raw).toContain('href="mailto:support@oneflyer.org"')
     expect(html).not.toMatch(/Basic Benefits/)
   })

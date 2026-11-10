@@ -1,6 +1,6 @@
 # DRAFT — Privacy Policy: Analytics and the Meta Pixel (before / after)
 
-> **Status: DRAFT, not published.** The business site keeps Google Analytics and
+> **Status: APPROVED (10 November 2026) and published in `app/privacy/page.tsx`** (Meta: both bracketed sentences kept, without brackets). Was: The business site keeps Google Analytics and
 > the Meta Pixel (loaded by Google Tag Manager, container GTM-TLBKNZHK); agent
 > and program pages use neither (`lib/offer-page.ts` isUntrackedPath). The
 > Analytics, "What we don't collect" and "Who processes it" sections are

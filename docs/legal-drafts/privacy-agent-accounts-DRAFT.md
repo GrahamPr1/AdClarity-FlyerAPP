@@ -96,9 +96,7 @@ and nothing is deleted.
 for 12 months after you leave, unless you ask us to delete it sooner. After we
 delete an account, we keep the record of flyers you downloaded, because the
 program requires a record of every flyer made, and it may be given to the
-program. We also keep our administrative records: your sign-up and the
-program's decision on it, and the log of what OneFlyer staff and the
-program's administrators did with your account, including the deletion.
+program. (Updated and published 10 November 2026: the download record is kept with the Agent ID only, and the administrative records with name, phone and email removed; see app/privacy/page.tsx.)
 
 **Your choices.** To get a copy of your information, correct it, or have it
 deleted, email support@oneflyer.org from the address on your account. If you

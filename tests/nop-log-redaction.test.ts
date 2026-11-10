@@ -45,13 +45,16 @@ beforeEach(() => {
     { actor: "quinn@x.test", actorName: "Quinn", role: "program", action: "print_request.status", detail: "abc for PAT@x.test: Fulfilled", at: "t" },
     { actor: "owner@x.test", actorName: null, role: "owner", action: "org_feature", detail: "leads off", at: "t" },
   )
+  const render = (account: string, at: string) => ({ agentId: "123456", account, template: "NOP_P1_EN", format: "print", kitVersion: "1.1.1", at })
+  put("nop-render-log:123456", render("pat@x.test", "r1"), render("quinn@x.test", "r2"))
+  put("nop-render-log", { ...render("other@x.test", "r0"), agentId: "999999" }, render("pat@x.test", "r1"), render("quinn@x.test", "r2"))
 })
 
 describe("redacting a deleted agent from the logs", () => {
   it("keeps who/what/when/Agent ID; replaces their name, phone and email (also a later name change)", async () => {
     const { redactAgentFromLogs } = await import("@/lib/enterprise/log-redaction")
     const n = await redactAgentFromLogs(WHO)
-    expect(n).toBe(6)
+    expect(n).toBe(8)
     const [first, second, other] = get("nop-signups:log")
     expect(first).toEqual({ admin: "owner@x.test", action: "approve", agentId: "123456", account: "[deleted]", name: "[deleted]", phone: "[deleted]", lang: "es", at: "t1" })
     expect(second).toMatchObject({ action: "approve_name", agentId: "123456", account: "[deleted]", name: "[deleted]", previousName: "[deleted]" })
@@ -64,6 +67,16 @@ describe("redacting a deleted agent from the logs", () => {
       expect.objectContaining({ detail: "leads off" }),
     ])
     expect(r.deleted).toEqual(["admin-agent-views:pat@x.test", "admin-agent-views:shown@x.test"])
+  })
+
+  it("the flyer download record keeps every entry with the Agent ID only; an admin's print-file entry keeps the admin", async () => {
+    const { redactAgentFromLogs } = await import("@/lib/enterprise/log-redaction")
+    await redactAgentFromLogs(WHO)
+    expect(get("nop-render-log:123456")).toEqual([
+      expect.objectContaining({ agentId: "123456", account: "[deleted]", template: "NOP_P1_EN", format: "print", at: "r1" }),
+      expect.objectContaining({ agentId: "123456", account: "quinn@x.test", at: "r2" }),
+    ])
+    expect(get("nop-render-log").map((e) => e.account)).toEqual(["other@x.test", "[deleted]", "quinn@x.test"])
   })
 
   it("running it again changes nothing", async () => {

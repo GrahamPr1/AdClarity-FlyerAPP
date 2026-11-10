@@ -1,6 +1,6 @@
 # DRAFT — Privacy Policy: optional text-message consent (English and Spanish)
 
-> **Status: DRAFT, not published.** Publish before the program's text-message
+> **Status: APPROVED (10 November 2026) and published in `app/privacy/page.tsx`**. Was: Publish before the program's text-message
 > wording is entered in admin (the checkbox appears on the forms only once
 > that wording is saved). Placement: a new paragraph in each "agent pages"
 > section, right after **Events** / **Eventos** (`#agent-pages`,
