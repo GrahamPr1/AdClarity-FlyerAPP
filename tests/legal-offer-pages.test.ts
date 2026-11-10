@@ -25,8 +25,15 @@ describe("Privacy Policy", () => {
     expect(html).not.toContain("closes its OneFlyer account")
   })
 
-  it("is dated 9 November 2026 (agent pages added)", () => {
-    expect(html).toContain("Last updated 9 November 2026")
+  it("is dated 10 November 2026 (event pages added)", () => {
+    expect(html).toContain("Last updated 10 November 2026")
+  })
+
+  it("covers event pages, RSVPs and the day-before reminder, in English and Spanish", () => {
+    expect(html).toContain("a page for an event they're hosting (oneflyer.org/e/…), where you can RSVP")
+    expect(html).toContain("we send you one reminder email the day before the event")
+    expect(html).toContain("la página de un evento que organizan (oneflyer.org/e/…)")
+    expect(html).toContain("le enviamos un solo correo de recordatorio el día antes del evento")
   })
 
   it("has the agent-pages sections in English and Spanish, with the anchors the consent links to", () => {
