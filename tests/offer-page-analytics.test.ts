@@ -46,4 +46,17 @@ describe("analytics tags", () => {
     expect(isOfferPagePath("/register")).toBe(false)
     expect(isOfferPagePath("/r/X")).toBe(true)
   })
+
+  it.each(["/p/G7AeyrA", "/e/ZWajBNvH", "/a/ABC2345", "/agent", "/agent/leads", "/agente", "/program", "/program/agents", "/enterprise/nop/dashboard"])(
+    "no GA and no GTM (so no Meta tag) on the agent/program page %s; Vercel's cookieless analytics stays", async (p) => {
+      nav.pathname = p
+      const html = await renderTags()
+      for (const m of ["googletagmanager.com", "gtag(", "gtm.js", "GTM-", "G-TESTID123"]) expect(html).not.toContain(m)
+    })
+
+  it.each(["/pricing", "/privacy", "/about", "/admin", "/agents-faq", "/events", "/programs"])("an SMB path that only starts the same way keeps its tags: %s", async (p) => {
+    const { isAgentProgramPath } = await import("@/lib/offer-page")
+    expect(isAgentProgramPath(p)).toBe(false)
+  })
 })
+

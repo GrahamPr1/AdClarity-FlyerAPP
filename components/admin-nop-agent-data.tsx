@@ -227,7 +227,7 @@ export function AdminLeadDeletion() {
       <h3 className="mt-6 text-sm font-medium">Deletions</h3>
       <ul className="mt-2 divide-y divide-border rounded-xl border border-border text-sm" data-testid="deletion-log">
         {(log.data?.deletions ?? []).map((d, i) => (
-          <li key={i} className="flex flex-wrap gap-x-4 px-4 py-2"><span className="whitespace-nowrap">{when(d.at)}</span><span>{d.admin}</span><span>deleted {d.leadIds.length} lead{d.leadIds.length === 1 ? "" : "s"} of Agent {d.agentId}</span><span>{d.requestedBy === "retention" ? "12 months after the agent left the program" : `asked by ${d.requestedBy === "person" ? "the person" : "Neighborhood Outreach Program"}`}</span>{d.note && <span className="text-muted-foreground">{d.note}</span>}</li>
+          <li key={i} className="flex flex-wrap gap-x-4 px-4 py-2"><span className="whitespace-nowrap">{when(d.at)}</span><span>{d.admin}</span><span>deleted {d.leadIds.length} lead{d.leadIds.length === 1 ? "" : "s"} of Agent {d.agentId}</span><span>{d.requestedBy === "retention" ? "12 months after the agent left the program" : d.requestedBy === "account_deleted" ? "the agent's account was deleted" : `asked by ${d.requestedBy === "person" ? "the person" : "Neighborhood Outreach Program"}`}</span>{d.note && <span className="text-muted-foreground">{d.note}</span>}</li>
         ))}
         {log.data && log.data.deletions.length === 0 && <li className="px-4 py-3 text-muted-foreground">None yet.</li>}
       </ul>
@@ -235,7 +235,7 @@ export function AdminLeadDeletion() {
   )
 }
 
-type RetentionRun = { at: string; mode: "dry_run" | "live"; by: string; agents: { agentId: string; leads: number; deleted: number; skipped?: string }[]; totalLeads: number; totalDeleted: number }
+type RetentionRun = { at: string; mode: "dry_run" | "live"; by: string; agents: { agentId: string; leads: number; deleted: number; events?: number; account?: boolean; accountDeleted?: boolean; skipped?: string }[]; totalLeads: number; totalDeleted: number }
 
 /** The 12-month deletion job: whether it deletes or only reports, its runs, and a dry run on demand. */
 export function AdminRetentionJob() {
@@ -249,9 +249,9 @@ export function AdminRetentionJob() {
   }
   return (
     <section className="mt-6 rounded-xl border border-border bg-card p-5 text-sm" data-testid="nop-retention">
-      <h2 className="text-lg">Scheduled lead deletion</h2>
+      <h2 className="text-lg">Scheduled deletion</h2>
       <p className="mt-1 text-muted-foreground">
-        Every day, leads of agents who left the program (terminated, or removed from the roster) 12 or more months ago are deleted.
+        Every day, the accounts of agents who left the program (terminated, or removed from the roster) 12 or more months ago are deleted: account, profile, page and photo, events, leads and RSVPs, scans. The flyer download record is kept.
         {data && (data.live ? <strong> It is on: it deletes.</strong> : <strong> It is in dry-run mode: it only reports what it would delete.</strong>)}
       </p>
       <button type="button" disabled={busy} onClick={() => void dryRun()} className="mt-3 min-h-11 rounded-lg border border-border px-3 disabled:opacity-50" data-testid="retention-dry-run">
@@ -262,7 +262,7 @@ export function AdminRetentionJob() {
           {data.runs.map((r) => (
             <li key={r.at}>
               {when(r.at)} · {r.mode === "live" ? "deleted" : "dry run"} by {r.by}: {r.agents.filter((a) => !a.skipped).length} agent(s) due, {r.totalLeads} lead(s) found{r.mode === "live" ? `, ${r.totalDeleted} deleted` : ", nothing deleted"}
-              {r.agents.length > 0 && <span className="text-muted-foreground"> ({r.agents.map((a) => `${a.agentId}: ${a.skipped ? a.skipped.replace(/_/g, " ") : `${a.leads} lead(s)`}`).join("; ")})</span>}
+              {r.agents.length > 0 && <span className="text-muted-foreground"> ({r.agents.map((a) => `${a.agentId}: ${a.skipped ? a.skipped.replace(/_/g, " ") : `${a.account ? (a.accountDeleted ? "account deleted, " : "account, ") : ""}${a.leads} lead(s), ${a.events ?? 0} event(s)`}`).join("; ")})</span>}
             </li>
           ))}
         </ul>

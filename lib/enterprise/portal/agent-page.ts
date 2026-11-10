@@ -188,3 +188,10 @@ export async function approvedPackages(orgId: string, lang: NopLang): Promise<{ 
     return [{ pkg: AGENT_PAGE_PACKAGES[i].pkg, heading: heading.trim(), body: rest.join("\n").trim() }]
   })
 }
+
+/** Account deletion: removes the page settings; returns the photo, for the caller to delete from Blob. */
+export async function deleteAgentPageSettings(agentId: string): Promise<AgentPagePhoto | null> {
+  const { photo } = await getAgentPageSettings(agentId)
+  await redis.del(settingsKey(agentId))
+  return photo
+}

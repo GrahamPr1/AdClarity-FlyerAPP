@@ -2,7 +2,7 @@
 
 import Script from "next/script"
 import { usePathname } from "next/navigation"
-import { isOfferPagePath } from "@/lib/offer-page"
+import { isUntrackedPath } from "@/lib/offer-page"
 
 /**
  * Google Tag Manager.
@@ -42,8 +42,8 @@ export function gtmContainerId(): string {
 export function GoogleTagManager() {
   const pathname = usePathname()
   const id = gtmContainerId()
-  // No container on offer pages (see isOfferPagePath): it carries the Meta tag.
-  if (isOfferPagePath(pathname)) return null
+  // No container on offer pages (see isUntrackedPath: offer pages and agent/program pages): it carries the Meta tag.
+  if (isUntrackedPath(pathname)) return null
   return (
     <Script id="gtm-init" strategy="afterInteractive">
       {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -67,7 +67,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 export function GoogleTagManagerNoScript() {
   const pathname = usePathname()
   const id = gtmContainerId()
-  if (isOfferPagePath(pathname)) return null
+  if (isUntrackedPath(pathname)) return null
   return (
     <noscript>
       <iframe

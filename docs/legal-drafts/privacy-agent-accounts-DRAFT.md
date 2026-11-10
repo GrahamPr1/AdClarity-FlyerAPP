@@ -41,7 +41,9 @@ which agent invited you.
 - when you last used your account.
 
 To stop automated abuse, we briefly use your IP address to limit repeated
-sign-in attempts. It isn't stored with your account.
+sign-in attempts. It isn't stored with your account. Google Analytics and
+Google Tag Manager don't run on the agent portal or on your public pages; only
+Vercel Web Analytics, which uses no cookies and doesn't identify you, does.
 
 **What's public.** Your name, phone number and the program's enrollment link,
 which includes your Agent ID, are printed on your flyers with your QR code.
@@ -71,17 +73,24 @@ whether a payment failed.
 **If you leave or are removed from the program.** You can no longer sign in,
 your QR code takes people to the program's own page, and your personal and
 event pages come down. A paid Pro subscription ends right away, and we refund
-the unused part of the current month. Requests and RSVPs you received are
-deleted automatically 12 months later. If the program reinstates you within
-that time, your account comes back as it was and nothing is deleted.
+the unused part of the current month. Twelve months after you leave, we
+delete your account automatically: your profile, page settings and photo,
+events, the requests and RSVPs you received, and your scan counts. If the
+program reinstates you within that time, your account comes back as it was
+and nothing is deleted.
 
 **How long we keep it.** We keep your account while you're in the program, and
-afterwards until you or the program ask us to delete it. The record of flyers
-you downloaded is kept even then, because the program requires a record of
-every flyer made, and it may be given to the program.
+for 12 months after you leave, unless you ask us to delete it sooner. After we
+delete an account, we keep the record of flyers you downloaded, because the
+program requires a record of every flyer made, and it may be given to the
+program. We also keep our administrative records: your sign-up and the
+program's decision on it, and the log of what OneFlyer staff and the
+program's administrators did with your account, including the deletion.
 
 **Your choices.** To get a copy of your information, correct it, or have it
-deleted, email support@oneflyer.org from the address on your account. You can
+deleted, email support@oneflyer.org from the address on your account. If you
+have a paid Pro subscription, deleting your account cancels it right away and
+we refund the unused part of the current month. You can
 change the phone number and email address you show, and your language,
 yourself in your portal; a name change goes to the program for approval.
 
@@ -119,6 +128,9 @@ invitación de otro agente, registramos qué agente lo invitó.
 
 Para evitar abusos automatizados, usamos brevemente su dirección IP para
 limitar los intentos repetidos de iniciar sesión. No se guarda con su cuenta.
+Google Analytics y Google Tag Manager no funcionan en el portal de agentes ni
+en sus páginas públicas; solo funciona Vercel Web Analytics, que no usa cookies
+y no lo identifica.
 
 **Lo que es público.** Su nombre, su número de teléfono y el enlace de
 inscripción del programa, que incluye su número de agente, se imprimen en sus
@@ -152,19 +164,26 @@ algún pago falló.
 QR lleva a las personas a la página del propio programa, y su página personal
 y sus páginas de eventos dejan de estar disponibles. Una suscripción Pro pagada
 termina de inmediato, y le reembolsamos la parte no usada del mes en curso.
-Las solicitudes y confirmaciones que recibió se eliminan automáticamente 12
-meses después. Si el programa lo reincorpora dentro de ese plazo, su cuenta
-vuelve tal como estaba y no se elimina nada.
+Doce meses después de que salga, eliminamos su cuenta automáticamente: su
+perfil, la configuración y la foto de su página, sus eventos, las solicitudes
+y confirmaciones que recibió y sus totales de escaneos. Si el programa lo
+reincorpora dentro de ese plazo, su cuenta vuelve tal como estaba y no se
+elimina nada.
 
 **Cuánto tiempo la guardamos.** Guardamos su cuenta mientras esté en el
-programa y, después, hasta que usted o el programa nos pidan eliminarla. El
-registro de los volantes que descargó se guarda aun así, porque el programa
-exige un registro de cada volante hecho, y es posible que se le entregue al
-programa.
+programa y durante 12 meses después de que salga, a menos que nos pida
+eliminarla antes. Después de eliminar una cuenta, guardamos el registro de
+los volantes que descargó, porque el programa exige un registro de cada
+volante hecho, y es posible que se le entregue al programa. También guardamos
+nuestros registros administrativos: su registro en el programa y la decisión
+del programa sobre él, y el registro de lo que hicieron con su cuenta el
+personal de OneFlyer y los administradores del programa, incluida la
+eliminación.
 
 **Sus opciones.** Para obtener una copia de su información, corregirla o pedir
 que la eliminemos, escriba a support@oneflyer.org desde el correo de su
-cuenta. Usted mismo puede cambiar en su portal el teléfono y el correo que
+cuenta. Si tiene una suscripción Pro pagada, eliminar su cuenta la cancela de
+inmediato y le reembolsamos la parte no usada del mes en curso. Usted mismo puede cambiar en su portal el teléfono y el correo que
 muestra, y su idioma; un cambio de nombre pasa al programa para su aprobación.
 
 ---
@@ -209,20 +228,32 @@ muestra, y su idioma; un cambio de nombre pasa al programa para su aprobación.
 - **Self-service changes:** phone, email shown, language in the portal profile;
   name changes go to approval.
 
-## Open points for the owner (not in the text above)
+## Decided (10 November 2026)
 
-1. **Deleting an agent account has no admin button yet.** The text promises
-   deletion on request ("until you or the program ask us to delete it"). Today
-   that would be done by hand. I can build an admin "Delete agent account"
-   action (keeps the download record, as the text says) before this is
-   published, or the text can say we'll handle it manually.
-2. **Removed agents' accounts are kept** with no automatic deletion; only their
-   leads are deleted after 12 months. The text says this plainly. If you'd
-   rather delete removed agents' accounts after a period, that's a new job.
-3. **Events are not deleted** with the leads after removal; they're kept with
-   the account. Covered by "until you or the program ask us to delete it."
-4. **Google Analytics runs on the agent portal and on the public agent and
-   event pages**, as on the rest of the site (only `/r` offer pages skip it).
-   The site-wide Analytics section covers it; the agent-pages sections don't
-   mention it. Worth a decision: keep, or switch analytics off on `/p`, `/e`
-   and `/a` like the offer pages.
+1. **Delete agent account** (admin: owner and program admins), confirmation by
+   typing the Agent ID, logged; deletes account, profile, page settings, photo,
+   events, leads/RSVPs, scans; keeps the download record; cancels paid Pro with
+   a prorated refund first (`lib/enterprise/agent-account-deletion.ts`).
+2. **Removed agents' accounts and events** are deleted by the same daily job,
+   on the same 12-month clock and dry-run rules (`portal/retention-job.ts`).
+3. **Download record** kept; the requirement is recorded in
+   `lib/enterprise/nop-render/log.ts` (from the owner's instruction that the
+   program's contract requires exporting generation logs at termination). Being
+   confirmed with the program.
+4. **Google Analytics and GTM (which carries the Meta tag) are off** on /p, /e,
+   /a, /agent/*, /agente, /program/* and /enterprise/nop/* (`lib/offer-page.ts`
+   isAgentProgramPath). Vercel Web Analytics stays (cookieless).
+
+Also kept after a deletion (stated in the text as "administrative records"):
+the sign-up decision log (`nop-signups:log`: name, phone, email, language, the
+decision), the program status log, admin views and admin action logs, agent
+flags, and the account deletion log (Agent ID and counts only). The QR code's
+mapping to the Agent ID is kept too: it's the Agent ID's, not personal data,
+and with no roster record it forwards to the program's page.
+
+## Site-wide Analytics section: proposed addition (English, after the Vercel paragraph)
+
+> Program and agent pages are different. Google Analytics and Google Tag
+> Manager don't run on the agent portal (oneflyer.org/agent and /agente),
+> on agents' own pages (/p/…, /e/… and /a/…), or on the program
+> administrators' pages (/program). Only Vercel Web Analytics runs there.
