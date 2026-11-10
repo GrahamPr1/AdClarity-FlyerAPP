@@ -60,7 +60,7 @@ function TextEditor({ row, onSaved }: { row: TextRow; onSaved: () => void }) {
   )
 }
 
-type Side = { agentId: string; leads: number; scans: number; onRoster: boolean; name: string | null; status: string | null; account: string | null; qrCode: string | null }
+type Side = { agentId: string; leads: number; scans: number; events?: number; onRoster: boolean; name: string | null; status: string | null; account: string | null; qrCode: string | null }
 
 export function AdminAgentDataMove() {
   const moves = useSWR<{ moves: AgentDataMove[] }>("/api/admin/enterprise/nop/agent-data-move", fetcher)
@@ -90,7 +90,7 @@ export function AdminAgentDataMove() {
     if (!preview) return
     const r = await post({ action: "move", confirm: true, expected: { leads: preview.from.leads, scans: preview.from.scans } })
     if (!r.ok) return setMsg(r.json.message ?? "Couldn't move.")
-    setMsg(`Moved ${r.json.move.moved.leads} leads and ${r.json.move.moved.scans} scans from ${r.json.move.from} to ${r.json.move.to}.`)
+    setMsg(`Moved ${r.json.move.moved.leads} leads, ${r.json.move.moved.scans} scans and ${r.json.move.moved.events ?? 0} events from ${r.json.move.from} to ${r.json.move.to}.`)
     setPreview(null)
     setConfirmed(false)
     await moves.mutate()
@@ -110,8 +110,8 @@ export function AdminAgentDataMove() {
         <div className="mt-4 rounded-lg border border-border p-4 text-sm" data-testid="move-preview">
           <p>From: {describe(preview.from)}</p>
           <p>To: {describe(preview.to)}</p>
-          <p className="mt-2 font-medium">Will move: {preview.from.leads} leads and {preview.from.scans} QR scans. {preview.to.agentId} then has {preview.to.leads + preview.from.leads} leads and {preview.to.scans + preview.from.scans} scans.</p>
-          {preview.from.leads + preview.from.scans === 0 ? (
+          <p className="mt-2 font-medium">Will move: {preview.from.leads} leads, {preview.from.events ?? 0} events and {preview.from.scans} QR scans. {preview.to.agentId} then has {preview.to.leads + preview.from.leads} leads and {preview.to.scans + preview.from.scans} scans.</p>
+          {preview.from.leads + preview.from.scans + (preview.from.events ?? 0) === 0 ? (
             <p className="mt-2 text-muted-foreground">Nothing to move.</p>
           ) : (
             <>
@@ -130,7 +130,7 @@ export function AdminAgentDataMove() {
       <h3 className="mt-6 text-sm font-medium">Moves</h3>
       <ul className="mt-2 divide-y divide-border rounded-xl border border-border text-sm" data-testid="move-log">
         {(moves.data?.moves ?? []).map((m, i) => (
-          <li key={i} className="flex flex-wrap gap-x-4 px-4 py-2"><span className="whitespace-nowrap">{when(m.at)}</span><span>{m.admin}</span><span>moved {m.moved.leads} leads and {m.moved.scans} scans</span><span>{m.from} → {m.to}</span></li>
+          <li key={i} className="flex flex-wrap gap-x-4 px-4 py-2"><span className="whitespace-nowrap">{when(m.at)}</span><span>{m.admin}</span><span>moved {m.moved.leads} leads{m.moved.events ? `, ${m.moved.events} events` : ""} and {m.moved.scans} scans</span><span>{m.from} → {m.to}</span></li>
         ))}
         {moves.data && moves.data.moves.length === 0 && <li className="px-4 py-3 text-muted-foreground">None yet.</li>}
       </ul>

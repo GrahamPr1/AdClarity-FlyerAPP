@@ -409,6 +409,83 @@ export async function sendEventReminder(input: {
 }
 
 /**
+ * The agent's day-before email for one of their events, in the agent's
+ * language: when and where, and everyone who RSVP'd (name, guests, phone,
+ * email), so they have the list in hand. Sent once per event.
+ */
+export async function sendEventAgentReminder(input: {
+  to: string
+  lang: NopLang
+  title: string
+  when: string
+  place: string
+  rsvps: { name: string; phone: string; email: string | null; guests: number }[]
+  eventUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
+  const people = input.rsvps.reduce((n, r) => n + 1 + r.guests, 0)
+  const body = agentMail(input.lang, [
+    { p: t("email.agent_reminder_body", { title: input.title, when: input.when, place: input.place }) },
+    { p: input.rsvps.length === 0 ? t("email.agent_reminder_none") : t(input.rsvps.length === 1 ? "email.agent_reminder_count_one" : "email.agent_reminder_count", { n: String(input.rsvps.length), guests: String(people) }) },
+    ...(input.rsvps.length ? [{ rows: input.rsvps.map((r) => ({
+      label: r.name,
+      value: [r.phone, r.email, r.guests ? t("email.agent_reminder_guests", { n: String(r.guests) }) : ""].filter(Boolean).join(" · "),
+    })) }] : []),
+    ...(input.rsvps.some((r) => r.email) ? [{ p: t("email.agent_reminder_sent") }] : []),
+    { link: { label: t("email.agent_reminder_open"), url: input.eventUrl } },
+  ], t("email.footer_agent"))
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      ...(SUPPORT_REPLY_TO ? { replyTo: SUPPORT_REPLY_TO } : {}),
+      subject: t("email.agent_reminder_subject", { title: input.title }),
+      ...body,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
+ * Tells an agent an admin took down (hid) one of their event pages, or put it
+ * back, in the agent's language.
+ */
+export async function sendEventHiddenNotice(input: {
+  to: string
+  lang: NopLang
+  title: string
+  hidden: boolean
+  eventUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
+  const body = agentMail(input.lang, [
+    { p: t(input.hidden ? "email.event_hidden_body" : "email.event_unhidden_body", { title: input.title }) },
+    ...(input.hidden ? [{ p: t("email.event_hidden_next") }] : []),
+    { link: { label: t("email.agent_reminder_open"), url: input.eventUrl } },
+  ], t("email.footer_agent"))
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      ...(SUPPORT_REPLY_TO ? { replyTo: SUPPORT_REPLY_TO } : {}),
+      subject: t(input.hidden ? "email.event_hidden_subject" : "email.event_unhidden_subject", { title: input.title }),
+      ...body,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
  * Waitlist confirmation.
  *
  * Deliberately does NOT send yet — it logs. Sending real mail to people who

@@ -11,14 +11,15 @@ import { eventPageFor, formatEventWhen } from "@/lib/enterprise/portal/events"
 // /e/{code} — an agent's event page (lib/enterprise/portal/events.ts): what,
 // when (in the event's time zone), where, who's hosting, and the RSVP form
 // with the same consent checkbox as the lead forms ("Coming soon" until the
-// consent text is approved). Cancelled or over: said so, no form. Unknown
+// consent text is approved). Cancelled or over: said so, no form. Hidden by
+// an admin: only "This event isn't available", nothing of the event. Unknown
 // code, or the agent isn't active: notFound(). Not indexed.
 export const dynamic = "force-dynamic"
 
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }): Promise<Metadata> {
   const page = await eventPageFor((await params).code).catch(() => null)
   if (!page) notFound()
-  return { title: { absolute: `${page.event.title} · ${NOP_ORG_NAME}` }, robots: { index: false, follow: false } }
+  return { title: { absolute: page.state === "hidden" ? NOP_ORG_NAME : `${page.event.title} · ${NOP_ORG_NAME}` }, robots: { index: false, follow: false } }
 }
 
 export default async function Page({ params }: { params: Promise<{ code: string }> }) {
@@ -27,6 +28,21 @@ export default async function Page({ params }: { params: Promise<{ code: string 
   if (!page) notFound()
   const { lang } = await nopLangForPage(null)
   const t = (k: Parameters<typeof tNop>[1], v?: Record<string, string>) => tNop(lang, k, v)
+  if (page.state === "hidden") {
+    return (
+      <main lang={lang} className="min-h-screen bg-background text-foreground">
+        <NopLangProvider lang={lang}>
+          <div className="mx-auto max-w-md px-4 pt-6 pb-16 sm:px-6">
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <p lang="en" className="text-xs uppercase tracking-widest text-muted-foreground">{NOP_ORG_NAME}</p>
+              <NopLanguageToggle cookieOnly />
+            </div>
+            <p role="status" data-testid="event-hidden" className="rounded-xl border border-border bg-card p-5">{t("event.unavailable")}</p>
+          </div>
+        </NopLangProvider>
+      </main>
+    )
+  }
   const { event } = page
   const consent = page.open ? await leadConsent(page.orgId, lang) : null
   const digits = page.phone.replace(/[^0-9+]/g, "")

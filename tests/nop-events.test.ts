@@ -19,6 +19,10 @@ const r = vi.hoisted(() => ({
   consent: { id: "approved-text:nop:leadConsent:en", text: "I agree that {agent_name} may contact me.", version: 2, pending: false },
   notices: [] as Record<string, unknown>[],
   reminders: [] as Record<string, unknown>[],
+  agentReminders: [] as Record<string, unknown>[],
+  hiddenNotices: [] as Record<string, unknown>[],
+  audits: [] as string[],
+  admin: true,
 }))
 vi.mock("@upstash/redis", () => {
   const zs = (k: string) => r.z.get(k) ?? (r.z.set(k, new Map()), r.z.get(k)!)
@@ -73,10 +77,16 @@ vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: async () => ({ allowed: tru
 vi.mock("@/lib/email", () => ({
   sendNopAgentLeadNotification: async (i: Record<string, unknown>) => (r.notices.push(i), { sent: true }),
   sendEventReminder: async (i: Record<string, unknown>) => (r.reminders.push(i), { sent: true }),
+  sendEventAgentReminder: async (i: Record<string, unknown>) => (r.agentReminders.push(i), { sent: true }),
+  sendEventHiddenNotice: async (i: Record<string, unknown>) => (r.hiddenNotices.push(i), { sent: true }),
+}))
+vi.mock("@/lib/enterprise/program-admins", () => ({
+  requireNopAdmin: async () => (r.admin ? { admin: "quinn@x.test", name: "Quinn", role: "program" } : { response: Response.json({ error: "Unauthorized" }, { status: 401 }) }),
+  audit: async (_who: unknown, action: string, detail: string) => void r.audits.push(`${action} ${detail}`),
 }))
 
 beforeEach(() => {
-  r.kv.clear(); r.z.clear(); r.lists.clear(); r.notices.length = 0; r.reminders.length = 0
+  r.kv.clear(); r.z.clear(); r.lists.clear(); r.notices.length = 0; r.reminders.length = 0; r.agentReminders.length = 0; r.hiddenNotices.length = 0; r.audits.length = 0; r.admin = true
   Object.assign(r, { tier: "pro", active: true, viewingAs: false, features: { ...defaultOrgFeatures(true), events: true } })
   r.consent = { id: "approved-text:nop:leadConsent:en", text: "I agree that {agent_name} may contact me.", version: 2, pending: false }
 })
@@ -101,6 +111,12 @@ describe("time and input", () => {
     const bad = checkEventInput(input({ title: "", time: "25:00", timezone: "Europe/Paris", durationMinutes: 5, locationName: "" }), NOW)
     expect(!bad.ok && Object.keys(bad.errors).sort()).toEqual(["durationMinutes", "locationName", "time", "timezone", "title"])
     expect(checkEventInput(input({ date: "2027-02-01" }), NOW)).toEqual({ ok: false, errors: { date: "event.err_past" } })
+  })
+
+  it("title up to 80 characters, details up to 500", async () => {
+    const { checkEventInput } = await ev()
+    expect(checkEventInput(input({ title: "t".repeat(80), details: "d".repeat(500) }), NOW).ok).toBe(true)
+    expect(checkEventInput(input({ title: "t".repeat(81), details: "d".repeat(501) }), NOW)).toEqual({ ok: false, errors: { title: "event.err_title", details: "event.err_details" } })
   })
 })
 
@@ -201,5 +217,76 @@ describe("the day-before reminder", () => {
     expect(r.reminders).toEqual([expect.objectContaining({ to: "ana@x.test", lang: "es", firstName: "Ana", title: "Enrollment day", place: "Library, 1 Main St, Bowling Green, KY", agentName: "Pat Lee", agentPhone: "(270) 555-0100", pageUrl: e.link })])
     expect(String(r.reminders[0].when)).toContain("2 de marzo")
     expect((await runEventReminders(new Date("2027-03-01T15:00:00Z"))).sent).toBe(0)
+  })
+})
+
+describe("the agent's day-before email", () => {
+  it("once per event, in the agent's language, with every RSVP (name, guests, phone, email)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(NOW)
+    const e = await makeEvent({ date: "2027-03-02", time: "18:00" })
+    await rsvp(e.code)
+    await rsvp(e.code, { name: "No Email", email: "", lang: "en", guests: 0 })
+    const { runEventReminders } = await import("@/lib/enterprise/portal/event-reminders")
+    expect(await runEventReminders(new Date("2027-03-01T14:00:00Z"))).toMatchObject({ agentSent: 1, sent: 1 })
+    expect(r.agentReminders).toEqual([expect.objectContaining({
+      to: "agent@x.test", lang: "es", title: "Enrollment day", place: "Library, 1 Main St, Bowling Green, KY",
+      rsvps: [{ name: "Ana Ruiz", phone: "(270) 555-0199", email: "ana@x.test", guests: 2 }, { name: "No Email", phone: "(270) 555-0199", email: null, guests: 0 }],
+    })])
+    expect(String(r.agentReminders[0].eventUrl)).toMatch(new RegExp(`/agent/events/${e.id}$`))
+    await rsvp(e.code, { name: "Late Comer" })
+    expect(await runEventReminders(new Date("2027-03-01T20:00:00Z"))).toMatchObject({ agentSent: 0, sent: 1 })
+    expect(r.agentReminders).toHaveLength(1)
+  })
+
+  it("an event with no RSVPs still gets the agent's email (an empty list)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(NOW)
+    await makeEvent({ date: "2027-03-02" })
+    const { runEventReminders } = await import("@/lib/enterprise/portal/event-reminders")
+    await runEventReminders(new Date("2027-03-01T14:00:00Z"))
+    expect(r.agentReminders).toEqual([expect.objectContaining({ rsvps: [] })])
+  })
+})
+
+describe("admin: Events list, Hide and Unhide", () => {
+  const admin = () => import("@/app/api/admin/enterprise/nop/events/route") as Promise<Record<string, unknown>>
+
+  it("lists every event with its agent, RSVPs and status", async () => {
+    const e = await makeEvent()
+    await rsvp(e.code)
+    const list = await call(admin, "GET")
+    expect(list.json.events).toEqual([expect.objectContaining({ id: e.id, agentId: "858980", title: "Enrollment day", rsvps: 1, guests: 3, status: "upcoming" })])
+  })
+
+  it("hide: the page says only that it isn't available, no RSVPs, no reminders; agent emailed in their language; logged. Unhide puts it back", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(NOW)
+    const e = await makeEvent({ date: "2027-03-02" })
+    await rsvp(e.code)
+    expect((await call(admin, "POST", { id: e.id, action: "hide" })).json).toMatchObject({ ok: true, hidden: true, agentEmailed: true })
+    const { eventPageFor } = await ev()
+    expect((await eventPageFor(e.code))).toMatchObject({ state: "hidden", open: false })
+    expect((await rsvp(e.code)).status).toBe(404)
+    const { runEventReminders } = await import("@/lib/enterprise/portal/event-reminders")
+    expect(await runEventReminders(new Date("2027-03-01T14:00:00Z"))).toMatchObject({ events: 0, sent: 0, agentSent: 0 })
+    expect(r.hiddenNotices).toEqual([expect.objectContaining({ to: "agent@x.test", lang: "es", title: "Enrollment day", hidden: true })])
+    expect(r.audits).toEqual([`event.hide "Enrollment day" (${e.code}), agent 858980`])
+    expect((await call(admin, "GET")).json.events[0]).toMatchObject({ status: "hidden", hiddenBy: "quinn@x.test" })
+    expect((await call(admin, "POST", { id: e.id, action: "hide" })).status).toBe(409)
+
+    expect((await call(admin, "POST", { id: e.id, action: "unhide" })).json).toMatchObject({ ok: true, hidden: false })
+    expect((await eventPageFor(e.code))?.state).toBe("open")
+    expect(r.hiddenNotices[1]).toMatchObject({ hidden: false })
+    expect(r.audits[1]).toMatch(/^event\.unhide /)
+  })
+
+  it("admins only", async () => {
+    const e = await makeEvent()
+    r.admin = false
+    expect((await call(admin, "GET")).status).toBe(401)
+    expect((await call(admin, "POST", { id: e.id, action: "hide" })).status).toBe(401)
+    const { eventPageFor } = await ev()
+    expect((await eventPageFor(e.code))?.state).toBe("open")
   })
 })

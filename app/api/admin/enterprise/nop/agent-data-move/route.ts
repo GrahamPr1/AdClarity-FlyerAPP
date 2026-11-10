@@ -11,7 +11,8 @@ import { getAgentQrCode } from "@/lib/enterprise/nop-qr-code"
 //   POST { from, to, action: "move", confirm: true, expected: { leads, scans } }
 //                                                 moves it, only if the source still holds exactly
 //                                                 what the preview showed; logged with admin and time
-// The target must be on the roster. Leads and scans keep their dates.
+// The target must be on the roster. Leads and scans keep their dates; the
+// agent's events move too (their RSVPs are among the leads).
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
   if (body?.action !== "move" || body.confirm !== true) return NextResponse.json({ error: "confirm_required", message: "Preview first, then confirm." }, { status: 400 })
   const leads = Number(body.expected?.leads), scans = Number(body.expected?.scans)
   if (!Number.isInteger(leads) || !Number.isInteger(scans) || leads < 0 || scans < 0) return NextResponse.json({ error: "invalid" }, { status: 400 })
-  if (leads === 0 && scans === 0) return NextResponse.json({ error: "nothing_to_move", message: "There's nothing to move." }, { status: 422 })
+  if (leads === 0 && scans === 0 && !(await summarizeAgentData(from)).events) return NextResponse.json({ error: "nothing_to_move", message: "There's nothing to move." }, { status: 422 })
 
   const r = await moveAgentData(a.admin, from, to, { leads, scans })
   if (!r.ok) return NextResponse.json({ error: r.reason, message: "The data changed since the preview. Preview again." }, { status: 409 })

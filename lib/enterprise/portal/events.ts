@@ -21,12 +21,18 @@ import { loadPortalContext } from "./context"
 //   nop-event-code:{code}         event id (the public page)
 //   nop-agent:{agentId}:events    zset of event ids by start time
 //   nop-events-by-start           zset of every event id by start time (reminders)
+//   nop-events-all                zset of every event id ever made, by start time (admin list)
+//
+// Admins (owner and program admins) can hide an event: its public page then
+// says only "This event isn't available", it takes no RSVPs and sends no
+// reminders, until they unhide it.
 
 const redis = Redis.fromEnv()
 const eventKey = (id: string) => `nop-event:${id}`
 const codeKey = (code: string) => `nop-event-code:${code}`
 const agentEventsKey = (agentId: string) => `nop-agent:${agentId}:events`
 export const EVENTS_BY_START_KEY = "nop-events-by-start"
+const ALL_EVENTS_KEY = "nop-events-all"
 
 /** The template isn't here yet: the portal shows a marked spot instead of an event flyer. */
 export const EVENT_FLYER_READY = false
@@ -37,7 +43,7 @@ export const eventLink = (code: string) => `${CANONICAL_SITE_URL}${NOP_EVENT_PAT
 export const EVENT_TIMEZONES = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu"] as const
 export type EventTimezone = (typeof EVENT_TIMEZONES)[number]
 
-export const EVENT_LIMITS = { title: 80, locationName: 80, address: 160, details: 600, maxGuests: 10, minMinutes: 15, maxMinutes: 600 } as const
+export const EVENT_LIMITS = { title: 80, locationName: 80, address: 160, details: 500, maxGuests: 10, minMinutes: 15, maxMinutes: 600 } as const
 
 export interface AgentEvent {
   id: string
@@ -58,6 +64,11 @@ export interface AgentEvent {
   createdAt: string
   updatedAt: string
   cancelledAt: string | null
+  /** Taken down by an admin (who, when); unset when shown. */
+  hiddenAt?: string | null
+  hiddenBy?: string | null
+  /** When the agent got their day-before email with the RSVP list (once only). */
+  agentReminderSentAt?: string | null
 }
 
 export type EventInput = Pick<AgentEvent, "title" | "date" | "time" | "timezone" | "durationMinutes" | "locationName" | "address" | "details">
@@ -147,6 +158,7 @@ export async function createEvent(agentId: string, input: EventInput & { startsA
   await redis.set(eventKey(event.id), event)
   await redis.zadd(agentEventsKey(agentId), { score: Date.parse(event.startsAt), member: event.id })
   await redis.zadd(EVENTS_BY_START_KEY, { score: Date.parse(event.startsAt), member: event.id })
+  await redis.zadd(ALL_EVENTS_KEY, { score: Date.parse(event.startsAt), member: event.id })
   return event
 }
 
@@ -154,8 +166,32 @@ export async function updateEvent(event: AgentEvent, input: EventInput & { start
   const next: AgentEvent = { ...event, ...input, updatedAt: new Date().toISOString() }
   await redis.set(eventKey(event.id), next)
   await redis.zadd(agentEventsKey(event.agentId), { score: Date.parse(next.startsAt), member: event.id })
-  await redis.zadd(EVENTS_BY_START_KEY, { score: Date.parse(next.startsAt), member: event.id })
+  if (!event.cancelledAt) await redis.zadd(EVENTS_BY_START_KEY, { score: Date.parse(next.startsAt), member: event.id })
+  await redis.zadd(ALL_EVENTS_KEY, { score: Date.parse(next.startsAt), member: event.id })
   return next
+}
+
+/** Every event of every agent, newest start first (the admin Events list). */
+export async function listAllEvents(): Promise<AgentEvent[]> {
+  const ids = ((await redis.zrange<string[]>(ALL_EVENTS_KEY, 0, -1, { rev: true })) ?? []).map(String)
+  if (ids.length === 0) return []
+  const records = await redis.mget<(AgentEvent | null)[]>(...ids.map(eventKey))
+  return records.filter((e): e is AgentEvent => e !== null)
+}
+
+/** An admin hides (takes down) or shows an event's public page. Re-reads the record so nothing else is lost. */
+export async function setEventHidden(id: string, hidden: boolean, by: string): Promise<AgentEvent | null> {
+  const event = await getEvent(id)
+  if (!event) return null
+  const next: AgentEvent = { ...event, hiddenAt: hidden ? new Date().toISOString() : null, hiddenBy: hidden ? by : null }
+  await redis.set(eventKey(id), next)
+  return next
+}
+
+/** Marks that the agent got their day-before email for this event. */
+export async function markAgentReminded(id: string, at: Date): Promise<void> {
+  const event = await getEvent(id)
+  if (event) await redis.set(eventKey(id), { ...event, agentReminderSentAt: at.toISOString() })
 }
 
 /** Cancelled events stay (their RSVPs are leads); the page says it's cancelled and takes no RSVPs; no reminder goes out. */
@@ -185,13 +221,14 @@ export interface EventPage {
   email: string
   /** RSVPs accepted now: not cancelled, not over, and the agent can still use events and leads. */
   open: boolean
-  state: "open" | "cancelled" | "ended" | "closed"
+  state: "open" | "cancelled" | "ended" | "closed" | "hidden"
 }
 
 /**
  * What /e/{code} shows, or null (unknown code, or the agent isn't an active
  * agent the event belongs to). A cancelled or past event still shows, without
- * the form. An agent who lost Pro or events: "closed", no form.
+ * the form. An agent who lost Pro or events: "closed", no form. Hidden by an
+ * admin: "hidden", and the page shows nothing of the event.
  */
 export async function eventPageFor(code: string, now = new Date()): Promise<EventPage | null> {
   const id = await redis.get<string>(codeKey(code))
@@ -203,7 +240,7 @@ export async function eventPageFor(code: string, now = new Date()): Promise<Even
   const ctx = await loadPortalContext(owner)
   if (!ctx || ctx.agent.agentId !== event.agentId) return null
   const p = ctx.agent.profile
-  const state = event.cancelledAt ? "cancelled" : Date.parse(event.endsAt) <= now.getTime() ? "ended" : canUse(ctx, "events") && canUse(ctx, "leads") ? "open" : "closed"
+  const state = event.hiddenAt ? "hidden" : event.cancelledAt ? "cancelled" : Date.parse(event.endsAt) <= now.getTime() ? "ended" : canUse(ctx, "events") && canUse(ctx, "leads") ? "open" : "closed"
   return {
     event, agentId: event.agentId, owner, orgId: ctx.orgId, agentLang: p.preferredLanguage ?? "en",
     agentName: p.displayName ?? p.name, phone: p.displayPhone ?? p.phone, email: p.displayEmail ?? p.email,

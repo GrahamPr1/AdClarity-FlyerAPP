@@ -32,6 +32,7 @@ export interface EditorEvent {
   address: string
   details: string
   cancelledAt: string | null
+  hiddenAt?: string | null
 }
 
 export function NopEventEditor({ event, stats, readOnly, flyerReady }: { event: EditorEvent | null; stats: { rsvps: number; guests: number } | null; readOnly: boolean; flyerReady: boolean }) {
@@ -77,6 +78,7 @@ export function NopEventEditor({ event, stats, readOnly, flyerReady }: { event: 
         <section aria-labelledby="share" data-testid="event-share" className="rounded-2xl border border-border bg-card p-5">
           <h2 id="share" className="font-semibold">{t("event.share_title")}</h2>
           {cancelled && <p className="mt-1 text-sm font-medium text-amber-700 dark:text-amber-300">{t("event.cancelled_badge")}</p>}
+          {event.hiddenAt && <p data-testid="event-hidden-badge" className="mt-1 text-sm font-medium text-amber-700 dark:text-amber-300">{t("event.hidden_badge")}</p>}
           <p className="mt-2 break-all font-mono text-sm" data-testid="event-link">{event.link.replace(/^https?:\/\//, "")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" className={outline} onClick={async () => { await navigator.clipboard.writeText(event.link).catch(() => {}); setCopied(true) }}>{copied ? t("event.copied") : t("event.copy")}</button>
@@ -95,6 +97,7 @@ export function NopEventEditor({ event, stats, readOnly, flyerReady }: { event: 
       )}
 
       <form onSubmit={save} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5" data-testid="event-form">
+        <p data-testid="event-content-note" className="text-sm text-muted-foreground">{t("event.content_note")}</p>
         <fieldset disabled={readOnly || cancelled} className="contents">
           <label className="text-sm font-medium">{t("event.title_label")}<input id="event-title" className={field} value={v.title} onChange={set("title")} maxLength={80} />{err("title")}</label>
           <div className="grid grid-cols-2 gap-3">
@@ -113,7 +116,7 @@ export function NopEventEditor({ event, stats, readOnly, flyerReady }: { event: 
           </div>
           <label className="text-sm font-medium">{t("event.location_label")}<input id="event-location" className={field} value={v.locationName} onChange={set("locationName")} maxLength={80} />{err("locationName")}</label>
           <label className="text-sm font-medium">{t("event.address_label")}<input id="event-address" className={field} value={v.address} onChange={set("address")} maxLength={160} autoComplete="street-address" />{err("address")}</label>
-          <label className="text-sm font-medium">{t("event.details_label")}<textarea id="event-details" rows={4} className={field} value={v.details} onChange={set("details")} maxLength={600} />{err("details")}</label>
+          <label className="text-sm font-medium">{t("event.details_label")}<textarea id="event-details" rows={4} className={field} value={v.details} onChange={set("details")} maxLength={500} />{err("details")}</label>
           <div className="flex flex-wrap items-center gap-3">
             <button type="submit" disabled={busy} className={primary} data-testid="event-save" title={readOnly ? t("portal.read_only") : undefined}>{busy ? t("event.saving") : t("event.save")}</button>
             {msg && <p role="status" className="text-sm text-muted-foreground">{msg}</p>}
