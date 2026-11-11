@@ -14,8 +14,9 @@ Org switches are in admin → Agents → "Org features"; the defaults are in
   contact form, "Save my contact" (vCard) and booking link; lead email to the
   agent; Leads tab with status, private notes, follow-up date, filters and
   "Needs follow-up"; follow-up message buttons.
-- **Optional text-message consent** on every lead form (shows once the SMS
-  wording is saved in admin); SMS opt-out list in admin. Nothing sends texts.
+- **Optional text-message consent** on every lead form, with the
+  program-approved wording (EN/ES, saved in admin 11 November 2026); SMS
+  opt-out list in admin. Nothing sends texts.
 - **Events** (Pro, switched on): event pages with RSVPs, day-before reminders
   (to RSVPs and to the agent), admin Hide/Unhide, check-in page and printable
   check-in sign.
@@ -67,7 +68,6 @@ Org switches are in admin → Agents → "Org features"; the defaults are in
 - **Spanish flyers**: kit v2 Spanish stays off until approved; all Spanish UI
   and policy text is unreviewed and needs a qualified translator.
 - **Wording**:
-  - the text-message consent wording (paste into admin when approved);
   - follow-up messages and package texts on the agent page;
   - approval of the QR lead page and agent photos;
   - the string review CSVs (`NOP-*-Strings-EN-ES-for-review.csv`, one per
