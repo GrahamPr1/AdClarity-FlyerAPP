@@ -51,6 +51,21 @@ export async function PortalHome({ page, billingNotice = null }: { page: PortalP
           {t(billingNotice === "success" ? "portal.billing_success" : "portal.billing_cancelled_checkout")}
         </p>
       )}
+      {ctx.tier === "basic" && ctx.agent.active && (
+        // Basic: what Pro does, the price and the button, always first. Never blocks anything below.
+        <section aria-labelledby="upgrade" data-testid="home-upgrade-card" className="mb-6 rounded-2xl border border-[var(--brand-teal-bright)] bg-card p-5">
+          <span className="inline-flex rounded-full bg-[var(--brand-teal-bright)] px-2.5 py-0.5 text-xs font-semibold text-[var(--primary-foreground)]">{t("portal.pro_label")}</span>
+          <h2 id="upgrade" className="mt-2 font-semibold">{t("pro.home_card_title")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{ctx.orgFeatures.leads ? t("pro.home_card_body") : list ? t("portal.pro_line", { list }) : ""}</p>
+          <p data-testid="home-upgrade-price" className="mt-2 text-sm font-medium">{t("pro.price")}</p>
+          {upgrade ? (
+            <div data-testid="home-upgrade" className="mt-3"><UpgradeToPro readOnly={readOnly} /></div>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">{t("pro.cant_buy")}</p>
+          )}
+          <Link href="/agent/pro" data-testid="home-upgrade-more" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-[var(--brand-teal-bright)] underline-offset-2 hover:underline">{t("pro.see_all")}</Link>
+        </section>
+      )}
       {paidByStripe && (
         <section aria-labelledby="billing" data-testid="home-billing" className="mb-6 rounded-2xl border border-border bg-card p-5">
           <h2 id="billing" className="font-semibold">{t("portal.billing_title")}</h2>
@@ -116,13 +131,6 @@ export async function PortalHome({ page, billingNotice = null }: { page: PortalP
         </section>
       )}
       <NopDashboard active={ctx.agent.active} statusKey={ctx.agent.active ? null : nopStatusMessageKey(ctx.agent.status)} readOnly={readOnly} kit={kit} upsell={upgrade && ctx.orgFeatures.leads} />
-      {list && (
-        <p data-testid="pro-line" className="mt-6 text-sm text-muted-foreground">
-          <span className="mr-2 inline-flex rounded-full border border-border px-2 py-0.5 text-xs font-semibold">{t("portal.pro_label")}</span>
-          {t("portal.pro_line", { list })}
-        </p>
-      )}
-      {upgrade && <div data-testid="home-upgrade" className="mt-4"><UpgradeToPro readOnly={readOnly} /></div>}
     </PortalShell>
   )
 }

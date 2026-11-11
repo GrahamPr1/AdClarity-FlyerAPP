@@ -533,6 +533,8 @@ export const NOP_STRING_WHERE: Record<NopStringKey, { where: string; note?: stri
   "pro.b_track_body": { where: "Pro screen (/agent/pro)" },
   "pro.b_remind_title": { where: "Pro screen (/agent/pro)" },
   "pro.b_remind_body": { where: "Pro screen (/agent/pro)" },
+  "pro.home_card_title": { where: "Home, Basic agent: the Upgrade to Pro card at the top (heading)" },
+  "pro.home_card_body": { where: "Home, Basic agent: the Upgrade to Pro card (when the org has lead capture on)" },
   "event.unavailable": { where: "Public event page, when an admin has hidden the event (the only text shown)" },
   "event.content_note": { where: "Agent's event form, under the heading" },
   "event.hidden_badge": { where: "Agent's event page in the portal, when an admin has hidden it" },
