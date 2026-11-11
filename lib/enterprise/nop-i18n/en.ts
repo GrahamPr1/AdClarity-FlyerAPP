@@ -561,6 +561,8 @@ export const en = {
   "pro.b_track_body": "Statuses, notes, and follow-up dates, so nobody falls through the cracks.",
   "pro.b_remind_title": "Never forget a follow-up",
   "pro.b_remind_body": "A morning email on days when someone needs a call back.",
+  "pro.home_card_title": "Get more from your flyers with Pro",
+  "pro.home_card_body": "People can ask you to contact them from your page and flyers, you track every lead in one place, and you get a reminder when it's time to follow up.",
   "event.unavailable": "This event isn't available.",
   "event.content_note": "Don't include prices, benefit details, or promises about coverage. Describe the event only.",
   "event.hidden_badge": "Hidden by the program administrator. The event page says the event isn't available.",

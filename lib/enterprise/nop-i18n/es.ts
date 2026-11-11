@@ -562,6 +562,8 @@ export const es: Record<NopStringKey, string> = {
   "pro.b_track_body": "Estados, notas y fechas de seguimiento, para que no se le escape nadie.",
   "pro.b_remind_title": "No olvide ningún seguimiento",
   "pro.b_remind_body": "Un correo por la mañana los días en que alguien necesita que lo llame.",
+  "pro.home_card_title": "Saque más provecho de sus volantes con Pro",
+  "pro.home_card_body": "Las personas pueden pedirle que las contacte desde su página y sus volantes, usted da seguimiento a cada contacto en un solo lugar y recibe un recordatorio cuando es momento de llamar.",
   "event.unavailable": "Este evento no está disponible.",
   "event.content_note": "No incluya precios, detalles de beneficios ni promesas sobre cobertura. Describa solo el evento.",
   "event.hidden_badge": "Ocultado por el administrador del programa. La página del evento indica que el evento no está disponible.",

@@ -5,6 +5,7 @@ import { requirePortalPage } from "@/lib/enterprise/portal/page"
 import { getAgentQrCode, getOrIssueAgentQrCode } from "@/lib/enterprise/nop-qr-code"
 import { getAgentPageSettings, nopPageLink, NOP_PAGE_PATH } from "@/lib/enterprise/portal/agent-page"
 import { ProLocked } from "@/components/nop-portal"
+import { canBuyPro } from "@/lib/enterprise/portal/agent-billing"
 import { NopAgentPageSettings } from "@/components/nop-agent-page-settings"
 import { PortalShell } from "../portal-shell"
 
@@ -33,7 +34,7 @@ export default async function Page() {
       ) : ctx.tier !== "basic" && !ctx.active ? (
         <p data-testid="page-inactive" className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">{tNop(lang, "portal.page_inactive")}</p>
       ) : (
-        <ProLocked sentence="portal.page_locked" />
+        <ProLocked sentence="portal.page_locked" upgrade={canBuyPro(ctx)} readOnly={readOnly} />
       )}
     </PortalShell>
   )
