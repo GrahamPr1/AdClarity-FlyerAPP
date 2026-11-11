@@ -39,6 +39,13 @@ describe("Privacy Policy", () => {
     expect(html).not.toMatch(/no advertising trackers|runs no advertising|no ad retargeting/i)
   })
 
+  it("covers the daily follow-up reminder (EN and ES)", () => {
+    expect(html).toContain("and a morning reminder on days when some of your leads need follow-up, listing them. You can turn either one off in your profile.")
+    expect(html).toContain("y un recordatorio por la mañana los días en que algunos de sus contactos necesitan seguimiento")
+    expect(html).toContain("whether you've turned off the monthly results email or the daily follow-up reminder")
+    expect(html).toContain("si desactivó el correo mensual de resultados o el recordatorio diario de seguimiento")
+  })
+
   it("covers the agent's statuses, follow-up dates and notes (EN and ES)", () => {
     expect(html).toContain("a status (for example, contacted, appointment set or enrolled), a date to follow up, and private notes")
     expect(html).toContain("un estado (por ejemplo, contactado, cita programada o inscrito), una fecha para dar seguimiento y notas privadas")

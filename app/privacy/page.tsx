@@ -390,7 +390,7 @@ export default function PrivacyPage() {
         <li>print requests you make: which flyer, how many copies, the name and address to ship them to, and any notes;</li>
         <li>the requests and RSVPs people send you (see the agent pages sections above);</li>
         <li>the statuses, follow-up dates and private notes you add to your leads (the program&apos;s administrators and OneFlyer staff can see them, as they can your leads);</li>
-        <li>whether you&apos;ve turned off the monthly results email;</li>
+        <li>whether you&apos;ve turned off the monthly results email or the daily follow-up reminder;</li>
         <li>when you last used your account.</li>
       </UL>
       <p>
@@ -403,8 +403,7 @@ export default function PrivacyPage() {
         decision on your sign-up, each new request or RSVP, the day before your events, the list of
         who&apos;s coming, and a notice if an administrator takes one of your event pages down or
         puts it back. If you have Pro, we also email you a summary of last month&apos;s results on
-        the 1st of each month, unless nothing happened that month; you can turn it off in your
-        profile.
+        the 1st of each month, unless nothing happened that month, and a morning reminder on days when some of your leads need follow-up, listing them. You can turn either one off in your profile.
       </p>
       <p>
         <strong>What&apos;s public.</strong> Your name, phone number and the program&apos;s
@@ -481,7 +480,7 @@ export default function PrivacyPage() {
           <li>las solicitudes de impresión que hace: qué volante, cuántas copias, el nombre y la dirección de envío, y cualquier nota;</li>
           <li>las solicitudes y confirmaciones que le envían (consulte las secciones anteriores sobre las páginas de agentes);</li>
           <li>los estados, las fechas de seguimiento y las notas privadas que agrega a sus contactos (los administradores del programa y el personal de OneFlyer pueden verlos, como pueden ver sus contactos);</li>
-          <li>si desactivó el correo mensual de resultados;</li>
+          <li>si desactivó el correo mensual de resultados o el recordatorio diario de seguimiento;</li>
           <li>la última vez que usó su cuenta.</li>
         </UL>
         <p>
@@ -494,8 +493,7 @@ export default function PrivacyPage() {
           sesión, la decisión del programa sobre su registro, cada nueva solicitud o confirmación,
           el día antes de sus eventos, la lista de quiénes asistirán, y un aviso si un administrador
           retira una de sus páginas de eventos o la vuelve a publicar. Si tiene Pro, también le
-          enviamos un resumen de los resultados del mes anterior el día 1 de cada mes, salvo que ese
-          mes no haya habido actividad; puede desactivarlo en su perfil.
+          enviamos un resumen de los resultados del mes anterior el día 1 de cada mes, salvo que ese mes no haya habido actividad, y un recordatorio por la mañana los días en que algunos de sus contactos necesitan seguimiento, con la lista de ellos. Puede desactivar cualquiera de los dos en su perfil.
         </p>
         <p>
           <strong>Lo que es público.</strong> Su nombre, su número de teléfono y el enlace de

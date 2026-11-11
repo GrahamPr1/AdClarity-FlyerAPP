@@ -1,6 +1,6 @@
 # DRAFT — Privacy Policy: the daily follow-up reminder (before / after, English and Spanish)
 
-> **Status: DRAFT, not published.** Publish with the Part E merge. Two edits in
+> **Status: APPROVED (11 November 2026) and published in `app/privacy/page.tsx` with the Part E merge.** Was: Publish with the Part E merge. Two edits in
 > each Agent accounts section of `app/privacy/page.tsx`. Nothing new is
 > collected: the reminder reads the agent's own leads and their statuses and
 > dates; the only new stored item is the agent's on/off choice (and a
