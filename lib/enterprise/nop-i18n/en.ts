@@ -545,6 +545,7 @@ export const en = {
   "tracker.overdue": "Follow-up was due {date}",
   "tracker.untouched": "New, waiting {n} days",
   "tracker.none_here": "No leads here.",
+  "tracker.more": "Notes and follow-up date",
   "event.unavailable": "This event isn't available.",
   "event.content_note": "Don't include prices, benefit details, or promises about coverage. Describe the event only.",
   "event.hidden_badge": "Hidden by the program administrator. The event page says the event isn't available.",

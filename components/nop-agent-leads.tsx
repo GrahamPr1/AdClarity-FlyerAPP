@@ -159,6 +159,9 @@ function LeadCard({ lead, onChange, today, now, followUps, readOnly, eventTitle,
             </button>
           ))}
         </div>
+        <details data-testid="lead-more" open={!!(lead.notes || lead.followUpOn)} className="mt-3 rounded-xl border border-border">
+          <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-medium">{t("tracker.more")}</summary>
+          <div className="border-t border-border px-3 pb-3">
         <label className="mt-3 block text-sm font-medium">{t("tracker.followup_label")}
           <span className="mt-1 flex items-center gap-2">
             <input type="date" data-testid="lead-followup" value={lead.followUpOn ?? ""} onChange={(e) => void save({ followUpOn: e.target.value || null })}
@@ -176,6 +179,8 @@ function LeadCard({ lead, onChange, today, now, followUps, readOnly, eventTitle,
             className="min-h-11 rounded-lg border border-border px-4 text-sm font-medium disabled:opacity-50">{t("tracker.notes_save")}</button>
           {notesSaved && <span role="status" className="text-sm text-muted-foreground">{t("tracker.saved")}</span>}
         </div>
+          </div>
+        </details>
       </fieldset>
       {error && <p role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">{t("portal.lead_save_failed")}</p>}
     </li>

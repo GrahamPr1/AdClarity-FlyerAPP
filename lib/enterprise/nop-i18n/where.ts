@@ -517,6 +517,7 @@ export const NOP_STRING_WHERE: Record<NopStringKey, { where: string; note?: stri
   "tracker.overdue": { where: "Leads tab: lead tracker" },
   "tracker.untouched": { where: "Leads tab: lead tracker" },
   "tracker.none_here": { where: "Leads tab: lead tracker" },
+  "tracker.more": { where: "Leads tab: the fold on each lead holding the follow-up date and notes (open when either is set)" },
   "event.unavailable": { where: "Public event page, when an admin has hidden the event (the only text shown)" },
   "event.content_note": { where: "Agent's event form, under the heading" },
   "event.hidden_badge": { where: "Agent's event page in the portal, when an admin has hidden it" },

@@ -546,6 +546,7 @@ export const es: Record<NopStringKey, string> = {
   "tracker.overdue": "El seguimiento era para el {date}",
   "tracker.untouched": "Nuevo, esperando desde hace {n} días",
   "tracker.none_here": "No hay contactos aquí.",
+  "tracker.more": "Notas y fecha de seguimiento",
   "event.unavailable": "Este evento no está disponible.",
   "event.content_note": "No incluya precios, detalles de beneficios ni promesas sobre cobertura. Describa solo el evento.",
   "event.hidden_badge": "Ocultado por el administrador del programa. La página del evento indica que el evento no está disponible.",
