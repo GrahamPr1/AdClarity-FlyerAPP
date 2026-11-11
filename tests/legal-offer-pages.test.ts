@@ -25,8 +25,8 @@ describe("Privacy Policy", () => {
     expect(html).not.toContain("closes its OneFlyer account")
   })
 
-  it("is dated 10 November 2026 (event pages added)", () => {
-    expect(html).toContain("Last updated 10 November 2026")
+  it("is dated 11 November 2026 (lead tracker added)", () => {
+    expect(html).toContain("Last updated 11 November 2026")
   })
 
   it("says honestly that the business site uses GA and the Meta Pixel, and agent/program pages neither; no 'no advertising' claims left", () => {
@@ -37,6 +37,13 @@ describe("Privacy Policy", () => {
     expect(html).toContain("Google Analytics, Google Tag Manager and the Meta Pixel don't run on the agent portal")
     expect(html).toContain("the Meta Pixel on OneFlyer's own website, to measure our ads on Facebook and Instagram")
     expect(html).not.toMatch(/no advertising trackers|runs no advertising|no ad retargeting/i)
+  })
+
+  it("covers the agent's statuses, follow-up dates and notes (EN and ES)", () => {
+    expect(html).toContain("a status (for example, contacted, appointment set or enrolled), a date to follow up, and private notes")
+    expect(html).toContain("un estado (por ejemplo, contactado, cita programada o inscrito), una fecha para dar seguimiento y notas privadas")
+    expect(html).toContain("the statuses, follow-up dates and private notes you add to your leads")
+    expect(html).toContain("los estados, las fechas de seguimiento y las notas privadas que agrega a sus contactos")
   })
 
   it("covers SMS consent, log redaction and the download record (EN and ES)", () => {

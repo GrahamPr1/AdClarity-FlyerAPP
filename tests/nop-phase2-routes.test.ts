@@ -41,7 +41,7 @@ vi.mock("@/lib/enterprise/portal/approved-text", async (orig) => ({
 vi.mock("@/lib/enterprise/portal/agent-data", () => ({
   saveAgentLead: async (agentId: string, lead: Record<string, unknown>) => void s.saved.push({ agentId, lead }),
   listAgentLeads: async () => s.leads,
-  setAgentLeadContacted: async (agentId: string, id: string, c: boolean) => (s.marked.push({ agentId, id, c }), id === "mine" ? { id, contactedAt: c ? "t" : null } : null),
+  updateAgentLeadTracking: async (agentId: string, id: string, patch: { status?: string }) => (s.marked.push({ agentId, id, c: patch.status === "contacted" }), id === "mine" ? { id, status: patch.status } : null),
   countAgentLeads: async () => 2,
   getAgentScans: async () => ({ total: 9, thisMonth: 4 }),
   summarizeAgentData: async (id: string) => (id === "111" ? { leads: 2, scans: 5 } : { leads: 0, scans: 0 }),

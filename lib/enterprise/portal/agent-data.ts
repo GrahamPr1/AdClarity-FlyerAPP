@@ -1,6 +1,7 @@
 import { Redis } from "@upstash/redis"
 import type { LeadRecord } from "@/lib/types"
 import { statsMonth } from "@/lib/stats-month"
+import { applyTrackerPatch, type TrackerPatch } from "./lead-tracker"
 
 // What a NOP agent's flyers produce: QR scans and leads. It belongs to the
 // Agent ID, not to the account holding it, so it stays with the ID through an
@@ -70,6 +71,16 @@ export async function listAgentLeads(agentId: string): Promise<LeadRecord[]> {
 
 export async function countAgentLeads(agentId: string, since?: Date): Promise<number> {
   return since ? redis.zcount(leadsKey(agentId), since.getTime(), "+inf") : redis.zcard(leadsKey(agentId))
+}
+
+/** Changes status, notes or follow-up date on one of THIS agent's leads (lead-tracker.ts). Null when the lead isn't theirs. */
+export async function updateAgentLeadTracking(agentId: string, leadId: string, patch: TrackerPatch, at = new Date()): Promise<LeadRecord | null> {
+  if ((await redis.zscore(leadsKey(agentId), leadId)) === null) return null
+  const lead = await redis.get<LeadRecord>(leadKey(leadId))
+  if (!lead) return null
+  const next = applyTrackerPatch(lead, patch, at)
+  await redis.set(leadKey(leadId), next)
+  return next
 }
 
 /** Marks one of THIS agent's leads contacted (or not). False when the lead isn't theirs. */

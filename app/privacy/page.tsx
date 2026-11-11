@@ -19,7 +19,7 @@ export const metadata = { title: "Privacy Policy", alternates: { canonical: "/pr
 // dashboard or by admin).
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="10 November 2026">
+    <LegalPage title="Privacy Policy" updated="11 November 2026">
       <p>
         OneFlyer is run by a small team. This page describes what we actually store and who
         actually sees it — not what a generic template says a company might do.
@@ -254,6 +254,13 @@ export default function PrivacyPage() {
         a text, or tell the agent or the program.
       </p>
       <p>
+        <strong>The agent&apos;s notes.</strong> The agent can keep track of your request in
+        OneFlyer: a status (for example, contacted, appointment set or enrolled), a date to follow
+        up, and private notes. These are kept with your request and deleted with it. The
+        program&apos;s administrators and authorized OneFlyer staff can see them, as they can your
+        request.
+      </p>
+      <p>
         <strong>Spam prevention.</strong> To prevent automated abuse, we briefly use your IP
         address to limit repeated submissions. It isn&apos;t stored with your request.
       </p>
@@ -335,6 +342,13 @@ export default function PrivacyPage() {
           STOP a un mensaje de texto, o avísele al agente o al programa.
         </p>
         <p>
+          <strong>Las notas del agente.</strong> El agente puede dar seguimiento a su solicitud en
+          OneFlyer: un estado (por ejemplo, contactado, cita programada o inscrito), una fecha para
+          dar seguimiento y notas privadas. Se guardan con su solicitud y se eliminan con ella. Los
+          administradores del programa y el personal autorizado de OneFlyer pueden verlas, como
+          pueden ver su solicitud.
+        </p>
+        <p>
           <strong>Prevención de spam.</strong> Para evitar abusos automatizados, usamos brevemente
           su dirección IP para limitar envíos repetidos. No se guarda con su solicitud.
         </p>
@@ -375,6 +389,7 @@ export default function PrivacyPage() {
         <li>the events you set up, with the details you write for them;</li>
         <li>print requests you make: which flyer, how many copies, the name and address to ship them to, and any notes;</li>
         <li>the requests and RSVPs people send you (see the agent pages sections above);</li>
+        <li>the statuses, follow-up dates and private notes you add to your leads (the program&apos;s administrators and OneFlyer staff can see them, as they can your leads);</li>
         <li>whether you&apos;ve turned off the monthly results email;</li>
         <li>when you last used your account.</li>
       </UL>
@@ -465,6 +480,7 @@ export default function PrivacyPage() {
           <li>los eventos que organiza, con los detalles que escribe;</li>
           <li>las solicitudes de impresión que hace: qué volante, cuántas copias, el nombre y la dirección de envío, y cualquier nota;</li>
           <li>las solicitudes y confirmaciones que le envían (consulte las secciones anteriores sobre las páginas de agentes);</li>
+          <li>los estados, las fechas de seguimiento y las notas privadas que agrega a sus contactos (los administradores del programa y el personal de OneFlyer pueden verlos, como pueden ver sus contactos);</li>
           <li>si desactivó el correo mensual de resultados;</li>
           <li>la última vez que usó su cuenta.</li>
         </UL>
