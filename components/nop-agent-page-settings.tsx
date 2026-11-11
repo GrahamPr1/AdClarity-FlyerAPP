@@ -29,8 +29,10 @@ export function NopAgentPageSettings(props: {
         {link && path ? (
           <>
             <p className="break-all font-medium" data-testid="page-link-url">{link}</p>
+            {/* The three things an agent does with the page, in the order they're needed. */}
             <div className="mt-3 flex flex-wrap gap-2">
               <CopyButton text={link} className={button} />
+              <a href="/api/enterprise/agent/page/qr?format=png" download className={button} data-testid="page-link-qr">{t("portal.page_qr_png")}</a>
               <a href={path} target="_blank" rel="noopener noreferrer" className={button}>{t("portal.page_open")}</a>
             </div>
           </>
