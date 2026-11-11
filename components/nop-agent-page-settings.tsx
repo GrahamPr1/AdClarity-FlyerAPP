@@ -32,7 +32,7 @@ export function NopAgentPageSettings(props: {
             {/* The three things an agent does with the page, in the order they're needed. */}
             <div className="mt-3 flex flex-wrap gap-2">
               <CopyButton text={link} className={button} />
-              <a href="/api/enterprise/agent/page/qr?format=png" download className={button} data-testid="page-link-qr">{t("portal.page_qr_png")}</a>
+              <a href="/api/enterprise/agent/page/qr?format=png" download className={button} data-testid="page-qr-png">{t("portal.page_qr_png")}</a>
               <a href={path} target="_blank" rel="noopener noreferrer" className={button}>{t("portal.page_open")}</a>
             </div>
           </>
@@ -46,7 +46,6 @@ export function NopAgentPageSettings(props: {
           <h2 id="page-qr" className="font-semibold">{t("portal.page_qr_title")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t("portal.page_qr_note")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <a href="/api/enterprise/agent/page/qr?format=png" download className={button} data-testid="page-qr-png">{t("portal.page_qr_png")}</a>
             <a href="/api/enterprise/agent/page/qr?format=svg" download className={button} data-testid="page-qr-svg">{t("portal.page_qr_svg")}</a>
           </div>
         </section>
