@@ -94,3 +94,14 @@ export function followUpReason(lead: LeadRecord, today: string, now: Date): Foll
   }
   return null
 }
+
+/** An RSVP from an event page, as opposed to a walk-in who checked in at the event (Part H), which also carries the eventId. */
+export function isRsvp(lead: Pick<LeadRecord, "eventId" | "flyerId">): boolean {
+  return !!lead.eventId && !lead.flyerId?.startsWith("nop-event-checkin:")
+}
+
+/** A walk-in who checked in at an event without an RSVP. */
+export function isWalkIn(lead: Pick<LeadRecord, "eventId" | "flyerId">): boolean {
+  return !!lead.eventId && !!lead.flyerId?.startsWith("nop-event-checkin:")
+}
+

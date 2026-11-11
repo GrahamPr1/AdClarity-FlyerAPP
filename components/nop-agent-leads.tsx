@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useNop } from "@/components/nop-i18n"
 import type { LeadRecord, LeadStatus } from "@/lib/types"
 import type { NopStringKey } from "@/lib/enterprise/nop-i18n"
-import { LEAD_STATUSES, followUpReason, leadStatus } from "@/lib/enterprise/portal/lead-tracker"
+import { LEAD_STATUSES, followUpReason, isRsvp, leadStatus } from "@/lib/enterprise/portal/lead-tracker"
 import type { FollowUp } from "@/lib/enterprise/portal/follow-ups"
 
 /**
@@ -128,10 +128,13 @@ function LeadCard({ lead, onChange, today, now, followUps, readOnly, eventTitle,
           {reason.kind === "today" ? t("tracker.due_today") : reason.kind === "overdue" ? t("tracker.overdue", { date: day(reason.on) }) : t("tracker.untouched", { n: String(reason.days) })}
         </p>
       )}
-      {lead.eventId && (
+      {lead.eventId && isRsvp(lead) && (
         <p data-testid="lead-rsvp" className="mt-1 text-sm font-medium text-[var(--brand-teal-bright)]">
           {t("event.rsvp_badge", { title: eventTitle ?? "—" })}{lead.guests ? ` · ${t("event.rsvp_guests", { n: String(lead.guests) })}` : ""}
         </p>
+      )}
+      {lead.checkedInAt && (
+        <p data-testid="lead-checked-in" className="mt-1 text-sm font-medium text-[var(--brand-teal-bright)]">{t("checkin.badge", { title: eventTitle ?? "—" })}</p>
       )}
       <p className="mt-0.5 text-xs text-muted-foreground">{t("portal.lead_received", { date: when })}</p>
       {lead.smsConsent?.agreed && (

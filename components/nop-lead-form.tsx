@@ -19,12 +19,14 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
   agentName: string
   consentText: string
   consentVersion: number
-  source?: "page" | "event"
+  source?: "page" | "event" | "checkin"
   /** The approved text-message consent, filled in; null while it's a placeholder (no checkbox). */
   sms?: { text: string; version: number } | null
 }) {
   const { t, lang } = useNop()
   const rsvp = source === "event"
+  // Check-in at an event: name and phone only (plus the consent boxes).
+  const checkin = source === "checkin"
   const [guests, setGuests] = useState(0)
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
@@ -47,7 +49,7 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
     setSending(true)
     setError(null)
     try {
-      const res = await fetch(rsvp ? `/api/enterprise/nop/events/${encodeURIComponent(code)}/rsvp` : `/api/enterprise/nop/leads/${encodeURIComponent(code)}`, {
+      const res = await fetch(checkin ? `/api/enterprise/nop/events/${encodeURIComponent(code)}/checkin` : rsvp ? `/api/enterprise/nop/events/${encodeURIComponent(code)}/rsvp` : `/api/enterprise/nop/leads/${encodeURIComponent(code)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, phone, email, message, website, consent, consentVersion, lang, ...(sms ? { smsConsent: smsOk, smsConsentVersion: sms.version } : {}), ...(rsvp ? { guests } : { source }) }),
@@ -65,15 +67,15 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
   if (sent) {
     return (
       <div role="status" data-testid="lead-sent" className="mt-6 rounded-2xl border border-border bg-card p-6">
-        <p className="font-semibold">{t(rsvp ? "event.rsvp_sent" : "lead.sent", { first: name.trim().split(/\s+/)[0] })}</p>
-        <p className="mt-1.5 text-sm text-muted-foreground">{rsvp ? t("event.rsvp_sent_body") : t("lead.sent_body", { name: agentName })}</p>
+        <p className="font-semibold">{t(checkin ? "checkin.sent" : rsvp ? "event.rsvp_sent" : "lead.sent", { first: name.trim().split(/\s+/)[0] })}</p>
+        <p className="mt-1.5 text-sm text-muted-foreground">{checkin ? t("checkin.sent_body", { name: agentName }) : rsvp ? t("event.rsvp_sent_body") : t("lead.sent_body", { name: agentName })}</p>
       </div>
     )
   }
 
   return (
     <form onSubmit={submit} data-testid="lead-form" className="mt-6 flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">{t(rsvp ? "event.rsvp_intro" : "lead.intro", { name: agentName })}</p>
+      <p className="text-sm text-muted-foreground">{t(checkin ? "checkin.intro" : rsvp ? "event.rsvp_intro" : "lead.intro", { name: agentName })}</p>
       <div>
         <label htmlFor="lead-name" className="mb-1.5 block text-sm font-medium">{t("lead.name")}</label>
         <input id="lead-name" autoComplete="name" className={field} value={name} onChange={(e) => setName(e.target.value)} required maxLength={LEAD_LIMITS.name} />
@@ -82,10 +84,10 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
         <label htmlFor="lead-phone" className="mb-1.5 block text-sm font-medium">{t("lead.phone")}</label>
         <input id="lead-phone" type="tel" inputMode="tel" autoComplete="tel" className={field} value={phone} onChange={(e) => setPhone(e.target.value)} required maxLength={LEAD_LIMITS.phone} />
       </div>
-      <div>
+      {!checkin && <div>
         <label htmlFor="lead-email" className="mb-1.5 block text-sm font-medium">{t("lead.email_optional")}</label>
         <input id="lead-email" type="email" autoComplete="email" className={field} value={email} onChange={(e) => setEmail(e.target.value)} maxLength={LEAD_LIMITS.email} />
-      </div>
+      </div>}
       {rsvp && (
         <div>
           <label htmlFor="rsvp-guests" className="mb-1.5 block text-sm font-medium">{t("event.guests_label")}</label>
@@ -94,10 +96,10 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
           </select>
         </div>
       )}
-      <div>
+      {!checkin && <div>
         <label htmlFor="lead-message" className="mb-1.5 block text-sm font-medium">{t("lead.message_optional")}</label>
         <textarea id="lead-message" rows={3} className={field} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={LEAD_LIMITS.message} />
-      </div>
+      </div>}
       <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
         <label htmlFor="lead-website">Website</label>
         <input id="lead-website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
@@ -114,7 +116,7 @@ export function NopLeadForm({ code, agentName, consentText, consentVersion, sour
       )}
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       <button type="submit" disabled={sending} className="min-h-12 rounded-lg bg-[var(--brand-teal-bright)] px-5 font-semibold text-[var(--primary-foreground)] disabled:opacity-60">
-        {sending ? t("lead.sending") : t(rsvp ? "event.rsvp_submit" : "lead.submit")}
+        {sending ? t("lead.sending") : t(checkin ? "checkin.submit" : rsvp ? "event.rsvp_submit" : "lead.submit")}
       </button>
     </form>
   )

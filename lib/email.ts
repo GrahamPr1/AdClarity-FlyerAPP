@@ -292,6 +292,8 @@ export async function sendNopAgentLeadNotification(input: {
   fromPage?: boolean
   /** An RSVP on one of the agent's event pages. */
   event?: { title: string; guests: number }
+  /** A walk-in who checked in at one of the agent's events (Part H). */
+  checkIn?: { title: string }
 }): Promise<{ sent: boolean; reason?: string }> {
   const resend = getClient()
   if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
@@ -299,7 +301,7 @@ export async function sendNopAgentLeadNotification(input: {
   const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
   const { lead } = input
   const body = agentMail(input.lang, [
-    { p: input.event ? t("email.rsvp_intro", { title: input.event.title }) : t(input.fromPage ? "email.lead_intro_page" : "email.lead_intro") },
+    { p: input.checkIn ? t("email.checkin_intro", { title: input.checkIn.title }) : input.event ? t("email.rsvp_intro", { title: input.event.title }) : t(input.fromPage ? "email.lead_intro_page" : "email.lead_intro") },
     { rows: [
       { label: t("lead.name"), value: lead.name },
       { label: t("lead.phone"), value: lead.phone, href: `tel:${lead.phone.replace(/[^0-9+]/g, "")}` },
@@ -319,7 +321,7 @@ export async function sendNopAgentLeadNotification(input: {
       from: FROM_ADDRESS,
       to: input.to,
       ...(replyTo ? { replyTo } : {}),
-      subject: input.event ? t("email.rsvp_subject", { name: lead.name, title: input.event.title }) : t("email.lead_subject", { name: lead.name }),
+      subject: input.checkIn ? t("email.checkin_subject", { name: lead.name, title: input.checkIn.title }) : input.event ? t("email.rsvp_subject", { name: lead.name, title: input.event.title }) : t("email.lead_subject", { name: lead.name }),
       ...body,
     })
     if (error) return { sent: false, reason: error.message }

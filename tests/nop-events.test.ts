@@ -290,3 +290,67 @@ describe("admin: Events list, Hide and Unhide", () => {
     expect((await eventPageFor(e.code))?.state).toBe("open")
   })
 })
+
+describe("check-in at the event (Part H)", () => {
+  const checkinRoute = () => import("@/app/api/enterprise/nop/events/[code]/checkin/route") as Promise<Record<string, unknown>>
+  const checkIn = (code: string, over: Record<string, unknown> = {}) => call(checkinRoute, "POST", { name: "Walk In", phone: "(270) 555-0177", consent: true, consentVersion: 2, lang: "en", ...over }, { code })
+  // An event on 6 March 2027, 10:00-12:00 Chicago = 16:00-18:00 UTC; check-in 13:00-21:00 UTC.
+  const at = (iso: string) => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date(iso)) }
+
+  it("open only from 3 hours before the start to 3 hours after the end; never cancelled or hidden", async () => {
+    at("2027-03-01T12:00:00Z")
+    const e = await makeEvent({ date: "2027-03-06" })
+    const { checkInState, eventPageFor } = await ev()
+    const page = (await eventPageFor(e.code))!
+    expect(checkInState(page, new Date("2027-03-06T12:59:00Z"))).toBe("not_yet")
+    expect(checkInState(page, new Date("2027-03-06T13:00:00Z"))).toBe("open")
+    expect(checkInState(page, new Date("2027-03-06T20:59:00Z"))).toBe("open")
+    expect(checkInState(page, new Date("2027-03-06T21:01:00Z"))).toBe("over")
+    expect(checkInState({ ...page, state: "cancelled" }, new Date("2027-03-06T16:00:00Z"))).toBe("cancelled")
+    expect(checkInState({ ...page, state: "hidden" }, new Date("2027-03-06T16:00:00Z"))).toBe("hidden")
+    expect(checkInState({ ...page, canTakeLeads: false }, new Date("2027-03-06T16:00:00Z"))).toBe("closed")
+    expect((await checkIn(e.code)).status).toBe(404)
+  })
+
+  it("a walk-in becomes a lead for the event, marked checked in, with the consent; the agent is emailed; not counted as an RSVP", async () => {
+    at("2027-03-01T12:00:00Z")
+    const e = await makeEvent({ date: "2027-03-06" })
+    at("2027-03-06T16:30:00Z")
+    expect((await checkIn(e.code)).json).toEqual({ ok: true, matched: false })
+    const { listAgentLeads } = await import("@/lib/enterprise/portal/agent-data")
+    const [lead] = await listAgentLeads("858980")
+    expect(lead).toMatchObject({ name: "Walk In", eventId: e.id, flyerId: `nop-event-checkin:${e.id}`, checkedInAt: "2027-03-06T16:30:00.000Z", consent: { text: "I agree that Pat Lee may contact me.", version: 2 } })
+    expect(lead.checkInConsent).toMatchObject({ version: 2, lang: "en" })
+    expect(r.notices.at(-1)).toMatchObject({ to: "agent@x.test", checkIn: { title: "Enrollment day" } })
+    const { isRsvp, isWalkIn } = await import("@/lib/enterprise/portal/lead-tracker")
+    expect(isRsvp(lead)).toBe(false); expect(isWalkIn(lead)).toBe(true)
+    const { GET } = (await eventRoute()) as unknown as { GET: (req: NextRequest, c: unknown) => Promise<Response> }
+    expect(await (await GET(new NextRequest("http://x"), { params: Promise.resolve({ id: e.id }) })).json()).toMatchObject({ rsvps: 0 })
+  })
+
+  it("someone who RSVP'd (same phone, any format) has the RSVP marked checked in; no duplicate, no email; checking in twice changes nothing", async () => {
+    at("2027-03-01T12:00:00Z")
+    const e = await makeEvent({ date: "2027-03-06" })
+    await rsvp(e.code, { phone: "270-555-0199" })
+    const sentBefore = r.notices.length
+    at("2027-03-06T15:00:00Z")
+    expect((await checkIn(e.code, { name: "Ana", phone: "(270) 555 0199" })).json).toEqual({ ok: true, matched: true })
+    expect((await checkIn(e.code, { name: "Ana", phone: "2705550199" })).json).toEqual({ ok: true, matched: true })
+    const { listAgentLeads } = await import("@/lib/enterprise/portal/agent-data")
+    const leads = await listAgentLeads("858980")
+    expect(leads).toHaveLength(1)
+    expect(leads[0]).toMatchObject({ name: "Ana Ruiz", guests: 2, checkedInAt: "2027-03-06T15:00:00.000Z" })
+    expect(r.notices.length).toBe(sentBefore)
+  })
+
+  it("the consent box is required; a hidden event takes no check-ins", async () => {
+    at("2027-03-01T12:00:00Z")
+    const e = await makeEvent({ date: "2027-03-06" })
+    at("2027-03-06T16:00:00Z")
+    expect((await checkIn(e.code, { consent: false })).status).toBe(422)
+    const { setEventHidden } = await ev()
+    await setEventHidden(e.id, true, "admin")
+    expect((await checkIn(e.code)).status).toBe(404)
+  })
+})
+
