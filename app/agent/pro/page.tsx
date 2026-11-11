@@ -23,6 +23,8 @@ export async function generateMetadata() {
  */
 const BENEFITS: { feature: AgentFeature; title: NopStringKey; body: NopStringKey }[] = [
   { feature: "leads", title: "pro.b_leads_title", body: "pro.b_leads_body" },
+  { feature: "leads", title: "pro.b_track_title", body: "pro.b_track_body" },
+  { feature: "followUpReminders", title: "pro.b_remind_title", body: "pro.b_remind_body" },
   { feature: "leads", title: "pro.b_inbox_title", body: "pro.b_inbox_body" },
   { feature: "agentPage", title: "pro.b_page_title", body: "pro.b_page_body" },
   { feature: "events", title: "pro.b_events_title", body: "pro.b_events_body" },

@@ -533,6 +533,50 @@ export async function sendMonthlyResults(input: {
 }
 
 /**
+ * The daily follow-up reminder to an agent (followup-reminders.ts), in their
+ * language: the leads that need follow-up today, each linking straight to it
+ * in the Leads tab, and how to turn the email off.
+ */
+export async function sendFollowUpReminder(input: {
+  to: string
+  lang: NopLang
+  leads: { id: string; name: string; reason: { kind: "overdue"; on: string } | { kind: "today" } | { kind: "untouched"; days: number } }[]
+  /** Leads due beyond the ones listed. */
+  more: number
+  leadUrl: (id: string) => string
+  leadsUrl: string
+  profileUrl: string
+}): Promise<{ sent: boolean; reason?: string }> {
+  const resend = getClient()
+  if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
+  const t = (k: NopStringKey, v?: Record<string, string>) => tNop(input.lang, k, v)
+  const total = input.leads.length + input.more
+  const day = (d: string) => new Intl.DateTimeFormat(input.lang === "es" ? "es-US" : "en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`))
+  const why = (r: (typeof input.leads)[number]["reason"]) =>
+    r.kind === "today" ? t("tracker.due_today") : r.kind === "overdue" ? t("tracker.overdue", { date: day(r.on) }) : t("tracker.untouched", { n: String(r.days) })
+  const body = agentMail(input.lang, [
+    { p: t(total === 1 ? "followup.intro_one" : "followup.intro", { n: String(total) }) },
+    ...input.leads.map((l) => ({ link: { label: `${l.name} — ${why(l.reason)}`, url: input.leadUrl(l.id) } })),
+    ...(input.more > 0 ? [{ p: t("followup.more", { n: String(input.more) }) }] : []),
+    { link: { label: t("followup.open_leads"), url: input.leadsUrl } },
+    { small: t("followup.turn_off", { url: input.profileUrl }) },
+  ], t("email.footer_agent"))
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: input.to,
+      ...(SUPPORT_REPLY_TO ? { replyTo: SUPPORT_REPLY_TO } : {}),
+      subject: t(total === 1 ? "followup.subject_one" : "followup.subject", { n: String(total) }),
+      ...body,
+    })
+    if (error) return { sent: false, reason: error.message }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
+  }
+}
+
+/**
  * Waitlist confirmation.
  *
  * Deliberately does NOT send yet — it logs. Sending real mail to people who

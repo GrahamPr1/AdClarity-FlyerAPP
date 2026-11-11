@@ -979,6 +979,8 @@ export interface AgentProfile {
   pendingName?: { name: string; requestedAt: string } | null
   /** False: the agent turned off the monthly results email (portal profile). Unset: on. */
   monthlyEmail?: boolean
+  /** False: the agent turned off the daily follow-up reminder (portal profile). Unset: on. */
+  followUpReminders?: boolean
 }
 
 export type AgentRosterStatus = "pending" | "active" | "suspended" | "terminated"
