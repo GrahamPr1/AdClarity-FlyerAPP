@@ -15,7 +15,7 @@ const r = vi.hoisted(() => ({
   subs: new Map<string, Record<string, unknown>>(),
   sessions: [] as Record<string, unknown>[],
   customers: [] as Record<string, unknown>[],
-  ctx: { email: "agent@x.test", tier: "basic", active: true } as Record<string, unknown> | null,
+  ctx: { email: "agent@x.test", tier: "basic", active: true, agent: { agentId: "123456" } } as Record<string, unknown> | null,
   viewingAs: false,
   stripeOps: [] as Record<string, unknown>[],
   paidInvoice: null as Record<string, unknown> | null,
@@ -26,6 +26,8 @@ vi.mock("@upstash/redis", () => {
     get: async (k: string) => r.kv.get(k) ?? null,
     set: async (k: string, v: unknown, o?: { nx?: boolean }) => { if (o?.nx && r.kv.has(k)) return null; r.kv.set(k, v); return "OK" },
     del: async (k: string) => (r.kv.delete(k) ? 1 : 0),
+    lpush: async (k: string, v: unknown) => { const l = (r.kv.get(k) as unknown[] | undefined) ?? []; r.kv.set(k, [v, ...l]); return l.length + 1 },
+    lrange: async (k: string, a: number, b: number) => ((r.kv.get(k) as unknown[] | undefined) ?? []).slice(a, b === -1 ? undefined : b + 1),
   }
   return { Redis: { fromEnv: () => fake } }
 })
@@ -67,7 +69,7 @@ beforeEach(() => {
   vi.stubEnv("STRIPE_PRICE_AGENT_PRO_MONTHLY", AGENT_PRICE)
   vi.stubEnv("STRIPE_AGENT_WEBHOOK_SECRET", "whsec_test")
   r.kv.clear(); r.subs.clear(); r.sessions.length = 0; r.customers.length = 0
-  r.ctx = { email: "agent@x.test", tier: "basic", active: true }
+  r.ctx = { email: "agent@x.test", tier: "basic", active: true, agent: { agentId: "123456" } }
   r.viewingAs = false
   r.stripeOps.length = 0; r.paidInvoice = null; r.failCancel = false
 })
@@ -173,7 +175,7 @@ describe("who can buy", () => {
     expect((await checkout()).status).toBe(403)
     r.ctx = { email: "agent@x.test", tier: "pro", active: true }
     expect((await checkout()).status).toBe(409)
-    r.ctx = { email: "agent@x.test", tier: "basic", active: true }
+    r.ctx = { email: "agent@x.test", tier: "basic", active: true, agent: { agentId: "123456" } }
     r.viewingAs = true
     expect((await checkout()).status).toBe(403)
     r.viewingAs = false
@@ -259,3 +261,58 @@ describe("removed from the program", () => {
     expect(r.stripeOps).toEqual([])
   })
 })
+
+describe("the Pro free trial (off by default)", () => {
+  const checkout = async () => {
+    const { POST } = await import("@/app/api/enterprise/agent/billing/checkout/route")
+    const res = await POST(new NextRequest("http://x/api", { method: "POST" }))
+    return { status: res.status, json: await res.json() }
+  }
+  const offer = async () => {
+    const { GET } = await import("@/app/api/enterprise/agent/billing/offer/route")
+    return (await GET(new NextRequest("http://x/api"))).json()
+  }
+  const trial = () => import("@/lib/enterprise/portal/pro-trial")
+
+  it("off: no trial at checkout; a card is always collected; the agent ID rides on the subscription", async () => {
+    expect((await checkout()).status).toBe(200)
+    const sd = r.sessions[0].subscription_data as Record<string, unknown>
+    expect(sd).not.toHaveProperty("trial_period_days")
+    expect(sd.metadata).toMatchObject({ oneflyer_agent_id: "123456" })
+    expect(r.sessions[0].payment_method_collection).toBe("always")
+    expect(await offer()).toEqual({ canBuy: true, trialDays: null })
+  })
+
+  it("on: the set days at checkout, and the offer says so", async () => {
+    const { setProTrialSetting } = await trial()
+    await setProTrialSetting(true, 14, "owner@x.test")
+    expect(await offer()).toEqual({ canBuy: true, trialDays: 14 })
+    await checkout()
+    expect((r.sessions[0].subscription_data as Record<string, unknown>).trial_period_days).toBe(14)
+    expect(r.sessions[0].payment_method_collection).toBe("always")
+  })
+
+  it("one trial per agent ever: once Stripe reports a trial, no more; and none after a paid subscription", async () => {
+    const { setProTrialSetting } = await trial()
+    await setProTrialSetting(true, 7, "owner@x.test")
+    sub("sub_t", "trialing", { trial_start: 1_800_000_000, metadata: { oneflyer_agent_email: "agent@x.test", oneflyer_agent_id: "123456" } })
+    await (await lib()).syncAgentSubscription("sub_t")
+    expect(r.kv.get("nop-agent:123456:pro-trial-used")).toBeTruthy()
+    expect(r.kv.get("client:agent@x.test:agent-pro-trial-used")).toBeTruthy()
+    expect(await (await lib()).agentTrialDays("agent@x.test", "123456")).toBeNull()
+    expect(await (await lib()).agentTrialDays("someone-new@x.test", "123456")).toBeNull()
+    r.kv.clear()
+    await setProTrialSetting(true, 7, "owner@x.test")
+    sub("sub_paid", "canceled")
+    await (await lib()).syncAgentSubscription("sub_paid")
+    expect(await (await lib()).agentTrialDays("agent@x.test", "654321")).toBeNull()
+  })
+
+  it("days must be 1–30", async () => {
+    const { setProTrialSetting, getProTrialSetting } = await trial()
+    expect(await setProTrialSetting(true, 0, "o")).toBeNull()
+    expect(await setProTrialSetting(true, 31, "o")).toBeNull()
+    expect(await getProTrialSetting()).toMatchObject({ enabled: false, days: 14 })
+  })
+})
+

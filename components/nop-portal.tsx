@@ -87,6 +87,7 @@ export function ProLocked({ sentence, upgrade = false, readOnly = false }: { sen
       </span>
       <p className="mt-3 text-sm text-muted-foreground">{t(sentence)}</p>
       {upgrade && <div className="mt-4"><UpgradeToPro readOnly={readOnly} /></div>}
+      <Link href="/agent/pro" data-testid="pro-see-all" className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-[var(--brand-teal-bright)] underline-offset-2 hover:underline">{t("pro.see_all")}</Link>
     </div>
   )
 }

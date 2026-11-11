@@ -103,7 +103,19 @@ export async function PortalHome({ page, billingNotice = null }: { page: PortalP
           </ul>
         </section>
       )}
-      <NopDashboard active={ctx.agent.active} statusKey={ctx.agent.active ? null : nopStatusMessageKey(ctx.agent.status)} readOnly={readOnly} kit={kit} />
+      {!ctx.can.agentPage && ctx.tier === "basic" && ctx.agent.active && ctx.orgFeatures.agentPage && (
+        // Basic: what the personal page would do, a preview of theirs, and what Pro does. Never blocks.
+        <section aria-labelledby="my-page-locked" data-testid="home-page-locked" className="mb-6 rounded-2xl border border-border bg-card p-5">
+          <span className="inline-flex rounded-full bg-[var(--brand-teal-bright)] px-2.5 py-0.5 text-xs font-semibold text-[var(--primary-foreground)]">{t("portal.pro_label")}</span>
+          <h2 id="my-page-locked" className="mt-2 font-semibold">{t("portal.page_title")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("pro.page_locked")}</p>
+          <div className="mt-3 flex flex-wrap gap-x-4">
+            <Link href="/agent/page/preview" data-testid="home-page-preview" className="inline-flex min-h-11 items-center text-sm font-medium text-[var(--brand-teal-bright)] underline-offset-2 hover:underline">{t("pro.preview_link")}</Link>
+            <Link href="/agent/pro" className="inline-flex min-h-11 items-center text-sm font-medium text-[var(--brand-teal-bright)] underline-offset-2 hover:underline">{t("pro.see_all")}</Link>
+          </div>
+        </section>
+      )}
+      <NopDashboard active={ctx.agent.active} statusKey={ctx.agent.active ? null : nopStatusMessageKey(ctx.agent.status)} readOnly={readOnly} kit={kit} upsell={upgrade && ctx.orgFeatures.leads} />
       {list && (
         <p data-testid="pro-line" className="mt-6 text-sm text-muted-foreground">
           <span className="mr-2 inline-flex rounded-full border border-border px-2 py-0.5 text-xs font-semibold">{t("portal.pro_label")}</span>
