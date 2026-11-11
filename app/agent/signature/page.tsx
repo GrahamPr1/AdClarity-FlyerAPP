@@ -48,7 +48,7 @@ export default async function Page() {
     <PortalShell page={page} title={t("signature.title")} intro={t("signature.intro")}>
       {code ? (
         <NopEmailSignature name={p.displayName ?? p.name} phone={p.displayPhone ?? p.phone} email={p.displayEmail ?? p.email}
-          pageUrl={nopPageLink(code)} qrUrl={`${CANONICAL_SITE_URL}/p/${encodeURIComponent(code)}/qr`} />
+          pageUrl={nopPageLink(code)} qrPath={`/p/${encodeURIComponent(code)}/qr`} qrUrl={`${CANONICAL_SITE_URL}/p/${encodeURIComponent(code)}/qr`} />
       ) : (
         <p className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">{t("portal.page_no_link")}</p>
       )}

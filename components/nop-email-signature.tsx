@@ -9,7 +9,7 @@ import { useNop } from "@/components/nop-i18n"
  * show it). Copy puts it on the clipboard as formatted text, so it pastes into
  * Gmail, Outlook and iPhone Mail as it looks here.
  */
-export function NopEmailSignature({ name, phone, email, pageUrl, qrUrl }: { name: string; phone: string; email: string; pageUrl: string; qrUrl: string }) {
+export function NopEmailSignature({ name, phone, email, pageUrl, qrPath, qrUrl }: { name: string; phone: string; email: string; pageUrl: string; qrPath: string; qrUrl: string }) {
   const { t } = useNop()
   const ref = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState<"ok" | "failed" | null>(null)
@@ -17,7 +17,8 @@ export function NopEmailSignature({ name, phone, email, pageUrl, qrUrl }: { name
   const plain = [name, phone, email, shown].filter(Boolean).join("\n")
 
   async function copy() {
-    const html = ref.current?.innerHTML ?? ""
+    // The preview shows the QR from this site; the copied signature needs its full public address.
+    const html = (ref.current?.innerHTML ?? "").split(`src="${qrPath}"`).join(`src="${qrUrl}"`)
     try {
       await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([plain], { type: "text/plain" }) })])
       setCopied("ok")
@@ -42,7 +43,7 @@ export function NopEmailSignature({ name, phone, email, pageUrl, qrUrl }: { name
                 <td style={{ paddingRight: "12px", verticalAlign: "top" }}>
                   <a href={pageUrl}>
                     {/* eslint-disable-next-line @next/next/no-img-element -- copied into email, so a plain absolute-URL image */}
-                    <img src={qrUrl} width={72} height={72} alt={t("signature.qr_alt")} style={{ display: "block", border: 0 }} />
+                    <img src={qrPath} width={72} height={72} alt={t("signature.qr_alt")} style={{ display: "block", border: 0 }} />
                   </a>
                 </td>
                 <td style={{ verticalAlign: "top" }}>
