@@ -618,8 +618,20 @@ export interface LeadRecord {
   afterOfferEnded?: boolean
   /** NOP agent leads only: the consent the person ticked, exactly as it was shown. SMB leads never have it. */
   consent?: LeadConsent
-  /** NOP agent leads only: when the agent marked it contacted; null or absent = not yet. */
+  /** NOP agent leads only: when the agent first moved it past New (kept for older leads marked "contacted"). */
   contactedAt?: string | null
+  /**
+   * NOP agent leads: the agent's tracking (lead-tracker.ts). Absent status:
+   * "contacted" if contactedAt is set (leads marked before statuses existed), else "new".
+   */
+  status?: LeadStatus
+  statusAt?: string | null
+  /** Private to the agent (program admins can see them, as they can the lead). */
+  notes?: string | null
+  /** "YYYY-MM-DD", the day to follow up; null or absent = none. */
+  followUpOn?: string | null
+  /** The last time the agent changed status, notes or follow-up date. */
+  trackedAt?: string | null
   /** NOP event RSVPs (lib/enterprise/portal/events.ts): the event, how many guests come along, and when the day-before reminder went. */
   eventId?: string
   guests?: number
@@ -631,6 +643,8 @@ export interface LeadRecord {
    */
   smsConsent?: LeadSmsConsent | null
 }
+
+export type LeadStatus = "new" | "contacted" | "appointment" | "enrolled" | "not_interested"
 
 export interface LeadSmsConsent {
   agreed: boolean
