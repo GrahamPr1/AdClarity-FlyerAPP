@@ -18,7 +18,8 @@ import { toAssetContext, findVerbatimViolations, findInventedComplianceLanguage 
 import type { CampaignSource } from "@/lib/types"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage, MAX_PROMPT_CHARS } from "./higgsfield"
-import { findFallbackStockPhoto, findPhotoForPromotion, finalizePhotoUsage, type UnsplashPhoto } from "@/lib/unsplash"
+import { finalizePhotoUsage } from "@/lib/unsplash"
+import { creditInstagramSquare, findFallbackStock, findStockForPromotion, pexelsAllowedFor, recordFlyerPhotoSource, type PhotoCandidate, type StockPhoto } from "@/lib/stock-photos"
 import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
 import { planIncludesExtras, aiPhotosEnabled, stockPhotosEnabled, qrEnabled } from "./plan-features"
 import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
@@ -331,11 +332,13 @@ export function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerReque
 /**
  * Sources one candidate photo per flyer request.
  *
- * Order is Unsplash first, Higgsfield second, CSS-only last.
+ * Order is Unsplash, then Pexels, then Higgsfield, then CSS-only.
  *
- * Unsplash is primary because it returns real photographs at no per-image
+ * Stock is primary because it returns real photographs at no per-image
  * cost; Higgsfield generates a bespoke image but bills credits per call, so
- * it runs only when Unsplash has nothing on-topic. The two sources are gated
+ * it runs only when stock has nothing on-topic. Pexels is skipped entirely
+ * for enterprise and NOP agent accounts (gates.allowPexels, decided by
+ * pexelsAllowedFor in lib/stock-photos.ts). The two sources are gated
  * separately (see lib/agent-pipeline/plan-features.ts): stock photos are on
  * for EVERY tier with no opt-in (stockPhotosEnabled), while generation needs
  * the Pro plan AND the client's explicit wantsAiPhotos opt-in
@@ -349,12 +352,12 @@ export function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerReque
 async function buildPhotoPool(
   intake: NormalizedIntake,
   flyerRequests: FlyerRequest[],
-  gates: { allowStockPhotos: boolean; allowAiGeneration: boolean },
-): Promise<{ photos: NormalizedIntake["photos"]; unsplash: UnsplashPhoto[] }> {
+  gates: { allowStockPhotos: boolean; allowAiGeneration: boolean; allowPexels: boolean },
+): Promise<{ photos: NormalizedIntake["photos"]; stock: StockPhoto[]; candidates: PhotoCandidate[] }> {
   // A client's own photographs always win, and need no attribution.
   if (intake.photos.length > 0) {
     console.log(`[photo-pool] using ${intake.photos.length} client-supplied photo(s); no stock lookup needed.`)
-    return { photos: intake.photos, unsplash: [] }
+    return { photos: intake.photos, stock: [], candidates: intake.photos.map((p) => ({ url: p.url, provider: "client" })) }
   }
 
   // Every exit below says WHY. The bug this replaces was a silent early
@@ -363,7 +366,7 @@ async function buildPhotoPool(
   // which was indistinguishable from "Unsplash found nothing".
   if (!gates.allowStockPhotos && !gates.allowAiGeneration) {
     console.log("[photo-pool] skipped: both stock and AI photo sources are disabled for this flyer.")
-    return { photos: [], unsplash: [] }
+    return { photos: [], stock: [], candidates: [] }
   }
 
   const sourced = await Promise.allSettled(
@@ -375,27 +378,31 @@ async function buildPhotoPool(
       // the three-term cap before reaching the offer, so what the flyer was
       // actually advertising never influenced the photo.
       const found = gates.allowStockPhotos
-        ? await findPhotoForPromotion({
-            industry: intake.industry,
-            purpose: request.purpose,
-            services: intake.services,
-            context,
-          })
+        ? await findStockForPromotion(
+            {
+              industry: intake.industry,
+              purpose: request.purpose,
+              services: intake.services,
+              context,
+            },
+            gates.allowPexels,
+          )
         : ({ ok: false, reason: "not_configured", detail: "stock photos disabled for this flyer" } as const)
 
       if (found.ok) {
         return {
           photo: { url: found.photo.url, caption: `Stock photo — suggested for: ${request.purpose}` },
-          // UnsplashPhoto already carries every field PhotoCredit needs,
+          // A StockPhoto already carries every field PhotoCredit needs,
           // so it doubles as the credit record — one list, no drift.
-          unsplash: found.photo,
+          stock: found.photo,
+          provider: found.photo.provider,
         }
       }
 
       // Logged per reason so we can see how often each trade falls through —
       // "thin_results" is a library-coverage problem, "rate_limited" is the
       // 50/hr demo ceiling, and they need different fixes.
-      console.log(`[photo-pool] ${context}: unsplash skipped/miss (${found.reason}) — ${found.detail}`)
+      console.log(`[photo-pool] ${context}: stock skipped/miss (${found.reason}) — ${found.detail}`)
 
       if (!gates.allowAiGeneration) {
         console.log(`[photo-pool] ${context}: higgsfield not attempted (needs Pro plan + the client's wantsAiPhotos opt-in) — CSS-only design.`)
@@ -410,7 +417,8 @@ async function buildPhotoPool(
         if (ownCopy) {
           return {
             photo: { url: ownCopy, caption: `AI-generated, illustrative — suggested for: ${request.purpose}` },
-            unsplash: null,
+            stock: null,
+            provider: "higgsfield" as const,
           }
         }
         console.error(`[photo-pool] ${context}: AI image generated but could not be stored.`)
@@ -421,12 +429,13 @@ async function buildPhotoPool(
       // beats none — and the Flyer Agent can still decline it. Skipped when
       // the first search failed for a reason a retry can't fix.
       if (gates.allowStockPhotos && (found.reason === "thin_results" || found.reason === "no_relevant_match")) {
-        const stock = await findFallbackStockPhoto({ industry: intake.industry, context })
+        const stock = await findFallbackStock({ industry: intake.industry, context }, gates.allowPexels)
         if (stock.ok) {
-          console.log(`[photo-pool] ${context}: AI photo unavailable — using a fallback stock photo for "${stock.queryUsed}".`)
+          console.log(`[photo-pool] ${context}: AI photo unavailable — using a fallback ${stock.photo.provider} photo for "${stock.queryUsed}".`)
           return {
             photo: { url: stock.photo.url, caption: `Stock photo — suggested for: ${request.purpose}` },
-            unsplash: stock.photo,
+            stock: stock.photo,
+            provider: stock.photo.provider,
           }
         }
         console.log(`[photo-pool] ${context}: fallback stock search missed too (${stock.reason}) — ${stock.detail}`)
@@ -443,13 +452,16 @@ async function buildPhotoPool(
 
   return {
     photos: hits.map((h) => h.photo),
-    unsplash: hits.map((h) => h.unsplash).filter((u): u is UnsplashPhoto => u !== null),
+    stock: hits.map((h) => h.stock).filter((u): u is StockPhoto => u !== null),
+    candidates: hits.map((h) => ({ url: h.photo.url, provider: h.provider, stock: h.stock ?? undefined })),
   }
 }
 
 /**
- * Honours the two obligations that come with using an Unsplash photo, for
- * the photos that genuinely reached this flyer's final HTML.
+ * Honours the obligations that come with using a stock photo, for the
+ * photos that genuinely reached this flyer's final HTML: a credit for every
+ * stock photo, and Unsplash's download trigger for Unsplash ones (Pexels has
+ * no equivalent).
  *
  * Kept as one function on purpose: the API Guidelines require BOTH a credit
  * and a download trigger, and pairing them here means neither can be
@@ -459,11 +471,11 @@ async function buildPhotoPool(
  */
 export async function applyPhotoObligations(
   html: string,
-  unsplash: UnsplashPhoto[],
+  stock: StockPhoto[],
   formatId: string | undefined,
   context: string,
 ): Promise<string> {
-  const used = creditsUsedIn(html, unsplash)
+  const used = creditsUsedIn(html, stock)
   if (used.length === 0) {
     // The distinction that was previously invisible. prompts/flyer.ts
     // explicitly permits the agent to design with zero photos when nothing
@@ -472,15 +484,15 @@ export async function applyPhotoObligations(
     // was ever sourced, or one was sourced and declined. Without this line
     // they are indistinguishable after the fact, which is exactly what made
     // the "why is there no photo?" question unanswerable.
-    if (unsplash.length > 0) {
+    if (stock.length > 0) {
       console.log(
-        `[photo-pool] ${context}: agent DECLINED all ${unsplash.length} available photo(s) — ` +
+        `[photo-pool] ${context}: agent DECLINED all ${stock.length} available photo(s) — ` +
           `composed with zero photos. Not a sourcing failure; see rule 5 in prompts/flyer.ts.`,
       )
     }
     return html
   }
-  await finalizePhotoUsage(used, context)
+  await finalizePhotoUsage(used.filter((p) => p.provider !== "pexels"), context)
   return injectPhotoAttribution(html, used, getFormat(formatId).medium)
 }
 
@@ -825,9 +837,10 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
   }
   const { plan, includeExtras, isEnterpriseAccount } = await getPlanFeatures(email)
   if (stockPhotosEnabled(plan) || aiPhotosEnabled(plan, intake.wantsAiPhotos)) await setGenerationStage(email, GENERATION_STAGES.photos)
-  const { photos, unsplash: unsplashPool } = await buildPhotoPool(intake, flyerRequests, {
+  const { photos, stock: stockPool, candidates: photoCandidates } = await buildPhotoPool(intake, flyerRequests, {
     allowStockPhotos: stockPhotosEnabled(plan),
     allowAiGeneration: aiPhotosEnabled(plan, intake.wantsAiPhotos),
+    allowPexels: await pexelsAllowedFor(email, isEnterpriseAccount),
   })
   stageMark(runId, t0, "photo pool ready")
 
@@ -996,22 +1009,22 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     const tracking = trackingByFlyerId.get(flyer.id)
     if (tracking) await backfillTrackingContent(tracking.code, flyer)
 
+    const finalHtml = substituteLogo(
+      substituteQr(
+        await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), stockPool, flyerRequests[0]?.formatId, `flyer ${flyer.id}`),
+        tracking?.qrDataUrl ?? null,
+      ),
+      intake.brandAssets.logoUrl,
+    )
     await updateDeliverable(email, {
       type: "flyer",
       id: flyer.id,
       status: "Ready",
-      downloadUrl: toDataUrl(
-        substituteLogo(
-          substituteQr(
-            await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), unsplashPool, flyerRequests[0]?.formatId, `flyer ${flyer.id}`),
-            tracking?.qrDataUrl ?? null,
-          ),
-          intake.brandAssets.logoUrl,
-        ),
-      ),
+      downloadUrl: toDataUrl(finalHtml),
       trackingCode: tracking?.code,
       generationMode: templateMode ? "template" : "ai",
     })
+    await recordFlyerPhotoSource(flyer.id, finalHtml, photoCandidates)
   }
 
   // Written as a second, additive pass so the SMB deliverable write above is
@@ -1047,7 +1060,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
             type: "flyer",
             id: flyer.id,
             repurposed: {
-              instagramDownloadUrl: toDataUrl(fromTemplate.instagramHtml),
+              instagramDownloadUrl: toDataUrl(creditInstagramSquare(fromTemplate.instagramHtml, stockPool)),
               instagramCaption: fromTemplate.caption,
               textBlurb: fromTemplate.textBlurb,
               nextdoorPost: fromTemplate.nextdoorPost,
@@ -1167,9 +1180,10 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
   const brandProfile = await applyFontChoice(await runBrandAgent(intake, email), email, intake.fontStylePreference)
   stageMark(runId, t0, "brand done")
   const { plan, includeExtras, isEnterpriseAccount } = await getPlanFeatures(email)
-  const { photos, unsplash: unsplashPool } = await buildPhotoPool(intake, [flyerRequest], {
+  const { photos, stock: stockPool, candidates: photoCandidates } = await buildPhotoPool(intake, [flyerRequest], {
     allowStockPhotos: stockPhotosEnabled(plan),
     allowAiGeneration: aiPhotosEnabled(plan, intake.wantsAiPhotos),
+    allowPexels: await pexelsAllowedFor(email, isEnterpriseAccount),
   })
   stageMark(runId, t0, "photo pool ready")
 
@@ -1212,21 +1226,21 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
 
   if (tracking) await backfillTrackingContent(tracking.code, flyer)
 
+  const finalHtml = substituteLogo(
+    substituteQr(
+      await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), stockPool, flyerRequest.formatId, `flyer ${flyer.id}`),
+      tracking?.qrDataUrl ?? null,
+    ),
+    intake.brandAssets.logoUrl,
+  )
   await updateDeliverable(email, {
     type: "flyer",
     id: flyer.id,
     status: "Ready",
-    downloadUrl: toDataUrl(
-      substituteLogo(
-        substituteQr(
-          await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), unsplashPool, flyerRequest.formatId, `flyer ${flyer.id}`),
-          tracking?.qrDataUrl ?? null,
-        ),
-        intake.brandAssets.logoUrl,
-      ),
-    ),
+    downloadUrl: toDataUrl(finalHtml),
     trackingCode: tracking?.code,
   })
+  await recordFlyerPhotoSource(flyer.id, finalHtml, photoCandidates)
 
   if (!includeExtras) return
 

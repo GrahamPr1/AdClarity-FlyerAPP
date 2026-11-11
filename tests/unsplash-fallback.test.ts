@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: vi.fn(async () => ({ allowed: true, retryAfterSeconds: 0 })) }))
+vi.mock("@/lib/photo-search-cache", () => ({
+  readCachedSearch: async () => null,
+  writeCachedSearch: async () => {},
+  isProviderExhausted: async () => false,
+  markProviderExhausted: async () => {},
+  noteRateLimitHeaders: async () => {},
+  DEFAULT_EXHAUSTED_SECONDS: 600,
+}))
 
 import { findFallbackStockPhoto, GENERIC_FALLBACK_QUERY } from "@/lib/unsplash"
 

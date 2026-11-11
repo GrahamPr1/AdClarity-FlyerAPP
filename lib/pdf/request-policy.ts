@@ -17,6 +17,7 @@
  *   - Vercel Blob directly (*.blob.vercel-storage.com), for any document that
  *     references a Blob URL as-is.
  *   - Unsplash stock photos: images.unsplash.com.
+ *   - Pexels stock photos: images.pexels.com (hotlinked, like Unsplash; see lib/pexels.ts).
  *
  * Not on the list, on purpose: Higgsfield AI images and logos from a client's
  * own website (submitted or scanned). Those are copied into our Blob store
@@ -32,6 +33,7 @@ export const PDF_ALLOWED_HOSTS = [
   "fonts.googleapis.com",
   "fonts.gstatic.com",
   "images.unsplash.com",
+  "images.pexels.com",
 ] as const
 
 /** Host suffixes: any subdomain is allowed (".blob.vercel-storage.com" matches "abc.public.blob.vercel-storage.com"). */

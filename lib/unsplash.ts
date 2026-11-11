@@ -1,4 +1,5 @@
 import { checkRateLimit } from "./rate-limit"
+import { isProviderExhausted, markProviderExhausted, noteRateLimitHeaders, readCachedSearch, writeCachedSearch, DEFAULT_EXHAUSTED_SECONDS } from "./photo-search-cache"
 
 /**
  * Unsplash stock photography — the primary photo source for flyers.
@@ -93,6 +94,7 @@ const STOPWORDS = new Set([
 const MIN_TERM_LENGTH = 3
 
 export interface UnsplashPhoto {
+  provider: "unsplash"
   /** Unsplash photo id — useful in logs, never shown to a client. */
   id: string
   /** The image to embed. `regular` (~1080px wide) is the guideline-recommended display size. */
@@ -218,8 +220,8 @@ export function buildSpecificSearchQuery(opts: { industry: string; purpose: stri
   return kept.join(" ").slice(0, 100)
 }
 
-/** Meaningful words a candidate photo should plausibly relate to. */
-function relevanceTerms(query: string): string[] {
+/** Meaningful words a candidate photo should plausibly relate to. Shared with lib/pexels.ts. */
+export function relevanceTerms(query: string): string[] {
   return query
     .toLowerCase()
     .replace(/[^a-z\s]/g, " ")
@@ -239,13 +241,45 @@ function isRelevant(photo: { description: string | null; alt_description: string
   return terms.some((t) => haystack.includes(t))
 }
 
+/** The fields of a search response this module reads — also exactly what the search cache stores. */
+interface SearchBody {
+  total?: number
+  results?: {
+    id: string
+    urls: { regular: string }
+    links: { download_location: string }
+    user: { name: string; links: { html: string } }
+    description: string | null
+    alt_description: string | null
+    tags?: { title?: string }[]
+  }[]
+}
+
+/** Drops everything the selection below doesn't read, so cached entries stay small. */
+function trimForCache(body: SearchBody): SearchBody {
+  return {
+    total: body.total,
+    results: (body.results ?? []).map((r) => ({
+      id: r.id,
+      urls: { regular: r.urls.regular },
+      links: { download_location: r.links.download_location },
+      user: { name: r.user.name, links: { html: r.user.links.html } },
+      description: r.description,
+      alt_description: r.alt_description,
+      tags: (r.tags ?? []).map((t) => ({ title: t.title })),
+    })),
+  }
+}
+
 /**
  * Finds one on-topic photo, or explains why it couldn't.
  *
  * Never throws: every failure path returns a reason so the caller can fall
  * back to the CSS-only design instead of failing a generation the client has
- * already spent a credit on. Exactly one request per call — no pagination,
- * no retries — because of the hourly ceiling above.
+ * already spent a credit on. At most one request per call — no pagination,
+ * no retries — because of the hourly ceiling above, and none at all when the
+ * same query is in the search cache or Unsplash last reported its quota used
+ * up (lib/photo-search-cache.ts).
  */
 export async function findPhoto(opts: {
   query: string
@@ -260,6 +294,15 @@ export async function findPhoto(opts: {
   const key = accessKey()
   if (!key) {
     return { ok: false, reason: "not_configured", detail: "UNSPLASH_ACCESS_KEY is not set" }
+  }
+
+  // Cache first: a cached search costs no request, so neither an exhausted
+  // quota nor the hourly budget is a reason to refuse one.
+  const cached = await readCachedSearch<SearchBody>("unsplash", opts.query)
+  if (cached) return pickPhoto(cached, opts)
+
+  if (await isProviderExhausted("unsplash")) {
+    return { ok: false, reason: "rate_limited", detail: "skipped: Unsplash last reported its hourly quota used up" }
   }
 
   const budget = await checkRateLimit(RATE_LIMIT_KEY, DEMO_HOURLY_BUDGET, RATE_WINDOW_SECONDS)
@@ -281,35 +324,29 @@ export async function findPhoto(opts: {
     return { ok: false, reason: "error", detail: err instanceof Error ? err.message : String(err) }
   }
 
-  const remaining = Number(res.headers.get("x-ratelimit-remaining") ?? NaN)
-  if (Number.isFinite(remaining) && remaining <= HEADER_REMAINING_FLOOR) {
-    console.warn(`[unsplash] ${opts.context}: only ${remaining} requests left on the hourly quota.`)
-  }
+  // Authoritative over our own counter: once Unsplash says this little is
+  // left, later generations skip it rather than spend a request on a 403.
+  await noteRateLimitHeaders("unsplash", res.headers, HEADER_REMAINING_FLOOR)
 
   if (!res.ok) {
     // 403 here is Unsplash's own ceiling, reached despite our counter.
     const reason = res.status === 403 || res.status === 429 ? "rate_limited" : "error"
+    if (reason === "rate_limited") await markProviderExhausted("unsplash", DEFAULT_EXHAUSTED_SECONDS, `HTTP ${res.status}`)
     return { ok: false, reason, detail: `HTTP ${res.status}` }
   }
 
-  let body: {
-    total?: number
-    results?: {
-      id: string
-      urls: { regular: string }
-      links: { download_location: string }
-      user: { name: string; links: { html: string } }
-      description: string | null
-      alt_description: string | null
-      tags?: { title?: string }[]
-    }[]
-  }
+  let body: SearchBody
   try {
-    body = await res.json()
+    body = trimForCache(await res.json())
   } catch {
     return { ok: false, reason: "error", detail: "unparseable response" }
   }
+  await writeCachedSearch("unsplash", opts.query, body)
+  return pickPhoto(body, opts)
+}
 
+/** The relevance gates, applied identically to a live or a cached search. */
+function pickPhoto(body: SearchBody, opts: { query: string; requireKeywordMatch?: boolean }): PhotoSearchOutcome {
   const total = body.total ?? 0
   const results = body.results ?? []
 
@@ -330,6 +367,7 @@ export async function findPhoto(opts: {
   return {
     ok: true,
     photo: {
+      provider: "unsplash",
       id: match.id,
       url: match.urls.regular,
       photographerName: match.user.name,
