@@ -14,6 +14,7 @@ import { AdminNopActivity, AdminProgramAdmins } from "@/components/admin-program
 import { AdminNopEvents } from "@/components/admin-nop-events"
 import { AdminNopPrintRequests } from "@/components/admin-nop-print-requests"
 import { AdminNopMonthlyEmail } from "@/components/admin-nop-monthly-email"
+import { AdminNopFollowUpReminders } from "@/components/admin-nop-followup-reminders"
 import { AdminNopSmsOptOuts } from "@/components/admin-nop-sms-optouts"
 import { AdminProTrial } from "@/components/admin-pro-trial"
 
@@ -219,6 +220,7 @@ export function NopAgentsAdmin({ base, role }: { base: string; role: "owner" | "
 
       <AdminNopEvents />
       <AdminNopPrintRequests />
+      <AdminNopFollowUpReminders />
       <AdminNopMonthlyEmail />
       <AdminNopSmsOptOuts />
 
