@@ -27,6 +27,7 @@ const BENEFITS: { feature: AgentFeature; title: NopStringKey; body: NopStringKey
   { feature: "followUpReminders", title: "pro.b_remind_title", body: "pro.b_remind_body" },
   { feature: "leads", title: "pro.b_inbox_title", body: "pro.b_inbox_body" },
   { feature: "agentPage", title: "pro.b_page_title", body: "pro.b_page_body" },
+  { feature: "emailSignature", title: "pro.b_signature_title", body: "pro.b_signature_body" },
   { feature: "events", title: "pro.b_events_title", body: "pro.b_events_body" },
   { feature: "recruiting", title: "pro.b_team_title", body: "pro.b_team_body" },
   { feature: "results", title: "pro.b_results_title", body: "pro.b_results_body" },

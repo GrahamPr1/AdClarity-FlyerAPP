@@ -65,6 +65,14 @@ export function NopAgentPageView({ page, code, lang, packages, consent, sms, mod
             {page.email && <a href={`mailto:${page.email}`} className={action}>{t("apage.email")}</a>}
           </div>
           <p className="mt-2 text-center text-sm text-muted-foreground">{[page.phone, page.email].filter(Boolean).join(" · ")}</p>
+          {preview ? (
+            <span aria-disabled="true" data-testid="save-contact" className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg border border-border px-3 text-sm font-medium opacity-60">{t("apage.save_contact")}</span>
+          ) : (
+            <a href={`/p/${encodeURIComponent(code)}/contact`} download data-testid="save-contact"
+              className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg border border-border px-3 text-sm font-medium hover:bg-[var(--surface-soft)]">
+              {t("apage.save_contact")}
+            </a>
+          )}
           {page.bookingUrl && (
             <a href={page.bookingUrl} target="_blank" rel="noopener noreferrer nofollow" data-testid="agent-booking"
               className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg border border-border px-3 text-sm font-medium hover:bg-[var(--surface-soft)]">

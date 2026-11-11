@@ -5,7 +5,7 @@ import { NOP_STRING_WHERE } from "@/lib/enterprise/nop-i18n/where"
 import { langFromAcceptLanguage, resolveNopLang, tNop } from "@/lib/enterprise/nop-i18n"
 
 // Strings that are meant to read the same in both languages.
-const SAME_IN_BOTH = new Set(["lang.group", "lang.en", "lang.es", "display.phone_placeholder", "portal.pro_label", "event.tz_arizona", "event.tz_alaska"])
+const SAME_IN_BOTH = new Set(["lang.group", "lang.en", "lang.es", "display.phone_placeholder", "portal.pro_label", "event.tz_arizona", "event.tz_alaska", "signature.gmail_title", "signature.outlook_title"])
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort()
 
 describe("dictionaries", () => {

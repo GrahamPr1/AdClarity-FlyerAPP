@@ -17,7 +17,7 @@ export function isAgentTier(v: unknown): v is AgentTier {
   return typeof v === "string" && (AGENT_TIERS as readonly string[]).includes(v)
 }
 
-export const AGENT_FEATURES = ["results", "leads", "qrLeadPage", "agentPage", "agentPhoto", "followUps", "followUpReminders", "events", "recruiting", "team", "printRequests", "monthlyEmail"] as const
+export const AGENT_FEATURES = ["results", "leads", "qrLeadPage", "agentPage", "agentPhoto", "followUps", "followUpReminders", "emailSignature", "events", "recruiting", "team", "printRequests", "monthlyEmail"] as const
 export type AgentFeature = (typeof AGENT_FEATURES)[number]
 
 export function isAgentFeature(v: unknown): v is AgentFeature {
@@ -33,6 +33,7 @@ export const FEATURE_TIER: Record<AgentFeature, AgentTier> = {
   agentPhoto: "pro",
   followUps: "pro",
   followUpReminders: "pro",
+  emailSignature: "pro",
   events: "pro",
   recruiting: "pro",
   team: "leader",
@@ -49,6 +50,7 @@ export const FEATURE_LABELS: Record<AgentFeature, string> = {
   agentPhoto: "Photo on the personal agent page",
   followUps: "Follow-up messages",
   followUpReminders: "Daily follow-up reminder email",
+  emailSignature: "Email signature (with the personal page link and QR)",
   events: "Event kit",
   recruiting: "Recruiting kit",
   team: "Team dashboard (Leader)",
