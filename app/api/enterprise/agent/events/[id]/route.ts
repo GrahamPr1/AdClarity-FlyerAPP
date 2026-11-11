@@ -3,6 +3,7 @@ import { requireAgentFeature } from "@/lib/enterprise/portal/api"
 import { rejectWhileViewingAs } from "@/lib/enterprise/portal/view-as"
 import { cancelEvent, checkEventInput, eventLink, getEvent, updateEvent } from "@/lib/enterprise/portal/events"
 import { listAgentLeads } from "@/lib/enterprise/portal/agent-data"
+import { isRsvp } from "@/lib/enterprise/portal/lead-tracker"
 
 // GET    /api/enterprise/agent/events/{id} -> the event and its RSVP count
 // PATCH  /api/enterprise/agent/events/{id} {…same fields as create} -> the updated event
@@ -21,7 +22,8 @@ async function load(request: NextRequest, id: string) {
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const r = await load(request, (await params).id)
   if ("response" in r) return r.response
-  const rsvps = (await listAgentLeads(r.ctx.agent.agentId)).filter((l) => l.eventId === r.event.id)
+  const forEvent = (await listAgentLeads(r.ctx.agent.agentId)).filter((l) => l.eventId === r.event.id)
+  const rsvps = forEvent.filter(isRsvp)
   return NextResponse.json({ event: { ...r.event, link: eventLink(r.event.code) }, rsvps: rsvps.length, guests: rsvps.reduce((n, l) => n + 1 + (l.guests ?? 0), 0) }, { headers: { "Cache-Control": "no-store" } })
 }
 

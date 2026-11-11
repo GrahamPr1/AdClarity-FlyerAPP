@@ -235,6 +235,14 @@ export default function PrivacyPage() {
         taken down, and we don&apos;t send text messages.
       </p>
       <p>
+        <strong>Checking in at an event.</strong> At some events, you can check in by scanning a
+        code at the door. We collect your name, phone number and the time you checked in, with the
+        consent statement you agreed to (and your answer to the optional text-message box, if
+        it&apos;s shown). If you RSVP&apos;d with the same phone number, your RSVP is marked as
+        checked in; otherwise the agent hosting the event receives your check-in like any other
+        request. It&apos;s kept and deleted the same way.
+      </p>
+      <p>
         <strong>Text messages.</strong> Some forms have a second, optional box to agree to get text
         messages from the agent about your request and upcoming events. You don&apos;t have to tick
         it to send the form. Either way, we record your answer, the exact words you saw, the
@@ -318,6 +326,15 @@ export default function PrivacyPage() {
           en el idioma que usó, con la hora, el lugar y cómo comunicarse con el agente. Las
           respuestas a ese correo le llegan al agente. No lo enviamos si el evento se cancela o se
           retira, y no enviamos mensajes de texto.
+        </p>
+        <p>
+          <strong>Registro de llegada a un evento.</strong> En algunos eventos, puede registrar su
+          llegada escaneando un código en la entrada. Recopilamos su nombre, su número de teléfono y
+          la hora en que registró su llegada, con la declaración de consentimiento que aceptó (y su
+          respuesta a la casilla opcional de mensajes de texto, si aparece). Si confirmó su
+          asistencia con el mismo número de teléfono, su confirmación se marca como que llegó; si
+          no, el agente que organiza el evento recibe su registro como cualquier otra solicitud. Se
+          guarda y se elimina de la misma manera.
         </p>
         <p>
           <strong>Mensajes de texto.</strong> Algunos formularios tienen una segunda casilla,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { audit, requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { getAgentIdOwner, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { listAgentLeads } from "@/lib/enterprise/portal/agent-data"
+import { isRsvp } from "@/lib/enterprise/portal/lead-tracker"
 import { loadPortalContext } from "@/lib/enterprise/portal/context"
 import { eventLink, formatEventWhen, getEvent, listAllEvents, setEventHidden, type AgentEvent } from "@/lib/enterprise/portal/events"
 import { sendEventHiddenNotice } from "@/lib/email"
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
   const now = Date.now()
   const rows: AdminEventRow[] = events.map((e) => {
     const a = byAgent.get(e.agentId)
-    const rsvps = (a?.leads ?? []).filter((l) => l.eventId === e.id)
+    const rsvps = (a?.leads ?? []).filter((l) => l.eventId === e.id && isRsvp(l))
     return {
       id: e.id, code: e.code, link: eventLink(e.code), agentId: e.agentId, agentName: a?.name ?? null, title: e.title,
       when: formatEventWhen(e, "en"), startsAt: e.startsAt, rsvps: rsvps.length, guests: rsvps.reduce((n, l) => n + 1 + (l.guests ?? 0), 0),

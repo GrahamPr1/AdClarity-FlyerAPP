@@ -632,6 +632,13 @@ export interface LeadRecord {
   followUpOn?: string | null
   /** The last time the agent changed status, notes or follow-up date. */
   trackedAt?: string | null
+  /**
+   * NOP event check-in (Part H): when they checked in at the event (eventId),
+   * and the consent they agreed to on the check-in page. Set on their RSVP if
+   * they had one (matched by phone), else on a new lead.
+   */
+  checkedInAt?: string | null
+  checkInConsent?: LeadConsent
   /** NOP event RSVPs (lib/enterprise/portal/events.ts): the event, how many guests come along, and when the day-before reminder went. */
   eventId?: string
   guests?: number

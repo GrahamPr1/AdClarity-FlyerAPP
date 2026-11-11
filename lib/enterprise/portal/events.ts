@@ -38,6 +38,10 @@ const ALL_EVENTS_KEY = "nop-events-all"
 export const EVENT_FLYER_READY = false
 export const NOP_EVENT_PATH = "/e"
 export const eventLink = (code: string) => `${CANONICAL_SITE_URL}${NOP_EVENT_PATH}/${code}`
+/** The check-in page people scan at the event (Part H). */
+export const checkInLink = (code: string) => `${CANONICAL_SITE_URL}${NOP_EVENT_PATH}/${code}/checkin`
+/** Check-in is open from this long before the start until this long after the end. */
+export const CHECKIN_WINDOW_HOURS = 3
 
 /** US time zones agents pick from. The event's date and time are entered in it. */
 export const EVENT_TIMEZONES = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu"] as const
@@ -221,6 +225,8 @@ export interface EventPage {
   email: string
   /** RSVPs accepted now: not cancelled, not over, and the agent can still use events and leads. */
   open: boolean
+  /** The agent can still use events and lead capture (whatever the time): what check-in needs too. */
+  canTakeLeads: boolean
   state: "open" | "cancelled" | "ended" | "closed" | "hidden"
 }
 
@@ -240,11 +246,12 @@ export async function eventPageFor(code: string, now = new Date()): Promise<Even
   const ctx = await loadPortalContext(owner)
   if (!ctx || ctx.agent.agentId !== event.agentId) return null
   const p = ctx.agent.profile
-  const state = event.hiddenAt ? "hidden" : event.cancelledAt ? "cancelled" : Date.parse(event.endsAt) <= now.getTime() ? "ended" : canUse(ctx, "events") && canUse(ctx, "leads") ? "open" : "closed"
+  const canTakeLeads = canUse(ctx, "events") && canUse(ctx, "leads")
+  const state = event.hiddenAt ? "hidden" : event.cancelledAt ? "cancelled" : Date.parse(event.endsAt) <= now.getTime() ? "ended" : canTakeLeads ? "open" : "closed"
   return {
     event, agentId: event.agentId, owner, orgId: ctx.orgId, agentLang: p.preferredLanguage ?? "en",
     agentName: p.displayName ?? p.name, phone: p.displayPhone ?? p.phone, email: p.displayEmail ?? p.email,
-    open: state === "open", state,
+    open: state === "open", state, canTakeLeads,
   }
 }
 
@@ -259,3 +266,20 @@ export async function deleteAgentEvents(agentId: string): Promise<number> {
   await redis.del(agentEventsKey(agentId))
   return events.length
 }
+
+export type CheckInState = "open" | "not_yet" | "over" | "cancelled" | "hidden" | "closed"
+
+/**
+ * Whether people can check in now: the event isn't cancelled or hidden, the
+ * agent can still take leads, and it's between CHECKIN_WINDOW_HOURS before the
+ * start and CHECKIN_WINDOW_HOURS after the end.
+ */
+export function checkInState(page: Pick<EventPage, "event" | "state" | "canTakeLeads">, now: Date): CheckInState {
+  if (page.state === "hidden" || page.state === "cancelled") return page.state
+  if (!page.canTakeLeads) return "closed"
+  const w = CHECKIN_WINDOW_HOURS * 3600_000
+  if (now.getTime() < Date.parse(page.event.startsAt) - w) return "not_yet"
+  if (now.getTime() > Date.parse(page.event.endsAt) + w) return "over"
+  return "open"
+}
+

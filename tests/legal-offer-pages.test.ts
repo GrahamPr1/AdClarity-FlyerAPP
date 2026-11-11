@@ -39,6 +39,11 @@ describe("Privacy Policy", () => {
     expect(html).not.toMatch(/no advertising trackers|runs no advertising|no ad retargeting/i)
   })
 
+  it("covers checking in at an event (EN and ES)", () => {
+    expect(html).toContain("At some events, you can check in by scanning a code at the door.")
+    expect(html).toContain("En algunos eventos, puede registrar su llegada escaneando un código en la entrada.")
+  })
+
   it("covers the daily follow-up reminder (EN and ES)", () => {
     expect(html).toContain("and a morning reminder on days when some of your leads need follow-up, listing them. You can turn either one off in your profile.")
     expect(html).toContain("y un recordatorio por la mañana los días en que algunos de sus contactos necesitan seguimiento")

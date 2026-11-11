@@ -2,6 +2,7 @@ import { Redis } from "@upstash/redis"
 import { sendEventAgentReminder, sendEventReminder } from "@/lib/email"
 import { CANONICAL_SITE_URL } from "@/lib/site-url"
 import { listAgentLeads, updateAgentLead } from "./agent-data"
+import { isRsvp } from "./lead-tracker"
 import { eventLink, eventPageFor, eventsStartingBetween, formatEventWhen, localDate, markAgentReminded } from "./events"
 
 // The day-before event reminder. Daily (Vercel cron, vercel.json, 14:00 UTC:
@@ -38,7 +39,7 @@ export async function runEventReminders(now = new Date()): Promise<ReminderRun> 
     const page = await eventPageFor(event.code, now)
     if (!page || page.state !== "open") continue
     run.events++
-    const rsvps = (await listAgentLeads(event.agentId)).filter((l) => l.eventId === event.id && !l.reminderSentAt)
+    const rsvps = (await listAgentLeads(event.agentId)).filter((l) => l.eventId === event.id && isRsvp(l) && !l.reminderSentAt)
     for (const rsvp of rsvps) {
       if (!rsvp.email) {
         run.noEmail++
@@ -58,7 +59,7 @@ export async function runEventReminders(now = new Date()): Promise<ReminderRun> 
       }
     }
     if (!event.agentReminderSentAt) {
-      const all = (await listAgentLeads(event.agentId)).filter((l) => l.eventId === event.id).reverse()
+      const all = (await listAgentLeads(event.agentId)).filter((l) => l.eventId === event.id && isRsvp(l)).reverse()
       const out = await sendEventAgentReminder({
         to: page.owner, lang: page.agentLang, title: event.title, when: formatEventWhen(event, page.agentLang),
         place: [event.locationName, event.address].filter(Boolean).join(", "),

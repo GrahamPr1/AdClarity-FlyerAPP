@@ -33,9 +33,11 @@ export interface EditorEvent {
   details: string
   cancelledAt: string | null
   hiddenAt?: string | null
+  /** The check-in page people scan at the event (Part H). */
+  checkInLink?: string
 }
 
-export function NopEventEditor({ event, stats, readOnly, flyerReady }: { event: EditorEvent | null; stats: { rsvps: number; guests: number } | null; readOnly: boolean; flyerReady: boolean }) {
+export function NopEventEditor({ event, stats, readOnly, flyerReady }: { event: EditorEvent | null; stats: { rsvps: number; guests: number; checkedIn?: number } | null; readOnly: boolean; flyerReady: boolean }) {
   const { t } = useNop()
   const router = useRouter()
   const browserTz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : ""
@@ -90,6 +92,18 @@ export function NopEventEditor({ event, stats, readOnly, flyerReady }: { event: 
             <p className="mt-3 text-sm" data-testid="event-rsvps">
               {t(stats.rsvps === 1 ? "event.rsvp_count_one" : "event.rsvp_count", { n: String(stats.rsvps), guests: String(stats.guests) })} · <Link href="/agent/leads" className="text-[var(--brand-teal-bright)] underline-offset-2 hover:underline">{t("event.see_rsvps")}</Link>
             </p>
+          )}
+          {event.checkInLink && !cancelled && !event.hiddenAt && (
+            <div data-testid="event-checkin" className="mt-5 border-t border-border pt-4">
+              <h3 className="font-semibold">{t("checkin.agent_title")}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{t("checkin.agent_intro")}</p>
+              <p className="mt-2 break-all font-mono text-sm" data-testid="event-checkin-link">{event.checkInLink.replace(/^https?:\/\//, "")}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a href={`/agent/events/${event.id}/sign`} className={outline} data-testid="event-checkin-sign">{t("checkin.print_sign")}</a>
+                <a href={`/api/enterprise/agent/events/${event.id}/qr?format=png&kind=checkin`} className={outline} data-testid="event-checkin-qr">{t("checkin.qr_png")}</a>
+              </div>
+              {stats && <p className="mt-3 text-sm" data-testid="event-checked-in">{t("checkin.count", { n: String(stats.checkedIn ?? 0) })}</p>}
+            </div>
           )}
           {/* The spot for the event flyer: filled when the program's event template arrives (EVENT_FLYER_READY). */}
           {!flyerReady && <p data-testid="event-flyer-placeholder" className="mt-4 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">{t("event.flyer_placeholder")}</p>}

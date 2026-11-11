@@ -8,6 +8,7 @@ import { getAgentScans, listAgentLeads } from "./agent-data"
 import { canUse } from "./features"
 import { loadPortalContext } from "./context"
 import { listRecruits } from "./recruiting"
+import { isRsvp } from "./lead-tracker"
 
 // The monthly results email (Phase 8). Once a month (Vercel cron, vercel.json,
 // on the 1st), every active Pro/Leader agent whose org has it on, and who
@@ -54,8 +55,8 @@ export async function monthlyResults(ctx: Awaited<ReturnType<typeof loadPortalCo
   const monthLeads = leads.filter((l) => inMonth(l.createdAt))
   return {
     scans: scans.thisMonth,
-    leads: monthLeads.filter((l) => !l.eventId).length,
-    rsvps: canUse(ctx, "events") ? monthLeads.filter((l) => l.eventId).length : null,
+    leads: monthLeads.filter((l) => !isRsvp(l)).length,
+    rsvps: canUse(ctx, "events") ? monthLeads.filter(isRsvp).length : null,
     recruits: recruits ? recruits.filter((r) => inMonth(r.signedUpAt)).length : null,
   }
 }
