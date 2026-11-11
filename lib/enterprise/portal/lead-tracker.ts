@@ -68,6 +68,9 @@ export function applyTrackerPatch(lead: LeadRecord, patch: TrackerPatch, at: Dat
     next.status = patch.status
     next.statusAt = now
     next.contactedAt = patch.status === "new" ? null : lead.contactedAt ?? now
+    // The first time it reaches each stage, for the monthly counts.
+    if (patch.status === "appointment") next.appointmentAt = lead.appointmentAt ?? now
+    if (patch.status === "enrolled") next.enrolledAt = lead.enrolledAt ?? now
   } else if (patch.status) {
     next.status = patch.status
   }
@@ -103,5 +106,36 @@ export function isRsvp(lead: Pick<LeadRecord, "eventId" | "flyerId">): boolean {
 /** A walk-in who checked in at an event without an RSVP. */
 export function isWalkIn(lead: Pick<LeadRecord, "eventId" | "flyerId">): boolean {
   return !!lead.eventId && !!lead.flyerId?.startsWith("nop-event-checkin:")
+}
+
+export interface MonthFunnel {
+  /** Requests that came in (forms, RSVPs, check-ins). */
+  leads: number
+  contacted: number
+  appointments: number
+  enrolled: number
+}
+
+/**
+ * What happened in a month [start, end): leads that came in, and leads first
+ * contacted, given an appointment, or enrolled then. A stage counts only while
+ * the lead is still at or past it (a mistaken tap that was undone doesn't).
+ * Leads tracked before the stage times existed fall back to their status time.
+ */
+export function monthFunnel(leads: LeadRecord[], start: Date, end: Date): MonthFunnel {
+  const inRange = (iso: string | null | undefined) => { if (!iso) return false; const t = Date.parse(iso); return t >= start.getTime() && t < end.getTime() }
+  let out: MonthFunnel = { leads: 0, contacted: 0, appointments: 0, enrolled: 0 }
+  for (const l of leads) {
+    const status = leadStatus(l)
+    const appointmentAt = l.appointmentAt ?? (status === "appointment" ? l.statusAt : null)
+    const enrolledAt = l.enrolledAt ?? (status === "enrolled" ? l.statusAt : null)
+    out = {
+      leads: out.leads + (inRange(l.createdAt) ? 1 : 0),
+      contacted: out.contacted + (status !== "new" && inRange(l.contactedAt) ? 1 : 0),
+      appointments: out.appointments + ((status === "appointment" || status === "enrolled") && inRange(appointmentAt) ? 1 : 0),
+      enrolled: out.enrolled + (status === "enrolled" && inRange(enrolledAt) ? 1 : 0),
+    }
+  }
+  return out
 }
 

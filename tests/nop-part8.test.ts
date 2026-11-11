@@ -159,11 +159,11 @@ describe("monthly results email", () => {
     expect(previousMonth(new Date("2026-11-01T03:00:00Z"))).toBe("2026-09") // still 31 Oct in Eastern
   })
 
-  it("active Pro agents with the switch on, in their language, last month's numbers (leads and RSVPs split; Eastern month edges)", async () => {
+  it("active Pro agents with the switch on, in their language, last month's numbers (the same as Home: every request that came in, RSVPs also shown on their own; Eastern month edges)", async () => {
     const { runMonthlyEmail } = await job()
     const run = await runMonthlyEmail({ live: true, by: "monthly job", now: new Date("2026-11-01T15:00:00Z") })
     expect(run).toMatchObject({ month: "2026-10", eligible: 1, sent: 1, failed: 0 })
-    expect(r.mails).toEqual([expect.objectContaining({ to: "pro@x.test", lang: "es", month: "2026-10", results: { scans: 12, leads: 1, rsvps: 1, recruits: 1 } })])
+    expect(r.mails).toEqual([expect.objectContaining({ to: "pro@x.test", lang: "es", month: "2026-10", results: { scans: 12, leads: 2, contacted: 0, appointments: 0, enrolled: 0, rsvps: 1, recruits: 1 } })])
   })
 
   it("never twice in a month; a failed send is retried next run", async () => {

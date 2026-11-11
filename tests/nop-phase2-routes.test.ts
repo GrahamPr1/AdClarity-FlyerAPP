@@ -156,9 +156,13 @@ describe("QR lead form", () => {
 
 describe("the agent's leads and results", () => {
   it("Pro: leads and this month's results", async () => {
-    s.leads = [{ id: "a", name: "Ana Ruiz", phone: "(270) 555-0199", email: null }]
-    expect((await call(leadsList, "GET", "/x", { who: "agent@x.test" })).json).toMatchObject({ leads: [{ id: "a" }], followUps: { a: expect.any(Array) } })
-    expect((await call(results, "GET", "/x", { who: "agent@x.test" })).json).toMatchObject({ scans: 4, leads: 2 })
+    const now = new Date().toISOString()
+    s.leads = [
+      { id: "a", name: "Ana Ruiz", phone: "(270) 555-0199", email: null, createdAt: now, status: "enrolled", contactedAt: now, appointmentAt: now, enrolledAt: now },
+      { id: "b", name: "Bo", phone: "1", email: null, createdAt: now },
+    ]
+    expect((await call(leadsList, "GET", "/x", { who: "agent@x.test" })).json).toMatchObject({ leads: [{ id: "a" }, { id: "b" }], followUps: { a: expect.any(Array) } })
+    expect((await call(results, "GET", "/x", { who: "agent@x.test" })).json).toMatchObject({ scans: 4, leads: 2, contacted: 1, appointments: 1, enrolled: 1 })
   })
 
   it.each([["Basic", () => { s.tier = "basic" }], ["inactive Pro", () => { s.active = false }]])("%s: 403 and no numbers or leads", async (_l, setup) => {

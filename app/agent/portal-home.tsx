@@ -81,12 +81,21 @@ export async function PortalHome({ page, billingNotice = null }: { page: PortalP
       {results && (
         <section aria-labelledby="results" data-testid="home-results" className="mb-6 rounded-2xl border border-border bg-card p-5">
           <h2 id="results" className="font-semibold">{t("portal.results_title")}</h2>
-          {results.scans === 0 && results.leads === 0 ? (
+          {results.scans + results.leads + results.contacted + results.appointments + results.enrolled === 0 ? (
             <p className="mt-1 text-sm text-muted-foreground">{t("portal.results_empty")}</p>
           ) : (
-            <dl className="mt-3 grid grid-cols-2 gap-3">
-              <div data-testid="results-scans"><dt className="text-xs text-muted-foreground">{t("portal.results_scans")}</dt><dd className="text-2xl font-semibold tabular-nums">{results.scans}</dd></div>
-              {ctx.can.leads && <div data-testid="results-leads"><dt className="text-xs text-muted-foreground">{t("portal.results_leads")}</dt><dd className="text-2xl font-semibold tabular-nums">{results.leads}</dd></div>}
+            <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {([
+                ...(ctx.can.leads ? [
+                  ["results-leads", "portal.results_leads", results.leads],
+                  ["results-contacted", "results.contacted", results.contacted],
+                  ["results-appointments", "results.appointments", results.appointments],
+                  ["results-enrolled", "results.enrolled", results.enrolled],
+                ] : []),
+                ["results-scans", "portal.results_scans", results.scans],
+              ] as [string, NopStringKey, number][]).map(([id, label, n]) => (
+                <div key={id} data-testid={id}><dt className="text-xs text-muted-foreground">{t(label)}</dt><dd className="text-2xl font-semibold tabular-nums">{n}</dd></div>
+              ))}
             </dl>
           )}
         </section>
