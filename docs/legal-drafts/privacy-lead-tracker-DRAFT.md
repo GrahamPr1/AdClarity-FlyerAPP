@@ -1,6 +1,6 @@
 # DRAFT — Privacy Policy: agents' lead statuses, follow-up dates and notes (English and Spanish)
 
-> **Status: DRAFT, not published.** Publish before or with the deploy that
+> **Status: APPROVED (11 November 2026) and published in `app/privacy/page.tsx` with the Part D merge.** Was: Publish before or with the deploy that
 > merges the lead tracker (Part D). Two additions to the published page
 > (`app/privacy/page.tsx`): one paragraph in each agent-pages section (for the
 > people who send a request), one list item in each Agent accounts section
