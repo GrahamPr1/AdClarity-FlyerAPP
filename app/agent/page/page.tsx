@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation"
+import Link from "next/link"
+import { canUse } from "@/lib/enterprise/portal/features"
 import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { requirePortalPage } from "@/lib/enterprise/portal/page"
@@ -30,7 +32,16 @@ export default async function Page() {
   return (
     <PortalShell page={page} title={tNop(lang, "portal.page_title")} intro={ctx.can.agentPage ? tNop(lang, "portal.page_intro") : undefined}>
       {ctx.can.agentPage ? (
-        <Settings agentId={ctx.agent.agentId} readOnly={readOnly} photoAllowed={ctx.can.agentPhoto} />
+        <>
+          <Settings agentId={ctx.agent.agentId} readOnly={readOnly} photoAllowed={ctx.can.agentPhoto} />
+          {canUse(ctx, "emailSignature") && (
+            <section className="mt-4 rounded-2xl border border-border bg-card p-5" data-testid="page-signature-link">
+              <h2 className="font-semibold">{tNop(lang, "signature.title")}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{tNop(lang, "signature.card_body")}</p>
+              <Link href="/agent/signature" className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-[var(--surface-soft)]">{tNop(lang, "signature.card_button")}</Link>
+            </section>
+          )}
+        </>
       ) : ctx.tier !== "basic" && !ctx.active ? (
         <p data-testid="page-inactive" className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">{tNop(lang, "portal.page_inactive")}</p>
       ) : (
