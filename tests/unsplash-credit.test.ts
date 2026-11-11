@@ -6,6 +6,7 @@ import type { UnsplashPhoto } from "@/lib/unsplash"
 
 // A real Unsplash URL shape: the query string is what template-mode escapes.
 const PHOTO: UnsplashPhoto = {
+  provider: "unsplash",
   id: "abc123",
   url: "https://images.unsplash.com/photo-1528698827591?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
   photographerName: "Raze Solar",

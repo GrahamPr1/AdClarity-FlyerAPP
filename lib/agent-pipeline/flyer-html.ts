@@ -451,14 +451,17 @@ export function preservePhotoCredit(previousHtml: string, refinedHtml: string): 
 }
 
 
-/** The subset of an Unsplash photo needed to credit it. */
+/** The subset of a stock photo needed to credit it. No provider means Unsplash, as before Pexels existed. */
 export interface PhotoCredit {
   url: string
   photographerName: string
   photographerUrl: string
+  provider?: "unsplash" | "pexels"
+  /** Pexels only: the photo's own page, which the Pexels credit links to. */
+  pageUrl?: string
 }
 
-/** Escapes text that came from Unsplash before it goes into generated HTML. */
+/** Escapes text that came from a stock provider before it goes into generated HTML. */
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -495,7 +498,7 @@ export function photoUrlAppearsIn(html: string, url: string): boolean {
 }
 
 /**
- * Stamps the required Unsplash credit onto a finished flyer.
+ * Stamps the required stock-photo credit (Unsplash or Pexels) onto a finished flyer.
  *
  * Injected in code for the same reason the QR code is substituted rather than
  * emitted by the model: the Unsplash API Guidelines REQUIRE this credit, and
@@ -519,6 +522,16 @@ export function injectPhotoAttribution(html: string, credits: PhotoCredit[], med
   const inner = credits
     .map((c) => {
       const name = escapeHtml(c.photographerName)
+      if (c.provider === "pexels") {
+        // Pexels' guideline: "Photo by <name> on Pexels", linking to the photo.
+        if (medium === "print") return `Photo by ${name} on Pexels`
+        const photographer = escapeHtml(c.photographerUrl)
+        const page = escapeHtml(c.pageUrl ?? "https://www.pexels.com")
+        return (
+          `Photo by <a href="${photographer}" rel="noopener noreferrer nofollow" target="_blank">${name}</a>` +
+          ` on <a href="${page}" rel="noopener noreferrer nofollow" target="_blank">Pexels</a>`
+        )
+      }
       if (medium === "print") return `Photo by ${name} on Unsplash`
       // Both hrefs go through escapeHtml: a bare & is invalid inside an
       // attribute value, and the UTM params the Guidelines ask for contain
