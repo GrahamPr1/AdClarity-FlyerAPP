@@ -1,6 +1,6 @@
 # DRAFT — Privacy Policy: checking in at an event (English and Spanish)
 
-> **Status: DRAFT, not published.** Publish with the Part H merge. One new
+> **Status: APPROVED (11 November 2026) and published in `app/privacy/page.tsx` with the Part H merge.** Was: Publish with the Part H merge. One new
 > paragraph in each agent-pages section of `app/privacy/page.tsx`, right after
 > **Events** / **Eventos**. The "contact forms" paragraph already lists name,
 > phone, date and time, language and the consent statement; check-in collects
