@@ -498,7 +498,7 @@ export async function sendMonthlyResults(input: {
   lang: NopLang
   /** "2026-11" */
   month: string
-  results: { scans: number; leads: number; rsvps: number | null; recruits: number | null }
+  results: { scans: number; leads: number; contacted: number; appointments: number; enrolled: number; rsvps: number | null; recruits: number | null }
   portalUrl: string
   profileUrl: string
 }): Promise<{ sent: boolean; reason?: string }> {
@@ -511,8 +511,11 @@ export async function sendMonthlyResults(input: {
   const body = agentMail(input.lang, [
     { p: t("monthly.intro", { month: monthName }) },
     { rows: [
-      { label: t("portal.results_scans"), value: String(r.scans) },
       { label: t("portal.results_leads"), value: String(r.leads) },
+      { label: t("results.contacted"), value: String(r.contacted) },
+      { label: t("results.appointments"), value: String(r.appointments) },
+      { label: t("results.enrolled"), value: String(r.enrolled) },
+      { label: t("portal.results_scans"), value: String(r.scans) },
       ...(r.rsvps !== null ? [{ label: t("monthly.rsvps"), value: String(r.rsvps) }] : []),
       ...(r.recruits !== null ? [{ label: t("monthly.recruits"), value: String(r.recruits) }] : []),
     ] },

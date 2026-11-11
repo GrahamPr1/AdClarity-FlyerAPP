@@ -23,3 +23,10 @@ export function statsMonthStart(month: string): Date {
   const daylight = new Date(`${month}-01T00:00:00-04:00`)
   return statsMonth(daylight) === month ? daylight : new Date(`${month}-01T00:00:00-05:00`)
 }
+
+/** The month after a month: "2026-12" -> "2027-01". */
+export function nextStatsMonth(month: string): string {
+  const [y, m] = month.split("-").map(Number)
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`
+}
+

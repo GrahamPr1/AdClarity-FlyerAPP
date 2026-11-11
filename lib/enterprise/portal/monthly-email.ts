@@ -1,10 +1,11 @@
 import { Redis } from "@upstash/redis"
 import { listRoster } from "@/lib/enterprise/agents-store"
 import { getAgentProfile } from "@/lib/store"
-import { statsMonth, statsMonthStart } from "@/lib/stats-month"
+import { nextStatsMonth, statsMonth, statsMonthStart } from "@/lib/stats-month"
 import { sendMonthlyResults } from "@/lib/email"
 import { CANONICAL_SITE_URL } from "@/lib/site-url"
-import { getAgentScans, listAgentLeads } from "./agent-data"
+import { listAgentLeads } from "./agent-data"
+import { agentResults } from "./results"
 import { canUse } from "./features"
 import { loadPortalContext } from "./context"
 import { listRecruits } from "./recruiting"
@@ -35,28 +36,30 @@ export function previousMonth(now: Date): string {
 
 export interface MonthlyResults {
   scans: number
+  /** Requests that came in, and leads contacted, given an appointment or enrolled that month (results.ts). */
   leads: number
+  contacted: number
+  appointments: number
+  enrolled: number
   /** Null when the org has the feature off: the row isn't shown. */
   rsvps: number | null
   recruits: number | null
 }
 
+/** Last month's numbers: the same ones Home shows for the current month (agentResults), plus RSVPs and recruits. */
 export async function monthlyResults(ctx: Awaited<ReturnType<typeof loadPortalContext>> & object, month: string): Promise<MonthlyResults> {
   const start = statsMonthStart(month).getTime()
-  const [y, m] = month.split("-").map(Number)
-  const end = statsMonthStart(`${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}`).getTime()
+  const end = statsMonthStart(nextStatsMonth(month)).getTime()
   const inMonth = (iso: string) => { const t = Date.parse(iso); return t >= start && t < end }
   const agentId = ctx.agent.agentId
-  const [scans, leads, recruits] = await Promise.all([
-    getAgentScans(agentId, new Date(start)),
-    listAgentLeads(agentId),
+  const [base, leads, recruits] = await Promise.all([
+    agentResults(agentId, new Date(start), month),
+    canUse(ctx, "events") ? listAgentLeads(agentId) : Promise.resolve(null),
     canUse(ctx, "recruiting") ? listRecruits(agentId) : Promise.resolve(null),
   ])
-  const monthLeads = leads.filter((l) => inMonth(l.createdAt))
   return {
-    scans: scans.thisMonth,
-    leads: monthLeads.filter((l) => !isRsvp(l)).length,
-    rsvps: canUse(ctx, "events") ? monthLeads.filter(isRsvp).length : null,
+    scans: base.scans, leads: base.leads, contacted: base.contacted, appointments: base.appointments, enrolled: base.enrolled,
+    rsvps: leads ? leads.filter((l) => isRsvp(l) && inMonth(l.createdAt)).length : null,
     recruits: recruits ? recruits.filter((r) => inMonth(r.signedUpAt)).length : null,
   }
 }
@@ -88,7 +91,7 @@ export async function runMonthlyEmail(opts: { live: boolean; by: string; now?: D
     if (!ctx || ctx.agent.agentId !== r.agentId || !canUse(ctx, "monthlyEmail")) continue
     if ((await getAgentProfile(r.lockedTo))?.monthlyEmail === false) { run.optedOut++; continue }
     const results = await monthlyResults(ctx, month)
-    if (results.scans + results.leads + (results.rsvps ?? 0) + (results.recruits ?? 0) === 0) { run.nothingToReport++; continue }
+    if (results.scans + results.leads + results.contacted + results.appointments + results.enrolled + (results.rsvps ?? 0) + (results.recruits ?? 0) === 0) { run.nothingToReport++; continue }
     run.eligible++
     if (!opts.live) continue
     if (!(await redis.set(sentKey(month, r.agentId), now.toISOString(), { nx: true, ex: 400 * 86400 }))) { run.already++; continue }

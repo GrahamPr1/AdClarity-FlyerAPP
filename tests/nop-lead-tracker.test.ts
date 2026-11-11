@@ -92,3 +92,30 @@ describe("the API", () => {
     expect((r.kv.get("nop-lead:L1") as LeadRecord).status).toBeUndefined()
   })
 })
+
+describe("results that show value (Part I)", () => {
+  const NOV = [new Date("2026-11-01T04:00:00Z"), new Date("2026-12-01T05:00:00Z")] as const
+
+  it("stage times: the first time a lead reaches Appointment set and Enrolled", async () => {
+    const { applyTrackerPatch } = await tracker()
+    let l = applyTrackerPatch(lead(), { status: "appointment" }, new Date("2026-11-05T15:00:00Z"))
+    l = applyTrackerPatch(l, { status: "enrolled" }, new Date("2026-11-09T15:00:00Z"))
+    l = applyTrackerPatch(l, { status: "appointment" }, new Date("2026-11-10T15:00:00Z"))
+    expect(l).toMatchObject({ appointmentAt: "2026-11-05T15:00:00.000Z", enrolledAt: "2026-11-09T15:00:00.000Z", contactedAt: "2026-11-05T15:00:00.000Z" })
+  })
+
+  it("counts the month's leads, contacted, appointments and enrolled; an undone tap or another month doesn't count", async () => {
+    const { monthFunnel } = await tracker()
+    const leads = [
+      lead({ id: "a", createdAt: "2026-11-02T15:00:00Z", status: "enrolled", contactedAt: "2026-11-03T15:00:00Z", appointmentAt: "2026-11-04T15:00:00Z", enrolledAt: "2026-11-08T15:00:00Z" }),
+      lead({ id: "b", createdAt: "2026-11-05T15:00:00Z", status: "contacted", contactedAt: "2026-11-06T15:00:00Z", appointmentAt: "2026-11-07T15:00:00Z" }),
+      lead({ id: "c", createdAt: "2026-10-20T15:00:00Z", status: "appointment", contactedAt: "2026-10-21T15:00:00Z", appointmentAt: "2026-11-03T15:00:00Z" }),
+      lead({ id: "d", createdAt: "2026-11-30T15:00:00Z" }),
+      lead({ id: "e", createdAt: "2026-12-01T06:00:00Z", status: "enrolled", contactedAt: "2026-12-01T06:00:00Z", enrolledAt: "2026-12-01T06:00:00Z" }),
+      // Leads tracked before stage times existed: the status time counts.
+      lead({ id: "f", createdAt: "2026-09-01T15:00:00Z", status: "enrolled", statusAt: "2026-11-15T15:00:00Z", contactedAt: "2026-09-02T15:00:00Z" }),
+    ]
+    expect(monthFunnel(leads, NOV[0], NOV[1])).toEqual({ leads: 3, contacted: 2, appointments: 2, enrolled: 2 })
+  })
+})
+

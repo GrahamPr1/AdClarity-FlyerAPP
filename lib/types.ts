@@ -632,6 +632,9 @@ export interface LeadRecord {
   followUpOn?: string | null
   /** The last time the agent changed status, notes or follow-up date. */
   trackedAt?: string | null
+  /** When it first reached Appointment set / Enrolled (results count these by month). */
+  appointmentAt?: string | null
+  enrolledAt?: string | null
   /**
    * NOP event check-in (Part H): when they checked in at the event (eventId),
    * and the consent they agreed to on the check-in page. Set on their RSVP if
