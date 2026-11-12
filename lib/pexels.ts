@@ -1,5 +1,5 @@
 import { isProviderExhausted, markProviderExhausted, noteRateLimitHeaders, readCachedSearch, writeCachedSearch, DEFAULT_EXHAUSTED_SECONDS } from "./photo-search-cache"
-import { relevanceTerms, type PhotoSearchOutcome } from "./unsplash"
+import { brandingReason, relevanceTerms, type PhotoSearchOutcome } from "./unsplash"
 
 /**
  * Pexels stock photography — the second stock source, tried when Unsplash
@@ -169,14 +169,15 @@ function pickPhoto(body: SearchBody, opts: { query: string; requireKeywordMatch?
 
   // An empty alt is refused too: it can't prove the photo is on-topic, and it
   // can't prove there is nobody in it.
-  const peopleFree = photos.filter((p) => (p.alt ?? "").trim() !== "" && !describesPeople(p.alt))
+  // No people (endorsement) and no one else's brand (see brandingReason).
+  const peopleFree = photos.filter((p) => (p.alt ?? "").trim() !== "" && !describesPeople(p.alt) && !brandingReason([p.alt], p.photographer))
   const terms = opts.requireKeywordMatch === false ? [] : relevanceTerms(opts.query)
   const match = peopleFree.find((p) => terms.length === 0 || terms.some((t) => p.alt!.toLowerCase().includes(t)))
   if (!match) {
     return {
       ok: false,
       reason: "no_relevant_match",
-      detail: `${photos.length} Pexels candidates for "${opts.query}" (${photos.length - peopleFree.length} refused for people or no description), none matching [${terms.join(", ")}]`,
+      detail: `${photos.length} Pexels candidates for "${opts.query}" (${photos.length - peopleFree.length} refused for people, branding or no description), none matching [${terms.join(", ")}]`,
     }
   }
 
