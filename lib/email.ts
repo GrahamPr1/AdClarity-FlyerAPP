@@ -1,5 +1,5 @@
 import { Resend } from "resend"
-import { listUnsubscribeHeaders, unsubscribeFooterHtml } from "@/lib/email-preferences"
+import { listUnsubscribeHeaders, unsubscribeFooterHtml, unsubscribePageUrl } from "@/lib/email-preferences"
 import { tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 
 /**
@@ -241,7 +241,7 @@ export async function sendLeadNotification(input: {
   /** It came in after the offer's end date. */
   afterOfferEnded?: boolean
   dashboardUrl: string
-}): Promise<{ sent: boolean; reason?: string }> {
+}): Promise<{ sent: boolean; reason?: string; id?: string }> {
   const resend = getClient()
   if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
 
@@ -251,11 +251,30 @@ export async function sendLeadNotification(input: {
   const row = (label: string, value: string) =>
     `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top">${label}</td><td style="padding:4px 0">${value}</td></tr>`
 
+  // A plain-text part as well as the HTML: HTML-only mail scores worse with
+  // spam filters, and one lead email to iCloud was refused (554 5.7.1).
+  const text = [
+    `${lead.name} filled in the form on ${from}${input.channelLabel ? ` (${input.channelLabel})` : ""}.`,
+    ...(input.afterOfferEnded ? ["", "Came in after this offer ended. They asked for a quote."] : []),
+    "",
+    `Name: ${lead.name}`,
+    `Phone: ${lead.phone}`,
+    ...(lead.email ? [`Email: ${lead.email}`] : []),
+    ...(lead.message ? [`Message: ${lead.message}`] : []),
+    "",
+    `See all your leads on your OneFlyer dashboard: ${input.dashboardUrl}`,
+    "",
+    `They agreed that ${input.businessName} may contact them about ${input.afterOfferEnded ? "their services" : "this offer"}.`,
+    "",
+    `Unsubscribe from new-lead emails: ${unsubscribePageUrl(input.to, "leads")}`,
+  ].join("\n")
+
   try {
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: input.to,
       ...(lead.email ? { replyTo: lead.email } : {}),
+      text,
       // The mail client's own one-click "Unsubscribe" (RFC 8058); the footer
       // link below is the human one. See lib/email-preferences.ts.
       headers: listUnsubscribeHeaders(input.to, "leads"),
@@ -277,7 +296,9 @@ export async function sendLeadNotification(input: {
       `,
     })
     if (error) return { sent: false, reason: error.message }
-    return { sent: true }
+    // Resend's message id: what a later bounce (webhook) or a support question
+    // is traced by. "Sent" only means Resend accepted it, not that it arrived.
+    return { sent: true, id: data?.id }
   } catch (err) {
     return { sent: false, reason: err instanceof Error ? err.message : "unknown error" }
   }
