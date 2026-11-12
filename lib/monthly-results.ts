@@ -12,10 +12,11 @@ import type { Deliverables } from "@/lib/types"
  *
  *   - Trial: scans only. Clicks and leads aren't read at all, matching what
  *     the trial dashboard is given (lib/tracking-breakdown.ts scansOnly).
+ *   - Paused (any plan): scans only too, plus a link to resume the account.
  *   - Basic and Pro: scans, clicks and leads.
  *   - A month with no activity is reported as zero, never left out or padded.
  *
- * Never sent to enterprise org accounts, NOP agents or paused accounts, nor to
+ * Never sent to enterprise org accounts or NOP agents, nor to
  * anyone who switched it off (email-prefs results) or has no flyer with a QR
  * code to report on.
  *
@@ -82,7 +83,6 @@ async function flyerMonth(owner: string, flyerId: string, title: string, origina
 async function whyNot(to: string, d: Deliverables): Promise<string | null> {
   if (d.isEnterpriseAccount) return "enterprise account"
   if (await isNopAgentAccount(to).catch(() => true)) return "NOP agent account"
-  if (d.pausedAt) return "account paused"
   if (!(await getEmailPreferences(to)).results) return "monthly results switched off"
   return null
 }
@@ -102,7 +102,8 @@ export async function runMonthlyResults(opts: { live: boolean; now?: Date }): Pr
       run.skipped.push({ to, why })
       continue
     }
-    const scansOnly = d.planId === "trial"
+    const paused = !!d.pausedAt
+    const scansOnly = d.planId === "trial" || paused
     const results = (
       await Promise.all(
         d.flyers
@@ -119,7 +120,7 @@ export async function runMonthlyResults(opts: { live: boolean; now?: Date }): Pr
       run.wouldSend.push({ to, plan: d.planId, flyers: results.length, scans })
       continue
     }
-    const result = await sendRendered(renderMonthlyResults({ to, month, scansOnly, flyers: results, listLimit: MONTHLY_LIST_LIMIT }))
+    const result = await sendRendered(renderMonthlyResults({ to, month, scansOnly, paused, flyers: results, listLimit: MONTHLY_LIST_LIMIT }))
     if (result.sent) {
       await redis.set(sentKey(month, to), new Date().toISOString(), { ex: SENT_TTL_SECONDS })
       run.sent.push(to)

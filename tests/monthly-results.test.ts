@@ -103,10 +103,20 @@ describe("what it says", () => {
 })
 
 describe("who gets it", () => {
-  it("never enterprise, NOP, paused, switched off, or with nothing to report", async () => {
+  it("paused: still sent, scans only, with a link to resume", async () => {
+    account("paused@x.test", "pro", { pausedAt: "2026-10-20T00:00:00Z" })
+    s.month.set("c-paused@x.test:2026-10", { scans: 6, clicks: 4 })
+    await runMonthlyResults({ live: true, now: NOV_3 })
+    const mail = s.sent[0] as { subject: string; html: string; text: string }
+    expect(mail.subject).toBe("Your flyers in October 2026: 6 scans")
+    expect(mail.html).not.toMatch(/>Clicks<|>Leads</)
+    expect(mail.html).toContain('href="https://oneflyer.org/profile">Resume your account</a>')
+    expect(mail.text).not.toContain("Compare plans")
+    expect(s.leadCalls).toBe(0)
+  })
+  it("never enterprise, NOP, switched off, or with nothing to report", async () => {
     account("ent@x.test", "pro", { isEnterpriseAccount: true })
     account("nop@x.test", "pro"); s.nop.add("nop@x.test")
-    account("paused@x.test", "basic", { pausedAt: "2026-10-20T00:00:00Z" })
     account("off@x.test", "basic"); await setEmailPreferences("off@x.test", { results: false })
     account("noqr@x.test", "basic", { flyers: [{ id: "f", title: "No QR", status: "Ready" }] })
     account("new@x.test", "basic"); s.records.set("c-new@x.test", { email: "new@x.test", flyerId: "f-new@x.test", createdAt: "2026-11-02T00:00:00Z" })
@@ -115,7 +125,6 @@ describe("who gets it", () => {
     expect(Object.fromEntries(r.skipped.map((x) => [x.to, x.why]))).toEqual({
       "ent@x.test": "enterprise account",
       "nop@x.test": "NOP agent account",
-      "paused@x.test": "account paused",
       "off@x.test": "monthly results switched off",
       "noqr@x.test": "no flyer with a QR code to report on",
       "new@x.test": "no flyer with a QR code to report on",

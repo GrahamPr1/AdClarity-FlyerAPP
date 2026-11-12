@@ -104,6 +104,8 @@ export function renderMonthlyResults(input: {
   to: string
   month: string
   scansOnly: boolean
+  /** Paused account: scans only, and a link to resume instead of the plan comparison. */
+  paused?: boolean
   flyers: MonthlyFlyerResult[]
   subjectPrefix?: string
   /** Rows listed before "and N more"; see MONTHLY_LIST_LIMIT. */
@@ -119,6 +121,17 @@ export function renderMonthlyResults(input: {
   }
   const dashboard = `${getSiteUrl()}/dashboard`
   const pricing = `${getSiteUrl()}/#pricing`
+  const resume = `${getSiteUrl()}/profile`
+  const nudgeHtml = input.paused
+    ? `<p>Your account is paused, so this email shows scans only. <a href="${esc(resume)}">Resume your account</a> to see clicks and leads again.</p>`
+    : input.scansOnly
+      ? `<p>On Basic and Pro, you also see clicks and leads for every flyer. <a href="${esc(pricing)}">Compare plans</a></p>`
+      : ""
+  const nudgeText = input.paused
+    ? `Your account is paused, so this email shows scans only. Resume your account to see clicks and leads again: ${resume}`
+    : input.scansOnly
+      ? `On Basic and Pro, you also see clicks and leads for every flyer: ${pricing}`
+      : ""
 
   const headline = input.scansOnly
     ? count(total.scans, "scan")
@@ -158,7 +171,7 @@ export function renderMonthlyResults(input: {
       </table>
       ${rows.length > shown.length ? `<p>And ${rows.length - shown.length} more on your dashboard.</p>` : ""}
       <p style="color:#666;font-size:13px">${explain}</p>
-      ${input.scansOnly ? `<p>On Basic and Pro, you also see clicks and leads for every flyer. <a href="${esc(pricing)}">Compare plans</a></p>` : ""}
+      ${nudgeHtml}
       <p><a href="${esc(dashboard)}">See your flyers on your OneFlyer dashboard</a></p>
       ${unsubscribeFooterHtml(input.to, "results")}
     </div>`
@@ -173,7 +186,7 @@ export function renderMonthlyResults(input: {
     ...(rows.length > shown.length ? ["", `And ${rows.length - shown.length} more on your dashboard.`] : []),
     "",
     explain,
-    ...(input.scansOnly ? ["", `On Basic and Pro, you also see clicks and leads for every flyer: ${pricing}`] : []),
+    ...(nudgeText ? ["", nudgeText] : []),
     "",
     `Your dashboard: ${dashboard}`,
   ].join("\n")

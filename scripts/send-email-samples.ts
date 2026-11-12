@@ -5,8 +5,8 @@
  *
  *   npx tsx scripts/send-email-samples.ts you@example.com [digest] [monthly]
  *
- * "monthly" sends three: Basic/Pro with activity, trial (scans only), and a
- * month with no activity at all. Their flyer names and numbers are invented
+ * "monthly" sends four: Basic/Pro with activity, trial (scans only), a paused
+ * account (scans only, with a resume link), and a month with no activity. Their flyer names and numbers are invented
  * for the layout check.
  *
  * Every sample's subject starts "[Sample] ". The leads in the digest sample
@@ -46,6 +46,7 @@ async function main() {
     const samples = [
       { label: "monthly (Basic/Pro)", email: renderMonthlyResults({ to, month, scansOnly: false, flyers: paid, subjectPrefix: "[Sample] " }) },
       { label: "monthly (trial, scans only)", email: renderMonthlyResults({ to, month, scansOnly: true, flyers: paid.map(({ title, scans }) => ({ title, scans })), subjectPrefix: "[Sample] " }) },
+      { label: "monthly (paused, scans only)", email: renderMonthlyResults({ to, month, scansOnly: true, paused: true, flyers: paid.map(({ title, scans }) => ({ title, scans })), subjectPrefix: "[Sample] " }) },
       { label: "monthly (no activity)", email: renderMonthlyResults({ to, month, scansOnly: false, flyers: paid.map((f) => ({ ...f, scans: 0, clicks: 0, leads: 0 })), subjectPrefix: "[Sample] " }) },
     ]
     for (const s of samples) {
