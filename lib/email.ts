@@ -1,4 +1,5 @@
 import { Resend } from "resend"
+import { listUnsubscribeHeaders, unsubscribeFooterHtml } from "@/lib/email-preferences"
 import { tNop, type NopLang, type NopStringKey } from "@/lib/enterprise/nop-i18n"
 
 /**
@@ -255,6 +256,9 @@ export async function sendLeadNotification(input: {
       from: FROM_ADDRESS,
       to: input.to,
       ...(lead.email ? { replyTo: lead.email } : {}),
+      // The mail client's own one-click "Unsubscribe" (RFC 8058); the footer
+      // link below is the human one. See lib/email-preferences.ts.
+      headers: listUnsubscribeHeaders(input.to, "leads"),
       subject: `New lead from your flyer: ${lead.name}`,
       html: `
         <div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:520px">
@@ -268,6 +272,7 @@ export async function sendLeadNotification(input: {
           </table>
           <p><a href="${escape(input.dashboardUrl)}">See all your leads on your OneFlyer dashboard</a></p>
           <p style="color:#888;font-size:12px">They agreed that ${escape(input.businessName)} may contact them about ${input.afterOfferEnded ? "their services" : "this offer"}.</p>
+          ${unsubscribeFooterHtml(input.to, "leads")}
         </div>
       `,
     })

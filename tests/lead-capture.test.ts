@@ -36,6 +36,8 @@ vi.mock("@/lib/rate-limit", () => ({
     return { allowed: n <= limit, retryAfterSeconds: n <= limit ? 0 : 60 }
   },
 }))
+// Lead emails on (the default); email-preferences.test.ts covers "off".
+vi.mock("@/lib/email-preferences", () => ({ getEmailPreferences: async () => ({ leads: "instant", updatedAt: null }) }))
 vi.mock("@/lib/email", () => ({
   sendLeadNotification: async (input: unknown) => {
     db.emails.push(input)
