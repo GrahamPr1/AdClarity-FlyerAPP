@@ -28,6 +28,7 @@ import { FlyerEditPanel } from "@/components/flyer-edit-panel"
 import { LeadsList } from "@/components/leads-list"
 import { offerPageFeaturesEnabled } from "@/lib/agent-pipeline/plan-features"
 import { Flyer3D } from "@/components/flyer-3d"
+import { NewPromotionForm } from "@/components/new-promotion-form"
 
 
 
@@ -383,6 +384,7 @@ export function FlyerCard({
   onSeeOptions,
   onEdited,
   canEditOfferPage,
+  canNewPromotion,
   leadsOff,
   channelsLocked,
 }: {
@@ -410,6 +412,9 @@ export function FlyerCard({
   /** Basic/Pro, not paused: offer a link to edit this flyer's offer page.
    *  /api/offer-page enforces the same rule on every save. */
   canEditOfferPage?: boolean
+  /** Pro, not paused, not enterprise: "New promotion from this campaign".
+   *  /api/campaigns/new-promotion enforces the same rule. */
+  canNewPromotion?: boolean
   /** Enterprise account: its offer pages take no leads, so none of the leads UI.
    *  Any leads it already holds stay reachable. */
   leadsOff?: boolean
@@ -740,6 +745,11 @@ export function FlyerCard({
       {ready && flyer.repurposed && (
         <div className="px-4 pb-4">
           <RepurposedSection flyerId={flyer.id} repurposed={flyer.repurposed} title={flyer.title} viewUrl={viewUrl} />
+        </div>
+      )}
+      {ready && canNewPromotion && (
+        <div className="px-4 pb-4">
+          <NewPromotionForm flyerId={flyer.id} onCreated={onEdited} />
         </div>
       )}
       {ready && onOrderPrint && (
@@ -1214,6 +1224,7 @@ export function DashboardClient() {
                         onOrderPrint={data.planId !== "trial" ? handleOrderPrint : undefined}
                         showUpgradeHint={data.planId === "trial"}
                         canEditOfferPage={offerPageFeaturesEnabled({ plan: data.planId, pausedAt: data.pausedAt }, data.isEnterpriseAccount)}
+                        canNewPromotion={data.planId === "pro" && !data.pausedAt && !data.isEnterpriseAccount}
                         leadsOff={data.isEnterpriseAccount}
                         channelsLocked={data.planId === "trial" || !!data.pausedAt}
                         angle={f.angle}

@@ -20,6 +20,7 @@ import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage, MAX_PROMPT_CHARS } from "./higgsfield"
 import { finalizePhotoUsage } from "@/lib/unsplash"
 import { repairContrast } from "./contrast-repair"
+import { saveCampaignInputs } from "@/lib/campaign-inputs"
 import { repairRedundancy } from "./redundancy"
 import { creditInstagramSquare, findFallbackStock, findStockForPromotion, pexelsAllowedFor, recordFlyerPhotoSource, type PhotoCandidate, type StockPhoto } from "@/lib/stock-photos"
 import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
@@ -1196,6 +1197,8 @@ export async function continuePipelineFromIntake(
   // Saved before generation starts (not after) so a retry has something to
   // work with even if this very attempt is what fails.
   await savePipelineState(email, intake, flyerRequests)
+  // Per flyer, for Pro's "new promotion from this campaign" (campaign-inputs.ts).
+  await saveCampaignInputs(email, intake, flyerRequests)
 
   const ids = flyerRequests.map((r) => r.id)
   const runId = ids.join(",")
