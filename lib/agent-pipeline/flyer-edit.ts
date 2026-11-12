@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio"
+import { fieldFitLimit, refitTemplateFlyer } from "./template-mode"
 
 /**
  * Direct field editing of a generated flyer.
@@ -142,7 +143,37 @@ export function applyFieldEdits(html: string, edits: Record<string, string>): Ap
     applied.push(field)
   }
 
-  return { html: $.html(), applied, rejected }
+  const edited = $.html()
+  if (!applied.length) return { html: edited, applied, rejected }
+
+  // Template flyers size their text to fit (template-mode.ts), and an edit
+  // changes text, not size: re-choose the sizes for the new text. If it can't
+  // fit at all, the field that doesn't fit is refused with how much WOULD fit
+  // — never clipped, never refused without saying why — and the other edits
+  // still go through. Non-template flyers are returned as they were.
+  const refit = refitTemplateFlyer(edited)
+  if (refit.ok) return { html: refit.html, applied, rejected }
+
+  const over = applied
+    .map((f) => ({ f, fits: fieldFitLimit(edited, f), actual: (edits[f] ?? "").replace(/\s+/g, " ").trim().length }))
+    .filter((x) => x.fits !== null && x.actual > x.fits)
+  // Lengthening the headline can push out the supporting line: blame the edit.
+  const culprits = over.length ? over : applied.filter((f) => f === "headline" || f === "supporting").map((f) => ({ f, fits: fieldFitLimit(edited, f) ?? 0, actual: (edits[f] ?? "").length }))
+  for (const c of culprits) {
+    const fits = Math.max(0, c.fits ?? 0)
+    rejected.push({
+      field: c.f,
+      reason: "too_long",
+      message: fits > 0
+        ? `${label(c.f)} is too long to fit this layout — shorten it to about ${fits} characters.`
+        : `${label(c.f)} doesn't fit this layout alongside the rest of the flyer — shorten another line first.`,
+      max: fits,
+      actual: c.actual,
+    })
+  }
+  const keep = applied.filter((f) => !culprits.some((c) => c.f === f))
+  const again = applyFieldEdits(html, Object.fromEntries(keep.map((f) => [f, edits[f]])))
+  return { html: again.html, applied: again.applied, rejected: [...rejected, ...again.rejected] }
 }
 
 function label(field: string): string {

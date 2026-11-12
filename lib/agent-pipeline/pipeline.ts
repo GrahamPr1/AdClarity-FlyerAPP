@@ -19,13 +19,15 @@ import type { CampaignSource } from "@/lib/types"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage, MAX_PROMPT_CHARS } from "./higgsfield"
 import { finalizePhotoUsage } from "@/lib/unsplash"
+import { repairContrast } from "./contrast-repair"
+import { repairRedundancy } from "./redundancy"
 import { creditInstagramSquare, findFallbackStock, findStockForPromotion, pexelsAllowedFor, recordFlyerPhotoSource, type PhotoCandidate, type StockPhoto } from "@/lib/stock-photos"
 import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
 import { planIncludesExtras, aiPhotosEnabled, stockPhotosEnabled, qrEnabled } from "./plan-features"
 import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
 import { palettePoolFor } from "./trade-palettes"
 import { runPolishAgent } from "./agents/polishAgent"
-import { fillTemplate, selectTemplate } from "./template-mode"
+import { fillTemplate, refitTemplateFlyer, selectTemplate, type ColorPolicy, type ContrastNote } from "./template-mode"
 import { resolveBrandColors, resolveFonts, renderableFonts, type BrandStylePreference } from "@/lib/brand-controls"
 import { loadBusinessProfileContext } from "./business-profile-context"
 import { applyLegibilityGuardrails } from "./legibility"
@@ -706,11 +708,67 @@ export function stampClientPreferences(data: NormalizedIntake, submission: Intak
  * difference is where the HTML came from. One ~512-token text call replaces a
  * ~8,070-token HTML call.
  */
+/**
+ * The AI path's last step, on the finished document.
+ *
+ * Template flyers (data-field markers) are returned untouched: their layout
+ * and colours are right by construction (template-mode.ts). For an AI-written
+ * flyer on a PUBLIC account, two prompt rules are enforced in code:
+ *   - "say it once": a device repeating a message the page already carries is
+ *     removed (redundancy.ts — the forced test caught the model breaking this
+ *     in 1 of 13 generations);
+ *   - contrast: text failing WCAG AA on its rendered backdrop is set to white
+ *     or near-black, whichever passes (contrast-repair.ts).
+ * An ENTERPRISE org account is measured only — its approved copy and colours
+ * are not altered; failing contrast is logged as [contrast] lines instead.
+ * Never throws: a failure here returns the flyer as it was.
+ */
+async function finishAiFlyer(html: string, opts: { context: string; isEnterpriseAccount: boolean; businessName: string; formatId: string | undefined }): Promise<string> {
+  if (/data-field="/.test(html)) return html
+  try {
+    if (opts.isEnterpriseAccount) {
+      const measured = await repairContrast(html, { apply: false })
+      for (const f of measured.unrepaired) {
+        console.log(`[contrast] ${opts.context}: "${f.text}" — ${f.ratio}:1 (needs ${f.need}:1) — brand colours preserved (enterprise), not repaired`)
+      }
+      for (const c of measured.covered) console.warn(`[layout] ${opts.context}: "${c.text}" is ${c.why}`)
+      return html
+    }
+    // Redundancy is a flyer DEVICE rule; a paginated proposal's prose
+    // legitimately repeats its terms (see repairRedundancy).
+    const red = getFormat(opts.formatId).paginates ? { html, removed: [], kept: [] } : repairRedundancy(html, opts.businessName)
+    for (const r of red.removed) console.log(`[redundancy] ${opts.context}: removed "${r}" — its message is already on the page`)
+    for (const k of red.kept) console.log(`[redundancy] ${opts.context}: kept redundant "${k}"`)
+    const cr = await repairContrast(red.html)
+    for (const r of cr.repaired) console.log(`[contrast] ${opts.context}: "${r.text}" ${r.from}:1 — set to ${r.to}`)
+    for (const u of cr.unrepaired) console.warn(`[contrast] ${opts.context}: "${u.text}" ${u.ratio}:1 (needs ${u.need}:1) — no plain colour passes on this backdrop`)
+    // Logged, not fixed (Phase 2 scope): a covered line is a layout collision.
+    for (const c of cr.covered) console.warn(`[layout] ${opts.context}: "${c.text}" is ${c.why}`)
+    return cr.html
+  } catch (err) {
+    console.error(`[contrast] ${opts.context}: finishing step skipped — ${err instanceof Error ? err.message : err}`)
+    return html
+  }
+}
+
+/**
+ * One structured line per contrast pair a template failed. For public
+ * accounts the template has already repaired it; for enterprise org accounts
+ * (colorPolicy "preserve") the org's approved colours were left alone, so this
+ * line IS the record of it.
+ */
+function logContrastNotes(context: string, notes: ContrastNote[], policy: ColorPolicy) {
+  for (const n of notes) {
+    console.log(`[contrast] ${context}: ${n.pair} — ${n.ratio}:1 (needs ${n.required}:1) — ${n.repaired ? "repaired" : policy === "preserve" ? "brand colours preserved (enterprise), not repaired" : "NOT repaired"}`)
+  }
+}
+
 async function runTemplateFlyer(
   input: Parameters<typeof runFlyerAgent>[0],
   agentEmail: string,
   intake: NormalizedIntake,
   repurposeOut: Map<string, { instagramHtml: string; textBlurb: string; nextdoorPost: string; caption: string }>,
+  colorPolicy: ColorPolicy,
 ): Promise<Awaited<ReturnType<typeof runFlyerAgent>>> {
   type Spec = Awaited<ReturnType<typeof runFlyerAgent>>["flyers"][number]
   const flyers: Spec[] = []
@@ -758,7 +816,9 @@ async function runTemplateFlyer(
         accent: palette[2]?.hex ?? "#e39a2b",
       },
       fonts: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+      colorPolicy,
     })
+    logContrastNotes(`flyer ${request.id}`, filled.contrast, colorPolicy)
 
     if (filled.truncated.length > 0) {
       console.log(`[template] flyer ${request.id}: ${template.id} — budget cut ${filled.truncated.join(", ")}`)
@@ -786,7 +846,9 @@ async function runTemplateFlyer(
           accent: palette[2]?.hex ?? "#e39a2b",
         },
         fonts: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+        colorPolicy,
       })
+      logContrastNotes(`flyer ${request.id} (Instagram)`, sq.contrast, colorPolicy)
       repurposeOut.set(request.id, {
         instagramHtml: sq.html,
         textBlurb: polished.textBlurb,
@@ -948,7 +1010,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
   // its own input shape and output schema (see enterprise.ts) — this does not
   // alter what the SMB call sends.
   const runFlyerForRequest = async (input: Parameters<typeof runFlyerAgent>[0], agentEmail: string) => {
-    if (templateMode) return runTemplateFlyer(input, agentEmail, intake, templateRepurposeByFlyer)
+    if (templateMode) return runTemplateFlyer(input, agentEmail, intake, templateRepurposeByFlyer, isEnterpriseAccount ? "preserve" : "repair")
     if (!enterpriseAssets) return runFlyerAgent(input, agentEmail)
     const out = await runEnterpriseFlyerAgent({ ...input, approvedAssets: enterpriseAssets }, agentEmail)
     for (const flyer of out.flyers) {
@@ -1009,12 +1071,15 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     const tracking = trackingByFlyerId.get(flyer.id)
     if (tracking) await backfillTrackingContent(tracking.code, flyer)
 
-    const finalHtml = substituteLogo(
-      substituteQr(
-        await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), stockPool, flyerRequests[0]?.formatId, `flyer ${flyer.id}`),
-        tracking?.qrDataUrl ?? null,
+    const finalHtml = await finishAiFlyer(
+      substituteLogo(
+        substituteQr(
+          await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), stockPool, flyerRequests[0]?.formatId, `flyer ${flyer.id}`),
+          tracking?.qrDataUrl ?? null,
+        ),
+        intake.brandAssets.logoUrl,
       ),
-      intake.brandAssets.logoUrl,
+      { context: `flyer ${flyer.id}`, isEnterpriseAccount, businessName: intake.businessName, formatId: flyerRequests.find((r) => r.id === flyer.id)?.formatId },
     )
     await updateDeliverable(email, {
       type: "flyer",
@@ -1226,12 +1291,15 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
 
   if (tracking) await backfillTrackingContent(tracking.code, flyer)
 
-  const finalHtml = substituteLogo(
-    substituteQr(
-      await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), stockPool, flyerRequest.formatId, `flyer ${flyer.id}`),
-      tracking?.qrDataUrl ?? null,
+  const finalHtml = await finishAiFlyer(
+    substituteLogo(
+      substituteQr(
+        await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), stockPool, flyerRequest.formatId, `flyer ${flyer.id}`),
+        tracking?.qrDataUrl ?? null,
+      ),
+      intake.brandAssets.logoUrl,
     ),
-    intake.brandAssets.logoUrl,
+    { context: `flyer ${flyer.id}`, isEnterpriseAccount, businessName: intake.businessName, formatId: flyerRequest.formatId },
   )
   await updateDeliverable(email, {
     type: "flyer",
@@ -1401,6 +1469,11 @@ export async function refineFlyer(
             : `${applied.reason} Your flyer is unchanged.`,
         )
       }
+      // An edit changes text, not size: re-choose the sizes for the new text,
+      // or refuse it if it can't fit this layout at all (never clip it).
+      const refit = refitTemplateFlyer(applied.html)
+      if (!refit.ok) return await keepPrevious(`Your change wasn't applied: ${refit.reason}. Your flyer is unchanged — try a shorter wording.`)
+      applied = { ...applied, html: refit.html }
       const problems = await vetEdit(currentHtml, applied.html, instruction, ctx, runId)
       if (problems.length) return await keepPrevious(rejectionMessage(problems))
 
@@ -1411,8 +1484,9 @@ export async function refineFlyer(
       const igHtml = repurposed?.instagramDownloadUrl ? fromDataUrl(repurposed.instagramDownloadUrl) : null
       if (repurposed && igHtml) {
         const ig = applyQuickEdit(igHtml, proposal)
-        if (ig.ok && checkEditInvariants(igHtml, ig.html, instruction, ctx).length === 0) {
-          repurposed = { ...repurposed, instagramDownloadUrl: toDataUrl(ig.html) }
+        const igFit = ig.ok ? refitTemplateFlyer(ig.html) : null
+        if (ig.ok && igFit?.ok && checkEditInvariants(igHtml, igFit.html, instruction, ctx).length === 0) {
+          repurposed = { ...repurposed, instagramDownloadUrl: toDataUrl(igFit.html) }
         } else {
           console.warn(`[agent-pipeline] edit for ${runId}: Instagram version kept as it was (${ig.ok ? "failed checks" : ig.reason})`)
         }
@@ -1470,7 +1544,11 @@ export async function refineFlyer(
     const flyer = flyerResult.flyers[0]
     if (!flyer) throw new Error("Flyer Agent returned no result")
 
-    const candidate = substituteLogo(substituteQr(preservePhotoCredit(currentHtml, applyLegibility(flyer.html, `flyer ${flyer.id}`)), qrDataUrl), logoUrl)
+    const { isEnterpriseAccount } = await getPlanFeatures(email)
+    const candidate = await finishAiFlyer(
+      substituteLogo(substituteQr(preservePhotoCredit(currentHtml, applyLegibility(flyer.html, `flyer ${flyer.id}`)), qrDataUrl), logoUrl),
+      { context: `flyer ${flyer.id} (refined)`, isEnterpriseAccount, businessName: brandProfile?.businessName ?? "", formatId: flyerRequest.formatId },
+    )
     const problems = await vetEdit(currentHtml, candidate, instruction, ctx, runId)
     if (problems.length) return await keepPrevious(rejectionMessage(problems))
 
