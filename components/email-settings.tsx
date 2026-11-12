@@ -16,7 +16,7 @@ const LEAD_OPTIONS: { value: LeadEmailMode; label: string; hint: string }[] = [
  * unsubscribe link in every email changes, so a person can undo it here.
  */
 export function EmailSettings() {
-  const { data, mutate } = useSWR<{ preferences: EmailPreferences; digestAvailable: boolean }>("/api/account/email-preferences", fetcher)
+  const { data, mutate } = useSWR<{ preferences: EmailPreferences; digestAvailable: boolean; resultsAvailable?: boolean }>("/api/account/email-preferences", fetcher)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const current = data?.preferences
@@ -71,6 +71,34 @@ export function EmailSettings() {
         </div>
         <p className="mt-2 text-xs text-muted-foreground">Lead capture is part of Basic and Pro.</p>
       </fieldset>
+      {/* Only while the monthly email really sends (PUBLIC_MONTHLY_EMAIL_LIVE). */}
+      {data?.resultsAvailable && (
+        <fieldset className="mt-5" disabled={!current || saving}>
+          <legend className="text-sm font-medium">Monthly results</legend>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {([
+              { value: true, label: "On", hint: "Early each month: last month's scans and results for each flyer" },
+              { value: false, label: "Off", hint: "No monthly email — your results stay on your dashboard" },
+            ] as const).map((o) => {
+              const active = current?.results === o.value
+              return (
+                <button
+                  key={String(o.value)}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => save({ results: o.value })}
+                  className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                    active ? "border-[var(--brand-teal-bright)] bg-[var(--brand-teal-tint)]" : "border-border hover:bg-[var(--surface-sunken)]"
+                  }`}
+                >
+                  <span className="block text-sm font-medium">{o.label}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{o.hint}</span>
+                </button>
+              )
+            })}
+          </div>
+        </fieldset>
+      )}
       {error && <p role="alert" className="mt-3 text-xs text-[var(--destructive)]">{error}</p>}
     </section>
   )

@@ -25,7 +25,7 @@ import { getSiteUrl } from "@/lib/site-url"
 const redis = Redis.fromEnv()
 
 /** Each kind of public email someone can switch off on its own. */
-export const EMAIL_CATEGORIES = ["leads"] as const
+export const EMAIL_CATEGORIES = ["leads", "results"] as const
 export type EmailCategory = (typeof EMAIL_CATEGORIES)[number]
 
 /** How new-lead emails arrive: each one as it comes in, one daily digest (lib/lead-digest.ts), or none. */
@@ -42,16 +42,28 @@ export function digestLive(): boolean {
   return process.env.PUBLIC_DIGEST_LIVE === "1"
 }
 
+/**
+ * Whether the monthly results email actually sends (PUBLIC_MONTHLY_EMAIL_LIVE=1).
+ * Until it does, the cron only reports what it would send, and /profile
+ * doesn't offer a setting for an email that never arrives.
+ */
+export function monthlyLive(): boolean {
+  return process.env.PUBLIC_MONTHLY_EMAIL_LIVE === "1"
+}
+
 export interface EmailPreferences {
   leads: LeadEmailMode
+  /** The monthly results email (lib/monthly-results.ts). On unless switched off. */
+  results: boolean
   updatedAt: string | null
 }
 
-export const DEFAULT_EMAIL_PREFERENCES: EmailPreferences = { leads: "instant", updatedAt: null }
+export const DEFAULT_EMAIL_PREFERENCES: EmailPreferences = { leads: "instant", results: true, updatedAt: null }
 
 /** What each category is called wherever a person sees it. */
 export const CATEGORY_LABEL: Record<EmailCategory, string> = {
   leads: "new-lead emails",
+  results: "monthly results emails",
 }
 
 const key = (email: string) => `email-prefs:v1:${email.trim().toLowerCase()}`
@@ -72,6 +84,8 @@ export function unsubscribedPatch(category: EmailCategory): Partial<Omit<EmailPr
   switch (category) {
     case "leads":
       return { leads: "off" }
+    case "results":
+      return { results: false }
   }
 }
 
