@@ -14,7 +14,7 @@ vi.mock("@upstash/redis", () => ({
 }))
 vi.mock("resend", () => ({
   Resend: class {
-    emails = { send: async (payload: Record<string, unknown>) => (s.sent.push(payload), { error: null }) }
+    emails = { send: async (payload: Record<string, unknown>) => (s.sent.push(payload), { data: { id: "msg_test_1" }, error: null }) }
   },
 }))
 vi.mock("@/lib/store", () => ({
@@ -106,6 +106,17 @@ describe("the lead email", () => {
     expect(verifyUnsubscribe(paramsOf(header))).toEqual({ email: "owner@x.test", category: "leads" })
     const footer = mail.html.match(/href="([^"]*\/unsubscribe\?[^"]*)"/)![1].replace(/&amp;/g, "&")
     expect(verifyUnsubscribe(paramsOf(footer))).toEqual({ email: "owner@x.test", category: "leads" })
+  })
+
+  it("has a plain-text part with a working unsubscribe link, and the route logs Resend's id with a masked address", async () => {
+    const log = vi.spyOn(console, "log")
+    await submit()
+    const mail = s.sent[0] as { text: string }
+    expect(mail.text).toContain("Phone: 270-555-0100")
+    const link = mail.text.match(/Unsubscribe from new-lead emails: (\S+)/)![1]
+    expect(verifyUnsubscribe(paramsOf(link))).toEqual({ email: "owner@x.test", category: "leads" })
+    expect(log.mock.calls.flat().join("\n")).toMatch(/email to o•••@x\.test accepted by Resend \(msg_test_1\)/)
+    log.mockRestore()
   })
 
   it("is not sent when the owner has lead emails off — the lead is still saved", async () => {
