@@ -18,13 +18,16 @@ import { toAssetContext, findVerbatimViolations, findInventedComplianceLanguage 
 import type { CampaignSource } from "@/lib/types"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage, MAX_PROMPT_CHARS } from "./higgsfield"
-import { findFallbackStockPhoto, findPhotoForPromotion, finalizePhotoUsage, type UnsplashPhoto } from "@/lib/unsplash"
+import { finalizePhotoUsage } from "@/lib/unsplash"
+import { repairContrast } from "./contrast-repair"
+import { repairRedundancy } from "./redundancy"
+import { creditInstagramSquare, findFallbackStock, findStockForPromotion, pexelsAllowedFor, recordFlyerPhotoSource, type PhotoCandidate, type StockPhoto } from "@/lib/stock-photos"
 import { createFlyerTrackingCode, backfillTrackingContent, qrDataUrlForCode } from "./qrTracking"
 import { planIncludesExtras, aiPhotosEnabled, stockPhotosEnabled, qrEnabled } from "./plan-features"
 import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
 import { palettePoolFor } from "./trade-palettes"
 import { runPolishAgent } from "./agents/polishAgent"
-import { fillTemplate, selectTemplate } from "./template-mode"
+import { fillTemplate, refitTemplateFlyer, selectTemplate, type ColorPolicy, type ContrastNote } from "./template-mode"
 import { resolveBrandColors, resolveFonts, renderableFonts, type BrandStylePreference } from "@/lib/brand-controls"
 import { loadBusinessProfileContext } from "./business-profile-context"
 import { applyLegibilityGuardrails } from "./legibility"
@@ -331,11 +334,13 @@ export function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerReque
 /**
  * Sources one candidate photo per flyer request.
  *
- * Order is Unsplash first, Higgsfield second, CSS-only last.
+ * Order is Unsplash, then Pexels, then Higgsfield, then CSS-only.
  *
- * Unsplash is primary because it returns real photographs at no per-image
+ * Stock is primary because it returns real photographs at no per-image
  * cost; Higgsfield generates a bespoke image but bills credits per call, so
- * it runs only when Unsplash has nothing on-topic. The two sources are gated
+ * it runs only when stock has nothing on-topic. Pexels is skipped entirely
+ * for enterprise and NOP agent accounts (gates.allowPexels, decided by
+ * pexelsAllowedFor in lib/stock-photos.ts). The two sources are gated
  * separately (see lib/agent-pipeline/plan-features.ts): stock photos are on
  * for EVERY tier with no opt-in (stockPhotosEnabled), while generation needs
  * the Pro plan AND the client's explicit wantsAiPhotos opt-in
@@ -349,12 +354,12 @@ export function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerReque
 async function buildPhotoPool(
   intake: NormalizedIntake,
   flyerRequests: FlyerRequest[],
-  gates: { allowStockPhotos: boolean; allowAiGeneration: boolean },
-): Promise<{ photos: NormalizedIntake["photos"]; unsplash: UnsplashPhoto[] }> {
+  gates: { allowStockPhotos: boolean; allowAiGeneration: boolean; allowPexels: boolean },
+): Promise<{ photos: NormalizedIntake["photos"]; stock: StockPhoto[]; candidates: PhotoCandidate[] }> {
   // A client's own photographs always win, and need no attribution.
   if (intake.photos.length > 0) {
     console.log(`[photo-pool] using ${intake.photos.length} client-supplied photo(s); no stock lookup needed.`)
-    return { photos: intake.photos, unsplash: [] }
+    return { photos: intake.photos, stock: [], candidates: intake.photos.map((p) => ({ url: p.url, provider: "client" })) }
   }
 
   // Every exit below says WHY. The bug this replaces was a silent early
@@ -363,7 +368,7 @@ async function buildPhotoPool(
   // which was indistinguishable from "Unsplash found nothing".
   if (!gates.allowStockPhotos && !gates.allowAiGeneration) {
     console.log("[photo-pool] skipped: both stock and AI photo sources are disabled for this flyer.")
-    return { photos: [], unsplash: [] }
+    return { photos: [], stock: [], candidates: [] }
   }
 
   const sourced = await Promise.allSettled(
@@ -375,27 +380,31 @@ async function buildPhotoPool(
       // the three-term cap before reaching the offer, so what the flyer was
       // actually advertising never influenced the photo.
       const found = gates.allowStockPhotos
-        ? await findPhotoForPromotion({
-            industry: intake.industry,
-            purpose: request.purpose,
-            services: intake.services,
-            context,
-          })
+        ? await findStockForPromotion(
+            {
+              industry: intake.industry,
+              purpose: request.purpose,
+              services: intake.services,
+              context,
+            },
+            gates.allowPexels,
+          )
         : ({ ok: false, reason: "not_configured", detail: "stock photos disabled for this flyer" } as const)
 
       if (found.ok) {
         return {
           photo: { url: found.photo.url, caption: `Stock photo — suggested for: ${request.purpose}` },
-          // UnsplashPhoto already carries every field PhotoCredit needs,
+          // A StockPhoto already carries every field PhotoCredit needs,
           // so it doubles as the credit record — one list, no drift.
-          unsplash: found.photo,
+          stock: found.photo,
+          provider: found.photo.provider,
         }
       }
 
       // Logged per reason so we can see how often each trade falls through —
       // "thin_results" is a library-coverage problem, "rate_limited" is the
       // 50/hr demo ceiling, and they need different fixes.
-      console.log(`[photo-pool] ${context}: unsplash skipped/miss (${found.reason}) — ${found.detail}`)
+      console.log(`[photo-pool] ${context}: stock skipped/miss (${found.reason}) — ${found.detail}`)
 
       if (!gates.allowAiGeneration) {
         console.log(`[photo-pool] ${context}: higgsfield not attempted (needs Pro plan + the client's wantsAiPhotos opt-in) — CSS-only design.`)
@@ -410,7 +419,8 @@ async function buildPhotoPool(
         if (ownCopy) {
           return {
             photo: { url: ownCopy, caption: `AI-generated, illustrative — suggested for: ${request.purpose}` },
-            unsplash: null,
+            stock: null,
+            provider: "higgsfield" as const,
           }
         }
         console.error(`[photo-pool] ${context}: AI image generated but could not be stored.`)
@@ -421,12 +431,13 @@ async function buildPhotoPool(
       // beats none — and the Flyer Agent can still decline it. Skipped when
       // the first search failed for a reason a retry can't fix.
       if (gates.allowStockPhotos && (found.reason === "thin_results" || found.reason === "no_relevant_match")) {
-        const stock = await findFallbackStockPhoto({ industry: intake.industry, context })
+        const stock = await findFallbackStock({ industry: intake.industry, context }, gates.allowPexels)
         if (stock.ok) {
-          console.log(`[photo-pool] ${context}: AI photo unavailable — using a fallback stock photo for "${stock.queryUsed}".`)
+          console.log(`[photo-pool] ${context}: AI photo unavailable — using a fallback ${stock.photo.provider} photo for "${stock.queryUsed}".`)
           return {
             photo: { url: stock.photo.url, caption: `Stock photo — suggested for: ${request.purpose}` },
-            unsplash: stock.photo,
+            stock: stock.photo,
+            provider: stock.photo.provider,
           }
         }
         console.log(`[photo-pool] ${context}: fallback stock search missed too (${stock.reason}) — ${stock.detail}`)
@@ -443,13 +454,16 @@ async function buildPhotoPool(
 
   return {
     photos: hits.map((h) => h.photo),
-    unsplash: hits.map((h) => h.unsplash).filter((u): u is UnsplashPhoto => u !== null),
+    stock: hits.map((h) => h.stock).filter((u): u is StockPhoto => u !== null),
+    candidates: hits.map((h) => ({ url: h.photo.url, provider: h.provider, stock: h.stock ?? undefined })),
   }
 }
 
 /**
- * Honours the two obligations that come with using an Unsplash photo, for
- * the photos that genuinely reached this flyer's final HTML.
+ * Honours the obligations that come with using a stock photo, for the
+ * photos that genuinely reached this flyer's final HTML: a credit for every
+ * stock photo, and Unsplash's download trigger for Unsplash ones (Pexels has
+ * no equivalent).
  *
  * Kept as one function on purpose: the API Guidelines require BOTH a credit
  * and a download trigger, and pairing them here means neither can be
@@ -459,11 +473,11 @@ async function buildPhotoPool(
  */
 export async function applyPhotoObligations(
   html: string,
-  unsplash: UnsplashPhoto[],
+  stock: StockPhoto[],
   formatId: string | undefined,
   context: string,
 ): Promise<string> {
-  const used = creditsUsedIn(html, unsplash)
+  const used = creditsUsedIn(html, stock)
   if (used.length === 0) {
     // The distinction that was previously invisible. prompts/flyer.ts
     // explicitly permits the agent to design with zero photos when nothing
@@ -472,15 +486,15 @@ export async function applyPhotoObligations(
     // was ever sourced, or one was sourced and declined. Without this line
     // they are indistinguishable after the fact, which is exactly what made
     // the "why is there no photo?" question unanswerable.
-    if (unsplash.length > 0) {
+    if (stock.length > 0) {
       console.log(
-        `[photo-pool] ${context}: agent DECLINED all ${unsplash.length} available photo(s) — ` +
+        `[photo-pool] ${context}: agent DECLINED all ${stock.length} available photo(s) — ` +
           `composed with zero photos. Not a sourcing failure; see rule 5 in prompts/flyer.ts.`,
       )
     }
     return html
   }
-  await finalizePhotoUsage(used, context)
+  await finalizePhotoUsage(used.filter((p) => p.provider !== "pexels"), context)
   return injectPhotoAttribution(html, used, getFormat(formatId).medium)
 }
 
@@ -694,11 +708,67 @@ export function stampClientPreferences(data: NormalizedIntake, submission: Intak
  * difference is where the HTML came from. One ~512-token text call replaces a
  * ~8,070-token HTML call.
  */
+/**
+ * The AI path's last step, on the finished document.
+ *
+ * Template flyers (data-field markers) are returned untouched: their layout
+ * and colours are right by construction (template-mode.ts). For an AI-written
+ * flyer on a PUBLIC account, two prompt rules are enforced in code:
+ *   - "say it once": a device repeating a message the page already carries is
+ *     removed (redundancy.ts — the forced test caught the model breaking this
+ *     in 1 of 13 generations);
+ *   - contrast: text failing WCAG AA on its rendered backdrop is set to white
+ *     or near-black, whichever passes (contrast-repair.ts).
+ * An ENTERPRISE org account is measured only — its approved copy and colours
+ * are not altered; failing contrast is logged as [contrast] lines instead.
+ * Never throws: a failure here returns the flyer as it was.
+ */
+async function finishAiFlyer(html: string, opts: { context: string; isEnterpriseAccount: boolean; businessName: string; formatId: string | undefined }): Promise<string> {
+  if (/data-field="/.test(html)) return html
+  try {
+    if (opts.isEnterpriseAccount) {
+      const measured = await repairContrast(html, { apply: false })
+      for (const f of measured.unrepaired) {
+        console.log(`[contrast] ${opts.context}: "${f.text}" — ${f.ratio}:1 (needs ${f.need}:1) — brand colours preserved (enterprise), not repaired`)
+      }
+      for (const c of measured.covered) console.warn(`[layout] ${opts.context}: "${c.text}" is ${c.why}`)
+      return html
+    }
+    // Redundancy is a flyer DEVICE rule; a paginated proposal's prose
+    // legitimately repeats its terms (see repairRedundancy).
+    const red = getFormat(opts.formatId).paginates ? { html, removed: [], kept: [] } : repairRedundancy(html, opts.businessName)
+    for (const r of red.removed) console.log(`[redundancy] ${opts.context}: removed "${r}" — its message is already on the page`)
+    for (const k of red.kept) console.log(`[redundancy] ${opts.context}: kept redundant "${k}"`)
+    const cr = await repairContrast(red.html)
+    for (const r of cr.repaired) console.log(`[contrast] ${opts.context}: "${r.text}" ${r.from}:1 — set to ${r.to}`)
+    for (const u of cr.unrepaired) console.warn(`[contrast] ${opts.context}: "${u.text}" ${u.ratio}:1 (needs ${u.need}:1) — no plain colour passes on this backdrop`)
+    // Logged, not fixed (Phase 2 scope): a covered line is a layout collision.
+    for (const c of cr.covered) console.warn(`[layout] ${opts.context}: "${c.text}" is ${c.why}`)
+    return cr.html
+  } catch (err) {
+    console.error(`[contrast] ${opts.context}: finishing step skipped — ${err instanceof Error ? err.message : err}`)
+    return html
+  }
+}
+
+/**
+ * One structured line per contrast pair a template failed. For public
+ * accounts the template has already repaired it; for enterprise org accounts
+ * (colorPolicy "preserve") the org's approved colours were left alone, so this
+ * line IS the record of it.
+ */
+function logContrastNotes(context: string, notes: ContrastNote[], policy: ColorPolicy) {
+  for (const n of notes) {
+    console.log(`[contrast] ${context}: ${n.pair} — ${n.ratio}:1 (needs ${n.required}:1) — ${n.repaired ? "repaired" : policy === "preserve" ? "brand colours preserved (enterprise), not repaired" : "NOT repaired"}`)
+  }
+}
+
 async function runTemplateFlyer(
   input: Parameters<typeof runFlyerAgent>[0],
   agentEmail: string,
   intake: NormalizedIntake,
   repurposeOut: Map<string, { instagramHtml: string; textBlurb: string; nextdoorPost: string; caption: string }>,
+  colorPolicy: ColorPolicy,
 ): Promise<Awaited<ReturnType<typeof runFlyerAgent>>> {
   type Spec = Awaited<ReturnType<typeof runFlyerAgent>>["flyers"][number]
   const flyers: Spec[] = []
@@ -746,7 +816,9 @@ async function runTemplateFlyer(
         accent: palette[2]?.hex ?? "#e39a2b",
       },
       fonts: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+      colorPolicy,
     })
+    logContrastNotes(`flyer ${request.id}`, filled.contrast, colorPolicy)
 
     if (filled.truncated.length > 0) {
       console.log(`[template] flyer ${request.id}: ${template.id} — budget cut ${filled.truncated.join(", ")}`)
@@ -774,7 +846,9 @@ async function runTemplateFlyer(
           accent: palette[2]?.hex ?? "#e39a2b",
         },
         fonts: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+        colorPolicy,
       })
+      logContrastNotes(`flyer ${request.id} (Instagram)`, sq.contrast, colorPolicy)
       repurposeOut.set(request.id, {
         instagramHtml: sq.html,
         textBlurb: polished.textBlurb,
@@ -825,9 +899,10 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
   }
   const { plan, includeExtras, isEnterpriseAccount } = await getPlanFeatures(email)
   if (stockPhotosEnabled(plan) || aiPhotosEnabled(plan, intake.wantsAiPhotos)) await setGenerationStage(email, GENERATION_STAGES.photos)
-  const { photos, unsplash: unsplashPool } = await buildPhotoPool(intake, flyerRequests, {
+  const { photos, stock: stockPool, candidates: photoCandidates } = await buildPhotoPool(intake, flyerRequests, {
     allowStockPhotos: stockPhotosEnabled(plan),
     allowAiGeneration: aiPhotosEnabled(plan, intake.wantsAiPhotos),
+    allowPexels: await pexelsAllowedFor(email, isEnterpriseAccount),
   })
   stageMark(runId, t0, "photo pool ready")
 
@@ -935,7 +1010,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
   // its own input shape and output schema (see enterprise.ts) — this does not
   // alter what the SMB call sends.
   const runFlyerForRequest = async (input: Parameters<typeof runFlyerAgent>[0], agentEmail: string) => {
-    if (templateMode) return runTemplateFlyer(input, agentEmail, intake, templateRepurposeByFlyer)
+    if (templateMode) return runTemplateFlyer(input, agentEmail, intake, templateRepurposeByFlyer, isEnterpriseAccount ? "preserve" : "repair")
     if (!enterpriseAssets) return runFlyerAgent(input, agentEmail)
     const out = await runEnterpriseFlyerAgent({ ...input, approvedAssets: enterpriseAssets }, agentEmail)
     for (const flyer of out.flyers) {
@@ -996,22 +1071,25 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
     const tracking = trackingByFlyerId.get(flyer.id)
     if (tracking) await backfillTrackingContent(tracking.code, flyer)
 
+    const finalHtml = await finishAiFlyer(
+      substituteLogo(
+        substituteQr(
+          await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), stockPool, flyerRequests[0]?.formatId, `flyer ${flyer.id}`),
+          tracking?.qrDataUrl ?? null,
+        ),
+        intake.brandAssets.logoUrl,
+      ),
+      { context: `flyer ${flyer.id}`, isEnterpriseAccount, businessName: intake.businessName, formatId: flyerRequests.find((r) => r.id === flyer.id)?.formatId },
+    )
     await updateDeliverable(email, {
       type: "flyer",
       id: flyer.id,
       status: "Ready",
-      downloadUrl: toDataUrl(
-        substituteLogo(
-          substituteQr(
-            await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), unsplashPool, flyerRequests[0]?.formatId, `flyer ${flyer.id}`),
-            tracking?.qrDataUrl ?? null,
-          ),
-          intake.brandAssets.logoUrl,
-        ),
-      ),
+      downloadUrl: toDataUrl(finalHtml),
       trackingCode: tracking?.code,
       generationMode: templateMode ? "template" : "ai",
     })
+    await recordFlyerPhotoSource(flyer.id, finalHtml, photoCandidates)
   }
 
   // Written as a second, additive pass so the SMB deliverable write above is
@@ -1047,7 +1125,7 @@ async function runBatch(runId: string, t0: number, email: string, intake: Normal
             type: "flyer",
             id: flyer.id,
             repurposed: {
-              instagramDownloadUrl: toDataUrl(fromTemplate.instagramHtml),
+              instagramDownloadUrl: toDataUrl(creditInstagramSquare(fromTemplate.instagramHtml, stockPool)),
               instagramCaption: fromTemplate.caption,
               textBlurb: fromTemplate.textBlurb,
               nextdoorPost: fromTemplate.nextdoorPost,
@@ -1167,9 +1245,10 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
   const brandProfile = await applyFontChoice(await runBrandAgent(intake, email), email, intake.fontStylePreference)
   stageMark(runId, t0, "brand done")
   const { plan, includeExtras, isEnterpriseAccount } = await getPlanFeatures(email)
-  const { photos, unsplash: unsplashPool } = await buildPhotoPool(intake, [flyerRequest], {
+  const { photos, stock: stockPool, candidates: photoCandidates } = await buildPhotoPool(intake, [flyerRequest], {
     allowStockPhotos: stockPhotosEnabled(plan),
     allowAiGeneration: aiPhotosEnabled(plan, intake.wantsAiPhotos),
+    allowPexels: await pexelsAllowedFor(email, isEnterpriseAccount),
   })
   stageMark(runId, t0, "photo pool ready")
 
@@ -1212,21 +1291,24 @@ async function runSingleFlyerRetry(runId: string, t0: number, email: string, int
 
   if (tracking) await backfillTrackingContent(tracking.code, flyer)
 
+  const finalHtml = await finishAiFlyer(
+    substituteLogo(
+      substituteQr(
+        await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), stockPool, flyerRequest.formatId, `flyer ${flyer.id}`),
+        tracking?.qrDataUrl ?? null,
+      ),
+      intake.brandAssets.logoUrl,
+    ),
+    { context: `flyer ${flyer.id}`, isEnterpriseAccount, businessName: intake.businessName, formatId: flyerRequest.formatId },
+  )
   await updateDeliverable(email, {
     type: "flyer",
     id: flyer.id,
     status: "Ready",
-    downloadUrl: toDataUrl(
-      substituteLogo(
-        substituteQr(
-          await applyPhotoObligations(applyLegibility(flyer.html, `flyer ${flyer.id}`), unsplashPool, flyerRequest.formatId, `flyer ${flyer.id}`),
-          tracking?.qrDataUrl ?? null,
-        ),
-        intake.brandAssets.logoUrl,
-      ),
-    ),
+    downloadUrl: toDataUrl(finalHtml),
     trackingCode: tracking?.code,
   })
+  await recordFlyerPhotoSource(flyer.id, finalHtml, photoCandidates)
 
   if (!includeExtras) return
 
@@ -1387,6 +1469,11 @@ export async function refineFlyer(
             : `${applied.reason} Your flyer is unchanged.`,
         )
       }
+      // An edit changes text, not size: re-choose the sizes for the new text,
+      // or refuse it if it can't fit this layout at all (never clip it).
+      const refit = refitTemplateFlyer(applied.html)
+      if (!refit.ok) return await keepPrevious(`Your change wasn't applied: ${refit.reason}. Your flyer is unchanged — try a shorter wording.`)
+      applied = { ...applied, html: refit.html }
       const problems = await vetEdit(currentHtml, applied.html, instruction, ctx, runId)
       if (problems.length) return await keepPrevious(rejectionMessage(problems))
 
@@ -1397,8 +1484,9 @@ export async function refineFlyer(
       const igHtml = repurposed?.instagramDownloadUrl ? fromDataUrl(repurposed.instagramDownloadUrl) : null
       if (repurposed && igHtml) {
         const ig = applyQuickEdit(igHtml, proposal)
-        if (ig.ok && checkEditInvariants(igHtml, ig.html, instruction, ctx).length === 0) {
-          repurposed = { ...repurposed, instagramDownloadUrl: toDataUrl(ig.html) }
+        const igFit = ig.ok ? refitTemplateFlyer(ig.html) : null
+        if (ig.ok && igFit?.ok && checkEditInvariants(igHtml, igFit.html, instruction, ctx).length === 0) {
+          repurposed = { ...repurposed, instagramDownloadUrl: toDataUrl(igFit.html) }
         } else {
           console.warn(`[agent-pipeline] edit for ${runId}: Instagram version kept as it was (${ig.ok ? "failed checks" : ig.reason})`)
         }
@@ -1456,7 +1544,11 @@ export async function refineFlyer(
     const flyer = flyerResult.flyers[0]
     if (!flyer) throw new Error("Flyer Agent returned no result")
 
-    const candidate = substituteLogo(substituteQr(preservePhotoCredit(currentHtml, applyLegibility(flyer.html, `flyer ${flyer.id}`)), qrDataUrl), logoUrl)
+    const { isEnterpriseAccount } = await getPlanFeatures(email)
+    const candidate = await finishAiFlyer(
+      substituteLogo(substituteQr(preservePhotoCredit(currentHtml, applyLegibility(flyer.html, `flyer ${flyer.id}`)), qrDataUrl), logoUrl),
+      { context: `flyer ${flyer.id} (refined)`, isEnterpriseAccount, businessName: brandProfile?.businessName ?? "", formatId: flyerRequest.formatId },
+    )
     const problems = await vetEdit(currentHtml, candidate, instruction, ctx, runId)
     if (problems.length) return await keepPrevious(rejectionMessage(problems))
 

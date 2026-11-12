@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { getClient, getDeliverablesForEmail, seedPrintRequest } from "@/lib/store"
+import { planIncludesExtras } from "@/lib/agent-pipeline/plan-features"
 
 const MAX_QUANTITY = 500
 
@@ -27,7 +28,9 @@ export async function POST(request: NextRequest) {
   const email = session.sub
 
   const client = await getClient(email)
-  if (client?.plan === "trial") {
+  // Fails closed: no client record (or an unknown plan) is refused too, not
+  // waved through as "not trial".
+  if (!planIncludesExtras(client?.plan)) {
     return NextResponse.json(
       { error: "plan_required", message: "Print requests are available on Basic and Pro — check out our plans at /#pricing." },
       { status: 403 },

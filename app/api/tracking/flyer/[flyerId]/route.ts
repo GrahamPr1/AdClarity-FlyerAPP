@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
-import { getDeliverables, getDeliverablesForEmail } from "@/lib/store"
-import { buildFlyerBreakdown } from "@/lib/tracking-breakdown"
+import { getClient, getDeliverables, getDeliverablesForEmail } from "@/lib/store"
+import { buildFlyerBreakdown, scansOnly } from "@/lib/tracking-breakdown"
+import { planIncludesExtras } from "@/lib/agent-pipeline/plan-features"
 
 // GET /api/tracking/flyer/{flyerId} — scans and clicks for one flyer, broken
 // down by distribution channel.
@@ -32,5 +33,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // 404 rather than 403: probing ids reveals nothing about what exists.
   if (!flyer || !ownerEmail) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  return NextResponse.json(await buildFlyerBreakdown(flyerId, flyer.trackingCode, ownerEmail))
+  const breakdown = await buildFlyerBreakdown(flyerId, flyer.trackingCode, ownerEmail)
+  // Trial owners get scan counts only — read from the owner's plan on every
+  // request, so an upgrade shows clicks at once. Admin sees everything.
+  if (!isAdmin && !planIncludesExtras((await getClient(ownerEmail))?.plan)) return NextResponse.json(scansOnly(breakdown))
+  return NextResponse.json(breakdown)
 }

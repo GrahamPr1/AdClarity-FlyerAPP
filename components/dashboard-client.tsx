@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { fetcher } from "@/lib/swr-fetcher"
+import { EmailDeliveryNotice } from "@/components/email-delivery-notice"
 import { BusinessDetailsCard } from "@/components/business-details-card"
 import type { BusinessProfile } from "@/lib/business-profile"
 import type {
@@ -993,7 +994,7 @@ export function DashboardClient() {
           {data.flyersCreated >= data.flyersLimit && (
             <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
               <p className="min-w-[16rem] flex-1 text-sm">
-                You&apos;ve used all {data.flyersLimit} campaigns on your {data.planName} plan.
+                You&apos;ve used all {data.flyersLimit} flyers on your {data.planName} plan.
                 They reset on {new Date(data.flyersResetAt).toLocaleDateString()}.
               </p>
               <Link
@@ -1152,6 +1153,7 @@ export function DashboardClient() {
                   first campaign exists, rather than as two extra form steps
                   standing between signup and any visible result. Dismissible,
                   and hidden once they've saved anything. */}
+              <EmailDeliveryNotice />
               <ProfileNudge />
 
               <div className="mt-12 flex items-center justify-between gap-3">

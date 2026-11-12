@@ -7,6 +7,9 @@ import { CANONICAL_SITE_URL } from "@/lib/site-url"
 import type { LeadRecord } from "@/lib/types"
 import { LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS, LeadSchema } from "@/lib/leads"
 import { isOfferExpired } from "@/lib/offer-page-content"
+import { getEmailPreferences, digestLive } from "@/lib/email-preferences"
+import { recordSent } from "@/lib/email-delivery"
+import { queueLeadForDigest } from "@/lib/lead-digest"
 
 // POST /api/leads/{code} — the form on a flyer's offer page (/r/{code}).
 //
@@ -27,6 +30,12 @@ import { isOfferExpired } from "@/lib/offer-page-content"
 
 /** What a bot gets for a honeypot hit or a rate-limited burst: the same as success. */
 const silentOk = () => NextResponse.json({ ok: true })
+
+/** "g•••@icloud.com": enough to tell accounts apart in a log, not the whole address. */
+function maskEmail(email: string): string {
+  const [user, domain] = email.split("@")
+  return `${user.slice(0, 1)}•••@${domain ?? ""}`
+}
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
@@ -74,6 +83,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   await saveLead(record.email, lead)
 
+  // The lead is saved whatever the owner's email settings say; only the email
+  // honours them (lib/email-preferences.ts — /profile, or the unsubscribe link).
+  const prefs = await getEmailPreferences(record.email)
+  if (prefs.leads === "off") {
+    console.log(`[leads] saved lead ${lead.id} on ${code}; owner has lead emails off — not emailed`)
+    return NextResponse.json({ ok: true })
+  }
+  // "Once a day" only while the digest really sends; until then, as before.
+  if (prefs.leads === "daily" && digestLive()) {
+    // Goes out in tomorrow's digest instead (/api/cron/public-emails).
+    await queueLeadForDigest(record.email, {
+      name: lead.name,
+      phone: lead.phone,
+      email: lead.email,
+      message: lead.message,
+      createdAt: lead.createdAt,
+      flyerTitle: record.headline,
+      afterOfferEnded: lead.afterOfferEnded ?? false,
+    })
+    console.log(`[leads] saved lead ${lead.id} on ${code}; queued for the owner's daily digest`)
+    return NextResponse.json({ ok: true })
+  }
   const sent = await sendLeadNotification({
     to: record.email,
     businessName: record.businessName,
@@ -83,7 +114,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     afterOfferEnded: lead.afterOfferEnded ?? false,
     dashboardUrl: `${CANONICAL_SITE_URL}/dashboard`,
   })
+  // Every outcome is logged with Resend's id, so a lead email that didn't
+  // arrive can be traced (it once bounced at iCloud with nothing in the logs).
+  // "accepted" is Resend taking it, not delivery — bounces come back later.
   if (!sent.sent) console.error(`[leads] saved lead ${lead.id} on ${code}, but the owner email failed:`, sent.reason)
+  else {
+    console.log(`[leads] lead ${lead.id} on ${code}: email to ${maskEmail(record.email)} accepted by Resend (${sent.id ?? "no id"})`)
+    // Followed by Resend's webhook: a bounce is retried once and shown to the owner.
+    await recordSent(sent.id, { kind: "lead", owner: record.email, code, leadId: lead.id, attempt: 1 })
+  }
 
   return NextResponse.json({ ok: true })
 }

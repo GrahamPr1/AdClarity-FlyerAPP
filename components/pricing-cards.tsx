@@ -90,7 +90,7 @@ function PlanCard({
             --brand-teal moves away from the backdrop in both themes: deeper
             (#245a7c) on the light card, lighter (#8cc2e2) on the dark one. */}
         <p className="mt-1.5 text-sm text-[var(--brand-teal)] font-medium leading-snug">{plan.tagline}</p>
-        <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{plan.description}</p>
+        {plan.description && <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{plan.description}</p>}
 
         <div className="mt-6 flex items-baseline gap-2 flex-wrap">
           {isPaid && billing === "annual" && (
@@ -174,14 +174,16 @@ function PlanCard({
           ))}
         </div>
 
-        {/* Outcome line */}
-        <div className="mt-6 pt-5 border-t border-border flex items-start gap-2.5">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-teal-bright)" strokeWidth="2" className="mt-0.5 shrink-0" aria-hidden="true">
-            <path d="M3 17l6-6 4 4 8-8" />
-            <path d="M21 7v5h-5" />
-          </svg>
-          <span className="text-sm text-foreground/75 leading-snug italic">{plan.outcome}</span>
-        </div>
+        {/* Outcome line — omitted when a plan has none (Pro's approved copy is its tagline and bullets) */}
+        {plan.outcome && (
+          <div className="mt-6 pt-5 border-t border-border flex items-start gap-2.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-teal-bright)" strokeWidth="2" className="mt-0.5 shrink-0" aria-hidden="true">
+              <path d="M3 17l6-6 4 4 8-8" />
+              <path d="M21 7v5h-5" />
+            </svg>
+            <span className="text-sm text-foreground/75 leading-snug italic">{plan.outcome}</span>
+          </div>
+        )}
       </div>
     </Reveal>
   )

@@ -1,5 +1,6 @@
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { legacyHostRedirects } from "./legacy-redirects.mjs"
 
 const projectDir = path.dirname(fileURLToPath(import.meta.url))
 
@@ -99,6 +100,9 @@ const nextConfig = {
   // so a guessed or old /pricing link must never 404.
   async redirects() {
     return [
+      // First, so a legacy-host request goes straight to oneflyer.org (where
+      // the rules below then apply). See legacy-redirects.mjs for what stays.
+      ...legacyHostRedirects(),
       { source: "/signup", destination: "/onboarding", permanent: true },
       { source: "/register", destination: "/onboarding", permanent: true },
       { source: "/create", destination: "/onboarding", permanent: true },

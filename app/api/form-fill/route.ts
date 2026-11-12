@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   const client = await getClient(email)
   if (client?.plan !== "pro") {
     return NextResponse.json(
-      { error: "pro_only", message: "Form filling is a Pro-plan feature — check out our plans at /#pricing." },
+      { error: "pro_only", message: "Form-fill is part of Pro: save your business details once, and OneFlyer fills in fillable PDF forms for you. See /#pricing." },
       { status: 403 },
     )
   }
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     const profile = await getBusinessProfile(email)
     if (!profile) {
       return NextResponse.json(
-        { error: "no_saved_profile", message: "You don't have a saved business profile yet — save one first, or upload a fresh info source." },
+        { error: "no_saved_profile", message: "You don't have saved form-fill details yet — save them first, or upload a fresh info source." },
         { status: 422 },
       )
     }

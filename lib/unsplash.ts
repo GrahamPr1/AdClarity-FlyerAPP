@@ -1,4 +1,5 @@
 import { checkRateLimit } from "./rate-limit"
+import { isProviderExhausted, markProviderExhausted, noteRateLimitHeaders, readCachedSearch, writeCachedSearch, DEFAULT_EXHAUSTED_SECONDS } from "./photo-search-cache"
 
 /**
  * Unsplash stock photography — the primary photo source for flyers.
@@ -93,6 +94,7 @@ const STOPWORDS = new Set([
 const MIN_TERM_LENGTH = 3
 
 export interface UnsplashPhoto {
+  provider: "unsplash"
   /** Unsplash photo id — useful in logs, never shown to a client. */
   id: string
   /** The image to embed. `regular` (~1080px wide) is the guideline-recommended display size. */
@@ -218,8 +220,41 @@ export function buildSpecificSearchQuery(opts: { industry: string; purpose: stri
   return kept.join(" ").slice(0, 100)
 }
 
-/** Meaningful words a candidate photo should plausibly relate to. */
-function relevanceTerms(query: string): string[] {
+/* ---------------------------- Branded photos ------------------------------
+ *
+ * A stock photo can carry someone ELSE's brand — and on a client's flyer that
+ * reads as a competitor's endorsement or, worse, as the client's own name.
+ * The production case: a photo supplied for a roofer's Instagram post was a
+ * box sealed with tape printed "E ROOFING" — another roofing company. Its
+ * description: "A boxed package in our warehouse unit at ERoofing HQ."
+ *
+ * This reads DESCRIPTIONS, alt text and tags — never the pixels — so it
+ * reduces the risk without eliminating it: lettering nobody described gets
+ * through. A refusal costs one candidate, so it errs towards refusing.
+ */
+const BRANDING_WORDS = /\b(logos?|signs?|signage|signboards?|lettering|letters|brand(?:s|ed|ing)?|trademarks?|billboards?|neon sign|storefront sign|company name|business name|wordmark|emblem|decals?|stickers?)\b/i
+/** How a business describes its own photo: "our warehouse", "at ACME HQ", "ACME Ltd". */
+const COMPANY_MARKERS = /\b(hq|headquarters|inc|llc|ltd|gmbh|corp|co\.)\b|\bour (?:company|team|office|offices|warehouse|shop|store|business|showroom|factory|crew|staff|van|truck|fleet)\b/i
+
+/**
+ * Why a photo looks branded, or null. Shared with lib/pexels.ts.
+ * `photographer` is the account name: a photographer whose own name appears
+ * in the description is, in practice, a company photographing its own goods.
+ */
+export function brandingReason(texts: (string | null | undefined)[], photographer: string): string | null {
+  const text = texts.filter(Boolean).join(" ")
+  const word = text.match(BRANDING_WORDS)
+  if (word) return `mentions "${word[0]}"`
+  const marker = text.match(COMPANY_MARKERS)
+  if (marker) return `reads as a business's own photo ("${marker[0]}")`
+  const squash = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "")
+  const name = squash(photographer)
+  if (name.length >= 4 && squash(text).includes(name)) return `names its own photographer ("${photographer}")`
+  return null
+}
+
+/** Meaningful words a candidate photo should plausibly relate to. Shared with lib/pexels.ts. */
+export function relevanceTerms(query: string): string[] {
   return query
     .toLowerCase()
     .replace(/[^a-z\s]/g, " ")
@@ -239,13 +274,45 @@ function isRelevant(photo: { description: string | null; alt_description: string
   return terms.some((t) => haystack.includes(t))
 }
 
+/** The fields of a search response this module reads — also exactly what the search cache stores. */
+interface SearchBody {
+  total?: number
+  results?: {
+    id: string
+    urls: { regular: string }
+    links: { download_location: string }
+    user: { name: string; links: { html: string } }
+    description: string | null
+    alt_description: string | null
+    tags?: { title?: string }[]
+  }[]
+}
+
+/** Drops everything the selection below doesn't read, so cached entries stay small. */
+function trimForCache(body: SearchBody): SearchBody {
+  return {
+    total: body.total,
+    results: (body.results ?? []).map((r) => ({
+      id: r.id,
+      urls: { regular: r.urls.regular },
+      links: { download_location: r.links.download_location },
+      user: { name: r.user.name, links: { html: r.user.links.html } },
+      description: r.description,
+      alt_description: r.alt_description,
+      tags: (r.tags ?? []).map((t) => ({ title: t.title })),
+    })),
+  }
+}
+
 /**
  * Finds one on-topic photo, or explains why it couldn't.
  *
  * Never throws: every failure path returns a reason so the caller can fall
  * back to the CSS-only design instead of failing a generation the client has
- * already spent a credit on. Exactly one request per call — no pagination,
- * no retries — because of the hourly ceiling above.
+ * already spent a credit on. At most one request per call — no pagination,
+ * no retries — because of the hourly ceiling above, and none at all when the
+ * same query is in the search cache or Unsplash last reported its quota used
+ * up (lib/photo-search-cache.ts).
  */
 export async function findPhoto(opts: {
   query: string
@@ -260,6 +327,15 @@ export async function findPhoto(opts: {
   const key = accessKey()
   if (!key) {
     return { ok: false, reason: "not_configured", detail: "UNSPLASH_ACCESS_KEY is not set" }
+  }
+
+  // Cache first: a cached search costs no request, so neither an exhausted
+  // quota nor the hourly budget is a reason to refuse one.
+  const cached = await readCachedSearch<SearchBody>("unsplash", opts.query)
+  if (cached) return pickPhoto(cached, opts)
+
+  if (await isProviderExhausted("unsplash")) {
+    return { ok: false, reason: "rate_limited", detail: "skipped: Unsplash last reported its hourly quota used up" }
   }
 
   const budget = await checkRateLimit(RATE_LIMIT_KEY, DEMO_HOURLY_BUDGET, RATE_WINDOW_SECONDS)
@@ -281,35 +357,29 @@ export async function findPhoto(opts: {
     return { ok: false, reason: "error", detail: err instanceof Error ? err.message : String(err) }
   }
 
-  const remaining = Number(res.headers.get("x-ratelimit-remaining") ?? NaN)
-  if (Number.isFinite(remaining) && remaining <= HEADER_REMAINING_FLOOR) {
-    console.warn(`[unsplash] ${opts.context}: only ${remaining} requests left on the hourly quota.`)
-  }
+  // Authoritative over our own counter: once Unsplash says this little is
+  // left, later generations skip it rather than spend a request on a 403.
+  await noteRateLimitHeaders("unsplash", res.headers, HEADER_REMAINING_FLOOR)
 
   if (!res.ok) {
     // 403 here is Unsplash's own ceiling, reached despite our counter.
     const reason = res.status === 403 || res.status === 429 ? "rate_limited" : "error"
+    if (reason === "rate_limited") await markProviderExhausted("unsplash", DEFAULT_EXHAUSTED_SECONDS, `HTTP ${res.status}`)
     return { ok: false, reason, detail: `HTTP ${res.status}` }
   }
 
-  let body: {
-    total?: number
-    results?: {
-      id: string
-      urls: { regular: string }
-      links: { download_location: string }
-      user: { name: string; links: { html: string } }
-      description: string | null
-      alt_description: string | null
-      tags?: { title?: string }[]
-    }[]
-  }
+  let body: SearchBody
   try {
-    body = await res.json()
+    body = trimForCache(await res.json())
   } catch {
     return { ok: false, reason: "error", detail: "unparseable response" }
   }
+  await writeCachedSearch("unsplash", opts.query, body)
+  return pickPhoto(body, opts)
+}
 
+/** The relevance gates, applied identically to a live or a cached search. */
+function pickPhoto(body: SearchBody, opts: { query: string; requireKeywordMatch?: boolean }): PhotoSearchOutcome {
   const total = body.total ?? 0
   const results = body.results ?? []
 
@@ -317,19 +387,21 @@ export async function findPhoto(opts: {
     return { ok: false, reason: "thin_results", detail: `only ${total} results for "${opts.query}"` }
   }
 
+  const unbranded = results.filter((p) => !brandingReason([p.description, p.alt_description, ...(p.tags ?? []).map((t) => t.title)], p.user.name))
   const terms = opts.requireKeywordMatch === false ? [] : relevanceTerms(opts.query)
-  const match = results.find((p) => isRelevant(p, terms))
+  const match = unbranded.find((p) => isRelevant(p, terms))
   if (!match) {
     return {
       ok: false,
       reason: "no_relevant_match",
-      detail: `${results.length} candidates for "${opts.query}", none matching [${terms.join(", ")}]`,
+      detail: `${results.length} candidates for "${opts.query}" (${results.length - unbranded.length} refused as branded), none matching [${terms.join(", ")}]`,
     }
   }
 
   return {
     ok: true,
     photo: {
+      provider: "unsplash",
       id: match.id,
       url: match.urls.regular,
       photographerName: match.user.name,

@@ -10,7 +10,7 @@ export const metadata = { title: "Terms of Service", alternates: { canonical: "/
 // Claiming more than the product does is what this page exists to avoid.
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Service" updated="3 November 2026">
+    <LegalPage title="Terms of Service" updated="12 November 2026">
       <p>
         These terms cover your use of OneFlyer. Plain language on purpose — if something here is
         unclear, ask us rather than guessing.
@@ -34,11 +34,11 @@ export default function TermsPage() {
 
       <H2>Plans and limits</H2>
       <p>
-        Free includes {PLAN_LIMITS.trial} campaigns. Basic includes {PLAN_LIMITS.basic} per month
+        Free includes {PLAN_LIMITS.trial} flyers. Basic includes {PLAN_LIMITS.basic} per month
         and Pro includes {PLAN_LIMITS.pro} per month. On a paid plan your monthly allowance resets
         on your billing date, once that period&apos;s payment has gone through; on a yearly plan it
         resets on the same date every month of the year. On the free tier it resets every 30 days.
-        Unused campaigns don&apos;t roll over.
+        Unused flyers don&apos;t roll over.
       </p>
       <p>
         <strong>Paying for a plan.</strong> Basic and Pro are subscriptions, billed in advance

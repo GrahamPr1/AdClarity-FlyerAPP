@@ -451,14 +451,17 @@ export function preservePhotoCredit(previousHtml: string, refinedHtml: string): 
 }
 
 
-/** The subset of an Unsplash photo needed to credit it. */
+/** The subset of a stock photo needed to credit it. No provider means Unsplash, as before Pexels existed. */
 export interface PhotoCredit {
   url: string
   photographerName: string
   photographerUrl: string
+  provider?: "unsplash" | "pexels"
+  /** Pexels only: the photo's own page, which the Pexels credit links to. */
+  pageUrl?: string
 }
 
-/** Escapes text that came from Unsplash before it goes into generated HTML. */
+/** Escapes text that came from a stock provider before it goes into generated HTML. */
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -495,7 +498,7 @@ export function photoUrlAppearsIn(html: string, url: string): boolean {
 }
 
 /**
- * Stamps the required Unsplash credit onto a finished flyer.
+ * Stamps the required stock-photo credit (Unsplash or Pexels) onto a finished flyer.
  *
  * Injected in code for the same reason the QR code is substituted rather than
  * emitted by the model: the Unsplash API Guidelines REQUIRE this credit, and
@@ -506,6 +509,11 @@ export function photoUrlAppearsIn(html: string, url: string): boolean {
  * `medium` comes from the format definition (lib/agent-pipeline/formats.ts):
  * screen formats get real links, print formats get plain text, because a
  * hyperlink on a door hanger credits nobody.
+ *
+ * Colours: the credit sits over whatever is at the foot of the page — a dark
+ * footer, a photo — so its own backing does the work. At .82 black on .86
+ * white it reads ~10:1 even over pure black; the earlier .55 on .72 measured
+ * 4.0–4.2:1, under the 4.5:1 7px text needs (scripts/flyer-contrast-audit.ts).
  *
  * Positioned fixed at the foot of the page with its own tiny type rather than
  * inserted into the layout, so it cannot disturb a design that was already
@@ -519,6 +527,16 @@ export function injectPhotoAttribution(html: string, credits: PhotoCredit[], med
   const inner = credits
     .map((c) => {
       const name = escapeHtml(c.photographerName)
+      if (c.provider === "pexels") {
+        // Pexels' guideline: "Photo by <name> on Pexels", linking to the photo.
+        if (medium === "print") return `Photo by ${name} on Pexels`
+        const photographer = escapeHtml(c.photographerUrl)
+        const page = escapeHtml(c.pageUrl ?? "https://www.pexels.com")
+        return (
+          `Photo by <a href="${photographer}" rel="noopener noreferrer nofollow" target="_blank">${name}</a>` +
+          ` on <a href="${page}" rel="noopener noreferrer nofollow" target="_blank">Pexels</a>`
+        )
+      }
       if (medium === "print") return `Photo by ${name} on Unsplash`
       // Both hrefs go through escapeHtml: a bare & is invalid inside an
       // attribute value, and the UTM params the Guidelines ask for contain
@@ -537,7 +555,7 @@ export function injectPhotoAttribution(html: string, credits: PhotoCredit[], med
     `<div class="oneflyer-photo-credit" aria-label="Photo attribution">${inner}</div>` +
     `<style>.oneflyer-photo-credit{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;` +
     `padding:2px 6px;text-align:right;font-family:system-ui,-apple-system,sans-serif;font-size:7px;` +
-    `line-height:1.3;letter-spacing:.01em;color:rgba(0,0,0,.55);background:rgba(255,255,255,.72);` +
+    `line-height:1.3;letter-spacing:.01em;color:rgba(0,0,0,.82);background:rgba(255,255,255,.86);` +
     `-webkit-print-color-adjust:exact;print-color-adjust:exact}` +
     `.oneflyer-photo-credit a{color:inherit;text-decoration:underline}</style>`
 
