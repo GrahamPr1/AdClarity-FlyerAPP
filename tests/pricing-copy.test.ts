@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest"
 import { PLANS } from "@/lib/plans"
 
 // Trial now gets QR scan counts, so Basic can't be sold as "plus scan tracking".
-describe("Basic and Pro lead with leads and editable offers", () => {
-  it.each(["basic", "pro"])("%s", (id) => {
+// Pro's bullets are the approved wording below, which folds these into "Everything in Basic".
+describe("Basic leads with leads and editable offers", () => {
+  it.each(["basic"])("%s", (id) => {
     expect(PLANS.find((p) => p.id === id)?.features.slice(0, 2)).toEqual(["Get customer leads from every flyer", "Update your offer without reprinting"])
   })
 
@@ -26,5 +27,19 @@ describe("Pro claims only what Pro is enforced to get (Phase 3)", () => {
   })
   it("counts the allowance in flyers, the unit the code counts", () => {
     expect(copy).not.toMatch(/\bcampaigns\b/i)
+  })
+})
+
+describe("Pro's approved wording (2026-11-12)", () => {
+  const pro = PLANS.find((p) => p.id === "pro")!
+  it("is the approved tagline and three bullets, with 'fillable' — form-fill refuses flat PDFs", () => {
+    expect(pro.tagline).toBe("Everything in Basic, with double the flyers and less paperwork.")
+    expect(pro.features).toEqual([
+      "50 flyers a month (Basic includes 25)",
+      "Form-fill: save your business details once, and OneFlyer fills in fillable PDF forms for you",
+      "Everything in Basic: Instagram, text and Nextdoor versions, click tracking, lead capture and print requests",
+    ])
+    expect(pro.description).toBe("")
+    expect(pro.outcome).toBe("")
   })
 })
