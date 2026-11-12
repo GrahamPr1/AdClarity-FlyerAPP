@@ -40,3 +40,31 @@ export function getSiteUrl(): string {
   // generated link, which some scanners and mail clients mangle.
   return configured.replace(/\/+$/, "")
 }
+
+// ---- Hosts ------------------------------------------------------------------
+
+/**
+ * The canonical domain. Matches FALLBACK_SITE_URL; www is served too.
+ */
+export const CANONICAL_SITE_HOSTS = ["oneflyer.org", "www.oneflyer.org"] as const
+
+/**
+ * Where the site used to live. Printed QR codes point here (/r/<code>), and
+ * so do photo, logo and material URLs stored in existing flyers and profiles,
+ * so this host stays attached to the project, public, and serving those paths
+ * FOREVER. next.config.mjs redirects its pages to the canonical domain but
+ * leaves /r/, /api/ and /_next/ alone (see legacy-redirects.mjs); the PDF
+ * renderer keeps treating it as our own host.
+ */
+export const LEGACY_SITE_HOSTS = ["ad-clarity-landing-page.vercel.app"] as const
+
+/** Every host this app is served from that can appear in stored URLs. */
+export function ownSiteHosts(): string[] {
+  const hosts = new Set<string>([...CANONICAL_SITE_HOSTS, ...LEGACY_SITE_HOSTS])
+  try {
+    hosts.add(new URL(getSiteUrl()).host)
+  } catch {
+    // getSiteUrl always returns an absolute URL; the fixed hosts still apply.
+  }
+  return [...hosts]
+}
