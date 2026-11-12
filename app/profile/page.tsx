@@ -6,6 +6,7 @@ import { CampaignDefaultsForm } from "@/components/campaign-defaults-form"
 import { AccountStatus } from "@/components/account-status"
 import { BusinessProfileForm } from "@/components/business-profile-form"
 import { ThemeSetting } from "@/components/theme-setting"
+import { EmailSettings } from "@/components/email-settings"
 import { JourneyControlCenter } from "@/components/journey-control-center"
 
 export const metadata = {
@@ -68,6 +69,9 @@ export default async function ProfilePage() {
         </div>
         <div className="mt-8">
           <ThemeSetting />
+        </div>
+        <div className="mt-8">
+          <EmailSettings />
         </div>
         <AccountStatus />
       </div>

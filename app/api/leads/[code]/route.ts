@@ -7,6 +7,7 @@ import { CANONICAL_SITE_URL } from "@/lib/site-url"
 import type { LeadRecord } from "@/lib/types"
 import { LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS, LeadSchema } from "@/lib/leads"
 import { isOfferExpired } from "@/lib/offer-page-content"
+import { getEmailPreferences } from "@/lib/email-preferences"
 
 // POST /api/leads/{code} — the form on a flyer's offer page (/r/{code}).
 //
@@ -74,6 +75,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   await saveLead(record.email, lead)
 
+  // The lead is saved whatever the owner's email settings say; only the email
+  // honours them (lib/email-preferences.ts — /profile, or the unsubscribe link).
+  const prefs = await getEmailPreferences(record.email)
+  if (prefs.leads === "off") {
+    console.log(`[leads] saved lead ${lead.id} on ${code}; owner has lead emails off — not emailed`)
+    return NextResponse.json({ ok: true })
+  }
   const sent = await sendLeadNotification({
     to: record.email,
     businessName: record.businessName,
