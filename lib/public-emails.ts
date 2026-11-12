@@ -82,6 +82,105 @@ export function renderLeadDigest(input: { to: string; leads: DigestLead[]; subje
   return { to: input.to, subject, html, text, headers: listUnsubscribeHeaders(input.to, "leads") }
 }
 
+/* ----------------------------- Monthly results ----------------------------- */
+
+/** One flyer's month. Trial rows carry scans only: clicks and leads are absent, not zero. */
+export interface MonthlyFlyerResult {
+  title: string
+  scans: number
+  clicks?: number
+  leads?: number
+}
+
+/** "2026-10" -> "October 2026". */
+export function monthName(month: string): string {
+  const [y, m] = month.split("-").map(Number)
+  return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
+}
+
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+export function renderMonthlyResults(input: {
+  to: string
+  month: string
+  scansOnly: boolean
+  flyers: MonthlyFlyerResult[]
+  subjectPrefix?: string
+  /** Rows listed before "and N more"; see MONTHLY_LIST_LIMIT. */
+  listLimit?: number
+}): RenderedEmail {
+  const name = monthName(input.month)
+  const rows = [...input.flyers].sort((a, b) => b.scans - a.scans || (b.leads ?? 0) - (a.leads ?? 0))
+  const shown = rows.slice(0, input.listLimit ?? 15)
+  const total = {
+    scans: rows.reduce((n, r) => n + r.scans, 0),
+    clicks: rows.reduce((n, r) => n + (r.clicks ?? 0), 0),
+    leads: rows.reduce((n, r) => n + (r.leads ?? 0), 0),
+  }
+  const dashboard = `${getSiteUrl()}/dashboard`
+  const pricing = `${getSiteUrl()}/#pricing`
+
+  const headline = input.scansOnly
+    ? count(total.scans, "scan")
+    : `${count(total.scans, "scan")}, ${count(total.clicks, "click")}, ${count(total.leads, "lead")}`
+  const subject = `${input.subjectPrefix ?? ""}Your flyers in ${name}: ${headline}`
+  const quiet = total.scans === 0 && total.clicks === 0 && total.leads === 0
+
+  const cell = "padding:8px 10px;border-top:1px solid #eee;text-align:right"
+  const head = "padding:8px 10px;text-align:right;color:#666;font-weight:normal"
+  const row = (r: MonthlyFlyerResult) =>
+    `<tr><td style="padding:8px 10px 8px 0;border-top:1px solid #eee">${esc(r.title)}</td>` +
+    `<td style="${cell}">${r.scans}</td>` +
+    (input.scansOnly ? "" : `<td style="${cell}">${r.clicks ?? 0}</td><td style="${cell}">${r.leads ?? 0}</td>`) +
+    `</tr>`
+  const totalRow =
+    rows.length > 1
+      ? `<tr><td style="padding:8px 10px 8px 0;border-top:2px solid #ddd"><strong>All flyers</strong></td>` +
+        `<td style="${cell};border-top:2px solid #ddd"><strong>${total.scans}</strong></td>` +
+        (input.scansOnly ? "" : `<td style="${cell};border-top:2px solid #ddd"><strong>${total.clicks}</strong></td><td style="${cell};border-top:2px solid #ddd"><strong>${total.leads}</strong></td>`) +
+        `</tr>`
+      : ""
+
+  const intro = quiet
+    ? `None of your flyers' QR codes were scanned in ${name}. Here they are, so you can see where each one stands.`
+    : `Here's how your flyers did in ${name}.`
+  const explain = input.scansOnly
+    ? "Scans are people who scanned a flyer's QR code."
+    : "Scans are people who scanned a flyer's QR code; clicks are taps on its offer page; leads are people who sent you their details."
+
+  const html = `
+    <div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;max-width:560px">
+      <p>${intro}</p>
+      <table style="border-collapse:collapse;width:100%;font-size:14px">
+        <tr><th style="padding:8px 10px 8px 0;text-align:left;color:#666;font-weight:normal">Flyer</th><th style="${head}">Scans</th>${input.scansOnly ? "" : `<th style="${head}">Clicks</th><th style="${head}">Leads</th>`}</tr>
+        ${shown.map(row).join("")}
+        ${totalRow}
+      </table>
+      ${rows.length > shown.length ? `<p>And ${rows.length - shown.length} more on your dashboard.</p>` : ""}
+      <p style="color:#666;font-size:13px">${explain}</p>
+      ${input.scansOnly ? `<p>On Basic and Pro, you also see clicks and leads for every flyer. <a href="${esc(pricing)}">Compare plans</a></p>` : ""}
+      <p><a href="${esc(dashboard)}">See your flyers on your OneFlyer dashboard</a></p>
+      ${unsubscribeFooterHtml(input.to, "results")}
+    </div>`
+
+  const line = (r: MonthlyFlyerResult) =>
+    input.scansOnly ? `- ${r.title}: ${count(r.scans, "scan")}` : `- ${r.title}: ${count(r.scans, "scan")}, ${count(r.clicks ?? 0, "click")}, ${count(r.leads ?? 0, "lead")}`
+  const text = [
+    intro,
+    "",
+    ...shown.map(line),
+    ...(rows.length > 1 ? ["", `All flyers: ${headline}`] : []),
+    ...(rows.length > shown.length ? ["", `And ${rows.length - shown.length} more on your dashboard.`] : []),
+    "",
+    explain,
+    ...(input.scansOnly ? ["", `On Basic and Pro, you also see clicks and leads for every flyer: ${pricing}`] : []),
+    "",
+    `Your dashboard: ${dashboard}`,
+  ].join("\n")
+
+  return { to: input.to, subject, html, text, headers: listUnsubscribeHeaders(input.to, "results") }
+}
+
 /* ---------------------------------- Send ----------------------------------- */
 
 export async function sendRendered(email: RenderedEmail): Promise<{ sent: boolean; reason?: string }> {
