@@ -337,3 +337,34 @@ describe("Instagram square credit (template mode)", () => {
     expect(creditInstagramSquare(html, [photo])).toBe(html)
   })
 })
+
+describe("branded photos (reads descriptions only — reduces the risk, can't eliminate it)", () => {
+  it("refuses the production case: a company's own photo of its branded goods", async () => {
+    const { brandingReason } = await import("@/lib/unsplash")
+    expect(brandingReason(["A boxed package in our warehouse unit at ERoofing HQ.", "brown and white cardboard box"], "E Roofing")).toMatch(/business's own photo/)
+    expect(brandingReason(["Truck with company logo parked outside"], "Jo Smith")).toMatch(/logo/)
+    expect(brandingReason(["Hand-painted lettering on a shop window"], "Jo Smith")).toMatch(/lettering/)
+    expect(brandingReason(["Fresh shingles at the ACME Roofing yard"], "ACME Roofing")).toMatch(/own photographer/)
+    expect(brandingReason(["New asphalt shingles on a suburban roof"], "Raze Solar")).toBeNull()
+  })
+
+  it("Unsplash: a branded top result is skipped for the next relevant one", async () => {
+    unsplash = () =>
+      new Response(
+        JSON.stringify({
+          total: 500,
+          results: [
+            { id: "b", urls: { regular: "https://images.unsplash.com/b" }, links: { download_location: "x" }, user: { name: "E Roofing", links: { html: "h" } }, description: "Roofing supplies in our warehouse", alt_description: null },
+            { id: "c", urls: { regular: "https://images.unsplash.com/c" }, links: { download_location: "x" }, user: { name: "Una", links: { html: "h" } }, description: null, alt_description: "roof replacement in progress" },
+          ],
+        }),
+        { status: 200 },
+      )
+    expect(await findPhoto({ query: "roof replacement", context: "t" })).toMatchObject({ ok: true, photo: { id: "c" } })
+  })
+
+  it("Pexels: a branded photo is refused like a photo with people in it", async () => {
+    pexels = () => pexelsPage(500, ["Roof with a contractor's sign on the lawn", "New roof shingles in sunlight"])
+    expect(await findPexelsPhoto({ query: "roof", context: "t" })).toMatchObject({ ok: true, photo: { id: "101" } })
+  })
+})

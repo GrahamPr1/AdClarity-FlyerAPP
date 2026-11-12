@@ -220,6 +220,39 @@ export function buildSpecificSearchQuery(opts: { industry: string; purpose: stri
   return kept.join(" ").slice(0, 100)
 }
 
+/* ---------------------------- Branded photos ------------------------------
+ *
+ * A stock photo can carry someone ELSE's brand — and on a client's flyer that
+ * reads as a competitor's endorsement or, worse, as the client's own name.
+ * The production case: a photo supplied for a roofer's Instagram post was a
+ * box sealed with tape printed "E ROOFING" — another roofing company. Its
+ * description: "A boxed package in our warehouse unit at ERoofing HQ."
+ *
+ * This reads DESCRIPTIONS, alt text and tags — never the pixels — so it
+ * reduces the risk without eliminating it: lettering nobody described gets
+ * through. A refusal costs one candidate, so it errs towards refusing.
+ */
+const BRANDING_WORDS = /\b(logos?|signs?|signage|signboards?|lettering|letters|brand(?:s|ed|ing)?|trademarks?|billboards?|neon sign|storefront sign|company name|business name|wordmark|emblem|decals?|stickers?)\b/i
+/** How a business describes its own photo: "our warehouse", "at ACME HQ", "ACME Ltd". */
+const COMPANY_MARKERS = /\b(hq|headquarters|inc|llc|ltd|gmbh|corp|co\.)\b|\bour (?:company|team|office|offices|warehouse|shop|store|business|showroom|factory|crew|staff|van|truck|fleet)\b/i
+
+/**
+ * Why a photo looks branded, or null. Shared with lib/pexels.ts.
+ * `photographer` is the account name: a photographer whose own name appears
+ * in the description is, in practice, a company photographing its own goods.
+ */
+export function brandingReason(texts: (string | null | undefined)[], photographer: string): string | null {
+  const text = texts.filter(Boolean).join(" ")
+  const word = text.match(BRANDING_WORDS)
+  if (word) return `mentions "${word[0]}"`
+  const marker = text.match(COMPANY_MARKERS)
+  if (marker) return `reads as a business's own photo ("${marker[0]}")`
+  const squash = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "")
+  const name = squash(photographer)
+  if (name.length >= 4 && squash(text).includes(name)) return `names its own photographer ("${photographer}")`
+  return null
+}
+
 /** Meaningful words a candidate photo should plausibly relate to. Shared with lib/pexels.ts. */
 export function relevanceTerms(query: string): string[] {
   return query
@@ -354,13 +387,14 @@ function pickPhoto(body: SearchBody, opts: { query: string; requireKeywordMatch?
     return { ok: false, reason: "thin_results", detail: `only ${total} results for "${opts.query}"` }
   }
 
+  const unbranded = results.filter((p) => !brandingReason([p.description, p.alt_description, ...(p.tags ?? []).map((t) => t.title)], p.user.name))
   const terms = opts.requireKeywordMatch === false ? [] : relevanceTerms(opts.query)
-  const match = results.find((p) => isRelevant(p, terms))
+  const match = unbranded.find((p) => isRelevant(p, terms))
   if (!match) {
     return {
       ok: false,
       reason: "no_relevant_match",
-      detail: `${results.length} candidates for "${opts.query}", none matching [${terms.join(", ")}]`,
+      detail: `${results.length} candidates for "${opts.query}" (${results.length - unbranded.length} refused as branded), none matching [${terms.join(", ")}]`,
     }
   }
 

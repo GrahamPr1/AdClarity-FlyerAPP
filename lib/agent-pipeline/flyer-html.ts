@@ -510,6 +510,11 @@ export function photoUrlAppearsIn(html: string, url: string): boolean {
  * screen formats get real links, print formats get plain text, because a
  * hyperlink on a door hanger credits nobody.
  *
+ * Colours: the credit sits over whatever is at the foot of the page — a dark
+ * footer, a photo — so its own backing does the work. At .82 black on .86
+ * white it reads ~10:1 even over pure black; the earlier .55 on .72 measured
+ * 4.0–4.2:1, under the 4.5:1 7px text needs (scripts/flyer-contrast-audit.ts).
+ *
  * Positioned fixed at the foot of the page with its own tiny type rather than
  * inserted into the layout, so it cannot disturb a design that was already
  * composed — including the paginated proposal, where a fixed footer is
@@ -550,7 +555,7 @@ export function injectPhotoAttribution(html: string, credits: PhotoCredit[], med
     `<div class="oneflyer-photo-credit" aria-label="Photo attribution">${inner}</div>` +
     `<style>.oneflyer-photo-credit{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;` +
     `padding:2px 6px;text-align:right;font-family:system-ui,-apple-system,sans-serif;font-size:7px;` +
-    `line-height:1.3;letter-spacing:.01em;color:rgba(0,0,0,.55);background:rgba(255,255,255,.72);` +
+    `line-height:1.3;letter-spacing:.01em;color:rgba(0,0,0,.82);background:rgba(255,255,255,.86);` +
     `-webkit-print-color-adjust:exact;print-color-adjust:exact}` +
     `.oneflyer-photo-credit a{color:inherit;text-decoration:underline}</style>`
 
