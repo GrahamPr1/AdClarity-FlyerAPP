@@ -1,5 +1,6 @@
 import { Redis } from "@upstash/redis"
 import { createHash } from "node:crypto"
+import { enrollTargetsKey, type Enroll } from "@/lib/enterprise/nop-roster"
 import fs from "node:fs"
 import path from "node:path"
 import { KIT_DIR, readKitContent, type NopTemplateId } from "./kit"
@@ -22,15 +23,15 @@ const RENDERER_VERSION_V2 = "thumb-v2-1"
 
 const fileHash = (rel: string) => createHash("sha256").update(fs.readFileSync(path.join(KIT_DIR, rel))).digest("hex")
 
-/** `domain`: the enrollment domain setting, printed on the flyer, so a change can't serve an old address. */
-export function thumbCacheKey(id: NopTemplateId | NopV2Id, agent: NopAgentValues, domain: string): string {
+/** `enroll`: the enrollment setting, printed on the flyer, so a change can't serve an old address. */
+export function thumbCacheKey(id: NopTemplateId | NopV2Id, agent: NopAgentValues, enroll: Enroll): string {
   const content = readKitContent()
   const h = createHash("sha256")
   // Kit v2 prints the enrollment domain from content.json and the page from its own HTML.
   const kitParts = isNopV2Template(id)
     ? [RENDERER_VERSION_V2, id, fileHash("content.json"), createHash("sha256").update(readV2Html(id, "letter")).digest("hex")]
     : [RENDERER_VERSION, id, content.program.kit_version, fileHash("content.json"), fileHash(`html/${id}.html`), fileHash(content.default_logo)]
-  for (const part of [...kitParts, domain, agent.agentId, agent.displayName, agent.displayPhone, agent.displayEmail]) h.update(part).update("\u0000")
+  for (const part of [...kitParts, enrollTargetsKey(enroll), agent.agentId, agent.displayName, agent.displayPhone, agent.displayEmail]) h.update(part).update("\u0000")
   return `nop-thumb:${h.digest("hex")}`
 }
 

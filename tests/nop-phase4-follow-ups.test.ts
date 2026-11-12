@@ -22,7 +22,7 @@ vi.mock("@/lib/enterprise/program-admins", async (orig) => ({
   logNopAdminAction: async () => {},
   programAdminFrom: async () => null,
 }))
-vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com" }))
+vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com", getEnrollTargets: async () => "neighbor.basicbenefits.com" }))
 vi.mock("@/lib/enterprise/portal/approved-text", async (orig) => {
   const real = await orig<typeof import("@/lib/enterprise/portal/approved-text")>()
   return {

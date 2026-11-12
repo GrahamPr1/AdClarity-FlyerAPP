@@ -9,14 +9,25 @@ import { NextRequest } from "next/server"
  * kit-v2 previews are admin-only.
  */
 
-const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[], enrollOk: true as boolean | undefined, settingsLog: [] as unknown[], esFailures: [] as unknown[], releaseChecks: 0 }))
+const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[], enrollOk: true as boolean | undefined, settingsLog: [] as unknown[], esFailures: [] as unknown[], releaseChecks: 0, enrollSaved: true, partnerOk: true, pagesOpened: [] as string[] }))
 vi.mock("@/lib/enterprise/program-admins", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/program-admins")>()),
   audit: async () => {},
   logNopAdminAction: async () => {},
   programAdminFrom: async () => null,
 }))
-vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com", checkEnrollDomain: async () => ({ ok: s.enrollOk ?? true, checks: [{ url: "https://neighbor.basicbenefits.com/858980", ok: s.enrollOk ?? true, status: null, error: s.enrollOk === false ? "the domain doesn't resolve (no DNS record)" : null }] }) }))
+vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({
+  ENROLL_CHECK_AGENT_ID: "858980",
+  getEnrollDomain: async () => "neighbor.basicbenefits.com",
+  getEnrollTargets: async () => "neighbor.basicbenefits.com",
+  getSavedEnrollSettings: async () => (s.enrollSaved ? { forwardTemplate: "https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}", printed: "short", printedTemplate: "join.basicbenefits.com/{id}", programUrl: "https://neighbor.basicbenefits.com/", savedAt: "t", admin: "admin" } : null),
+  checkEnrollTargets: async () => ({ ok: s.enrollOk ?? true, checks: [{ url: "https://neighbor.basicbenefits.com/member-enrollment?agent_code=858980", ok: s.enrollOk ?? true, status: null, error: s.enrollOk === false ? "the domain doesn't resolve (no DNS record)" : null }] }),
+}))
+vi.mock("@/lib/enterprise/nop-enroll-check", () => ({
+  checkEnrollPage: async (url: string) => (s.pagesOpened.push(url), s.partnerOk
+    ? { url, ok: true, problem: null, text: "Enroll with Jordan" }
+    : { url, ok: false, problem: "not_found", text: "Partner Not Found We couldn't find the enrollment portal you're looking for. Return Home" }),
+}))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => !!sub && s.admins.has(sub) }))
 vi.mock("@/lib/enterprise/nop-render/kit-v2-access", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/nop-render/kit-v2-access")>()),
@@ -49,7 +60,7 @@ vi.mock("@/lib/enterprise/nop-render/kit-v2-release", () => ({
 vi.mock("@/lib/enterprise/agents-store", async (orig) => ({ ...(await orig<typeof import("@/lib/enterprise/agents-store")>()), getAgentIdOwner: async (id: string) => (id === "858980" ? "agent@x.test" : null) }))
 vi.mock("@/lib/enterprise/nop-i18n/server", () => ({ nopLangForRequest: async () => "en" }))
 
-beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0; s.enrollOk = true; s.settingsLog.length = 0; s.esFailures = []; s.releaseChecks = 0 })
+beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0; s.enrollOk = true; s.settingsLog.length = 0; s.esFailures = []; s.releaseChecks = 0; s.enrollSaved = true; s.partnerOk = true; s.pagesOpened.length = 0 })
 afterEach(() => vi.unstubAllEnvs())
 
 async function cookie(sub: string) {
@@ -179,15 +190,37 @@ describe("admin-only kit-v2 tools", () => {
     expect(s.releaseChecks).toBe(1)
   })
 
-  it("refuses to switch agents to kit v2 while the enrollment URL doesn't load", async () => {
+  it("refuses to switch agents to kit v2 until the enrollment setting is saved in its three-part form", async () => {
+    s.enrollSaved = false
+    const r = await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })
+    expect(r.status).toBe(409)
+    expect(r.json.error).toBe("enroll_setting_not_saved")
+    expect(s.pagesOpened).toEqual([])
+    expect(s.saved).toEqual([])
+  })
+
+  it("refuses to switch agents to kit v2 while the enrollment URLs don't load", async () => {
     s.enrollOk = false
     const r = await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })
     expect(r.status).toBe(409)
     expect(r.json.error).toBe("enroll_url_not_loading")
-    expect(r.json.message).toContain("https://neighbor.basicbenefits.com/858980")
+    expect(r.json.message).toContain("https://neighbor.basicbenefits.com/member-enrollment?agent_code=858980")
     expect(s.saved).toEqual([])
     // Spanish and switching back to v1 aren't held up by it.
     expect((await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v1" })).status).toBe(200)
+  })
+
+  it("refuses to switch agents to kit v2 while 858980's forward URL shows 'Partner Not Found', and says what it showed", async () => {
+    s.partnerOk = false
+    const r = await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })
+    expect(r.status).toBe(409)
+    expect(r.json.error).toBe("enroll_partner_not_found")
+    expect(s.pagesOpened).toEqual(["https://neighbor.basicbenefits.com/member-enrollment?agent_code=858980"])
+    expect(r.json.message).toContain("Partner Not Found")
+    expect(s.saved).toEqual([])
+    s.partnerOk = true
+    expect((await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })).status).toBe(200)
+    expect(s.saved).toEqual([{ spanishV2: undefined, agentKit: "v2" }])
   })
 
   it("render-check as a real agent: that agent's own file, every release check, logged under the admin", async () => {

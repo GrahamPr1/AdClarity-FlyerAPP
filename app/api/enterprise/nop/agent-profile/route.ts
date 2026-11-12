@@ -3,7 +3,7 @@ import { getAgentProfile, saveAgentProfile } from "@/lib/store"
 import { requireClientSession } from "@/lib/enterprise/agent-session"
 import { rejectWhileViewingAs, requirePortalViewer } from "@/lib/enterprise/portal/view-as"
 import { qrDestinationFor, validateDisplayFields } from "@/lib/enterprise/nop-roster"
-import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
+import { getEnrollTargets } from "@/lib/enterprise/nop-enroll-domain"
 import { canGenerate, getAccountAgentId, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { requestNameChange } from "@/lib/enterprise/agent-signup"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   if (!profile) return NextResponse.json({ error: "not_registered" }, { status: 404 })
   const roster = await getRosterRecord(profile.agentId!)
   // The enrollment link shown is the live one (the domain setting), not the snapshot saved at registration.
-  const live = { ...profile, qrDestination: qrDestinationFor(profile.agentId!, await getEnrollDomain()) }
+  const live = { ...profile, qrDestination: qrDestinationFor(profile.agentId!, await getEnrollTargets()) }
   return NextResponse.json(
     { profile: live, status: roster?.status ?? null, canGenerate: await canGenerate(profile) },
     { headers: { "Cache-Control": "no-store" } },
@@ -71,5 +71,5 @@ export async function PATCH(request: NextRequest) {
   })
   if (newName !== currentName && newName !== profile.pendingName?.name) await requestNameChange(auth.email, newName)
   const saved = (await getAgentProfile(auth.email))!
-  return NextResponse.json({ profile: { ...saved, qrDestination: qrDestinationFor(saved.agentId!, await getEnrollDomain()) } })
+  return NextResponse.json({ profile: { ...saved, qrDestination: qrDestinationFor(saved.agentId!, await getEnrollTargets()) } })
 }

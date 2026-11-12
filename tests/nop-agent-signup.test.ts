@@ -62,7 +62,7 @@ vi.mock("@/lib/email", () => ({
 vi.mock("@vercel/functions", () => ({ waitUntil: (p: Promise<unknown>) => p }))
 vi.mock("@/lib/enterprise/access-http", async (orig) => ({ ...(await orig<typeof import("@/lib/enterprise/access-http")>()), accessRateLimit: async () => null }))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => sub === "admin@x.test" }))
-vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "join.basicbenefits.com" }))
+vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "join.basicbenefits.com", getEnrollTargets: async () => "join.basicbenefits.com" }))
 
 beforeEach(() => {
   vi.stubEnv("SESSION_SECRET", "test-secret")

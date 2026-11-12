@@ -2,7 +2,7 @@ import { NOP_V2_TEMPLATES, v2Parts, type NopV2Id, type NopV2Size } from "./kit-v
 import type { NopV2Lang } from "./kit-v2-ids"
 import { renderNopV2WithAgentArea, type NopV2Fit } from "./render-v2"
 import { NopRenderError } from "./render"
-import { nopQrLink, qrDestinationFor } from "@/lib/enterprise/nop-roster"
+import { nopQrLink, printedEnrollAddress, type Enroll } from "@/lib/enterprise/nop-roster"
 
 // Kit-v2 release check: every template, at both sizes, through the agent
 // pipeline (renderNopV2WithAgentArea: locked sections, layout gates, fonts, QR
@@ -30,9 +30,9 @@ export interface V2ReleaseFailure {
 }
 
 /** One template at one size; throws NopRenderError on the first failed check. Returns the measured fit. */
-export async function checkV2Release(id: NopV2Id, size: NopV2Size, domain: string): Promise<NopV2Fit> {
-  const enrollment = qrDestinationFor(RELEASE_CHECK_AGENT.agentId, domain)
-  const { fit } = await renderNopV2WithAgentArea(id, size, RELEASE_CHECK_AGENT, enrollment, nopQrLink(RELEASE_CHECK_CODE), "pdf")
+export async function checkV2Release(id: NopV2Id, size: NopV2Size, enroll: Enroll): Promise<NopV2Fit> {
+  const printed = printedEnrollAddress(RELEASE_CHECK_AGENT.agentId, RELEASE_CHECK_CODE, enroll)
+  const { fit } = await renderNopV2WithAgentArea(id, size, RELEASE_CHECK_AGENT, printed.href, nopQrLink(RELEASE_CHECK_CODE), "pdf")
   const inches = (px: number) => `${(px / 96).toFixed(3)}in`
   if (fit.footerMargin < MIN_FOOTER_MARGIN_PX) throw new NopRenderError("master_invalid", `only ${inches(fit.footerMargin)} to spare above the footer, need ${inches(MIN_FOOTER_MARGIN_PX)}`)
   if (fit.minGap < MIN_GAP_PX) throw new NopRenderError("master_invalid", `blocks only ${inches(fit.minGap)} apart, need ${inches(MIN_GAP_PX)}`)
@@ -40,12 +40,12 @@ export async function checkV2Release(id: NopV2Id, size: NopV2Size, domain: strin
 }
 
 /** Every template in `lang` at both sizes, one at a time; the failures, empty when all pass. */
-export async function v2ReleaseFailures(lang: NopV2Lang, domain: string): Promise<V2ReleaseFailure[]> {
+export async function v2ReleaseFailures(lang: NopV2Lang, enroll: Enroll): Promise<V2ReleaseFailure[]> {
   const failures: V2ReleaseFailure[] = []
   for (const template of NOP_V2_TEMPLATES.filter((id) => v2Parts(id).lang === lang)) {
     for (const size of V2_SIZES) {
       try {
-        await checkV2Release(template, size, domain)
+        await checkV2Release(template, size, enroll)
       } catch (err) {
         failures.push({ template, size, code: err instanceof NopRenderError ? err.code : "render_failed", message: err instanceof Error ? err.message : String(err) })
       }

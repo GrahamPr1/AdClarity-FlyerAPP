@@ -1,7 +1,7 @@
 import type { LeadRecord } from "@/lib/types"
 import { NOP_LANGS, type NopLang } from "@/lib/enterprise/nop-i18n"
 import { qrDestinationFor } from "@/lib/enterprise/nop-roster"
-import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
+import { getEnrollTargets } from "@/lib/enterprise/nop-enroll-domain"
 import { canUse } from "./features"
 import type { PortalContext } from "./context"
 import { getApprovedText, type ApprovedTextKey } from "./approved-text"
@@ -84,7 +84,7 @@ export async function followUpsForLeads(ctx: PortalContext, leads: LeadRecord[])
     agent_first_name: firstName(agentName),
     agent_phone: p.displayPhone ?? p.phone,
     agent_email: p.displayEmail ?? p.email,
-    enroll_url: qrDestinationFor(ctx.agent.agentId, await getEnrollDomain()),
+    enroll_url: qrDestinationFor(ctx.agent.agentId, await getEnrollTargets()),
   }
   const agentLang: NopLang = p.preferredLanguage ?? "en"
   const out: Record<string, FollowUp[]> = {}

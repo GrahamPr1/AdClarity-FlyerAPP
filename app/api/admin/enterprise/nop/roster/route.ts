@@ -3,7 +3,7 @@ import { getSessionIdentity } from "@/lib/auth"
 import { isAdminSession } from "@/lib/admin"
 import { validateRosterCsv } from "@/lib/enterprise/nop-roster"
 import { importRoster, listRoster } from "@/lib/enterprise/agents-store"
-import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
+import { getEnrollTargets } from "@/lib/enterprise/nop-enroll-domain"
 
 // GET  /api/admin/enterprise/nop/roster  -> every roster record + who it is locked to
 // POST /api/admin/enterprise/nop/roster  { csv } -> per-row import report
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   }
   if (csv.length > MAX_CSV_BYTES) return NextResponse.json({ error: "That file is too large for a roster." }, { status: 413 })
 
-  const parsed = validateRosterCsv(csv, await getEnrollDomain())
+  const parsed = validateRosterCsv(csv, await getEnrollTargets())
   if (parsed.fileErrors.length > 0) {
     return NextResponse.json({ error: "file_invalid", fileErrors: parsed.fileErrors }, { status: 422 })
   }

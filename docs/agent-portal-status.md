@@ -1,6 +1,6 @@
 # Agent portal (Neighborhood Outreach Program): status
 
-As of 11 November 2026, main `58f1bec`. For picking the work back up later.
+As of 12 November 2026 (kit-v2 spacing and the enrollment setting). For picking the work back up later.
 Org switches are in admin → Agents → "Org features"; the defaults are in
 `lib/enterprise/portal/features.ts` (`FEATURES_OFF_BY_DEFAULT`).
 
@@ -52,14 +52,13 @@ Org switches are in admin → Agents → "Org features"; the defaults are in
 - **QR lead page** (QR opens a page with Enroll now + form instead of
   forwarding): off.
 - **Agent photo** on the personal page: off.
-- **Kit v2 flyers** (new agent footer): admin-only; agents stay on kit v1.1.1.
+- **Kit v2 flyers** (new agent footer, approved spacing on every page): admin-only;
+  agents stay on kit v1.1.1. Spanish kit v2 off (it can't be switched on unless
+  every Spanish page passes the release checks).
 
 ## Waiting on Basic Benefits
 
-- **Enrollment link**: the enrollment domain is an admin setting (currently
-  `join.basicbenefits.com/{Agent ID}`); the later format
-  `neighbor.basicbenefits.com/member-enrollment?agent_code={Agent ID}` needs
-  confirming against a real agent's link before kit v2 is switched on.
+- **Enrollment link**: see "When the enrollment link arrives" below.
 - **Templates**: the printed enrollment form (option 3 or 4, then the
   two-part template), the **event flyer** template (marked spot:
   `EVENT_FLYER_READY`), the **recruiting flyer** template
@@ -73,6 +72,49 @@ Org switches are in admin → Agents → "Org features"; the defaults are in
   - the string review CSVs (`NOP-*-Strings-EN-ES-for-review.csv`, one per
     part, plus `NOP-Plain-Wording-Changes-EN-ES-for-review.csv`). "Contactos"
     vs "Prospectos" for leads is flagged in them.
+
+## When the enrollment link arrives
+
+The enrollment setting has three parts (admin → Agents → "NOP enrollment
+link"): the **forward URL** (where QRs go, with `{id}` where the Agent ID
+goes), what the flyers **print** (a short address ending in `/{id}`, or each
+agent's `oneflyer.org/a/<code>` link), and the **program page** (for unknown
+or inactive agents). Until it's saved, it's still the old single domain
+(`join.basicbenefits.com`), unchanged. "Switch agents to kit v2" refuses until
+it's saved, its URLs load, and test agent 858980's forward page shows a real
+partner (not "Partner Not Found", checked in a browser).
+
+1. **Ask the program** for:
+   - one real, active agent's working enrollment URL, with their Agent ID;
+   - confirmation that the ID in it is our Agent ID (not a separate partner
+     code: that would need a code change first);
+   - that **858980 is set up as a partner** on their side, so its page shows a
+     real partner (if it never will be, tell me: the switch check needs a
+     test ID that works);
+   - the short address to print, if any (it must load and lead to the same
+     page), or agree on printing `oneflyer.org/a/<code>`;
+   - the program page URL.
+2. **Check the real agent's URL** in your phone's browser: it shows that
+   agent's enrollment page.
+3. **Save the setting**: forward URL (the real URL with the Agent ID replaced
+   by `{id}`), printed address, program page; "Check and save". It's refused
+   if a URL doesn't load or the printed address doesn't fit the flyers. If it
+   says the test agent's page shows "Partner not found", stop: don't "Save
+   anyway" (858980 isn't set up yet; back to step 1).
+4. **Read the result**: "A test agent's QR now forwards to …" and "flyers
+   print …" match what the program sent. Click "Check the test agent's page in
+   a browser": it says "Shows a page".
+   Every agent's QR (kit v1.1.1 flyers already printed included) now forwards
+   to the new URL; kit v1.1.1 downloads print the new address.
+5. **Test a real flyer**: download a kit-v2 flyer as the real agent (admin,
+   render-check with their Agent ID, Letter), print it, scan the QR with your
+   phone (that agent's page), and type the printed address into your phone
+   (the same page). Scan an already-printed kit v1.1.1 flyer too: it goes to
+   the new URL.
+6. **Switch agents to kit v2** (admin → Agents → NOP flyers), and confirm. If
+   it refuses, the message says which check failed.
+7. Tell me: I'll check production's forward log for real scans. Spanish stays
+   off until the program approves it.
 
 ## Paused: billing go-live checklist
 

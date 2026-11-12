@@ -1,13 +1,13 @@
 import fs from "node:fs"
 import path from "node:path"
 import type { Page } from "playwright-core"
-import { assertFonts, checkedQrLink, gate, newPage, NopRenderError, qrSvg } from "./render"
+import { assertFonts, checkedQrLink, gate, newPage, NopRenderError, qrCodeOf, qrSvg } from "./render"
 import { KIT_V2_ORIGIN, V2_PAGE_POINTS, kitV2FileFor, readV2Html, v2HtmlForRender, v2Parts, type NopV2Id, type NopV2Size } from "./kit-v2"
 import { agentAreaHtml } from "./agent-area"
 import { assertOnlyFooterChanged, placeAgentAreaInFooter } from "./footer-placement"
 import { decodeQrFromPng } from "./qr-gate"
-import { qrDestinationFor } from "@/lib/enterprise/nop-roster"
-import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
+import { printedEnrollAddress, qrDestinationFor } from "@/lib/enterprise/nop-roster"
+import { getEnrollTargets } from "@/lib/enterprise/nop-enroll-domain"
 
 // Renders a kit-v2 page. renderNopV2 is the page exactly as Basic Benefits
 // supplied it (admin checks). renderNopV2ForAgent adds the agent area in the
@@ -114,9 +114,9 @@ export interface NopV2Fit {
 }
 
 /** The page markup with the agent area in the footer, after the locked-sections check. */
-export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, qrLink: string, enrollment: string): Promise<string> {
+export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, qrLink: string, printedHref: string): Promise<string> {
   const src = readV2Html(id, size)
-  const area = agentAreaHtml({ name: agent.displayName, phone: agent.displayPhone, enrollUrl: enrollment, qrSvg: await qrSvg(qrLink) })
+  const area = agentAreaHtml({ name: agent.displayName, phone: agent.displayPhone, enrollUrl: printedHref, qrSvg: await qrSvg(qrLink) })
   const { pkg, lang } = v2Parts(id)
   let placed: string
   try {
@@ -133,9 +133,10 @@ export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2Agen
  * the agent area, clear of Basic Benefits' footer text and of the QR box; the
  * footer still ends at the bottom of the page; <main> (with P2/P3's tighter
  * spacing) still holds all its content; and the link printed and linked is
- * exactly the agent's enrollment URL.
+ * exactly the agent's printed enrollment address (the setting's short
+ * template, or their oneflyer.org/a/<code> link).
  */
-async function checkAgentLayout(page: Page, enrollment: string): Promise<NopV2Fit> {
+async function checkAgentLayout(page: Page, printedHref: string): Promise<NopV2Fit> {
   // No named functions inside evaluate: some bundlers wrap them in a helper
   // that doesn't exist inside the page.
   const r = await page.evaluate(() => {
@@ -184,7 +185,7 @@ async function checkAgentLayout(page: Page, enrollment: string): Promise<NopV2Fi
   }
   const { page: pg, footer, left, area, qr } = r.box
   if (!pg || !footer || !left || !area || !qr || !r.main || !r.pageScroll) fail("master_invalid", "agent area or page structure not found")
-  if (r.href !== enrollment || r.linkText !== enrollment.replace(/^https?:\/\//, "").replace(/\/$/, "")) fail("master_invalid", `enrollment link is ${r.href} / ${r.linkText}, expected ${enrollment}`)
+  if (r.href !== printedHref || r.linkText !== printedHref.replace(/^https?:\/\//, "").replace(/\/$/, "")) fail("master_invalid", `enrollment link is ${r.href} / ${r.linkText}, expected ${printedHref}`)
   for (const { f, b, lines } of r.fields) {
     const field = f === "name" ? "agent_name" : f === "phone" ? "agent_phone" : "enroll_link"
     const code = field === "enroll_link" ? "master_invalid" : "field_too_long"
@@ -223,11 +224,10 @@ async function checkAgentQr(page: Page, expected: string): Promise<string> {
  *   - PDFs: one page, at Letter or bleed size as asked.
  */
 export async function renderNopV2ForAgent(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, output: NopV2Output): Promise<NopV2AgentRendered> {
-  // One read of the enrollment domain setting: the printed link and the QR's forward can't disagree.
-  const domain = await getEnrollDomain()
-  const enrollment = qrDestinationFor(agent.agentId, domain)
-  const expected = await checkedQrLink(agent.agentId, enrollment, domain)
-  return renderNopV2WithAgentArea(id, size, agent, enrollment, expected, output)
+  // One read of the enrollment setting: the printed address and the QR's forward can't disagree.
+  const enroll = await getEnrollTargets()
+  const expected = await checkedQrLink(agent.agentId, qrDestinationFor(agent.agentId, enroll), enroll)
+  return renderNopV2WithAgentArea(id, size, agent, printedEnrollAddress(agent.agentId, qrCodeOf(expected), enroll).href, expected, output)
 }
 
 /**
@@ -236,12 +236,12 @@ export async function renderNopV2ForAgent(id: NopV2Id, size: NopV2Size, agent: N
  * reach it through renderNopV2ForAgent; the kit-v2 release check
  * (kit-v2-release.ts) calls it with fixed test values.
  */
-export async function renderNopV2WithAgentArea(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, enrollment: string, expected: string, output: NopV2Output): Promise<NopV2AgentRendered> {
-  const html = v2HtmlForRender(id, size, await v2AgentHtml(id, size, agent, expected, enrollment))
+export async function renderNopV2WithAgentArea(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, printedHref: string, expected: string, output: NopV2Output): Promise<NopV2AgentRendered> {
+  const html = v2HtmlForRender(id, size, await v2AgentHtml(id, size, agent, expected, printedHref))
   let qr = ""
   let fit: NopV2Fit = { footerMargin: 0, minGap: 0 }
   const rendered = await renderV2Page(id, size, html, output, V2_AGENT_DSF, async (page) => {
-    fit = await checkAgentLayout(page, enrollment)
+    fit = await checkAgentLayout(page, printedHref)
     qr = await checkAgentQr(page, expected)
   })
   return { ...rendered, qr, fit }

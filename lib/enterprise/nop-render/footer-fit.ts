@@ -33,12 +33,18 @@ export function nameFitsKitV2Footer(name: string): boolean {
   return footerNameWidth(name) <= FLAG_PX
 }
 
-/** The printed link for the longest possible Agent ID (10 of the widest digit), as the footer prints it. */
-export function footerLinkWorstWidth(domain: string): number {
+/**
+ * The printed enrollment address at its widest, as the footer prints it:
+ * `prefix` (e.g. "join.basicbenefits.com/" or "oneflyer.org/a/") plus the
+ * longest possible slot: a 10-digit Agent ID of the widest digit, or an
+ * 8-character QR code of the widest character (letters not in the table count
+ * as its widest).
+ */
+export function footerAddressWorstWidth(prefix: string, slot: "id" | "code"): number {
   const digit = Object.entries(LINK_WIDTHS).filter(([c]) => /\d/.test(c)).sort((a, b) => b[1] - a[1])[0][0]
-  return width(`${domain}/${digit.repeat(10)}`, LINK_WIDTHS)
+  return width(`${prefix}${slot === "id" ? digit.repeat(10) : "W".repeat(8)}`, LINK_WIDTHS)
 }
 
-export function linkFitsKitV2Footer(domain: string): boolean {
-  return footerLinkWorstWidth(domain) <= FLAG_PX
+export function addressFitsKitV2Footer(prefix: string, slot: "id" | "code"): boolean {
+  return footerAddressWorstWidth(prefix, slot) <= FLAG_PX
 }

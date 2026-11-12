@@ -14,7 +14,7 @@ import {
   lockAgentId,
   saveRosterRecord,
 } from "./agents-store"
-import { getEnrollDomain } from "./nop-enroll-domain"
+import { getEnrollTargets } from "./nop-enroll-domain"
 import { addRecruit, removeRecruit, resolveRecruiter } from "./portal/recruiting"
 
 // Self sign-up for NOP agents (no imported roster needed).
@@ -117,7 +117,7 @@ export async function submitSignup(d: SignupDetails): Promise<"created" | "dupli
   // like a business account and block it from signing up again. Approval sets it.
   await saveRosterRecord(record)
   await saveAgentProfile(d.email, {
-    ...buildAgentProfile(record, { displayName: d.name, displayPhone: d.phone, displayEmail: d.email }, await getEnrollDomain()),
+    ...buildAgentProfile(record, { displayName: d.name, displayPhone: d.phone, displayEmail: d.email }, await getEnrollTargets()),
     preferredLanguage: d.lang,
   })
   await flagNameIfTooLongForFooter(d.agentId, d.email, d.name)

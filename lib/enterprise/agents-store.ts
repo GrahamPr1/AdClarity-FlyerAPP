@@ -1,8 +1,8 @@
 import { Redis } from "@upstash/redis"
 import type { AgentFlag, AgentProfile, EnterpriseOrg, RosterRecord } from "@/lib/types"
 import { deleteAgentProfile, getAgentProfile, getEnterpriseOrg, saveAgentProfile, saveEnterpriseOrg } from "@/lib/store"
-import { NOP_ORG_ID, NOP_ORG_NAME, isGenerationStatus, qrDestinationFor } from "./nop-roster"
-import { getEnrollDomain } from "./nop-enroll-domain"
+import { NOP_ORG_ID, NOP_ORG_NAME, isGenerationStatus, qrDestinationFor, type Enroll } from "./nop-roster"
+import { getEnrollTargets } from "./nop-enroll-domain"
 import { FOOTER_SPACE_PX, footerNameWidth, nameFitsKitV2Footer } from "./nop-render/footer-fit"
 import { clearRetentionClock, startRetentionClock } from "./portal/retention"
 
@@ -233,7 +233,7 @@ export async function adminReassignAgentId(agentId: string, expectedOwner: strin
     displayName: roster.agentName,
     displayPhone: roster.rosterPhone,
     displayEmail: roster.rosterEmail,
-  }, await getEnrollDomain()))
+  }, await getEnrollTargets()))
   return { ok: true }
 }
 
@@ -242,12 +242,12 @@ export async function adminReassignAgentId(agentId: string, expectedOwner: strin
 /**
  * System fields from the roster; only the display fields come from the agent.
  * qrDestination is a snapshot for the record; every page and route reads the
- * live enrollment domain setting instead.
+ * live enrollment setting instead.
  */
 export function buildAgentProfile(
   roster: RosterRecord,
   display: { displayName: string; displayPhone: string; displayEmail: string },
-  domain: string,
+  enroll: Enroll,
 ): Omit<AgentProfile, "savedAt"> {
   return {
     name: display.displayName,
@@ -256,7 +256,7 @@ export function buildAgentProfile(
     email: display.displayEmail,
     headshotUrl: null,
     licenseStates: [],
-    qrDestination: qrDestinationFor(roster.agentId, domain),
+    qrDestination: qrDestinationFor(roster.agentId, enroll),
     orgId: NOP_ORG_ID,
     agentId: roster.agentId,
     referralCode: roster.referralCode,

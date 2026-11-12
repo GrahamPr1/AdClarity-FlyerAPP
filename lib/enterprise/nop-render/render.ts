@@ -12,8 +12,8 @@ import {
 } from "./kit"
 import { decodeQrFromPng } from "./qr-gate"
 import { getRosterRecord } from "@/lib/enterprise/agents-store"
-import { nopQrLink, nopQrTarget, qrDestinationFor } from "@/lib/enterprise/nop-roster"
-import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
+import { nopQrLink, nopQrTarget, printedEnrollAddress, qrDestinationFor, type Enroll } from "@/lib/enterprise/nop-roster"
+import { getEnrollTargets } from "@/lib/enterprise/nop-enroll-domain"
 import { agentIdForQrCode, getOrIssueAgentQrCode } from "@/lib/enterprise/nop-qr-code"
 
 // Renders Basic Benefits' NOP masters with an agent's details. No AI, no
@@ -77,15 +77,21 @@ function masterWithInlineFonts(id: NopTemplateId): string {
   return out
 }
 
-/** `domain` is the enrollment domain setting: the printed address and the QR's forward come from the same value. */
-function textValues(content: KitContent, id: NopTemplateId, agent: NopAgentValues, domain: string): Record<string, string> {
+/**
+ * `enroll` is the enrollment setting: the printed address and the QR's forward
+ * come from the same read of it. The card prints the address in two zones:
+ * enroll_domain (right-aligned, with the trailing slash) and agent_slug (the
+ * Agent ID, or the agent's QR code when the setting prints oneflyer.org/a/<code>).
+ */
+function textValues(content: KitContent, id: NopTemplateId, agent: NopAgentValues, enroll: Enroll, qrCode: string): Record<string, string> {
+  const printed = printedEnrollAddress(agent.agentId, qrCode, enroll)
   return {
     agent_name: agent.displayName,
     agent_phone: agent.displayPhone,
     agent_email: agent.displayEmail,
     agent_id: agent.agentId,
-    agent_slug: agent.agentId,
-    enroll_domain: `${domain}/`,
+    agent_slug: printed.slot,
+    enroll_domain: printed.prefix,
     version_stamp: versionStamp(content, id),
     ...priceValues(content, id),
   }
@@ -259,12 +265,17 @@ export function gate(decoded: string | null, expected: string) {
  * ID, and the link's live destination (the rule app/a/[code] follows) is the
  * enrollment URL. Issues the code on the agent's first flyer.
  */
-export async function checkedQrLink(agentId: string, enrollment: string, domain: string): Promise<string> {
+/** The code in a nopQrLink: its last path segment. */
+export function qrCodeOf(link: string): string {
+  return link.slice(link.lastIndexOf("/") + 1)
+}
+
+export async function checkedQrLink(agentId: string, enrollment: string, enroll: Enroll): Promise<string> {
   const code = await getOrIssueAgentQrCode(agentId)
   const link = nopQrLink(code)
   const owner = await agentIdForQrCode(code)
   if (owner !== agentId) throw new NopRenderError("qr_mismatch", `${link} belongs to ${owner}, expected ${agentId}`)
-  const target = nopQrTarget(owner, await getRosterRecord(owner), domain)
+  const target = nopQrTarget(owner, await getRosterRecord(owner), enroll)
   if (target !== enrollment) throw new NopRenderError("qr_mismatch", `${link} forwards to ${target}, expected ${enrollment}`)
   return link
 }
@@ -276,8 +287,8 @@ export async function checkedQrLink(agentId: string, enrollment: string, domain:
 export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, format: NopFormat): Promise<NopRendered> {
   const t0 = Date.now()
   const content = readKitContent()
-  const domain = await getEnrollDomain()
-  const expected = await checkedQrLink(agent.agentId, qrDestinationFor(agent.agentId, domain), domain)
+  const enroll = await getEnrollTargets()
+  const expected = await checkedQrLink(agent.agentId, qrDestinationFor(agent.agentId, enroll), enroll)
   const dsf = format === "social" ? SOCIAL.w / DIGITAL_BASE_W : format === "preview" ? 1 : format === "thumb" ? THUMB_DSF : 2
   const { page, close } = await newPage(dsf)
   try {
@@ -285,7 +296,7 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
     if (format === "social") await toDigitalLayout(page)
     if (format === "home") await toHomeLayout(page)
 
-    await inject(page, textValues(content, id, agent, domain), readKitFileBase64(content.default_logo), await qrSvg(expected))
+    await inject(page, textValues(content, id, agent, enroll, qrCodeOf(expected)), readKitFileBase64(content.default_logo), await qrSvg(expected))
     await assertFonts(page)
     const tooWide = await fitAndCheck(page)
     if (tooWide.length) {
@@ -424,7 +435,8 @@ export async function inspectNopFlyer(id: NopTemplateId, agent: NopAgentValues):
   const { page, close } = await newPage(1)
   try {
     await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
-    await inject(page, textValues(content, id, agent, await getEnrollDomain()), readKitFileBase64(content.default_logo), await qrSvg(nopQrLink(await getOrIssueAgentQrCode(agent.agentId))))
+    const code = await getOrIssueAgentQrCode(agent.agentId)
+    await inject(page, textValues(content, id, agent, await getEnrollTargets(), code), readKitFileBase64(content.default_logo), await qrSvg(nopQrLink(code)))
     await assertFonts(page)
     const tooWide = await fitAndCheck(page)
     const measured = await page.evaluate(() => {

@@ -31,6 +31,7 @@ const QR_CODE = "R3gTest"
 vi.mock("@/lib/enterprise/nop-enroll-domain", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/nop-enroll-domain")>()),
   getEnrollDomain: async () => (await import("@/lib/enterprise/nop-roster")).DEFAULT_ENROLL_DOMAIN,
+  getEnrollTargets: async () => (await import("@/lib/enterprise/nop-roster")).DEFAULT_ENROLL_DOMAIN,
 }))
 vi.mock("@/lib/enterprise/nop-qr-code", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/nop-qr-code")>()),

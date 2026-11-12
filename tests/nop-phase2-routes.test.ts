@@ -27,7 +27,7 @@ vi.mock("@/lib/enterprise/program-admins", async (orig) => ({
   logNopAdminAction: async () => {},
   programAdminFrom: async () => null,
 }))
-vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com" }))
+vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "neighbor.basicbenefits.com", getEnrollTargets: async () => "neighbor.basicbenefits.com" }))
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => !!sub && s.admins.has(sub) }))
 vi.mock("@/lib/enterprise/portal/store", () => ({ getAgentTier: async () => s.tier, getOrgFeatures: async () => s.features, touchLastActive: async () => {} }))
 vi.mock("@/lib/enterprise/nop-render/agent-context", () => ({

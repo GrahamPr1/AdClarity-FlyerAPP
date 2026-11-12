@@ -49,7 +49,7 @@ vi.mock("@/lib/enterprise/agents-store", () => ({
   flagNameIfTooLongForFooter: async () => undefined,
 }))
 vi.mock("@/lib/store", () => ({ saveAgentProfile: async () => undefined, getAgentProfile: async () => null, recordClientCreatedAtIfUnset: async () => undefined }))
-vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "join.example.test" }))
+vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({ getEnrollDomain: async () => "join.example.test", getEnrollTargets: async () => "join.example.test" }))
 vi.mock("@/lib/enterprise/portal/context", () => ({
   loadPortalContext: async (email: string) => {
     const agentId = [...r.owners.entries()].find(([, e]) => e === email)?.[0]
