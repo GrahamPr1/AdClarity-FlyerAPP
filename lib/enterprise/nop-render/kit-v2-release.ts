@@ -1,0 +1,44 @@
+import { NOP_V2_TEMPLATES, v2Parts, type NopV2Id, type NopV2Size } from "./kit-v2"
+import type { NopV2Lang } from "./kit-v2-ids"
+import { renderNopV2WithAgentArea } from "./render-v2"
+import { NopRenderError } from "./render"
+import { nopQrLink, qrDestinationFor } from "@/lib/enterprise/nop-roster"
+
+// Kit-v2 release check: every template, at both sizes, through the agent
+// pipeline (renderNopV2WithAgentArea: locked sections, layout gates, fonts, QR
+// read-back, PDF size) with fixed test values. Nothing is looked up or
+// written: the code link is a made-up code, never issued to anyone. Used by
+// the Spanish switch (a language can't go live while one of its flyers fails)
+// and by tests/nop-kit-v2-release.test.ts.
+
+export const RELEASE_CHECK_AGENT = { agentId: "858980", displayName: "Render Check Agent", displayPhone: "(270) 555-0100" }
+const RELEASE_CHECK_CODE = "RndrChk"
+export const V2_SIZES: NopV2Size[] = ["letter", "bleed"]
+
+export interface V2ReleaseFailure {
+  template: NopV2Id
+  size: NopV2Size
+  code: string
+  message: string
+}
+
+/** One template at one size; throws NopRenderError on the first failed check. */
+export async function checkV2Release(id: NopV2Id, size: NopV2Size, domain: string): Promise<void> {
+  const enrollment = qrDestinationFor(RELEASE_CHECK_AGENT.agentId, domain)
+  await renderNopV2WithAgentArea(id, size, RELEASE_CHECK_AGENT, enrollment, nopQrLink(RELEASE_CHECK_CODE), "pdf")
+}
+
+/** Every template in `lang` at both sizes, one at a time; the failures, empty when all pass. */
+export async function v2ReleaseFailures(lang: NopV2Lang, domain: string): Promise<V2ReleaseFailure[]> {
+  const failures: V2ReleaseFailure[] = []
+  for (const template of NOP_V2_TEMPLATES.filter((id) => v2Parts(id).lang === lang)) {
+    for (const size of V2_SIZES) {
+      try {
+        await checkV2Release(template, size, domain)
+      } catch (err) {
+        failures.push({ template, size, code: err instanceof NopRenderError ? err.code : "render_failed", message: err instanceof Error ? err.message : String(err) })
+      }
+    }
+  }
+  return failures
+}
