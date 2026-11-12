@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "limit_reached",
-        message: `You've used all ${limit} campaigns on your ${planName} plan — they reset monthly.`,
+        message: `You've used all ${limit} flyers on your ${planName} plan — they reset monthly.`,
         flyersCreated: reservation.flyersCreated,
         limit,
       },

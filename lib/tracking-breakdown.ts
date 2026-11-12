@@ -63,3 +63,24 @@ export async function buildFlyerBreakdown(
     leadsThisMonth: leads.since,
   }
 }
+
+/**
+ * What a TRIAL account may read of its own tracking: scan counts only.
+ *
+ * Clicks, the per-channel breakdown and leads are what Basic sells ("QR scan
+ * & click tracking"), and the dashboard already showed trial only a scan
+ * count — but the endpoints returned everything, so the gate was the UI's
+ * alone (Phase 0). Withheld values are ABSENT, never zeroed: a 0 would be a
+ * false number. Counting itself never stops, so upgrading shows the history.
+ */
+export interface TrialTrackingView {
+  flyerId: string
+  month: string
+  totalScans: number
+  scansThisMonth: number
+  withheld: ["clicks", "channels", "leads"]
+}
+
+export function scansOnly(b: FlyerTrackingBreakdown): TrialTrackingView {
+  return { flyerId: b.flyerId, month: b.month, totalScans: b.totalScans, scansThisMonth: b.scansThisMonth, withheld: ["clicks", "channels", "leads"] }
+}

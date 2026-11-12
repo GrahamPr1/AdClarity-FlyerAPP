@@ -97,7 +97,7 @@ function BusinessProfileCard({ profile, onSaved, onRemoved }: {
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium">Business Profile</p>
+          <p className="text-sm font-medium">Form-fill details</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {hasProfile
               ? `Saved${profile?.file ? ` — ${profile.file.fileName}` : ""}${profile?.link ? (profile?.file ? " + a link" : " — a link") : ""}, updated ${new Date(profile!.savedAt).toLocaleDateString()}`
@@ -326,7 +326,7 @@ export function FormFillSection() {
           <label className="flex items-center gap-2.5 text-sm cursor-pointer">
             <input type="checkbox" checked={useSavedProfile} onChange={(e) => setUseSavedProfile(e.target.checked)}
               className="w-4 h-4 accent-[var(--brand-teal-bright)]" />
-            Use my saved Business Profile instead of uploading info again
+            Use my saved form-fill details instead of uploading info again
           </label>
         )}
 

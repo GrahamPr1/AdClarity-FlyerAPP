@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   const client = await getClient(email)
   if (client?.plan !== "pro") {
     return NextResponse.json(
-      { error: "pro_only", message: "Saved business profiles are a Pro-plan feature — check out our plans at /#pricing." },
+      { error: "pro_only", message: "Saved form-fill details are a Pro-plan feature — check out our plans at /#pricing." },
       { status: 403 },
     )
   }

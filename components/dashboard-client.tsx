@@ -993,7 +993,7 @@ export function DashboardClient() {
           {data.flyersCreated >= data.flyersLimit && (
             <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
               <p className="min-w-[16rem] flex-1 text-sm">
-                You&apos;ve used all {data.flyersLimit} campaigns on your {data.planName} plan.
+                You&apos;ve used all {data.flyersLimit} flyers on your {data.planName} plan.
                 They reset on {new Date(data.flyersResetAt).toLocaleDateString()}.
               </p>
               <Link

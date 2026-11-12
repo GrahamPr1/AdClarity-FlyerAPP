@@ -382,7 +382,7 @@ export function OnboardingForm({
       setError(
         typeof data.message === "string"
           ? data.message
-          : "You've used all the campaigns included on your current plan. Upgrade at /#pricing to keep creating.",
+          : "You've used all the flyers included on your current plan. Upgrade at /#pricing to keep creating.",
       )
       setSubmitting(false)
       return
@@ -667,20 +667,18 @@ export function OnboardingForm({
                   )}
                 </div>
 
-                {(form.flyerPhotoUrls?.length ?? 0) === 0 && (
+                {/* Pro only, and not advertised to anyone else: AI image
+                    generation isn't producing images reliably (no Higgsfield
+                    credits), so no plan's copy promises it. The opt-in and the
+                    server-side gate (aiPhotosEnabled) still work for Pro. */}
+                {realPlanId === "pro" && (form.flyerPhotoUrls?.length ?? 0) === 0 && (
                   <div>
                     <label className="flex items-center gap-2.5 text-sm cursor-pointer">
                       <input type="checkbox" checked={form.wantsAiPhotos ?? false}
-                        disabled={realPlanId !== "pro"}
                         onChange={(e) => set("wantsAiPhotos", e.target.checked)}
-                        className="w-4 h-4 accent-[var(--brand-teal-bright)] disabled:opacity-50" />
+                        className="w-4 h-4 accent-[var(--brand-teal-bright)]" />
                       If no stock photo fits, let AI generate an illustrative image instead
                     </label>
-                    {realPlanId !== null && realPlanId !== "pro" && (
-                      <p className="mt-1.5 text-xs text-muted-foreground">
-                        <Link href="/#pricing" className="text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">Upgrade to Pro</Link> to add AI-generated images when no stock photo fits.
-                      </p>
-                    )}
                   </div>
                 )}
 

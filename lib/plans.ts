@@ -33,7 +33,7 @@ export const PLANS: Plan[] = [
     annualFee: 0,
     annualMonthlyFee: 0,
     description: "Try the full AI design engine with a few flyers on us — no credit card required.",
-    features: [`${PLAN_LIMITS.trial} flyers free`, "No credit card required"],
+    features: [`${PLAN_LIMITS.trial} flyers free`, "A QR code on every flyer, with a scan count", "No credit card required"],
     note: "See exactly what you'll get before spending a dime.",
     outcome: "Perfect for testing the waters before you upgrade.",
     ctaLabel: "Start Free Trial",
@@ -66,10 +66,13 @@ export const PLANS: Plan[] = [
     monthlyFee: 39,
     annualFee: 360,
     annualMonthlyFee: annualMonthlyFee(360),
-    // Pro's differentiators are the ones actually enforced server-side: twice
-    // the monthly allowance, and an AI-generated image as a FALLBACK
-    // (planAllowsAiPhotos in lib/agent-pipeline/plan-features.ts is Pro-only
-    // and gated for real, on top of the client's opt-in).
+    // Pro's copy states only what Pro is enforced to get server-side today.
+    //
+    // AI-generated images are NOT advertised (Phase 3, 2026-11-12): the
+    // Higgsfield account is out of credits, so the Pro + opt-in path
+    // (aiPhotosEnabled in lib/agent-pipeline/plan-features.ts) currently
+    // produces no image. The code path and the Pro-only opt-in stay working;
+    // restore a claim here only once generation is verified in production.
     //
     // Photos themselves are NOT Pro-only, so the copy must not imply they
     // are: every tier gets a matching Unsplash stock photo when the client
@@ -85,16 +88,15 @@ export const PLANS: Plan[] = [
     // Trial already has it. Meanwhile the one genuinely exclusive feature
     // wasn't mentioned anywhere. Charging for something everyone gets, while
     // hiding what they'd actually be paying for, is the wrong way round.
-    description: "Everything in Basic, plus double the monthly campaigns and AI-generated images when no stock photo fits.",
+    description: "Everything in Basic, plus double the monthly flyers.",
     features: [
       "Get customer leads from every flyer",
       "Update your offer without reprinting",
       `${PLAN_LIMITS.pro} flyers every month — double Basic`,
       "Everything in Basic",
-      "AI-generated images when neither your photos nor our stock library has a match (opt-in)",
     ],
-    note: "Every plan uses your photos first, then a matching stock photo. Pro adds an AI-generated image for when the stock library has nothing that fits — useful for niche trades.",
-    outcome: "Twice the output, and a better chance of a picture on every flyer — even for work stock libraries don't cover.",
+    note: "Every plan uses your photos first, then a matching stock photo.",
+    outcome: "Twice the output.",
     mostPopular: true,
     ctaLabel: "Get the Pro Plan",
   },
