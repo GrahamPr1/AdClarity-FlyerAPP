@@ -1,5 +1,10 @@
 # Spanish flyers P1 and P3: the agent's details don't fit (options for sign-off)
 
+> **Superseded 12 November 2026** by the spacing proposal on branch
+> `nop-v2-spacing` (`SPACING` in `lib/enterprise/nop-render/footer-placement.ts`):
+> spacing only, for Spanish P1, and P2 and P3 in both languages, with at least
+> 0.05in to spare above the footer and 0.08in between blocks on every page.
+
 12 November 2026. Measurements are from the final flyers as supplied (10/2026),
 at Letter size; the bleed versions behave the same way. Sizes are given in
 inches at print size.
