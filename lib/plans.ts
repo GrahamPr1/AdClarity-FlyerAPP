@@ -61,7 +61,7 @@ export const PLANS: Plan[] = [
   {
     id: "pro",
     name: "Pro",
-    tagline: "For businesses that want the most flyers and the least paperwork.",
+    tagline: "Everything in Basic, with double the flyers and less paperwork.",
     badge: "Most Popular",
     monthlyFee: 39,
     annualFee: 360,
@@ -88,15 +88,20 @@ export const PLANS: Plan[] = [
     // Trial already has it. Meanwhile the one genuinely exclusive feature
     // wasn't mentioned anywhere. Charging for something everyone gets, while
     // hiding what they'd actually be paying for, is the wrong way round.
-    description: "Everything in Basic, plus double the monthly flyers.",
+    // Wording approved 2026-11-12 — the same on pricing, the FAQ and the
+    // server's Pro-only refusals. The tagline carries it; no description or
+    // outcome, so the card says nothing the approved copy doesn't.
+    // "fillable" is load-bearing: /api/form-fill only fills PDFs with real
+    // form fields (pdfForm.ts reads the AcroForm) and refuses flat/scanned
+    // ones, so "fills in PDF forms" would overclaim.
+    description: "",
     features: [
-      "Get customer leads from every flyer",
-      "Update your offer without reprinting",
-      `${PLAN_LIMITS.pro} flyers every month — double Basic`,
-      "Everything in Basic",
+      `${PLAN_LIMITS.pro} flyers a month (Basic includes ${PLAN_LIMITS.basic})`,
+      "Form-fill: save your business details once, and OneFlyer fills in fillable PDF forms for you",
+      "Everything in Basic: Instagram, text and Nextdoor versions, click tracking, lead capture and print requests",
     ],
     note: "Every plan uses your photos first, then a matching stock photo.",
-    outcome: "Twice the output.",
+    outcome: "",
     mostPopular: true,
     ctaLabel: "Get the Pro Plan",
   },

@@ -247,6 +247,10 @@ export const FAQS: { q: string; a: string }[] = [
     a: "They keep working. A QR code you've already printed stays pointed at its offer page permanently — cancelling does not switch it off, because a flyer that goes dead in someone's mailbox would be your problem, not ours to create. Scans and clicks keep being counted, and the numbers you've already collected stay in your dashboard. What stops is making NEW campaigns: those need an active plan, or your free-tier allowance.",
   },
   {
+    q: "What does Pro add?",
+    a: `Everything in Basic, with double the flyers and less paperwork: ${PLAN_LIMITS.pro} flyers a month (Basic includes ${PLAN_LIMITS.basic}), and form-fill — save your business details once, and OneFlyer fills in fillable PDF forms for you. Pro also includes everything in Basic: Instagram, text and Nextdoor versions, click tracking, lead capture and print requests.`,
+  },
+  {
     q: "Is there a free trial?",
     a: `Yes — ${PLAN_LIMITS.trial} flyers free, no credit card required. The free tier includes the flyer itself, its QR code with a scan count, and the AI design engine. Click tracking, lead capture, the Instagram/text/Nextdoor versions, and print requests start on Basic.`,
   },
