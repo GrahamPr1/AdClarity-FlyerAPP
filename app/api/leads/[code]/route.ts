@@ -8,6 +8,7 @@ import type { LeadRecord } from "@/lib/types"
 import { LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS, LeadSchema } from "@/lib/leads"
 import { isOfferExpired } from "@/lib/offer-page-content"
 import { getEmailPreferences } from "@/lib/email-preferences"
+import { recordSent } from "@/lib/email-delivery"
 
 // POST /api/leads/{code} — the form on a flyer's offer page (/r/{code}).
 //
@@ -101,7 +102,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // arrive can be traced (it once bounced at iCloud with nothing in the logs).
   // "accepted" is Resend taking it, not delivery — bounces come back later.
   if (!sent.sent) console.error(`[leads] saved lead ${lead.id} on ${code}, but the owner email failed:`, sent.reason)
-  else console.log(`[leads] lead ${lead.id} on ${code}: email to ${maskEmail(record.email)} accepted by Resend (${sent.id ?? "no id"})`)
+  else {
+    console.log(`[leads] lead ${lead.id} on ${code}: email to ${maskEmail(record.email)} accepted by Resend (${sent.id ?? "no id"})`)
+    // Followed by Resend's webhook: a bounce is retried once and shown to the owner.
+    await recordSent(sent.id, { kind: "lead", owner: record.email, code, leadId: lead.id, attempt: 1 })
+  }
 
   return NextResponse.json({ ok: true })
 }

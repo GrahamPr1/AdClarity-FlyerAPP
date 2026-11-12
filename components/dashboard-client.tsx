@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { fetcher } from "@/lib/swr-fetcher"
+import { EmailDeliveryNotice } from "@/components/email-delivery-notice"
 import { BusinessDetailsCard } from "@/components/business-details-card"
 import type { BusinessProfile } from "@/lib/business-profile"
 import type {
@@ -1152,6 +1153,7 @@ export function DashboardClient() {
                   first campaign exists, rather than as two extra form steps
                   standing between signup and any visible result. Dismissible,
                   and hidden once they've saved anything. */}
+              <EmailDeliveryNotice />
               <ProfileNudge />
 
               <div className="mt-12 flex items-center justify-between gap-3">

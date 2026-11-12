@@ -241,6 +241,8 @@ export async function sendLeadNotification(input: {
   /** It came in after the offer's end date. */
   afterOfferEnded?: boolean
   dashboardUrl: string
+  /** ISO time to deliver at, instead of now — the one retry after a temporary bounce (lib/email-delivery.ts). */
+  scheduledAt?: string
 }): Promise<{ sent: boolean; reason?: string; id?: string }> {
   const resend = getClient()
   if (!resend) return { sent: false, reason: "RESEND_API_KEY is not configured" }
@@ -274,6 +276,7 @@ export async function sendLeadNotification(input: {
       from: FROM_ADDRESS,
       to: input.to,
       ...(lead.email ? { replyTo: lead.email } : {}),
+      ...(input.scheduledAt ? { scheduledAt: input.scheduledAt } : {}),
       text,
       // The mail client's own one-click "Unsubscribe" (RFC 8058); the footer
       // link below is the human one. See lib/email-preferences.ts.
