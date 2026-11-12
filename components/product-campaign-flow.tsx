@@ -260,11 +260,9 @@ function CreativeOptions({ product, onBack }: { product: ProductProfile; onBack:
           <Detail label="Features" value={product.features.join(", ") || null} />
           <Detail label="Must appear" value={product.limitations.join(", ") || null} />
         </dl>
-        {product.normalizationNotes.length > 0 && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Notes: {product.normalizationNotes.join(" · ")}
-          </p>
-        )}
+        {/* normalizationNotes are deliberately NOT shown: they're the Product
+            Agent's working notes (field names, "per convention"), written for
+            us, not for customers. */}
       </details>
 
       {error && <p role="alert" className="mt-4 text-sm text-[var(--destructive)]">{error}</p>}

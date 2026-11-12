@@ -147,6 +147,7 @@ export async function POST(req: NextRequest) {
     notes: r.notes,
     ...(r.formatId ? { formatId: r.formatId } : {}),
   }))
+  console.log(`[new-promotion] ${id} from ${flyerId}: source=${source} format=${requests[0]?.formatId ?? "flyer"} photos=${intake.photos?.length ?? 0}`)
   waitUntil(
     continuePipelineFromIntake(email, intake, requests, false).catch((err) => {
       console.error("[agent-pipeline] Unhandled new-promotion pipeline error:", err)
