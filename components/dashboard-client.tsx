@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { fetcher } from "@/lib/swr-fetcher"
 import { EmailDeliveryNotice } from "@/components/email-delivery-notice"
+import { OfferRefreshBanner } from "@/components/offer-refresh-banner"
 import { BusinessDetailsCard } from "@/components/business-details-card"
 import type { BusinessProfile } from "@/lib/business-profile"
 import type {
@@ -1164,6 +1165,7 @@ export function DashboardClient() {
                   standing between signup and any visible result. Dismissible,
                   and hidden once they've saved anything. */}
               <EmailDeliveryNotice />
+              <OfferRefreshBanner onCreated={() => void mutate()} />
               <ProfileNudge />
 
               <div className="mt-12 flex items-center justify-between gap-3">

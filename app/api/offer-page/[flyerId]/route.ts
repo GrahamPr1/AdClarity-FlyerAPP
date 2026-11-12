@@ -4,6 +4,7 @@ import { getDeliverablesForEmail, getTrackingRecord, hasOfferPageUndo, resetOffe
 import { offerPageFeaturesEnabledFor } from "@/lib/offer-page-access"
 import { redeemUrlFor } from "@/lib/agent-pipeline/qrTracking"
 import { OwnerOfferSchema, isOfferExpired, ownerContentOf } from "@/lib/offer-page-content"
+import { markOfferPageTouched } from "@/lib/offer-refresh"
 
 /**
  * The owner's editor for one flyer's offer page (/r/<code>).
@@ -86,6 +87,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ flyerId: st
   if (!(await saveOfferPageEdit(flyerId, code, parsed.data))) {
     return NextResponse.json({ error: "Offer page not found" }, { status: 404 })
   }
+  await markOfferPageTouched(flyerId)
   return NextResponse.json({ ok: true })
 }
 
@@ -98,10 +100,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ flyerId: s
 
   if (action === "undo") {
     if (!(await undoOfferPageEdit(flyerId, code))) return NextResponse.json({ error: "nothing_to_undo", message: "There's nothing to undo." }, { status: 409 })
+    await markOfferPageTouched(flyerId)
     return NextResponse.json({ ok: true, undone: true })
   }
   if (action === "reset") {
     if (!(await resetOfferPageToFlyer(flyerId, code))) return NextResponse.json({ error: "Offer page not found" }, { status: 404 })
+    await markOfferPageTouched(flyerId)
     return NextResponse.json({ ok: true, reset: true })
   }
   return NextResponse.json({ error: "Unknown action" }, { status: 400 })
