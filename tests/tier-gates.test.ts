@@ -8,7 +8,12 @@ import { NextRequest } from "next/server"
  * the client record and the side-effecting helpers are stubbed.
  */
 
-const s = vi.hoisted(() => ({ plans: new Map<string, string | null>(), sideEffects: [] as string[] }))
+const s = vi.hoisted(() => ({
+  plans: new Map<string, string | null>(),
+  sideEffects: [] as string[],
+  campaignInputs: new Map<string, unknown>(),
+  generated: [] as { intake: { businessName: string; photos: unknown[]; flyerRequests: { id: string; purpose: string; notes: string | null; formatId?: string }[] } }[],
+}))
 vi.mock("@/lib/store", () => {
   const client = (email: string) => {
     const plan = s.plans.get(email)
@@ -33,7 +38,8 @@ vi.mock("@/lib/store", () => {
     countLeadsForFlyer: async () => ({ total: 3, since: 1 }),
     listFlyerChannelCodes: async () => [],
     seedPrintRequest: touched("seedPrintRequest"),
-    reserveFlyerQuota: async () => ({ ok: true }),
+    reserveFlyerQuota: async () => (s.sideEffects.push("reserveFlyerQuota"), { ok: true }),
+    getAgentProfile: async (email: string) => (email === "org@x.test" ? { orgId: "org-1" } : null),
     releaseFlyerQuota: touched("releaseFlyerQuota"),
     markFlyersInProgress: touched("markFlyersInProgress"),
     seedFlyerDeliverables: touched("seedFlyerDeliverables"),
@@ -45,13 +51,32 @@ vi.mock("@/lib/agent-pipeline/formFillPipeline", () => ({ processFormFill: async
 vi.mock("@/lib/agent-pipeline/goal-parser", () => ({ parseMarketingGoal: async () => { s.sideEffects.push("parseMarketingGoal"); throw new Error("must not be reached") }, GoalTooVagueError: class extends Error {} }))
 vi.mock("@/lib/agent-pipeline/goal-campaign", () => ({ buildGoalCampaignPlan: async () => ({}), OfferRequiredError: class extends Error {} }))
 vi.mock("@/lib/agent-pipeline/goal-rate-limit", () => ({ checkGoalRateLimit: async () => ({ allowed: true, retryAfterSeconds: 0 }) }))
-vi.mock("@/lib/agent-pipeline/pipeline", () => ({ continuePipelineFromIntake: async () => {} }))
-vi.mock("@/lib/enterprise/generation-guard", () => ({ nopAgentGenerationBlock: async () => null }))
+vi.mock("@/lib/agent-pipeline/pipeline", () => ({
+  continuePipelineFromIntake: async (_email: string, intake: never) => void s.generated.push({ intake }),
+}))
+vi.mock("@/lib/enterprise/generation-guard", () => ({
+  nopAgentGenerationBlock: async (email: string) =>
+    email === "nop@x.test" ? new Response(JSON.stringify({ error: "nop_agent_blocked" }), { status: 403 }) : null,
+}))
+vi.mock("@/lib/campaign-inputs", () => ({ getCampaignInput: async (id: string) => s.campaignInputs.get(id) ?? null }))
+vi.mock("@/lib/business-profile-resolve", () => ({
+  resolveBusinessProfile: async () => ({
+    businessName: "Pearl Roofing",
+    industry: "Roofing",
+    description: null,
+    website: null,
+    services: ["Roof repair"],
+    contact: { phone: "270-555-0100", email: null, address: null, social: [] },
+    brand: { logoUrl: null, colors: null, tone: null },
+  }),
+}))
 
 beforeEach(() => {
   vi.stubEnv("SESSION_SECRET", "test-secret")
-  s.plans = new Map([["trial@x.test", "trial"], ["basic@x.test", "basic"], ["pro@x.test", "pro"], ["norecord@x.test", null]])
+  s.plans = new Map([["trial@x.test", "trial"], ["basic@x.test", "basic"], ["pro@x.test", "pro"], ["norecord@x.test", null], ["org@x.test", "pro"], ["nop@x.test", "pro"]])
   s.sideEffects = []
+  s.campaignInputs = new Map()
+  s.generated = []
 })
 afterEach(() => vi.unstubAllEnvs())
 
@@ -147,5 +172,72 @@ describe("tracking stats: trial reads scans only, on the server", () => {
     const { ADMIN_SUB } = await import("@/lib/auth")
     const b = await get("/api/tracking/flyer/f1", ADMIN_SUB, flyerRoute, { flyerId: "f1" })
     expect(b).toMatchObject({ totalClicks: 5 })
+  })
+})
+
+describe("new promotion from this campaign: Pro only, on the server", () => {
+  const load = () => import("@/app/api/campaigns/new-promotion/route")
+  const body = (o: Record<string, unknown> = {}) => JSON.stringify({ flyerId: "f1", offer: "Free gutter check with any roof repair", ...o })
+
+  for (const email of ["trial@x.test", "basic@x.test", "norecord@x.test"]) {
+    it(`${email.split("@")[0]} gets 403 pro_only; nothing reserved or generated`, async () => {
+      const r = await call(load as never, "/api/campaigns/new-promotion", email, body())
+      expect(r).toMatchObject({ status: 403, body: { error: "pro_only" } })
+      expect(s.sideEffects).toEqual([])
+      expect(s.generated).toEqual([])
+    })
+  }
+  it("enterprise org accounts are refused even on Pro", async () => {
+    const r = await call(load as never, "/api/campaigns/new-promotion", "org@x.test", body())
+    expect(r.status).toBe(403)
+    expect(s.generated).toEqual([])
+  })
+  it("NOP agents are refused", async () => {
+    const r = await call(load as never, "/api/campaigns/new-promotion", "nop@x.test", body())
+    expect(r).toMatchObject({ status: 403, body: { error: "nop_agent_blocked" } })
+    expect(s.generated).toEqual([])
+  })
+  it("someone else's flyer is not found", async () => {
+    const r = await call(load as never, "/api/campaigns/new-promotion", "pro@x.test", body({ flyerId: "not-mine" }))
+    expect(r.status).toBe(404)
+    expect(s.generated).toEqual([])
+  })
+
+  it("Pro, saved campaign: reuses business, photos and format; only the offer changes; old notes dropped", async () => {
+    s.campaignInputs.set("f1", {
+      intake: { businessName: "Pearl Roofing", photos: [{ url: "https://blob/x.jpg", caption: "roof" }], flyerRequests: [] },
+      request: { id: "f1", purpose: "Spring roof sale", notes: "OFFER (use verbatim): 10% off", formatId: "door-hanger" },
+      savedAt: "2026-11-01T00:00:00.000Z",
+    })
+    const r = await call(load as never, "/api/campaigns/new-promotion", "pro@x.test", body({ notes: "Ends 30 Nov" }))
+    expect(r).toMatchObject({ status: 201, body: { source: "campaign" } })
+    expect(s.sideEffects).toEqual(["reserveFlyerQuota"])
+    const intake = s.generated[0].intake
+    expect(intake.photos).toHaveLength(1)
+    expect(intake.flyerRequests).toEqual([
+      { id: (r.body as { flyerId: string }).flyerId, purpose: "Free gutter check with any roof repair", notes: "Ends 30 Nov", formatId: "door-hanger" },
+    ])
+  })
+
+  it("Pro, older flyer with nothing saved: falls back to the Business Profile and says so", async () => {
+    const { GET } = await load()
+    const { createSessionToken, SESSION_COOKIE } = await import("@/lib/auth")
+    const cookie = `${SESSION_COOKIE}=${await createSessionToken("pro@x.test")}`
+    const g = await GET(new NextRequest("http://x/api/campaigns/new-promotion?flyerId=f1", { headers: { cookie } }))
+    expect(await g.json()).toEqual({ available: true, source: "profile" })
+
+    const r = await call(load as never, "/api/campaigns/new-promotion", "pro@x.test", body())
+    expect(r).toMatchObject({ status: 201, body: { source: "profile" } })
+    const intake = s.generated[0].intake
+    expect(intake.businessName).toBe("Pearl Roofing")
+    expect(intake.flyerRequests).toHaveLength(1)
+    expect(intake.flyerRequests[0].purpose).toContain("Free gutter check with any roof repair")
+    expect(intake.flyerRequests[0].formatId).toBeUndefined()
+  })
+
+  it("Pro: an empty offer is refused before anything is reserved", async () => {
+    const r = await call(load as never, "/api/campaigns/new-promotion", "pro@x.test", body({ offer: "  " }))
+    expect(r.status).toBe(400)
+    expect(s.sideEffects).toEqual([])
   })
 })
