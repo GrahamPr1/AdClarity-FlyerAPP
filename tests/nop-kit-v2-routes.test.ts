@@ -9,7 +9,7 @@ import { NextRequest } from "next/server"
  * kit-v2 previews are admin-only.
  */
 
-const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[], enrollOk: true as boolean | undefined, settingsLog: [] as unknown[] }))
+const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[], enrollOk: true as boolean | undefined, settingsLog: [] as unknown[], esFailures: [] as unknown[], releaseChecks: 0 }))
 vi.mock("@/lib/enterprise/program-admins", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/program-admins")>()),
   audit: async () => {},
@@ -43,10 +43,13 @@ vi.mock("@/lib/enterprise/nop-render/render-v2", () => ({
     { body: Buffer.from("x"), contentType: output === "pdf" ? "application/pdf" : output === "thumb" ? "image/jpeg" : "image/png", pagePoints: { w: 612, h: 792 }, usedFonts: [], ms: 1, qr: "https://oneflyer.org/a/AAAAAAA" }
   ),
 }))
+vi.mock("@/lib/enterprise/nop-render/kit-v2-release", () => ({
+  v2ReleaseFailures: async (lang: string) => (s.releaseChecks++, lang === "ES" ? s.esFailures : []),
+}))
 vi.mock("@/lib/enterprise/agents-store", async (orig) => ({ ...(await orig<typeof import("@/lib/enterprise/agents-store")>()), getAgentIdOwner: async (id: string) => (id === "858980" ? "agent@x.test" : null) }))
 vi.mock("@/lib/enterprise/nop-i18n/server", () => ({ nopLangForRequest: async () => "en" }))
 
-beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0; s.enrollOk = true; s.settingsLog.length = 0 })
+beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0; s.enrollOk = true; s.settingsLog.length = 0; s.esFailures = []; s.releaseChecks = 0 })
 afterEach(() => vi.unstubAllEnvs())
 
 async function cookie(sub: string) {
@@ -135,6 +138,45 @@ describe("admin-only kit-v2 tools", () => {
     expect(s.saved).toEqual([{ spanishV2: undefined, agentKit: "v1" }])
     expect(s.settingsLog[0]).toMatchObject({ admin: "admin", change: { agentKit: "v1" }, before: { agentKit: "v2" } })
     expect((await call(settings, "GET", "/x", "admin")).json.log).toHaveLength(1)
+  })
+
+  it("refuses to switch Spanish on while a Spanish flyer fails the release checks, and says which", async () => {
+    s.esFailures = [
+      { template: "NOP2_P1_ES_PRICE", size: "letter", code: "master_invalid", message: "footer ends 21.796875px below the page bottom" },
+      { template: "NOP2_P1_ES_PRICE", size: "bleed", code: "master_invalid", message: "footer ends 21.796875px below the page bottom" },
+      { template: "NOP2_P3_ES_NOPRICE", size: "letter", code: "master_invalid", message: "footer ends 1.546875px below the page bottom" },
+    ]
+    const r = await call(settings, "POST", "/x", "admin", undefined, { spanishV2: true })
+    expect(r.status).toBe(409)
+    expect(r.json.error).toBe("spanish_v2_fails_release_checks")
+    expect(r.json.message).toContain("2 Spanish kit-v2 flyers fail the release checks (NOP2_P1_ES_PRICE, NOP2_P3_ES_NOPRICE")
+    expect(r.json.message).toContain("Spanish stays off")
+    expect(r.json.failures).toHaveLength(3)
+    expect(s.saved).toEqual([])
+    expect(s.settingsLog).toEqual([])
+  })
+
+  it("refuses to move agents to kit v2 while Spanish is on and a Spanish flyer fails", async () => {
+    s.settings = { agentKit: "v1", spanishV2: true }
+    s.esFailures = [{ template: "NOP2_P3_ES_PRICE", size: "letter", code: "master_invalid", message: "footer ends 1.546875px below the page bottom" }]
+    const r = await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })
+    expect(r.status).toBe(409)
+    expect(r.json.message).toContain("Turn Spanish off first")
+    expect(s.saved).toEqual([])
+  })
+
+  it("runs the Spanish check only when Spanish would reach agents; turning it off, or kit v1, is never blocked", async () => {
+    s.esFailures = [{ template: "NOP2_P1_ES_PRICE", size: "letter", code: "master_invalid", message: "x" }]
+    expect((await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })).status).toBe(200) // Spanish off
+    s.settings = { agentKit: "v2", spanishV2: true }
+    expect((await call(settings, "POST", "/x", "admin", undefined, { spanishV2: false })).status).toBe(200)
+    expect((await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v1" })).status).toBe(200)
+    expect((await call(settings, "POST", "/x", "admin", undefined, { spanishV2: true })).status).toBe(200) // already on
+    expect(s.releaseChecks).toBe(0)
+    s.settings = { agentKit: "v1", spanishV2: false }
+    s.esFailures = []
+    expect((await call(settings, "POST", "/x", "admin", undefined, { spanishV2: true })).status).toBe(200)
+    expect(s.releaseChecks).toBe(1)
   })
 
   it("refuses to switch agents to kit v2 while the enrollment URL doesn't load", async () => {

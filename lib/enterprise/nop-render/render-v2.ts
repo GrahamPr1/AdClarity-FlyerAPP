@@ -208,6 +208,16 @@ export async function renderNopV2ForAgent(id: NopV2Id, size: NopV2Size, agent: N
   const domain = await getEnrollDomain()
   const enrollment = qrDestinationFor(agent.agentId, domain)
   const expected = await checkedQrLink(agent.agentId, enrollment, domain)
+  return renderNopV2WithAgentArea(id, size, agent, enrollment, expected, output)
+}
+
+/**
+ * The page with the agent area and every check after the code-link lookup:
+ * locked sections, layout gates, fonts, QR read-back, PDF size. Agents only
+ * reach it through renderNopV2ForAgent; the kit-v2 release check
+ * (kit-v2-release.ts) calls it with fixed test values.
+ */
+export async function renderNopV2WithAgentArea(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, enrollment: string, expected: string, output: NopV2Output): Promise<NopV2AgentRendered> {
   const html = v2HtmlForRender(id, size, await v2AgentHtml(id, size, agent, expected, enrollment))
   let qr = ""
   const rendered = await renderV2Page(id, size, html, output, V2_AGENT_DSF, async (page) => {

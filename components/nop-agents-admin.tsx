@@ -54,11 +54,14 @@ export function NopAgentsAdmin({ base, role }: { base: string; role: "owner" | "
   const [confirmV2, setConfirmV2] = useState(false)
   const [flyerMsg, setFlyerMsg] = useState<string | null>(null)
   const [testAgent, setTestAgent] = useState("")
+  const [flyersBusy, setFlyersBusy] = useState(false)
   async function setFlyers(patch: Record<string, unknown>) {
     setFlyerMsg(null)
+    setFlyersBusy(true)
     const res = await fetch("/api/admin/enterprise/nop/flyer-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) })
     if (!res.ok) setFlyerMsg((await res.json().catch(() => ({}))).message ?? "Couldn't save.")
     await flyers.mutate()
+    setFlyersBusy(false)
   }
 
   const rows = useMemo(() => {
@@ -138,9 +141,10 @@ export function NopAgentsAdmin({ base, role }: { base: string; role: "owner" | "
               </div>
             )}
             <label className="flex min-h-11 items-center gap-3">
-              <input type="checkbox" data-testid="spanish-v2" checked={flyers.data.spanishV2} onChange={(e) => void setFlyers({ spanishV2: e.target.checked })} />
+              <input type="checkbox" data-testid="spanish-v2" checked={flyers.data.spanishV2} disabled={flyersBusy} onChange={(e) => void setFlyers({ spanishV2: e.target.checked })} />
               Spanish kit-v2 flyers visible to agents (pending the program&apos;s review; keep off)
             </label>
+            {flyersBusy && <p role="status" className="text-muted-foreground">Saving. Switching Spanish on first checks every Spanish flyer, which takes up to a minute.</p>}
             {flyerMsg && <p role="alert" className="text-red-600">{flyerMsg}</p>}
             {(flyers.data.log?.length ?? 0) > 0 && (
               <details data-testid="flyer-settings-log">
