@@ -102,17 +102,26 @@ export interface NopV2AgentValues {
 export interface NopV2AgentRendered extends NopV2Rendered {
   /** What the QR decoded to (already checked equal to the agent's code link). */
   qr: string
+  fit: NopV2Fit
+}
+
+/** Measured on the laid-out page, in CSS px (96 per inch). */
+export interface NopV2Fit {
+  /** How much taller <main>'s content could grow before the footer leaves the page. */
+  footerMargin: number
+  /** The smallest vertical space between <main>'s blocks, including below the header and above the footer. */
+  minGap: number
 }
 
 /** The page markup with the agent area in the footer, after the locked-sections check. */
 export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, qrLink: string, enrollment: string): Promise<string> {
   const src = readV2Html(id, size)
   const area = agentAreaHtml({ name: agent.displayName, phone: agent.displayPhone, enrollUrl: enrollment, qrSvg: await qrSvg(qrLink) })
-  const { pkg } = v2Parts(id)
+  const { pkg, lang } = v2Parts(id)
   let placed: string
   try {
-    placed = placeAgentAreaInFooter(src, pkg, area)
-    assertOnlyFooterChanged(src, placed, pkg)
+    placed = placeAgentAreaInFooter(src, pkg, lang, area)
+    assertOnlyFooterChanged(src, placed, pkg, lang)
   } catch (err) {
     throw new NopRenderError("master_invalid", `${id} ${size}: ${err instanceof Error ? err.message : err}`)
   }
@@ -126,7 +135,7 @@ export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2Agen
  * spacing) still holds all its content; and the link printed and linked is
  * exactly the agent's enrollment URL.
  */
-async function checkAgentLayout(page: Page, enrollment: string): Promise<void> {
+async function checkAgentLayout(page: Page, enrollment: string): Promise<NopV2Fit> {
   // No named functions inside evaluate: some bundlers wrap them in a helper
   // that doesn't exist inside the page.
   const r = await page.evaluate(() => {
@@ -144,6 +153,9 @@ async function checkAgentLayout(page: Page, enrollment: string): Promise<void> {
       boxes[k] = b ? { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width, height: b.height } : null
     }
     const main = document.querySelector("main")
+    const mainBox = main?.getBoundingClientRect()
+    const mainCss = main ? getComputedStyle(main) : null
+    const blocks = main ? Array.from(main.children).map((k) => { const b = k.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, height: b.height } }) : []
     const pageEl = els.page
     const link = document.querySelector('[data-agent-field="enroll_link"]')
     const fields = ["enroll_link", "name", "phone"].map((f) => {
@@ -158,6 +170,11 @@ async function checkAgentLayout(page: Page, enrollment: string): Promise<void> {
     return {
       box: boxes,
       main: main ? { scroll: main.scrollHeight, client: main.clientHeight } : null,
+      fit: mainBox && mainCss && blocks.length ? {
+        need: blocks.reduce((a, b) => a + b.height, 0) + parseFloat(mainCss.rowGap) * (blocks.length - 1) + parseFloat(mainCss.paddingTop) + parseFloat(mainCss.paddingBottom),
+        height: mainBox.height,
+        gaps: [blocks[0].top - mainBox.top, ...blocks.slice(1).map((b, i) => b.top - blocks[i].bottom), mainBox.bottom - blocks[blocks.length - 1].bottom],
+      } : null,
       pageScroll: pageEl ? { scroll: pageEl.scrollHeight, client: pageEl.clientHeight } : null,
       href: link?.getAttribute("href") ?? null, linkText: link?.textContent ?? null, fields,
     }
@@ -180,6 +197,8 @@ async function checkAgentLayout(page: Page, enrollment: string): Promise<void> {
   if (Math.abs(footer!.bottom - pg!.bottom) > 0.5) fail("master_invalid", `footer ends ${Math.abs(footer!.bottom - pg!.bottom)}px ${footer!.bottom > pg!.bottom ? "below" : "above"} the page bottom`)
   if (r.main!.scroll > r.main!.client + 0.5) fail("master_invalid", `main content overflows by ${r.main!.scroll - r.main!.client}px`)
   if (r.pageScroll!.scroll > r.pageScroll!.client + 0.5) fail("master_invalid", `page content overflows by ${r.pageScroll!.scroll - r.pageScroll!.client}px`)
+  if (!r.fit) fail("master_invalid", "<main> blocks not found")
+  return { footerMargin: r.fit!.height - r.fit!.need, minGap: Math.min(...r.fit!.gaps) }
 }
 
 /** Reads the QR from the page as laid out (at V2_AGENT_DSF) and checks it is exactly `expected`. */
@@ -220,9 +239,10 @@ export async function renderNopV2ForAgent(id: NopV2Id, size: NopV2Size, agent: N
 export async function renderNopV2WithAgentArea(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, enrollment: string, expected: string, output: NopV2Output): Promise<NopV2AgentRendered> {
   const html = v2HtmlForRender(id, size, await v2AgentHtml(id, size, agent, expected, enrollment))
   let qr = ""
+  let fit: NopV2Fit = { footerMargin: 0, minGap: 0 }
   const rendered = await renderV2Page(id, size, html, output, V2_AGENT_DSF, async (page) => {
-    await checkAgentLayout(page, enrollment)
+    fit = await checkAgentLayout(page, enrollment)
     qr = await checkAgentQr(page, expected)
   })
-  return { ...rendered, qr }
+  return { ...rendered, qr, fit }
 }

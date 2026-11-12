@@ -15,6 +15,8 @@ Left out on purpose:
 - Poppins weights the approved PDFs don't use. Kept: Light, Regular,
   SemiBold, Bold, ExtraBold, ExtraBold Italic (exactly the six their PDFs embed).
 - _ds_bundle.js, _ds_manifest.json and the design-system readme (not used by the pages).
+- logo/ (the NOP logo). It isn't on the flyers, so OneFlyer doesn't use it on any
+  page, email or flyer (removed 12 November 2026; their README still lists it).
 
 reference/ holds their approved PDFs, for verification only (not bundled to
 the server). Spanish pages are pending Basic Benefits' review: imported, but

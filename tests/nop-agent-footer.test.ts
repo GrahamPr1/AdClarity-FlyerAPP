@@ -1,14 +1,15 @@
 import { describe, it, expect } from "vitest"
 import { NOP_V2_TEMPLATES, readV2Html, v2Parts, type NopV2Size } from "@/lib/enterprise/nop-render/kit-v2"
 import { agentAreaHtml, printedLink } from "@/lib/enterprise/nop-render/agent-area"
-import { MAIN_SPACING, assertOnlyFooterChanged, placeAgentAreaInFooter } from "@/lib/enterprise/nop-render/footer-placement"
+import { SPACING, applySpacing, assertOnlyFooterChanged, placeAgentAreaInFooter } from "@/lib/enterprise/nop-render/footer-placement"
 import { agentTemplates, flyerLabels, flyerLangs } from "@/lib/enterprise/nop-render/flyer-labels"
 import { agentFlyerKit } from "@/lib/enterprise/nop-render/kit-v2-access"
 
 /**
  * Option B, approved by Basic Benefits: the agent area replaces the footer's generic link. The
  * agent area (agent-area.ts) knows nothing about the footer, and the placement
- * changes only the footer and, on P2/P3, <main>'s spacing values. Everything
+ * changes only the footer and, where a page needs the room, vertical spacing
+ * values (SPACING). Everything
  * else on every page stays byte-for-byte as Basic Benefits supplied it.
  */
 
@@ -17,11 +18,13 @@ const footerOf = (h: string) => /<footer[\s\S]*<\/footer>/.exec(h)![0]
 const PAGES = NOP_V2_TEMPLATES.flatMap((id) => (["letter", "bleed"] as NopV2Size[]).map((size) => [id, size] as const))
 
 describe("placing the agent area in the footer", () => {
-  it.each(PAGES)("%s %s: only the footer and <main> spacing change", (id, size) => {
-    const src = readV2Html(id, size), out = placeAgentAreaInFooter(src, v2Parts(id).pkg, area)
-    const spacing = MAIN_SPACING[v2Parts(id).pkg]
-    const restore = (h: string) => (spacing ? h.replace(spacing[1], spacing[0]) : h).replace(footerOf(h), "FOOTER")
-    expect(restore(out)).toBe(src.replace(footerOf(src), "FOOTER"))
+  it.each(PAGES)("%s %s: only the footer and the spacing values change", (id, size) => {
+    const { pkg, lang } = v2Parts(id)
+    const src = readV2Html(id, size), out = placeAgentAreaInFooter(src, pkg, lang, area)
+    expect(out.replace(footerOf(out), "FOOTER")).toBe(applySpacing(src, SPACING[pkg][lang]).replace(footerOf(src), "FOOTER"))
+    // Spacing edits are only ever px values in style attributes: no text, tag or other property differs.
+    const strip = (h: string) => h.replace(footerOf(h), "").replace(/\d+px/g, "N")
+    expect(strip(out)).toBe(strip(src))
 
     const before = footerOf(src), after = footerOf(out)
     const stamp = />(NOP-P\d-(EN|ES) · [^<]+)</.exec(before)![1]
@@ -34,8 +37,11 @@ describe("placing the agent area in the footer", () => {
 
   it("refuses a master whose footer isn't the one it was written for", () => {
     const src = readV2Html("NOP2_P1_EN_PRICE", "letter")
-    expect(() => placeAgentAreaInFooter(src.replace("neighbor.basicbenefits.com</a>", "basicbenefits.com</a>"), "P1", area)).toThrow(/footer link column/)
-    expect(() => placeAgentAreaInFooter(readV2Html("NOP2_P2_EN_PRICE", "letter"), "P3", area)).toThrow(/<main> spacing/)
+    expect(() => placeAgentAreaInFooter(src.replace("neighbor.basicbenefits.com</a>", "basicbenefits.com</a>"), "P1", "EN", area)).toThrow(/footer link column/)
+    expect(() => placeAgentAreaInFooter(readV2Html("NOP2_P2_EN_PRICE", "letter"), "P3", "EN", area)).toThrow(/<main> spacing/)
+    // A card whose padding differs from the others: the edit no longer matches 3 times.
+    const es = readV2Html("NOP2_P1_ES_PRICE", "letter")
+    expect(() => placeAgentAreaInFooter(es.replace("padding:16px 16px 18px;", "padding:16px 16px 19px;"), "P1", "ES", area)).toThrow(/expected 3 benefit card padding, found 2/)
   })
 })
 
@@ -57,18 +63,21 @@ describe("the agent area", () => {
 
 describe("release check: locked sections", () => {
   it.each(PAGES)("%s %s: the placed page passes", (id, size) => {
-    const src = readV2Html(id, size)
-    expect(() => assertOnlyFooterChanged(src, placeAgentAreaInFooter(src, v2Parts(id).pkg, area), v2Parts(id).pkg)).not.toThrow()
+    const src = readV2Html(id, size), { pkg, lang } = v2Parts(id)
+    expect(() => assertOnlyFooterChanged(src, placeAgentAreaInFooter(src, pkg, lang, area), pkg, lang)).not.toThrow()
   })
 
   it("refuses any change outside the footer, and a footer missing Basic Benefits' own text", () => {
-    const src = readV2Html("NOP2_P2_EN_PRICE", "letter"), out = placeAgentAreaInFooter(src, "P2", area)
-    expect(() => assertOnlyFooterChanged(src, out.replace("$118", "$117"), "P2")).toThrow(/locked section/)
-    expect(() => assertOnlyFooterChanged(src, out.replace("not a substitute for emergency care", "not emergency care"), "P2")).toThrow(/locked section/)
-    expect(() => assertOnlyFooterChanged(src, out.replace(">Sign in or enroll online<", "><"), "P2")).toThrow(/Sign in or enroll online/)
-    expect(() => assertOnlyFooterChanged(src, out.replace(/NOP-P2-EN · 10\/2026/, "NOP-P2-EN"), "P2")).toThrow(/footer text/)
-    // P2's spacing change is only allowed where Basic Benefits approved it.
-    expect(() => assertOnlyFooterChanged(src, out, "P1")).toThrow(/locked section/)
+    const src = readV2Html("NOP2_P2_EN_PRICE", "letter"), out = placeAgentAreaInFooter(src, "P2", "EN", area)
+    expect(() => assertOnlyFooterChanged(src, out.replace("$118", "$117"), "P2", "EN")).toThrow(/locked section/)
+    expect(() => assertOnlyFooterChanged(src, out.replace("not a substitute for emergency care", "not emergency care"), "P2", "EN")).toThrow(/locked section/)
+    expect(() => assertOnlyFooterChanged(src, out.replace(">Sign in or enroll online<", "><"), "P2", "EN")).toThrow(/Sign in or enroll online/)
+    expect(() => assertOnlyFooterChanged(src, out.replace(/NOP-P2-EN · 10\/2026/, "NOP-P2-EN"), "P2", "EN")).toThrow(/footer text/)
+    // Spacing changes are only allowed on the pages they're listed for.
+    expect(() => assertOnlyFooterChanged(src, out, "P1", "EN")).toThrow(/locked section/)
+    const p1 = readV2Html("NOP2_P1_ES_PRICE", "letter"), p1Out = placeAgentAreaInFooter(p1, "P1", "ES", area)
+    expect(() => assertOnlyFooterChanged(p1, p1Out, "P1", "EN")).toThrow(/locked section/)
+    expect(() => assertOnlyFooterChanged(p1, p1Out.replace("padding:14px 16px 16px;", "padding:10px 16px 16px;"), "P1", "ES")).toThrow(/locked section/)
   })
 })
 
