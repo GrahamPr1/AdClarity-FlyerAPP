@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     const profile = await getBusinessProfile(email)
     if (!profile) {
       return NextResponse.json(
-        { error: "no_saved_profile", message: "You don't have a saved business profile yet — save one first, or upload a fresh info source." },
+        { error: "no_saved_profile", message: "You don't have saved form-fill details yet — save them first, or upload a fresh info source." },
         { status: 422 },
       )
     }

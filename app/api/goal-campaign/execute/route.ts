@@ -11,7 +11,7 @@ import {
 import { getPlan } from "@/lib/plans"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { nopAgentGenerationBlock } from "@/lib/enterprise/generation-guard"
-import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
+import { canCreateCampaign, planIncludesExtras } from "@/lib/agent-pipeline/plan-features"
 import { continuePipelineFromIntake } from "@/lib/agent-pipeline/pipeline"
 import { checkGoalRateLimit } from "@/lib/agent-pipeline/goal-rate-limit"
 import { nonEmpty } from "@/lib/agent-pipeline/profile-defaults"
@@ -48,6 +48,22 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Account checks BEFORE reading the request: a trial account is refused
+  // with 403 whatever it sends, never a 422 about its body (Phase 3).
+  const client = await getOrCreateClient(email)
+  const pauseCheck = canCreateCampaign(client)
+  if (!pauseCheck.allowed) {
+    return NextResponse.json({ error: "account_paused", message: pauseCheck.reason }, { status: 403 })
+  }
+  // Same gate as Quick Prompt: this reaches the identical paid pipeline, so
+  // it can't be a free-tier way in. Fails closed on an unknown plan.
+  if (!planIncludesExtras(client.plan)) {
+    return NextResponse.json(
+      { error: "paid_plan_required", message: "Goal-based campaigns are available on Basic and Pro plans — see /#pricing." },
+      { status: 403 },
+    )
+  }
+
   let body: { planId?: unknown; phone?: unknown }
   try {
     body = await request.json()
@@ -65,18 +81,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "plan_not_found", message: "That plan has expired or was already used — build it again to review the latest version." },
       { status: 404 },
-    )
-  }
-
-  const client = await getOrCreateClient(email)
-  const pauseCheck = canCreateCampaign(client)
-  if (!pauseCheck.allowed) {
-    return NextResponse.json({ error: "account_paused", message: pauseCheck.reason }, { status: 403 })
-  }
-  if (client.plan === "trial") {
-    return NextResponse.json(
-      { error: "paid_plan_required", message: "Goal-based campaigns are available on Basic and Pro plans — see /#pricing." },
-      { status: 403 },
     )
   }
 

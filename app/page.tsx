@@ -457,9 +457,9 @@ export default function Page() {
               {/* The only content kept from the deleted card grid: which tier
                   includes what. Nothing else on the page states it. */}
               <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-muted-foreground">
-                The free tier includes the flyer itself, so you can judge the design quality
-                before paying. QR tracking, the Instagram/text/Nextdoor versions, and print
-                requests start on Basic.{" "}
+                The free tier includes the flyer itself and its QR code with a scan count, so
+                you can judge the design quality before paying. Click tracking, lead capture,
+                the Instagram/text/Nextdoor versions, and print requests start on Basic.{" "}
                 <a href="#pricing" className="font-medium text-[var(--brand-teal)] underline">
                   Compare plans
                 </a>
@@ -589,7 +589,7 @@ export default function Page() {
               </RevealText>
               <Reveal delay={80}>
                 <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                  {PLAN_LIMITS.trial} campaigns free with no credit card, so you can judge the
+                  {PLAN_LIMITS.trial} flyers free with no credit card, so you can judge the
                   design quality before you decide anything.
                 </p>
               </Reveal>

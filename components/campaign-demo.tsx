@@ -203,8 +203,8 @@ export function CampaignDemo() {
               the flyer. Saying so right next to the number keeps the headline
               honest instead of letting it read as the trial experience. */}
           <p className="mt-4 border-t border-[var(--brand-teal)]/20 pt-4 text-xs leading-relaxed text-muted-foreground">
-            Free tier includes the flyer. The Instagram, text, and Nextdoor versions plus QR
-            tracking are on Basic and Pro.
+            Free tier includes the flyer and its QR code with a scan count. The Instagram, text,
+            and Nextdoor versions, plus click tracking and lead capture, are on Basic and Pro.
           </p>
         </div>
       </div>

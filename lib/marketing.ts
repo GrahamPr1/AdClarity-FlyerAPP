@@ -24,9 +24,11 @@
 //         real card checkout (no Stripe integration exists yet) ·
 //         testimonials, customer counts, awards, or press
 //
-// Multi-channel output (Instagram/text/Nextdoor), QR tracking, and print
-// requests are Basic+ — a real server-side gate, not just hidden UI (see
-// getPlanFeatures in lib/agent-pipeline/pipeline.ts). Trial gets the flyer.
+// Multi-channel output (Instagram/text/Nextdoor), click tracking, lead
+// capture and print requests are Basic+ — a real server-side gate, not just
+// hidden UI (see getPlanFeatures in lib/agent-pipeline/pipeline.ts and the
+// owner-plan check in /api/tracking). Trial gets the flyer, its QR code and a
+// scan count (qrEnabled in plan-features.ts).
 // Any section that leads with "one promotion, everything" has to say so.
 // ---------------------------------------------------------------------------
 
@@ -50,7 +52,7 @@ export const SECONDARY_CTA_LABEL = "See How It Works"
 export const SECONDARY_CTA_HREF = "#how-it-works"
 
 /** Sits under the primary CTA. Every clause here is literally true today. */
-export const CTA_REASSURANCE = `${PLAN_LIMITS.trial} campaigns free • No credit card required`
+export const CTA_REASSURANCE = `${PLAN_LIMITS.trial} flyers free • No credit card required`
 
 /**
  * Sits with the signup CTA. Every clause is something the Privacy Policy
@@ -121,7 +123,7 @@ export interface CampaignAsset {
 
 export const CAMPAIGN_ASSETS: CampaignAsset[] = [
   { key: "flyer", label: "Print flyer", blurb: "A designed, brand-matched flyer you can print or hand out.", onTrial: true },
-  { key: "qr", label: "Trackable QR code", blurb: "Printed on the flyer, pointing to your own offer page.", onTrial: false },
+  { key: "qr", label: "Trackable QR code", blurb: "Printed on the flyer, pointing to your own offer page.", onTrial: true },
   { key: "instagram", label: "Instagram post", blurb: "A square version, redesigned for the feed — plus a caption.", onTrial: false },
   { key: "text", label: "Text-blast message", blurb: "Short copy ready to paste into a text to your customer list.", onTrial: false },
   { key: "nextdoor", label: "Nextdoor post", blurb: "Neighborhood-appropriate wording for local reach.", onTrial: false },
@@ -210,7 +212,7 @@ export const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "What is OneFlyer?",
-    a: "You tell OneFlyer about your business and what you're promoting. It designs a professional flyer matched to your brand — and on Basic and Pro, it also gives you a matching Instagram post, a text-blast message, a Nextdoor post, and a trackable QR code printed on the flyer. One promotion in, a set of marketing materials out.",
+    a: "You tell OneFlyer about your business and what you're promoting. It designs a professional flyer matched to your brand, with a trackable QR code printed on it — and on Basic and Pro, it also gives you a matching Instagram post, a text-blast message, and a Nextdoor post. One promotion in, a set of marketing materials out.",
   },
   {
     q: "Do I need design experience?",
@@ -238,7 +240,7 @@ export const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Can I track QR code scans?",
-    a: "Yes, on Basic and Pro. Every flyer gets a unique QR code pointing to a hosted offer page, and your dashboard shows two real numbers: how many times that page was opened (scans) and how many people tapped the call-to-action on it (clicks). It doesn't track shares, impressions, or attribute closed jobs.",
+    a: "Yes. Every flyer gets a unique QR code pointing to a hosted offer page. On every plan, including the free tier, your dashboard shows how many times that page was opened (scans). Basic and Pro add how many people tapped the call-to-action on it (clicks). It doesn't track shares, impressions, or attribute closed jobs.",
   },
   {
     q: "What happens to my QR codes if I cancel or pause?",
@@ -246,7 +248,7 @@ export const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Is there a free trial?",
-    a: `Yes — ${PLAN_LIMITS.trial} campaigns free, no credit card required. The free tier includes the flyer itself and the AI design engine. QR tracking, the Instagram/text/Nextdoor versions, and print requests start on Basic.`,
+    a: `Yes — ${PLAN_LIMITS.trial} flyers free, no credit card required. The free tier includes the flyer itself, its QR code with a scan count, and the AI design engine. Click tracking, lead capture, the Instagram/text/Nextdoor versions, and print requests start on Basic.`,
   },
   {
     q: "Can I cancel anytime?",
