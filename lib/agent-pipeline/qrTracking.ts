@@ -1,6 +1,6 @@
 import QRCode from "qrcode"
 import { getTrackingRecord, addFlyerChannelCode, createTrackingRecord, updateTrackingContentForFlyer } from "@/lib/store"
-import { getSiteUrl, qrRedeemUrl } from "@/lib/site-url"
+import { LEGACY_SITE_HOSTS, qrRedeemUrl } from "@/lib/site-url"
 import type { TrackingRecord } from "@/lib/types"
 import type { NormalizedIntake } from "./schemas/intake"
 import type { FlyerSpecification } from "./schemas/flyer"
@@ -99,12 +99,13 @@ export async function qrDataUrlForCode(code: string): Promise<string> {
 
 /**
  * The URL a code's QR encodes. Records written before redeemUrl existed were
- * minted with the site URL of the time (the vercel.app alias), which is what
- * getSiteUrl() still returns in Production — so an old flyer's refined QR
- * stays byte-identical to the one on paper.
+ * minted with the site URL of the time, the vercel.app alias. That host is
+ * fixed here rather than read from getSiteUrl(), which now names
+ * oneflyer.org, so an old flyer's refined QR stays byte-identical to the one
+ * on paper.
  */
 export function redeemUrlFor(code: string, record: Pick<TrackingRecord, "redeemUrl"> | null): string {
-  return record?.redeemUrl ?? `${getSiteUrl()}/r/${code}`
+  return record?.redeemUrl ?? `https://${LEGACY_SITE_HOSTS[0]}/r/${code}`
 }
 
 export async function backfillTrackingContent(code: string, flyer: FlyerSpecification): Promise<void> {

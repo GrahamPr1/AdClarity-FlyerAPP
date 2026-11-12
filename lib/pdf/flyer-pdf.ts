@@ -1,19 +1,13 @@
 import type { Browser } from "playwright-core"
 import { configureFonts, EXPECTED_SUBSTITUTES } from "./fonts"
 import { STYLE_FONT_STACKS } from "@/lib/brand-controls"
-import { getSiteUrl } from "@/lib/site-url"
+import { ownSiteHosts } from "@/lib/site-url"
 import { getAppEnvironment } from "@/lib/env"
 import { isAllowedPdfRequest, type PdfRequestPolicy } from "./request-policy"
 
-/** Our own hosts for the photo route: wherever the site URL points, plus the canonical domain. */
+/** Our own hosts for the photo route: the canonical domain, the legacy one (stored URLs), and wherever the site URL points. */
 function pdfRequestPolicy(): PdfRequestPolicy {
-  const siteHosts = new Set(["oneflyer.org", "www.oneflyer.org"])
-  try {
-    siteHosts.add(new URL(getSiteUrl()).host)
-  } catch {
-    // getSiteUrl always returns a URL; the canonical hosts still apply.
-  }
-  return { siteHosts: [...siteHosts], allowDevHttpLoopback: getAppEnvironment() === "development" }
+  return { siteHosts: ownSiteHosts(), allowDevHttpLoopback: getAppEnvironment() === "development" }
 }
 
 /**

@@ -280,19 +280,13 @@ export interface ContrastRepair {
 export async function repairContrast(html: string, opts: { apply?: boolean } = {}): Promise<ContrastRepair> {
   const { acquireBrowser } = await import("@/lib/pdf/flyer-pdf")
   const { isAllowedPdfRequest } = await import("@/lib/pdf/request-policy")
-  const { getSiteUrl } = await import("@/lib/site-url")
+  const { ownSiteHosts } = await import("@/lib/site-url")
   const { getAppEnvironment } = await import("@/lib/env")
   const { browser, release } = await acquireBrowser()
   const context = await browser.newContext({ javaScriptEnabled: false })
   // The same request policy the PDF renderer applies (lib/pdf/flyer-pdf.ts):
   // the flyer may load only fonts, stock-photo CDNs, Blob and our photo route.
-  const siteHosts = new Set(["oneflyer.org", "www.oneflyer.org"])
-  try {
-    siteHosts.add(new URL(getSiteUrl()).host)
-  } catch {
-    // getSiteUrl always returns a URL; the canonical hosts still apply.
-  }
-  const policy = { siteHosts: [...siteHosts], allowDevHttpLoopback: getAppEnvironment() === "development" }
+  const policy = { siteHosts: ownSiteHosts(), allowDevHttpLoopback: getAppEnvironment() === "development" }
   await context.route("**/*", (route) =>
     isAllowedPdfRequest(route.request().url(), route.request().method(), policy) ? route.continue() : route.abort("blockedbyclient"),
   )

@@ -58,6 +58,13 @@ describe("codes already printed", () => {
     expect(await qrDataUrlForCode("OLD2345")).toBe(await qr(`${LEGACY}/r/OLD2345`))
   })
 
+  it("…and still does once NEXT_PUBLIC_SITE_URL names oneflyer.org", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://oneflyer.org")
+    const { qrDataUrlForCode } = await import("@/lib/agent-pipeline/qrTracking")
+    db.records.set("OLD2346", { email: "owner@example.test", flyerId: "f", businessName: "B", headline: null, offer: null, cta: null, disclaimer: null, phone: "1", website: null, createdAt: "2026-01-01T00:00:00.000Z" })
+    expect(await qrDataUrlForCode("OLD2346")).toBe(await qr(`${LEGACY}/r/OLD2346`))
+  })
+
   it("a new code re-renders to its stored oneflyer.org URL", async () => {
     const { createFlyerTrackingCode, qrDataUrlForCode } = await import("@/lib/agent-pipeline/qrTracking")
     const { code, qrDataUrl } = await createFlyerTrackingCode("owner@example.test", "flyer-1", intake)
