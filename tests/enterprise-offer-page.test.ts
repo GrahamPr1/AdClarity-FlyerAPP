@@ -34,6 +34,7 @@ const record: TrackingRecord = {
 vi.mock("@/lib/auth", () => ({ ADMIN_SUB: "admin", getSessionIdentity: async () => (s.sub ? { sub: s.sub } : null) }))
 vi.mock("@/lib/rate-limit", () => ({ clientIp: () => "203.0.113.1", checkRateLimit: async () => ({ allowed: true, retryAfterSeconds: 0 }) }))
 vi.mock("@/lib/email", () => ({ sendLeadNotification: async () => ({ sent: true }) }))
+vi.mock("@/lib/offer-refresh", () => ({ markOfferPageTouched: async () => {} }))
 vi.mock("next/headers", () => ({ cookies: async () => ({}) }))
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
