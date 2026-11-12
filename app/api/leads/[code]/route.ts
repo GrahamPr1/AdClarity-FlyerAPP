@@ -7,8 +7,9 @@ import { CANONICAL_SITE_URL } from "@/lib/site-url"
 import type { LeadRecord } from "@/lib/types"
 import { LEAD_RATE_LIMIT, LEAD_RATE_WINDOW_SECONDS, LeadSchema } from "@/lib/leads"
 import { isOfferExpired } from "@/lib/offer-page-content"
-import { getEmailPreferences } from "@/lib/email-preferences"
+import { getEmailPreferences, digestLive } from "@/lib/email-preferences"
 import { recordSent } from "@/lib/email-delivery"
+import { queueLeadForDigest } from "@/lib/lead-digest"
 
 // POST /api/leads/{code} — the form on a flyer's offer page (/r/{code}).
 //
@@ -87,6 +88,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const prefs = await getEmailPreferences(record.email)
   if (prefs.leads === "off") {
     console.log(`[leads] saved lead ${lead.id} on ${code}; owner has lead emails off — not emailed`)
+    return NextResponse.json({ ok: true })
+  }
+  // "Once a day" only while the digest really sends; until then, as before.
+  if (prefs.leads === "daily" && digestLive()) {
+    // Goes out in tomorrow's digest instead (/api/cron/public-emails).
+    await queueLeadForDigest(record.email, {
+      name: lead.name,
+      phone: lead.phone,
+      email: lead.email,
+      message: lead.message,
+      createdAt: lead.createdAt,
+      flyerTitle: record.headline,
+      afterOfferEnded: lead.afterOfferEnded ?? false,
+    })
+    console.log(`[leads] saved lead ${lead.id} on ${code}; queued for the owner's daily digest`)
     return NextResponse.json({ ok: true })
   }
   const sent = await sendLeadNotification({

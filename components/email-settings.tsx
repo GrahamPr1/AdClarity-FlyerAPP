@@ -7,6 +7,7 @@ import type { EmailPreferences, LeadEmailMode } from "@/lib/email-preferences"
 
 const LEAD_OPTIONS: { value: LeadEmailMode; label: string; hint: string }[] = [
   { value: "instant", label: "Each new lead", hint: "An email as soon as someone fills in your offer page" },
+  { value: "daily", label: "Once a day", hint: "One email each morning listing the day's leads" },
   { value: "off", label: "Off", hint: "No lead emails — they stay in your dashboard" },
 ]
 
@@ -15,7 +16,7 @@ const LEAD_OPTIONS: { value: LeadEmailMode; label: string; hint: string }[] = [
  * unsubscribe link in every email changes, so a person can undo it here.
  */
 export function EmailSettings() {
-  const { data, mutate } = useSWR<{ preferences: EmailPreferences }>("/api/account/email-preferences", fetcher)
+  const { data, mutate } = useSWR<{ preferences: EmailPreferences; digestAvailable: boolean }>("/api/account/email-preferences", fetcher)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const current = data?.preferences
@@ -48,8 +49,9 @@ export function EmailSettings() {
 
       <fieldset className="mt-4" disabled={!current || saving}>
         <legend className="text-sm font-medium">New-lead emails</legend>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {LEAD_OPTIONS.map((o) => {
+        <div className={`mt-2 grid gap-2 ${data?.digestAvailable ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+          {/* "Once a day" only while the digest really sends (PUBLIC_DIGEST_LIVE). */}
+          {LEAD_OPTIONS.filter((o) => o.value !== "daily" || data?.digestAvailable).map((o) => {
             const active = current?.leads === o.value
             return (
               <button

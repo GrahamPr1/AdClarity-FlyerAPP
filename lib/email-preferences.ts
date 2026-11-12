@@ -28,9 +28,19 @@ const redis = Redis.fromEnv()
 export const EMAIL_CATEGORIES = ["leads"] as const
 export type EmailCategory = (typeof EMAIL_CATEGORIES)[number]
 
-/** How new-lead emails arrive. */
-export type LeadEmailMode = "instant" | "off"
-export const LEAD_EMAIL_MODES: LeadEmailMode[] = ["instant", "off"]
+/** How new-lead emails arrive: each one as it comes in, one daily digest (lib/lead-digest.ts), or none. */
+export type LeadEmailMode = "instant" | "daily" | "off"
+export const LEAD_EMAIL_MODES: LeadEmailMode[] = ["instant", "daily", "off"]
+
+/**
+ * Whether the daily lead digest actually sends (PUBLIC_DIGEST_LIVE=1). Until
+ * it does, "Once a day" is neither offered nor honoured — a lead queued for a
+ * digest that never goes out would be a lead nobody is told about. The
+ * monthly results email has a switch of its own.
+ */
+export function digestLive(): boolean {
+  return process.env.PUBLIC_DIGEST_LIVE === "1"
+}
 
 export interface EmailPreferences {
   leads: LeadEmailMode
