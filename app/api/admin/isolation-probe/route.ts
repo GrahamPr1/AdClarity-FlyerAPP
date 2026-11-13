@@ -10,7 +10,7 @@ import { assertBlobMatchesEnvironment, readBlobEnvironmentMarker } from "@/lib/b
 //
 // Proves a deployment writes to its OWN Redis and Blob stores, not
 // production's. POST writes a nonce to both (Redis key
-// `__isolation_probe:<nonce>`, private blob `__isolation_probe/<nonce>`);
+// `__isolation_probe:<nonce>`, private blob `ap/isolation-probe/<nonce>`);
 // GET ?nonce=… reports whether that nonce exists in THIS deployment's stores.
 // Both report each store's environment marker and the verdictForMarker
 // decision (lib/env.ts), the same guardrail lib/store.ts and lib/blob-env.ts
@@ -23,7 +23,8 @@ import { assertBlobMatchesEnvironment, readBlobEnvironmentMarker } from "@/lib/b
 // only; they are first-writer-wins labels and prove nothing on their own.
 
 const REDIS_PREFIX = "__isolation_probe:"
-const BLOB_PREFIX = "__isolation_probe/"
+// Agent-platform Blob writes live under ap/ in oneflyer-nonprod (never oneflyer-forms).
+const BLOB_PREFIX = "ap/isolation-probe/"
 const NONCE = /^[a-z0-9-]{8,64}$/
 
 function authorised(request: NextRequest): boolean {

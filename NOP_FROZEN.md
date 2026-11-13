@@ -14,7 +14,7 @@ If a later brief needs to change something listed here, stop and ask Graham.
 > prefixes `agent-account:`, `agent-flags:`, `agent-id:`, `agent-billing:`,
 > `agent-stripe-event:` and `client:*:agent-*`. The new platform must use a
 > distinct namespace (suggestion: `ap:` for Redis, `/platform` or `/ap` for
-> routes, `ap-` for Blob paths) so nothing can collide with or read NOP data.
+> routes, `ap/` for Blob paths in `oneflyer-nonprod`) so nothing can collide with or read NOP data.
 
 ---
 

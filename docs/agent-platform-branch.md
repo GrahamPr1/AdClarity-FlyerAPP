@@ -47,6 +47,29 @@ This is not done yet. Doing it **adds** a domain and doesn't touch
 5. Deployment Protection still applies to the custom domain. That's
    intended for a staging copy.
 
+## Verified isolation state (2026-11-13)
+
+Graham checked this from the production side in the Upstash console and the
+Vercel Blob dashboard. It's the baseline for all later briefs.
+
+| Store | Agent-platform branch uses | Check | Result |
+|---|---|---|---|
+| Redis | `oneflyer-agent-platform` (branch-scoped `UPSTASH_REDIS_REST_*` = `AP_KV_REST_API_*`) | `EXISTS __isolation_probe:ap-20261113-7b42e43b` on production `upstash-KV-Datbase-Oneflyer` | **0** |
+| Redis | same | same key on `oneflyer-agent-platform` | **1** |
+| Redis | same | probe `redisIsAgentPlatformDb` (connected URL == `AP_KV_REST_API_URL`) | **true** |
+| Blob | `oneflyer-nonprod` (Development + Preview only) | where the probe's blob landed | **`oneflyer-nonprod`**, not `oneflyer-forms` |
+
+Deployment: `oneflyer-eyzgx6wff` (commit `958041d`) on the stable branch alias.
+
+Cleanup: before the branch-scoped vars existed, the probe wrote
+`__isolation_probe:ap-20261113-883ccef0` and `…-4e1b90d9` into **production**
+Redis through the general Preview vars. Graham deleted both. The production
+`__oneflyer_environment` key (which wrongly reads `preview`) was left
+untouched on purpose.
+
+Re-verify whenever any `UPSTASH_*` or `BLOB_*` variable changes: POST a new
+nonce, then run `EXISTS` on production. The probe's own output isn't enough.
+
 ## Environment (Preview, branch `agent-platform` only)
 
 Branch-scoped vars override the general Preview values. None exist in
@@ -75,10 +98,10 @@ Everything else is inherited from Preview (all branches).
   `Preview (agent-platform)`, with the values of `AP_KV_REST_API_URL` and
   `AP_KV_REST_API_TOKEN`. Without them the branch falls back to production
   Redis.
-- **Blob** uses the Development/Preview `BLOB_READ_WRITE_TOKEN`, labelled
-  `nonproduction`. The label is first-writer-wins like the Redis one, so it
-  isn't proof. Confirm in the Vercel Blob dashboard which store holds
-  `__isolation_probe/`.
+- **Blob** uses the Development/Preview `BLOB_READ_WRITE_TOKEN`, i.e. the
+  **`oneflyer-nonprod`** store (verified 2026-11-13, see below).
+  **Every new agent-platform Blob write goes under the `ap/` prefix in
+  `oneflyer-nonprod`. Never write to `oneflyer-forms`** (production).
 - `SESSION_SECRET` and `DASHBOARD_PASSWORD` are Preview's own values.
 - Anthropic and Resend keys are Preview's.
 
@@ -140,7 +163,7 @@ command** unless `UPSTASH_REDIS_REST_URL` equals `AP_KV_REST_API_URL`, i.e.
 unless the deployment is really on the `oneflyer-agent-platform` database.
 
 - `POST ?nonce=<n>` writes Redis key `__isolation_probe:<n>` (30-day TTL) and
-  private blob `__isolation_probe/<n>`.
+  private blob `ap/isolation-probe/<n>` in `oneflyer-nonprod`.
 - `GET ?nonce=<n>` reports whether each exists and `redisIsAgentPlatformDb`.
   The `marker` and `verdict` fields are informational only (see above).
 
