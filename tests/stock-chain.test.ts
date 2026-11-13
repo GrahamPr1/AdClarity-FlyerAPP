@@ -77,3 +77,12 @@ describe("the reason reported when everything misses", () => {
     expect(await findStockForPromotion(opts, true)).toMatchObject({ ok: false, reason: "thin_results" })
   })
 })
+
+describe("Pixabay's query order", () => {
+  it("promotion, then broad, then the industry alone", async () => {
+    await findStockForPromotion(opts, true)
+    const q = s.calls.filter((c) => c.startsWith("pixabay:")).map((c) => c.slice(8))
+    expect(q.length).toBe(3)
+    expect(q[2]).toBe("roofing")
+  })
+})

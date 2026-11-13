@@ -44,6 +44,22 @@ const HEADER_REMAINING_FLOOR = 2
  */
 const LETTERING_TAGS = /\b(text|texts|typography|font|fonts|label|labels|writing|written|words?|alphabet|calligraphy|graffiti|poster|posters|banner|banners|packaging|product)\b/i
 
+/**
+ * People as Pixabay tags them, beyond the shared Pexels word list: body parts
+ * (a hand IS a person in an advert), roles and plurals Pixabay favours, and
+ * group words. Found on real searches: "hand, palm, fingers, one, two, three"
+ * for a pasta-night offer; "engineers, teamwork" and "architect, hardhat" for
+ * a roofer.
+ */
+const PEOPLE_TAGS = /\b(hands?|fingers?|thumbs?|arms?|legs?|feet|foot|knees?|eyes?|lips|mouth|hair|beard|skin|body|bodies|silhouettes?|human|humans|male|female|businessman|businesswoman|engineers?|architects?|surveyors?|foreman|teamwork|colleagues?|partners?|users?|hardhat|hard hat|helmet|construction workers?)\b/i
+
+/**
+ * Words a query can carry that say nothing about what a photo shows: "Two-
+ * for-one pasta night" becomes the query "two one restaurant", and a photo
+ * tagged "one, two, three" is not a restaurant.
+ */
+const NON_TOPIC_TERMS = new Set(["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "first", "second", "third", "half", "double", "single", "free", "offer", "deal", "special", "discount", "sale", "night", "day", "week", "month", "today", "tonight"])
+
 export interface PixabayPhoto {
   provider: "pixabay"
   /** Pixabay photo id — logs and the per-flyer source record only. */
@@ -81,7 +97,7 @@ function apiKey(): string | null {
 /** Why a photo's tags rule it out, or null when they don't. */
 export function refusalReason(tags: string, user: string): string | null {
   if (!tags.trim()) return "no tags"
-  if (describesPeople(tags)) return "people"
+  if (describesPeople(tags) || PEOPLE_TAGS.test(tags)) return "people"
   const lettering = tags.match(LETTERING_TAGS)
   if (lettering) return `lettering ("${lettering[0]}")`
   const branding = brandingReason([tags], user)
@@ -185,7 +201,10 @@ export function pickHit(
     return { ok: false, reason: "thin_results", detail: `only ${total} Pixabay results for "${opts.query}"` }
   }
   const allowed = hits.filter((h) => !refusalReason(h.tags ?? "", h.user ?? ""))
-  const terms = opts.requireKeywordMatch === false ? [] : relevanceTerms(opts.query)
+  const terms = opts.requireKeywordMatch === false ? [] : relevanceTerms(opts.query).filter((t) => !NON_TOPIC_TERMS.has(t))
+  if (opts.requireKeywordMatch !== false && terms.length === 0) {
+    return { ok: false, reason: "no_relevant_match", detail: `"${opts.query}" has no words that say what the photo should show` }
+  }
   const match = allowed.find((h) => terms.length === 0 || terms.some((t) => h.tags.toLowerCase().includes(t)))
   if (!match) {
     return {

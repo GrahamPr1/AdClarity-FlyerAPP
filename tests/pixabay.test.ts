@@ -64,6 +64,15 @@ describe("refusals by tag", () => {
   ])("%s -> refused (%s)", (tags) => {
     expect(refusalReason(tags, "someone")).not.toBeNull()
   })
+  it.each([
+    "hand, palm, fingers, one, two, three, gesture",
+    "engineers, teamwork, working",
+    "architect, hardhat, expression, industry, helmet",
+    "silhouette, sunset, beach",
+    "construction, worker, safety, construction workers, male",
+  ])("people as Pixabay tags them: %s -> refused", (tags) => {
+    expect(refusalReason(tags, "someone")).toBe("people")
+  })
   it("refuses brands and trademarks", () => {
     expect(refusalReason("trademark, bottle", "x")).toMatch(/branding|lettering/)
   })
@@ -121,6 +130,14 @@ describe("findPixabayPhoto", () => {
     vi.stubEnv("PIXABAY_API_KEY", "")
     expect(await findPixabayPhoto({ query: "roof", context: "t" }, rehost)).toMatchObject({ ok: false, reason: "not_configured" })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("number and offer words don't count as on-topic ('two one restaurant' is not matched by 'one, two, three')", async () => {
+    respond(body([hit(4, "digits, number, one, two, three"), hit(5, "pasta, restaurant, dinner, plate")]))
+    const r = await findPixabayPhoto({ query: "two one restaurant", context: "t" }, rehost)
+    expect(r.ok && r.photo.id).toBe("5")
+    respond(body([hit(4, "digits, number, one, two, three")]))
+    expect(await findPixabayPhoto({ query: "two for one", context: "t" }, rehost)).toMatchObject({ ok: false, reason: "no_relevant_match" })
   })
 
   it("a thin library or no on-topic match is reported, so a broader query can be tried", async () => {

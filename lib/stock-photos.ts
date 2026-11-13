@@ -39,9 +39,15 @@ export async function extraStockAllowedFor(email: string, isEnterpriseAccount: b
 /** The name pipeline.ts uses (gates.allowPexels); it now covers Pixabay too. */
 export const pexelsAllowedFor = extraStockAllowedFor
 
-/** Pixabay with the same specific-then-broad queries Unsplash uses. */
+/**
+ * Pixabay with the same specific-then-broad queries Unsplash uses, then the
+ * industry alone ("roofing"): Pixabay's results for trade-and-task queries
+ * ("roofing contractor inspection") are mostly people, all refused, and the
+ * pipeline's own broader stock search only runs for AI-opted-in clients.
+ */
 async function pixabayForPromotion(opts: { industry: string; purpose: string; services: string[]; context: string }): Promise<StockSearchOutcome> {
-  const queries = [buildSpecificSearchQuery(opts), buildSearchQuery(opts)].filter((q, i, all) => q && all.indexOf(q) === i)
+  const industryOnly = buildSearchQuery({ industry: opts.industry, purpose: "", services: [] })
+  const queries = [buildSpecificSearchQuery(opts), buildSearchQuery(opts), industryOnly].filter((q, i, all) => q && all.indexOf(q) === i)
   let last: StockSearchOutcome = { ok: false, reason: "thin_results", detail: "no usable query", queryUsed: "" }
   for (const query of queries) {
     last = { ...(await findPixabayPhoto({ query, context: opts.context })), queryUsed: query }
