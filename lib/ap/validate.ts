@@ -133,6 +133,7 @@ export function checkTierRules(v: unknown): Check<ApTierRules> {
 export interface OrgConfigInput {
   name: string
   slug: string
+  orgCode: string
   enrollment: ApEnrollment
   agentIdParam: string
   languages: ApLang[]
@@ -147,6 +148,8 @@ export function checkOrgConfig(v: unknown): Check<OrgConfigInput> {
   if (!name.ok) return name
   const slug = checkSlug(o.slug)
   if (!slug.ok) return slug
+  const orgCode = str(o.orgCode)
+  if (!/^[A-Z]{2,6}$/.test(orgCode)) return bad("orgCode", "Org code: 2-6 capital letters, e.g. SBC.")
   const enrollment = checkEnrollment(o.enrollment)
   if (!enrollment.ok) return enrollment
   const agentIdParam = str(o.agentIdParam)
@@ -159,7 +162,7 @@ export function checkOrgConfig(v: unknown): Check<OrgConfigInput> {
   if (!tierRules.ok) return tierRules
   return {
     ok: true,
-    value: { name: name.value, slug: slug.value, enrollment: enrollment.value, agentIdParam, languages: languages.value, footer: footer.value, tierRules: tierRules.value },
+    value: { name: name.value, slug: slug.value, orgCode, enrollment: enrollment.value, agentIdParam, languages: languages.value, footer: footer.value, tierRules: tierRules.value },
   }
 }
 

@@ -2,6 +2,7 @@ import { Redis } from "@upstash/redis"
 import { randomBytes, randomInt } from "node:crypto"
 import type { ApAgent, ApAgentStatus, ApFileRef, ApOrg, ApOrgLogEntry, ApTier, OrgStatus } from "./types"
 import type { OrgConfigInput, SignupInput } from "./validate"
+import type { ApContent, ApPackage } from "./templates/content"
 
 // Every Redis read and write the agent platform makes. Every key starts with
 // "ap:" (checked by tests/ap-namespace.test.ts); nothing here reads or writes
@@ -19,6 +20,9 @@ import type { OrgConfigInput, SignupInput } from "./validate"
 //   ap:agent:{agentId}:qr                 {code}
 //   ap:recruit:{code}                     {agentId, orgId}
 //   ap:agent:{agentId}:recruit            {code}
+//   ap:org:{orgId}:content                ApContent (the draft packages)
+//   ap:org:{orgId}:approved               ApApproved (the version agents get)
+//   ap:org:{orgId}:approved-log           earlier ApApproved versions, newest first
 //
 // Values that are bare strings are stored as small JSON objects, because the
 // client JSON-parses on read ("123" would come back as the number 123).
@@ -38,6 +42,9 @@ export const K = {
   agentQr: (id: string) => `ap:agent:${id}:qr`,
   recruit: (code: string) => `ap:recruit:${code}`,
   agentRecruit: (id: string) => `ap:agent:${id}:recruit`,
+  content: (id: string) => `ap:org:${id}:content`,
+  approved: (id: string) => `ap:org:${id}:approved`,
+  approvedLog: (id: string) => `ap:org:${id}:approved-log`,
 } as const
 
 /** No 0/O/o, 1/l/I: nothing a person could misread off a printed URL. */
@@ -281,4 +288,56 @@ export async function recruiterFor(orgId: string, ref: string | null): Promise<A
   if (!ref || !CODE_RE.test(ref)) return null
   const hit = await resolveCode(K.recruit(ref))
   return hit && hit.org.id === orgId && hit.agent.status === "active" ? hit.agent : null
+}
+
+// ---- Flyer content and approvals --------------------------------------------
+
+/** What an approval pins: the exact content and, per template and size, the hash and spacing it rendered with. */
+export interface ApApproved {
+  version: number
+  approvedAt: string
+  approvedBy: string
+  note: string
+  orgName: string
+  orgCode: string
+  footer: ApOrg["footer"]
+  languages: ApOrg["languages"]
+  logo: ApFileRef | null
+  packages: ApPackage[]
+  /** "{templateId}:{size}" -> what the approval rendered. */
+  templates: Record<string, { hash: string; spacing: string }>
+}
+
+export async function getContent(orgId: string): Promise<ApContent | null> {
+  return obj<ApContent>(await redis.get(K.content(orgId)))
+}
+
+export async function saveContent(orgId: string, packages: ApPackage[], admin: string): Promise<ApContent> {
+  const content: ApContent = { packages, updatedAt: new Date().toISOString(), updatedBy: admin }
+  await redis.set(K.content(orgId), JSON.stringify(content))
+  await log(orgId, { by: admin, action: "content", detail: `${packages.length} package(s)` })
+  return content
+}
+
+export async function getApproved(orgId: string): Promise<ApApproved | null> {
+  return obj<ApApproved>(await redis.get(K.approved(orgId)))
+}
+
+export async function saveApproved(orgId: string, approved: Omit<ApApproved, "version">): Promise<ApApproved> {
+  const prev = await getApproved(orgId)
+  const next: ApApproved = { ...approved, version: (prev?.version ?? 0) + 1 }
+  if (prev) {
+    await redis.lpush(K.approvedLog(orgId), JSON.stringify(prev))
+    await redis.ltrim(K.approvedLog(orgId), 0, 49)
+  }
+  await redis.set(K.approved(orgId), JSON.stringify(next))
+  await log(orgId, { by: approved.approvedBy, action: "approved", detail: `version ${next.version}, ${Object.keys(next.templates).length} template renders${approved.note ? `: ${approved.note}` : ""}` })
+  return next
+}
+
+/** Every logo path any approved version (current or kept) still prints, so it's never deleted from under it. */
+export async function approvedLogoPaths(orgId: string): Promise<Set<string>> {
+  const cur = await getApproved(orgId)
+  const old = (await redis.lrange(K.approvedLog(orgId), 0, -1)).map((r) => obj<ApApproved>(r))
+  return new Set([cur, ...old].map((a) => a?.logo?.path).filter((p): p is string => !!p))
 }

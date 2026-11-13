@@ -9,11 +9,12 @@ import type { ApOrg } from "@/lib/ap/types"
 // The editable org config, for create and edit. The server re-checks every
 // field (lib/ap/validate.ts checkOrgConfig) and answers with the field name.
 
-export type OrgConfig = Pick<ApOrg, "name" | "slug" | "enrollment" | "agentIdParam" | "languages" | "footer" | "tierRules">
+export type OrgConfig = Pick<ApOrg, "name" | "slug" | "orgCode" | "enrollment" | "agentIdParam" | "languages" | "footer" | "tierRules">
 
 export const EMPTY_CONFIG: OrgConfig = {
   name: "",
   slug: "",
+  orgCode: "",
   enrollment: { forwardTemplate: "https://", printed: "full", printedTemplate: null, programUrl: "https://" },
   agentIdParam: "agent_ID",
   languages: ["en"],
@@ -49,6 +50,7 @@ export function ApOrgForm({ initial, submitLabel, onSubmit }: { initial: OrgConf
     <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" data-testid="ap-org-form">
       {text("name", "Organization name", c.name, (v) => setC({ ...c, name: v }), 60)}
       {text("slug", "Slug (URL)", c.slug, (v) => setC({ ...c, slug: v.toLowerCase() }), 40, "Agents sign up at /ap/<slug>/join")}
+      {text("orgCode", "Org code (2-6 capitals, prints in the version stamp)", c.orgCode, (v) => setC({ ...c, orgCode: v.toUpperCase() }), 6)}
       {text("enrollment.forwardTemplate", "Enrollment URL pattern", c.enrollment.forwardTemplate, (v) => setC({ ...c, enrollment: { ...c.enrollment, forwardTemplate: v } }), 300, "https URL with {id} once, e.g. https://join.example.com/?agent={id}")}
       {text("enrollment.programUrl", "Program page (inactive agents' QR)", c.enrollment.programUrl, (v) => setC({ ...c, enrollment: { ...c.enrollment, programUrl: v } }), 300)}
       <div className="space-y-1">

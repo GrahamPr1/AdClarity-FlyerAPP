@@ -48,12 +48,16 @@ export interface ApFileRef {
   size: number
   uploadedBy: string
   uploadedAt: string
+  /** Logos only: size and the navy-contrast decision (lib/ap/templates/logo.ts). */
+  logo?: { width: number; height: number; passShare: number; meanContrast: number; chip: boolean }
 }
 
 export interface ApOrg {
   id: string
   name: string
   slug: string
+  /** 2-6 capitals; prints in each flyer's version stamp ("SBC-P1-EN · 11/2026"). */
+  orgCode: string
   status: OrgStatus
   enrollment: ApEnrollment
   /** Query parameter on the org's sign-up link that prefills the agent's ID, e.g. "agent_ID". */

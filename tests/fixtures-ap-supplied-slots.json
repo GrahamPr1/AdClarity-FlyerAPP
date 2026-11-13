@@ -1,0 +1,468 @@
+{
+ "P1": {
+  "header.programTag": {
+   "EN": "Neighborhood Outreach Program",
+   "ES": "Neighborhood Outreach Program"
+  },
+  "header.packageLabel": {
+   "EN": "Package 1",
+   "ES": "Paquete 1"
+  },
+  "header.titleLine1": {
+   "EN": "Everyday",
+   "ES": "Atención"
+  },
+  "header.titleLine2": {
+   "EN": "care.",
+   "ES": "diaria."
+  },
+  "header.subtitle": {
+   "EN": "Convenient virtual care, prescription savings and everyday lifestyle discounts.",
+   "ES": "Atención virtual conveniente, ahorros en recetas y descuentos para el día a día."
+  },
+  "price.label": {
+   "EN": "Monthly member price",
+   "ES": "Precio mensual"
+  },
+  "price.1.amount": {
+   "EN": "$36",
+   "ES": "$36"
+  },
+  "price.1.label": {
+   "EN": "Single",
+   "ES": "Individual"
+  },
+  "price.2.amount": {
+   "EN": "$45",
+   "ES": "$45"
+  },
+  "price.2.label": {
+   "EN": "Family",
+   "ES": "Familiar"
+  },
+  "included.label": {
+   "EN": "What's included",
+   "ES": "Qué incluye"
+  },
+  "included.line1": {
+   "EN": "Three benefits,",
+   "ES": "Tres beneficios,"
+  },
+  "included.line2": {
+   "EN": "one membership.",
+   "ES": "una membresía."
+  },
+  "card1.title": {
+   "EN": "24/7 Virtual Urgent Care",
+   "ES": "Atención de urgencia virtual 24/7"
+  },
+  "card1.description": {
+   "EN": "Convenient access to board-certified physicians for common, non-emergency health needs.",
+   "ES": "Acceso conveniente a médicos certificados para necesidades de salud comunes que no son emergencias."
+  },
+  "card1.bullet1": {
+   "EN": "$0 copay for every visit",
+   "ES": "Copago de $0 en cada consulta"
+  },
+  "card1.bullet2": {
+   "EN": "Phone or video visits, 24/7",
+   "ES": "Consultas por teléfono o video, 24/7"
+  },
+  "card1.bullet3": {
+   "EN": "Treatment for cold/flu, allergies, rashes, UTIs and more",
+   "ES": "Tratamiento para resfriado/gripe, alergias, sarpullidos, infecciones urinarias y más"
+  },
+  "card1.bullet4": {
+   "EN": "Electronic prescriptions when medically appropriate",
+   "ES": "Recetas electrónicas cuando sea médicamente apropiado"
+  },
+  "card2.title": {
+   "EN": "Urgent Rx Benefit",
+   "ES": "Beneficio de recetas urgentes"
+  },
+  "card2.description": {
+   "EN": "Save on eligible formulary medications used for urgent and short-term health needs.",
+   "ES": "Ahorre en medicamentos elegibles del formulario para necesidades de salud urgentes y de corto plazo."
+  },
+  "card2.bullet1": {
+   "EN": "Many eligible prescriptions at $0 member cost",
+   "ES": "Muchas recetas elegibles a $0 para el miembro"
+  },
+  "card2.bullet2": {
+   "EN": "Program contributes up to $30 per eligible prescription",
+   "ES": "El programa aporta hasta $30 por receta elegible"
+  },
+  "card2.bullet3": {
+   "EN": "If the cost is higher, you pay only the amount above the allowance",
+   "ES": "Si el costo es mayor, usted paga solo la diferencia sobre el monto cubierto"
+  },
+  "card3.title": {
+   "EN": "Lifestyle Savings",
+   "ES": "Ahorros para su estilo de vida"
+  },
+  "card3.description": {
+   "EN": "BenefitHub gives members discounts and cash-back opportunities on everyday purchases.",
+   "ES": "BenefitHub ofrece a los miembros descuentos y reembolsos en efectivo en sus compras diarias."
+  },
+  "card3.bullet1": {
+   "EN": "Travel, hotels, restaurants and entertainment",
+   "ES": "Viajes, hoteles, restaurantes y entretenimiento"
+  },
+  "card3.bullet2": {
+   "EN": "Apparel, electronics, fitness, auto and home services",
+   "ES": "Ropa, electrónicos, ejercicio, servicios para el auto y el hogar"
+  },
+  "card3.bullet3": {
+   "EN": "Gift cards, local deals and eligible cash-back offers",
+   "ES": "Tarjetas de regalo, ofertas locales y reembolsos en efectivo elegibles"
+  },
+  "steps.label": {
+   "EN": "Easy to use",
+   "ES": "Fácil de usar"
+  },
+  "steps.1": {
+   "EN": "Use your member portal or benefit access link to request virtual urgent care.",
+   "ES": "Use su portal de miembro o enlace de acceso para solicitar atención de urgencia virtual."
+  },
+  "steps.2": {
+   "EN": "Present your NOP member ID card at the pharmacy for eligible prescriptions.",
+   "ES": "Presente su tarjeta de miembro NOP en la farmacia para recetas elegibles."
+  },
+  "steps.3": {
+   "EN": "Sign in to BenefitHub to browse discounts, offers and cash-back opportunities.",
+   "ES": "Inicie sesión en BenefitHub para ver descuentos, ofertas y reembolsos en efectivo."
+  },
+  "disclaimer": {
+   "EN": "Membership benefits are subject to program terms, eligibility, formulary rules and vendor availability. This package is not a substitute for emergency care.",
+   "ES": "Los beneficios de la membresía están sujetos a los términos del programa, la elegibilidad, las reglas del formulario y la disponibilidad de los proveedores. Este paquete no sustituye la atención de emergencia."
+  },
+  "footer.programLine": {
+   "EN": "Neighborhood Outreach Program",
+   "ES": "Neighborhood Outreach Program"
+  },
+  "footer.taglineLine": {
+   "EN": "Sign in or enroll online",
+   "ES": "Inicie sesión o inscríbase en línea"
+  },
+  "footer.versionStamp": {
+   "EN": "NOP-P1-EN · 10/2026",
+   "ES": "NOP-P1-ES · 10/2026"
+  }
+ },
+ "P2": {
+  "header.programTag": {
+   "EN": "Neighborhood Outreach Program",
+   "ES": "Neighborhood Outreach Program"
+  },
+  "header.packageLabel": {
+   "EN": "Package 2",
+   "ES": "Paquete 2"
+  },
+  "header.titleLine1": {
+   "EN": "Complete",
+   "ES": "Atención"
+  },
+  "header.titleLine2": {
+   "EN": "virtual care.",
+   "ES": "virtual completa."
+  },
+  "header.subtitle": {
+   "EN": "A more complete virtual healthcare experience for everyday care and ongoing health needs.",
+   "ES": "Atención virtual más completa para su salud diaria y sus necesidades continuas."
+  },
+  "price.label": {
+   "EN": "Monthly member price",
+   "ES": "Precio mensual"
+  },
+  "price.1.amount": {
+   "EN": "$118",
+   "ES": "$118"
+  },
+  "price.1.label": {
+   "EN": "Single",
+   "ES": "Individual"
+  },
+  "price.2.amount": {
+   "EN": "$151",
+   "ES": "$151"
+  },
+  "price.2.label": {
+   "EN": "Family",
+   "ES": "Familiar"
+  },
+  "included.label": {
+   "EN": "What's included",
+   "ES": "Qué incluye"
+  },
+  "included.line1": {
+   "EN": "Whole-person care,",
+   "ES": "Atención integral,"
+  },
+  "included.line2": {
+   "EN": "all virtual.",
+   "ES": "todo virtual."
+  },
+  "card1.title": {
+   "EN": "Virtual Primary Care",
+   "ES": "Atención primaria virtual"
+  },
+  "card1.description": {
+   "EN": "An ongoing relationship with a virtual primary care physician for preventive care and chronic-condition support.",
+   "ES": "Una relación continua con un médico de atención primaria virtual para cuidado preventivo y apoyo con condiciones crónicas."
+  },
+  "card1.bullet1": {
+   "EN": "$0 copay for every visit",
+   "ES": "Copago de $0 en cada consulta"
+  },
+  "card1.bullet2": {
+   "EN": "Wellness and follow-up visits",
+   "ES": "Consultas de bienestar y seguimiento"
+  },
+  "card1.bullet3": {
+   "EN": "Medication and care-plan support",
+   "ES": "Apoyo con medicamentos y plan de cuidado"
+  },
+  "card1.bullet4": {
+   "EN": "Integrated urgent care access",
+   "ES": "Acceso integrado a atención de urgencia"
+  },
+  "card2.title": {
+   "EN": "24/7 Virtual Urgent Care",
+   "ES": "Atención de urgencia virtual 24/7"
+  },
+  "card2.description": {
+   "EN": "On-demand care for common, non-emergency illnesses and everyday medical concerns.",
+   "ES": "Atención inmediata para enfermedades comunes que no son emergencias."
+  },
+  "card2.bullet1": {
+   "EN": "$0 copay for every visit",
+   "ES": "Copago de $0 en cada consulta"
+  },
+  "card2.bullet2": {
+   "EN": "Board-certified physicians",
+   "ES": "Médicos certificados"
+  },
+  "card2.bullet3": {
+   "EN": "Phone and video visits",
+   "ES": "Consultas por teléfono y video"
+  },
+  "card2.bullet4": {
+   "EN": "Electronic prescriptions when appropriate",
+   "ES": "Recetas electrónicas cuando sea apropiado"
+  },
+  "card3.title": {
+   "EN": "Virtual Behavioral Health",
+   "ES": "Salud mental virtual"
+  },
+  "card3.description": {
+   "EN": "Convenient virtual support for mental and emotional wellbeing.",
+   "ES": "Apoyo virtual conveniente para su bienestar mental y emocional."
+  },
+  "card3.bullet1": {
+   "EN": "$0 copay where applicable",
+   "ES": "Copago de $0 cuando aplique"
+  },
+  "card3.bullet2": {
+   "EN": "Therapy and counseling resources",
+   "ES": "Recursos de terapia y consejería"
+  },
+  "card3.bullet3": {
+   "EN": "Psychiatry and medication-management resources",
+   "ES": "Recursos de psiquiatría y manejo de medicamentos"
+  },
+  "card3.bullet4": {
+   "EN": "Support for anxiety, depression, stress, sleep and more",
+   "ES": "Apoyo para ansiedad, depresión, estrés, sueño y más"
+  },
+  "card4.title": {
+   "EN": "Urgent + Chronic Rx",
+   "ES": "Recetas urgentes + crónicas"
+  },
+  "card4.description": {
+   "EN": "Expanded prescription savings for eligible acute and maintenance medications.",
+   "ES": "Ahorros ampliados en medicamentos elegibles de uso agudo y de mantenimiento."
+  },
+  "card4.bullet1": {
+   "EN": "Many eligible formulary drugs at $0 member cost",
+   "ES": "Muchos medicamentos elegibles del formulario a $0 para el miembro"
+  },
+  "card4.bullet2": {
+   "EN": "Up to $30 program allowance per eligible prescription",
+   "ES": "Hasta $30 de aporte del programa por receta elegible"
+  },
+  "card4.bullet3": {
+   "EN": "You pay only the amount above the allowance, when applicable",
+   "ES": "Usted paga solo la diferencia sobre el monto cubierto, cuando aplique"
+  },
+  "plus.label": {
+   "EN": "Plus",
+   "ES": "Además"
+  },
+  "plus.title": {
+   "EN": "BenefitHub Lifestyle Savings",
+   "ES": "Ahorros BenefitHub para su estilo de vida"
+  },
+  "plus.description": {
+   "EN": "Thousands of special offers, discounts and cash-back opportunities across travel, dining, entertainment, shopping, fitness, auto, home and more.",
+   "ES": "Miles de ofertas especiales, descuentos y reembolsos en efectivo en viajes, restaurantes, entretenimiento, compras, ejercicio, auto, hogar y más."
+  },
+  "disclaimer": {
+   "EN": "Membership benefits are subject to program terms, eligibility and vendor availability. Prescription medications must be on the applicable formulary. This package is not a substitute for emergency care.",
+   "ES": "Beneficios sujetos a los términos del programa, la elegibilidad y la disponibilidad de proveedores. Los medicamentos deben estar en el formulario aplicable. No sustituye la atención de emergencia."
+  },
+  "footer.programLine": {
+   "EN": "Neighborhood Outreach Program",
+   "ES": "Neighborhood Outreach Program"
+  },
+  "footer.taglineLine": {
+   "EN": "Sign in or enroll online",
+   "ES": "Inicie sesión o inscríbase en línea"
+  },
+  "footer.versionStamp": {
+   "EN": "NOP-P2-EN · 10/2026",
+   "ES": "NOP-P2-ES · 10/2026"
+  }
+ },
+ "P3": {
+  "header.programTag": {
+   "EN": "Neighborhood Outreach Program",
+   "ES": "Neighborhood Outreach Program"
+  },
+  "header.packageLabel": {
+   "EN": "Package 3",
+   "ES": "Paquete 3"
+  },
+  "header.titleLine1": {
+   "EN": "Health & weight",
+   "ES": "Salud y control"
+  },
+  "header.titleLine2": {
+   "EN": "management.",
+   "ES": "de peso."
+  },
+  "header.subtitle": {
+   "EN": "A member-focused wellness and weight-management experience with personalized guidance and modern support tools.",
+   "ES": "Una experiencia de bienestar y control de peso centrada en el miembro, con orientación personalizada y herramientas modernas de apoyo."
+  },
+  "price.label": {
+   "EN": "Monthly member price",
+   "ES": "Precio mensual"
+  },
+  "price.1.amount": {
+   "EN": "$100",
+   "ES": "$100"
+  },
+  "price.1.label": {
+   "EN": "Member only",
+   "ES": "Solo titular"
+  },
+  "included.label": {
+   "EN": "What's included",
+   "ES": "Qué incluye"
+  },
+  "included.line1": {
+   "EN": "Guidance and support,",
+   "ES": "Orientación y apoyo,"
+  },
+  "included.line2": {
+   "EN": "in one place.",
+   "ES": "en un solo lugar."
+  },
+  "card1.title": {
+   "EN": "Healthyr Wellness Hub",
+   "ES": "Centro de bienestar Healthyr"
+  },
+  "card1.description": {
+   "EN": "A digital wellness hub that helps members turn health goals into practical everyday actions.",
+   "ES": "Un centro digital de bienestar que ayuda a los miembros a convertir sus metas de salud en acciones prácticas diarias."
+  },
+  "card1.bullet1": {
+   "EN": "Personalized health and wellness guidance",
+   "ES": "Orientación personalizada de salud y bienestar"
+  },
+  "card1.bullet2": {
+   "EN": "Nutrition and fitness support",
+   "ES": "Apoyo en nutrición y ejercicio"
+  },
+  "card1.bullet3": {
+   "EN": "Health assessments and progress tracking",
+   "ES": "Evaluaciones de salud y seguimiento"
+  },
+  "card1.bullet4": {
+   "EN": "Medication reminders and adherence support",
+   "ES": "Recordatorios y apoyo con sus medicamentos"
+  },
+  "card1.bullet5": {
+   "EN": "Virtual vitals and body-composition tools, when enabled",
+   "ES": "Signos vitales y composición corporal virtuales, si están activados"
+  },
+  "card1.bullet6": {
+   "EN": "SCOUT smart companion for next-step guidance",
+   "ES": "SCOUT, asistente inteligente para sus próximos pasos"
+  },
+  "card2.title": {
+   "EN": "GLP-1 & Weight Management",
+   "ES": "GLP-1 y control de peso"
+  },
+  "card2.description": {
+   "EN": "A modern weight-management membership supporting eligible members pursuing sustainable goals.",
+   "ES": "Una membresía moderna de control de peso que apoya a los miembros elegibles en sus metas sostenibles."
+  },
+  "card2.bullet1": {
+   "EN": "Weight-management resources and support",
+   "ES": "Recursos y apoyo para el control de peso"
+  },
+  "card2.bullet2": {
+   "EN": "Access to GLP-1 medication options when clinically appropriate",
+   "ES": "Acceso a opciones de medicamentos GLP-1 cuando sea clínicamente apropiado"
+  },
+  "card2.bullet3": {
+   "EN": "Program eligibility and medication availability are subject to terms",
+   "ES": "Elegibilidad y disponibilidad de medicamentos sujetas a los términos"
+  },
+  "card2.bullet4": {
+   "EN": "Medication pricing may vary and is separate unless stated by the program",
+   "ES": "El precio de los medicamentos puede variar y se cobra aparte, salvo que se indique"
+  },
+  "engage.line1": {
+   "EN": "Designed to help you",
+   "ES": "Diseñado para ayudarle"
+  },
+  "engage.line2": {
+   "EN": "stay engaged.",
+   "ES": "a mantenerse constante."
+  },
+  "engage.paragraph": {
+   "EN": "Digital wellness guidance and weight-management support come together so you can understand your goals, track progress and find practical next steps between healthcare visits.",
+   "ES": "La orientación digital y el apoyo para el control de peso se unen para que entienda sus metas, siga su progreso y encuentre pasos prácticos entre consultas."
+  },
+  "engage.bullet1": {
+   "EN": "Build healthier routines with personalized guidance",
+   "ES": "Cree rutinas más saludables con orientación personalizada"
+  },
+  "engage.bullet2": {
+   "EN": "Track progress and stay connected to your goals",
+   "ES": "Siga su progreso y manténgase enfocado en sus metas"
+  },
+  "engage.bullet3": {
+   "EN": "One member-focused experience for your weight-management journey",
+   "ES": "Una sola experiencia centrada en usted para su proceso de control de peso"
+  },
+  "disclaimer": {
+   "EN": "Package 3 is a wellness and weight-management membership. Clinical eligibility, available medications, medication pricing and specific Healthyr modules are subject to program terms and configuration.",
+   "ES": "El Paquete 3 es una membresía de bienestar y control de peso. La elegibilidad clínica, los medicamentos disponibles, sus precios y los módulos específicos de Healthyr están sujetos a los términos y la configuración del programa."
+  },
+  "footer.programLine": {
+   "EN": "Neighborhood Outreach Program",
+   "ES": "Neighborhood Outreach Program"
+  },
+  "footer.taglineLine": {
+   "EN": "Sign in or enroll online",
+   "ES": "Inicie sesión o inscríbase en línea"
+  },
+  "footer.versionStamp": {
+   "EN": "NOP-P3-EN · 10/2026",
+   "ES": "NOP-P3-ES · 10/2026"
+  }
+ }
+}

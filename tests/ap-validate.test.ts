@@ -4,6 +4,7 @@ import { checkOrgConfig, checkSignup, enrollmentUrlFor, externalIdFromQuery } fr
 const good = {
   name: "Sample Benefits Co.",
   slug: "sample-benefits",
+  orgCode: "SBC",
   enrollment: { forwardTemplate: "https://join.example.com/?agent={id}", printed: "full", programUrl: "https://join.example.com/" },
   agentIdParam: "agent_ID",
   languages: ["en", "es"],

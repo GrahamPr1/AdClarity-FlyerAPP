@@ -44,6 +44,7 @@ async function adminCookie() {
 const config = (slug: string, approval: "auto" | "admin" = "auto") => ({
   name: `Sample ${slug}`,
   slug,
+  orgCode: "TST",
   enrollment: { forwardTemplate: `https://${slug}.example/enroll?id={id}`, printed: "full", programUrl: `https://${slug}.example/` },
   agentIdParam: "agent_ID",
   languages: ["en", "es"],
