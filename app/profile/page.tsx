@@ -8,6 +8,7 @@ import { BusinessProfileForm } from "@/components/business-profile-form"
 import { ThemeSetting } from "@/components/theme-setting"
 import { EmailSettings } from "@/components/email-settings"
 import { JourneyControlCenter } from "@/components/journey-control-center"
+import { receivesPublicEmails } from "@/lib/public-email-access"
 
 export const metadata = {
   // The root layout's title template appends " — OneFlyer".
@@ -28,6 +29,8 @@ export default async function ProfilePage() {
 
   if (!session) redirect("/login?next=/profile")
   if (session.sub === ADMIN_SUB) redirect("/dashboard")
+  // Enterprise org and NOP accounts get none of the public emails, so no settings for them.
+  const showEmailSettings = await receivesPublicEmails(session.sub)
 
   return (
     <main className="min-h-screen bg-background px-6 py-16 text-foreground md:py-24">
@@ -70,9 +73,11 @@ export default async function ProfilePage() {
         <div className="mt-8">
           <ThemeSetting />
         </div>
-        <div className="mt-8">
-          <EmailSettings />
-        </div>
+        {showEmailSettings && (
+          <div className="mt-8">
+            <EmailSettings />
+          </div>
+        )}
         <AccountStatus />
       </div>
     </main>

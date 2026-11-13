@@ -44,6 +44,7 @@ vi.mock("@/lib/store", () => ({
   saveLead: async () => {},
 }))
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: async () => ({ allowed: true, retryAfterSeconds: 0 }), clientIp: () => "1.2.3.4" }))
+vi.mock("@/lib/public-email-access", () => ({ receivesPublicEmails: async () => true }))
 
 import { queueLeadForDigest, runLeadDigest } from "@/lib/lead-digest"
 import { setEmailPreferences, verifyUnsubscribe } from "@/lib/email-preferences"

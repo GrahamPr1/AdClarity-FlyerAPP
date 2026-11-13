@@ -23,6 +23,7 @@ vi.mock("@/lib/store", () => ({
 }))
 vi.mock("@/lib/offer-page-access", () => ({ offerPageFeaturesEnabledFor: async () => true }))
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: async () => ({ allowed: true, retryAfterSeconds: 0 }), clientIp: () => "1.2.3.4" }))
+vi.mock("@/lib/public-email-access", () => ({ receivesPublicEmails: async () => true }))
 
 import { getEmailPreferences, oneClickUnsubscribeUrl, unsubscribePageUrl, verifyUnsubscribe } from "@/lib/email-preferences"
 
