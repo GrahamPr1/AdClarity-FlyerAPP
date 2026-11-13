@@ -19,7 +19,7 @@ describe("agentIdParam", () => {
     [{ agent_code: "858980" }, "858980"],
     [{ AGENT_CODE: "858980" }, "858980"],
     [{ agent_ID: "858980", agent_code: "111" }, "858980"],
-    [{ agent_ID: "85898O", agent_code: "111" }, "111"],
+    [{ agent_ID: "#85898", agent_code: "111" }, "111"],
   ])("%j -> %s", (q, want) => {
     expect(agentIdParam(q)).toBe(want)
   })
@@ -27,9 +27,9 @@ describe("agentIdParam", () => {
   it.each([
     {},
     { agent_ID: "" },
-    { agent_ID: "85898O" },
+    { agent_ID: "#85898" },
     { agent_ID: "#858980" },
-    { agent_ID: "12345678901" },
+    { agent_ID: "A".repeat(33) },
     { agent_ID: "<script>" },
     { agent_ID: ["858980", "1"] },
     { agent_id: "858980", agent_ID: "1" },
@@ -65,7 +65,7 @@ describe("/agente (Spanish front door)", () => {
     }
   })
   it("drops a malformed one, and anything else in the query", async () => {
-    expect((await get("?agent_ID=85898O")).location).toBe("/agent")
+    expect((await get("?agent_ID=%2385898")).location).toBe("/agent")
     expect((await get("?agent_ID=858980&next=https://evil.example")).location).toBe("/agent?agent_ID=858980")
     expect((await get("")).location).toBe("/agent")
   })

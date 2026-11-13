@@ -65,7 +65,7 @@ export const en = {
   "profile.save_failed": "Couldn't save. Try again.",
 
   // ---- Server messages: registration ----
-  "err.id_format": "Agent IDs are 1–10 digits.",
+  "err.id_format": "Enter your Agent ID exactly as the program sent it: letters, numbers and dashes.",
   "err.not_recognized": "Agent ID not recognized. Contact your program administrator.",
   "err.inactive": "This Agent ID can't be registered right now. Contact your program administrator.",
   "err.taken": "This Agent ID is already registered to another account. Your program administrator has been notified.",

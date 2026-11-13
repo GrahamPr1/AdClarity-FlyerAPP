@@ -83,7 +83,7 @@ function RenderLog() {
       <p className="mt-1 text-sm text-muted-foreground">Every preview and download, never trimmed.</p>
       <form className="mt-3 flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); setApplied(agentId.trim()) }}>
         <label htmlFor="log-agent" className="text-sm">Agent ID</label>
-        <input id="log-agent" value={agentId} onChange={(e) => setAgentId(e.target.value)} inputMode="numeric" placeholder="All agents"
+        <input id="log-agent" value={agentId} onChange={(e) => setAgentId(e.target.value)} autoCapitalize="off" spellCheck={false} placeholder="All agents"
           className="w-36 rounded-lg border border-border bg-[var(--surface-soft)] px-3 py-1.5 text-sm" />
         <button type="submit" className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-[var(--surface-sunken)]">Filter</button>
         {applied && <button type="button" onClick={() => { setAgentId(""); setApplied("") }} className="text-sm text-muted-foreground hover:text-foreground">Clear</button>}
@@ -199,7 +199,7 @@ export default function NopAdminPage() {
             {flags.data.flags.map((f) => (
               <tr key={f.id} className="border-t border-border">
                 <td className={`${td} text-muted-foreground`}>{new Date(f.at).toLocaleString()}</td>
-                <td className={td}>{{ email_mismatch: "Email mismatch", id_already_registered: "ID already registered", business_account_conflict: "Roster email is a business account", roster_email_changed: "Roster email changed", name_too_long_for_footer: "Name may not fit kit-v2 footer", signup_duplicate: "Sign-up for a taken or listed ID" }[f.type]}</td>
+                <td className={td}>{{ email_mismatch: "Email mismatch", id_already_registered: "ID already registered", business_account_conflict: "Roster email is a business account", roster_email_changed: "Roster email changed", name_too_long_for_footer: "Name may not fit kit-v2 footer", signup_duplicate: "Sign-up for a taken or listed ID", agent_id_too_long: "Agent ID too long for the printed link" }[f.type]}</td>
                 <td className={td}>{f.agentId}</td>
                 <td className={`${td} break-all`}>{f.account}</td>
                 <td className={`${td} break-all`}>
@@ -208,6 +208,7 @@ export default function NopAdminPage() {
                     : f.type === "roster_email_changed" ? `${f.fromEmail} → ${f.toEmail}`
                     : f.type === "signup_duplicate" ? `${f.attemptedEmail} signed up; ${f.heldBy ? `held by ${f.heldBy}` : "already on the roster"}; nothing created`
                     : f.type === "name_too_long_for_footer" ? `display name about ${f.nameWidthPx}px wide, footer has ${f.spacePx}px; kit-v2 downloads would be refused`
+                    : f.type === "agent_id_too_long" ? (f.reason ?? "")
                     : `${f.attemptedEmail ?? ""} already has a business account; not attached (see "blocked by a business account" below)`}
                 </td>
               </tr>

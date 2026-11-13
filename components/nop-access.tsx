@@ -183,7 +183,7 @@ export function NopGetStarted({ agentCode = null, recruitRef = null }: { agentCo
           }}
         >
           <Field id="agentId" label={t("reg.id_label")} error={error?.field === "agentId" ? error.message : undefined}>
-            <input id="agentId" name="agentId" inputMode="numeric" autoComplete="off" className={field} value={agentId}
+            <input id="agentId" name="agentId" autoComplete="off" autoCapitalize="off" spellCheck={false} className={field} value={agentId}
               aria-invalid={error?.field === "agentId" ? true : undefined}
               onChange={(e) => setAgentId(e.target.value)} placeholder={t("reg.id_placeholder")} />
           </Field>

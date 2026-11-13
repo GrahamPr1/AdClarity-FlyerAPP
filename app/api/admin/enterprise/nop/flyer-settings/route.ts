@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { audit, requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { AGENT_AREA_READY, getNopFlyerSettings, listNopFlyerSettingsLog, logNopFlyerSettingChange, setNopFlyerSetting } from "@/lib/enterprise/nop-render/kit-v2-access"
-import { checkEnrollDomain, getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
+import { checkEnrollTargets, getCheckAgentId, getEnrollTargets, getSavedEnrollSettings } from "@/lib/enterprise/nop-enroll-domain"
+import { checkEnrollPage } from "@/lib/enterprise/nop-enroll-check"
+import { qrDestinationFor } from "@/lib/enterprise/nop-roster"
 import { v2ReleaseFailures } from "@/lib/enterprise/nop-render/kit-v2-release"
 
 // GET  /api/admin/enterprise/nop/flyer-settings
@@ -9,8 +11,11 @@ import { v2ReleaseFailures } from "@/lib/enterprise/nop-render/kit-v2-release"
 // OneFlyer admin only. Which kit agents get, and the Spanish kit-v2 switch.
 // Every change is kept in the settings log (who, when, before and after),
 // which GET returns for the admin page.
-// Agents can't be switched to kit v2 while the enrollment URL doesn't load
-// (live check of the enrollment domain setting): every kit-v2 QR would lead there.
+// Agents can't be switched to kit v2 until the enrollment setting is saved in
+// its three-part form, its URLs load, and the check agent's (admin-set,
+// default 858980) forward URL shows a real partner page, not "Partner Not Found" (checked in a
+// browser: the page is drawn by script). Every kit-v2 QR and printed address
+// leads there.
 // Spanish kit v2 can't be switched on (or kept on while agents are switched to
 // kit v2) while any Spanish template fails the release checks
 // (kit-v2-release.ts: 6 templates x 2 sizes rendered with test values).
@@ -40,11 +45,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "agent_area_missing", message: "Kit v2 has no agent information area yet, so it can't be given to agents." }, { status: 409 })
   }
   if (body.agentKit === "v2") {
-    const domain = await getEnrollDomain()
-    const live = await checkEnrollDomain(domain)
+    const saved = await getSavedEnrollSettings()
+    if (!saved) {
+      return NextResponse.json({ error: "enroll_setting_not_saved", message: "Not switched: save the enrollment setting first (forward URL, printed address and program page, above). Until then it's still the old single domain." }, { status: 409 })
+    }
+    const checkId = await getCheckAgentId()
+    const live = await checkEnrollTargets(saved, checkId)
     if (!live.ok) {
       const failed = live.checks.filter((c) => !c.ok).map((c) => `${c.url} (${c.error ?? `HTTP ${c.status}`})`).join(", ")
-      return NextResponse.json({ error: "enroll_url_not_loading", message: `Not switched: the enrollment URL doesn't load right now: ${failed}. Confirm the URL with the Neighborhood Outreach Program and set the enrollment domain first.`, checks: live.checks }, { status: 409 })
+      return NextResponse.json({ error: "enroll_url_not_loading", message: `Not switched: the enrollment setting's URLs don't load right now: ${failed}. Confirm them with the Neighborhood Outreach Program and save the setting again.`, checks: live.checks }, { status: 409 })
+    }
+    const page = await checkEnrollPage(qrDestinationFor(checkId, saved))
+    if (!page.ok) {
+      const why = page.problem === "not_found" ? `shows "${page.text.slice(0, 120)}"` : page.problem === "blank" ? "showed nothing within 20 seconds" : `didn't load (${page.text})`
+      return NextResponse.json({ error: "enroll_partner_not_found", message: `Not switched: the check agent's (${checkId}) enrollment page (${page.url}) ${why}. Every kit-v2 QR would lead to a page like it.`, page }, { status: 409 })
     }
   }
   const before = await getNopFlyerSettings()
@@ -52,7 +66,7 @@ export async function POST(request: NextRequest) {
   const spanishSwitchOn = body.spanishV2 === true && !before.spanishV2
   const kitSwitchWithSpanish = body.agentKit === "v2" && before.agentKit !== "v2" && (body.spanishV2 ?? before.spanishV2)
   if (spanishSwitchOn || kitSwitchWithSpanish) {
-    const failures = await v2ReleaseFailures("ES", await getEnrollDomain())
+    const failures = await v2ReleaseFailures("ES", await getEnrollTargets())
     if (failures.length > 0) {
       const templates = [...new Set(failures.map((f) => f.template))]
       const what = `${templates.length} Spanish kit-v2 flyer${templates.length === 1 ? "" : "s"} fail${templates.length === 1 ? "s" : ""} the release checks (${templates.join(", ")}: ${failures[0].message})`

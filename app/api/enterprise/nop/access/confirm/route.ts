@@ -4,9 +4,9 @@ import { businessAccountBlocks } from "@/lib/enterprise/account-conversion"
 import { recordClientCreatedAtIfUnset, saveAgentProfile } from "@/lib/store"
 import { validateDisplayFields } from "@/lib/enterprise/nop-roster"
 import { nopLangForRequest } from "@/lib/enterprise/nop-i18n/server"
-import { addAgentFlag, buildAgentProfile, flagNameIfTooLongForFooter, getAccountAgentId, getRosterRecord, lockAgentId } from "@/lib/enterprise/agents-store"
+import { addAgentFlag, buildAgentProfile, flagAgentIdIfTooLong, flagNameIfTooLongForFooter, getAccountAgentId, getRosterRecord, lockAgentId } from "@/lib/enterprise/agents-store"
 import { deleteFlow } from "@/lib/enterprise/access-store"
-import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
+import { getEnrollTargets } from "@/lib/enterprise/nop-enroll-domain"
 import { clearFlowCookie, fail, readFlow, setSessionCookie } from "@/lib/enterprise/access-http"
 
 // POST /api/enterprise/nop/access/confirm { displayName, displayPhone, displayEmail }
@@ -63,8 +63,9 @@ export async function POST(request: NextRequest) {
   }
 
   await recordClientCreatedAtIfUnset(account)
-  await saveAgentProfile(account, { ...buildAgentProfile(roster, display.values, await getEnrollDomain()), preferredLanguage: lang })
+  await saveAgentProfile(account, { ...buildAgentProfile(roster, display.values, await getEnrollTargets()), preferredLanguage: lang })
   await flagNameIfTooLongForFooter(roster.agentId, account, display.values.displayName)
+  await flagAgentIdIfTooLong(roster.agentId, account)
   const res = NextResponse.json({ ok: true, agentId: roster.agentId, redirect: "/agent" })
   await setSessionCookie(res, account)
   return end(res)

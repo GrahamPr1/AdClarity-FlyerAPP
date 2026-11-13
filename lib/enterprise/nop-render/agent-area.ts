@@ -13,8 +13,8 @@ export const AGENT_QR_BOX_IN = Math.round((AGENT_QR_IN + 2 * AGENT_QR_QUIET_IN) 
 export interface NopAgentAreaValues {
   name: string
   phone: string
-  /** The agent's enrollment URL. Printed (without https://) and used as the link target. */
-  enrollUrl: string
+  /** The printed enrollment address: what the link opens, and its printed lines (one, or two for the full URL). */
+  link: { href: string; lines: string[] }
   /** The QR's SVG markup, already encoding whatever the QR points to. */
   qrSvg: string
 }
@@ -35,9 +35,9 @@ export function printedLink(url: string): string {
  */
 export function agentAreaHtml(v: NopAgentAreaValues): string {
   return (
-    `<div data-agent-area style="display:flex;align-items:center;gap:16px;min-width:0;">` +
+    `<div data-agent-area style="display:flex;align-items:center;gap:8px;min-width:0;">` +
     `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;text-align:right;min-width:0;">` +
-    `<a data-agent-field="enroll_link" href="${esc(v.enrollUrl)}" style="font-size:15px;font-weight:700;color:#16B2F7;white-space:nowrap;">${esc(printedLink(v.enrollUrl))}</a>` +
+    `<a data-agent-field="enroll_link" href="${esc(v.link.href)}" style="font-size:15px;font-weight:700;color:#16B2F7;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;">${v.link.lines.map((l) => `<span>${esc(l)}</span>`).join("")}</a>` +
     `<span data-agent-field="name" style="font-size:14px;font-weight:600;letter-spacing:.3px;color:#fff;white-space:nowrap;">${esc(v.name)}</span>` +
     `<span data-agent-field="phone" style="font-size:13px;color:#c2c9dc;white-space:nowrap;">${esc(v.phone)}</span>` +
     `</div>` +

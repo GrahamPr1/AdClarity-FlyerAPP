@@ -2,7 +2,7 @@ import kitContent from "@/enterprise/nop/kit-v1.1.1/content.json"
 import type { AgentRosterStatus, RosterRecord } from "@/lib/types"
 import { tNop, type NopLang } from "./nop-i18n"
 import { CANONICAL_SITE_URL } from "@/lib/site-url"
-import { FOOTER_SPACE_PX, footerNameWidth, nameFitsKitV2Footer } from "./nop-render/footer-fit"
+import { FOOTER_SPACE_PX, WORST_AGENT_ID_LENGTH, footerNameWidth, nameFitsKitV2Footer } from "./nop-render/footer-fit"
 
 // Pure, dependency-free roster logic for the Neighborhood Outreach Program.
 //
@@ -12,8 +12,14 @@ import { FOOTER_SPACE_PX, footerNameWidth, nameFitsKitV2Footer } from "./nop-ren
 export const NOP_ORG_ID = "nop"
 export const NOP_ORG_NAME = kitContent.program.name
 
-/** Issued by NOP. Digits only, so a pasted "858980 " or "#858980" is not silently a different agent. */
-export const AGENT_ID_RE = /^\d{1,10}$/
+/**
+ * Issued by NOP (sent to OneFlyer as AGENT_ID): letters, digits and dashes,
+ * 1-32 characters, e.g. "CP-VLN-H5J" or the older numeric "858980". Kept
+ * exactly as issued, case and dashes included: it's what credits the agent in
+ * the enrollment URL, so "cp-vln-h5j" is a different (unknown) ID. Anything
+ * else ("#858980", spaces inside) is refused, never silently changed.
+ */
+export const AGENT_ID_RE = /^[A-Za-z0-9-]{1,32}$/
 
 /**
  * ?agent_ID=<Agent ID> on the program's "Open OneFlyer" link (any case:
@@ -62,8 +68,8 @@ const COLUMNS = [
 
 /**
  * The enrollment domain the kit shipped with ("neighbor.basicbenefits.com").
- * Only the default: the live value is the admin setting (getEnrollDomain in
- * ./nop-enroll-domain.ts), which every caller passes in as `domain`.
+ * Only the default: the live value is the admin setting (getEnrollTargets in
+ * ./nop-enroll-domain.ts), which every caller passes in.
  */
 export const DEFAULT_ENROLL_DOMAIN = kitContent.enroll_domain.replace(/\/+$/, "")
 
@@ -77,19 +83,89 @@ export function isValidEnrollDomain(v: string): boolean {
 }
 
 /**
- * An agent's enrollment URL: where their QR link (nopQrLink) forwards while
- * they're active, and the link printed on their flyers. Built from the
- * enrollment domain setting, never taken from the roster: the roster's
- * enrollment_url is NOP-typed data, and a typo there would silently route an
- * agent's commissions somewhere else.
+ * The enrollment setting, in three parts (admin: lib/enterprise/nop-enroll-domain.ts):
+ *   - forwardTemplate: where an agent's QR forwards while they're active, e.g.
+ *     "https://join.basicbenefits.com/{id}" or
+ *     "https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}";
+ *   - printed: the address printed on kit-v2 flyers. "full": the forward URL
+ *     itself, on two lines (before and from the "?"); "short": a short
+ *     template ending in "/{id}" (e.g. "join.basicbenefits.com/{id}"), which
+ *     must itself load; "code": the agent's own OneFlyer link
+ *     (oneflyer.org/a/<code>), which forwards like the QR. Kit v1.1.1 prints
+ *     the code link once the setting is saved (render.ts);
+ *   - programUrl: the program's own page, for a QR whose agent isn't active.
+ * {id} is always the Agent ID, from the roster-locked record. Never taken from
+ * the roster's enrollment_url: that's NOP-typed data, and a typo there would
+ * silently route an agent's commissions somewhere else.
+ *
+ * Before the setting is saved in this form, it's derived from the old single
+ * enrollment domain (legacyEnrollTargets), exactly as that behaved.
  */
-export function qrDestinationFor(agentId: string, domain: string): string {
-  return `https://${domain}/${agentId}`
+export interface EnrollTargets {
+  forwardTemplate: string
+  printed: "full" | "short" | "code"
+  /** For "short" only. */
+  printedTemplate: string | null
+  programUrl: string
+}
+
+/** A plain string is the old single enrollment domain. */
+export type Enroll = EnrollTargets | string
+
+export const ENROLL_ID_TOKEN = "{id}"
+
+export function legacyEnrollTargets(domain: string): EnrollTargets {
+  return { forwardTemplate: `https://${domain}/${ENROLL_ID_TOKEN}`, printed: "short", printedTemplate: `${domain}/${ENROLL_ID_TOKEN}`, programUrl: `https://${domain}/` }
+}
+
+export function enrollTargets(e: Enroll): EnrollTargets {
+  return typeof e === "string" ? legacyEnrollTargets(e) : e
+}
+
+/** A stable string for caches keyed on what the setting prints and forwards to. */
+export function enrollTargetsKey(e: Enroll): string {
+  const t = enrollTargets(e)
+  return [t.forwardTemplate, t.printed, t.printedTemplate ?? "", t.programUrl].join("|")
+}
+
+/** An agent's enrollment URL: where their QR link (nopQrLink) forwards while they're active. */
+export function qrDestinationFor(agentId: string, enroll: Enroll): string {
+  return enrollTargets(enroll).forwardTemplate.replace(ENROLL_ID_TOKEN, encodeURIComponent(agentId))
 }
 
 /** The program's own enrollment page, for a QR whose agent is unknown or not active. */
-export function programEnrollmentUrl(domain: string): string {
-  return `https://${domain}/`
+export function programEnrollmentUrl(enroll: Enroll): string {
+  return enrollTargets(enroll).programUrl
+}
+
+/**
+ * The address printed on an agent's flyers. `prefix` + `slot` is how the
+ * kit-v1.1.1 card prints it (prefix right-aligned against the slot):
+ * "join.basicbenefits.com/" + Agent ID, or "oneflyer.org/a/" + the agent's QR
+ * code. `lines` is how the kit-v2 footer prints it: one line, or for "full"
+ * two, split before the "?". `href` is what the printed link opens in a PDF.
+ */
+export interface PrintedAddress {
+  prefix: string
+  slot: string
+  text: string
+  href: string
+  lines: string[]
+}
+
+export function printedEnrollAddress(agentId: string, qrCode: string, enroll: Enroll): PrintedAddress {
+  const e = enrollTargets(enroll)
+  if (e.printed === "full") {
+    const href = qrDestinationFor(agentId, e)
+    const text = href.replace(/^https:\/\//, "")
+    const q = text.indexOf("?")
+    const slot = encodeURIComponent(agentId)
+    return { prefix: text.slice(0, text.length - slot.length), slot, text, href, lines: q > 0 ? [text.slice(0, q), text.slice(q)] : [text] }
+  }
+  const [prefix, slot] = e.printed === "code" || !e.printedTemplate
+    ? [`${CANONICAL_SITE_URL.replace(/^https?:\/\//, "")}${NOP_QR_PATH}/`, qrCode]
+    : [e.printedTemplate.slice(0, -ENROLL_ID_TOKEN.length), agentId]
+  return { prefix, slot, text: prefix + slot, href: `https://${prefix}${slot}`, lines: [prefix + slot] }
 }
 
 /**
@@ -117,13 +193,13 @@ export function nopQrLink(code: string): string {
  * suspended, terminated, or not an Agent ID at all): the program's enrollment
  * page, so no printed flyer ever credits an agent who isn't active.
  */
-export function nopQrTarget(agentId: string | null, roster: Pick<RosterRecord, "status"> | null | undefined, domain: string): string {
-  return agentId && AGENT_ID_RE.test(agentId) && isGenerationStatus(roster) ? qrDestinationFor(agentId, domain) : programEnrollmentUrl(domain)
+export function nopQrTarget(agentId: string | null, roster: Pick<RosterRecord, "status"> | null | undefined, enroll: Enroll): string {
+  return agentId && AGENT_ID_RE.test(agentId) && isGenerationStatus(roster) ? qrDestinationFor(agentId, enroll) : programEnrollmentUrl(enroll)
 }
 
 /** What enrollment_url should be. Used ONLY to flag a mismatch on import. */
-export function expectedEnrollmentUrl(agentId: string, domain: string): string {
-  return qrDestinationFor(agentId, domain)
+export function expectedEnrollmentUrl(agentId: string, enroll: Enroll): string {
+  return qrDestinationFor(agentId, enroll)
 }
 
 export function normalizeEmail(v: string): string {
@@ -226,7 +302,7 @@ export interface RosterParseResult {
  * reasons — never silently dropped. An enrollment_url that disagrees with the
  * Agent ID is flagged but still accepted (it is not used for anything live).
  */
-export function validateRosterCsv(text: string, domain: string): RosterParseResult {
+export function validateRosterCsv(text: string, domain: Enroll): RosterParseResult {
   const result: RosterParseResult = { fileErrors: [], accepted: [], rejected: [], flagged: [] }
   const rows = parseCsv(text)
   if (rows.length === 0) {
@@ -266,7 +342,7 @@ export function validateRosterCsv(text: string, domain: string): RosterParseResu
     }
     const filled = (col: (typeof COLUMNS)[number]) => !isPlaceholder(get(col))
 
-    if (filled("agent_id") && !AGENT_ID_RE.test(agentId)) reasons.push("agent_id must be 1-10 digits")
+    if (filled("agent_id") && !AGENT_ID_RE.test(agentId)) reasons.push("agent_id must be 1-32 letters, digits or dashes")
     if (filled("roster_email") && !isValidEmail(get("roster_email"))) reasons.push("roster_email is not a valid email")
     if (filled("roster_phone") && !formatUsPhone(get("roster_phone"))) reasons.push("roster_phone is not a 10-digit US number")
     if (filled("referral_code") && !/^[A-Za-z0-9_-]{1,64}$/.test(get("referral_code"))) {
@@ -304,6 +380,9 @@ export function validateRosterCsv(text: string, domain: string): RosterParseResu
     }
     if (!nameFitsKitV2Footer(get("agent_name"))) {
       result.flagged.push({ line, agentId, reason: `agent_name is about ${Math.round(footerNameWidth(get("agent_name")))}px wide; the kit-v2 footer has ${Math.floor(FOOTER_SPACE_PX)}px. Kit-v2 downloads would be refused until the agent shortens their display name.` })
+    }
+    if (AGENT_ID_RE.test(agentId) && agentId.length > WORST_AGENT_ID_LENGTH) {
+      result.flagged.push({ line, agentId, reason: `agent_id is ${agentId.length} characters; printed addresses are checked for up to ${WORST_AGENT_ID_LENGTH}. If the full URL doesn't fit, their kit-v2 flyers print their oneflyer.org/a/<code> link instead.` })
     }
 
     result.accepted.push({

@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { NextRequest } from "next/server"
 
 /**
- * The NOP enrollment domain: one admin setting behind every agent's
- * enrollment URL (QR forward and printed address). A save is kept only when
- * it's a basicbenefits.com host, the test agent's URL and the program page
- * load right now, and the printed link fits the kit-v2 footer; each save is
- * logged. Plus the name-fit flag on roster import and profile changes.
+ * The NOP enrollment setting, in three parts: the forward URL template (where
+ * QRs go), the printed address (a short template, or oneflyer.org/a/<code>),
+ * and the program page. Until saved, it's derived from the old single
+ * enrollment domain, unchanged. A save is kept only when it's valid, fits
+ * both kits, its URLs load right now, and the test agent's page shows a real
+ * partner (or the admin saves anyway); each save is logged. Plus the name-fit
+ * flag on roster import and profile changes.
  */
 
 const r = vi.hoisted(() => ({ h: new Map<string, Record<string, string>>(), l: new Map<string, unknown[]>(), fetched: [] as string[], answer: (_u: string): Response | Error => new Response("ok", { status: 200 }) }))
@@ -21,12 +23,24 @@ vi.mock("@upstash/redis", () => {
   return { Redis: { fromEnv: () => fake } }
 })
 vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | undefined) => sub === "admin@x.test" }))
+// The page check needs a browser (tested against the real pages by hand); here it answers r.page.
+const pg = vi.hoisted(() => ({ page: (url: string) => ({ url, ok: true, problem: null as string | null, text: "Enroll with Jordan" }), opened: [] as string[] }))
+vi.mock("@/lib/enterprise/nop-enroll-check", () => ({ checkEnrollPage: async (url: string) => (pg.opened.push(url), pg.page(url)) }))
+// The roster: who can be the check agent, and who a full-URL save flags.
+const roster = vi.hoisted(() => ({ records: {} as Record<string, { agentId: string; status: string }> }))
+vi.mock("@/lib/enterprise/agents-store", async (orig) => ({
+  ...(await orig<typeof import("@/lib/enterprise/agents-store")>()),
+  getRosterRecord: async (id: string) => roster.records[id] ?? null,
+  listRoster: async () => Object.values(roster.records).map((r) => ({ ...r, lockedTo: `${r.agentId}@x.test` })),
+}))
 
 const notFoundDns = () => Object.assign(new TypeError("fetch failed"), { cause: { code: "ENOTFOUND" } })
 
 beforeEach(() => {
   vi.stubEnv("SESSION_SECRET", "test-secret")
-  r.h.clear(); r.l.clear(); r.fetched.length = 0
+  r.h.clear(); r.l.clear(); r.fetched.length = 0; pg.opened.length = 0
+  roster.records = { "858980": { agentId: "858980", status: "active" }, "CP-VLN-H5J": { agentId: "CP-VLN-H5J", status: "active" }, "XX-OLD-1": { agentId: "XX-OLD-1", status: "suspended" } }
+  pg.page = (url) => ({ url, ok: true, problem: null, text: "Enroll with Jordan" })
   r.answer = () => new Response("ok", { status: 200 })
   vi.stubGlobal("fetch", async (url: string) => {
     r.fetched.push(url)
@@ -39,78 +53,195 @@ afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals() })
 
 const lib = () => import("@/lib/enterprise/nop-enroll-domain")
 
+const NEW = {
+  forwardTemplate: "https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}",
+  printed: "short",
+  printedTemplate: "join.basicbenefits.com/{id}",
+  programUrl: "https://neighbor.basicbenefits.com/",
+}
+
 describe("the setting", () => {
-  it("defaults to the kit's domain", async () => {
-    expect(await (await lib()).getEnrollDomain()).toBe("neighbor.basicbenefits.com")
+  it("until saved, it's the old domain as three parts: exactly the URLs and printed address as before", async () => {
+    const { getEnrollTargets, getSavedEnrollSettings } = await lib()
+    const { qrDestinationFor, programEnrollmentUrl, printedEnrollAddress } = await import("@/lib/enterprise/nop-roster")
+    expect(await getSavedEnrollSettings()).toBeNull()
+    r.h.set("nop-flyers:settings", { enrollDomain: "join.basicbenefits.com" })
+    const t = await getEnrollTargets()
+    expect(t).toEqual({ forwardTemplate: "https://join.basicbenefits.com/{id}", printed: "short", printedTemplate: "join.basicbenefits.com/{id}", programUrl: "https://join.basicbenefits.com/" })
+    expect(qrDestinationFor("123456", t)).toBe(qrDestinationFor("123456", "join.basicbenefits.com"))
+    expect(qrDestinationFor("123456", t)).toBe("https://join.basicbenefits.com/123456")
+    expect(programEnrollmentUrl(t)).toBe("https://join.basicbenefits.com/")
+    expect(printedEnrollAddress("123456", "Ab3dEf7", t)).toEqual({ prefix: "join.basicbenefits.com/", slot: "123456", text: "join.basicbenefits.com/123456", href: "https://join.basicbenefits.com/123456", lines: ["join.basicbenefits.com/123456"] })
   })
 
-  it("saves a domain whose URLs load, logs it, and every URL follows it", async () => {
-    const { setEnrollDomain, getEnrollDomain, listEnrollDomainLog } = await lib()
-    const out = await setEnrollDomain("  https://Join.BasicBenefits.com/ ", "admin@x.test")
-    expect(out.ok).toBe(true)
-    expect(r.fetched.sort()).toEqual(["https://join.basicbenefits.com/", "https://join.basicbenefits.com/858980"])
-    expect(await getEnrollDomain()).toBe("join.basicbenefits.com")
-    const [entry] = await listEnrollDomainLog()
-    expect(entry).toMatchObject({ admin: "admin@x.test", from: "neighbor.basicbenefits.com", to: "join.basicbenefits.com" })
-    expect(entry.checks.every((c) => c.ok)).toBe(true)
+  it("the three parts: forward URL with the ID in the query, a short printed address, or the agent's own link", async () => {
+    const { qrDestinationFor, printedEnrollAddress, nopQrTarget } = await import("@/lib/enterprise/nop-roster")
+    const t = { ...NEW, printed: "short" as const }
+    expect(qrDestinationFor("123456", t)).toBe("https://neighbor.basicbenefits.com/member-enrollment?agent_code=123456")
+    expect(nopQrTarget("123456", { status: "active" }, t)).toBe("https://neighbor.basicbenefits.com/member-enrollment?agent_code=123456")
+    expect(nopQrTarget("123456", { status: "suspended" }, t)).toBe("https://neighbor.basicbenefits.com/")
+    expect(printedEnrollAddress("123456", "Ab3dEf7", t).text).toBe("join.basicbenefits.com/123456")
+    const code = { ...t, printed: "code" as const, printedTemplate: null }
+    expect(printedEnrollAddress("123456", "Ab3dEf7", code)).toEqual({ prefix: "oneflyer.org/a/", slot: "Ab3dEf7", text: "oneflyer.org/a/Ab3dEf7", href: "https://oneflyer.org/a/Ab3dEf7", lines: ["oneflyer.org/a/Ab3dEf7"] })
   })
 
-  it.each(["evil.com", "basicbenefits.com.evil.com", "join.basicbenefits.com/x", "join.basicbenefits.com:8443", "", "bad_host.basicbenefits.com"])("refuses %j without fetching or saving", async (d) => {
-    const { setEnrollDomain, getEnrollDomain } = await lib()
-    expect(await setEnrollDomain(d, "admin@x.test")).toEqual({ ok: false, reason: "invalid" })
-    expect(r.fetched).toEqual([])
-    expect(await getEnrollDomain()).toBe("neighbor.basicbenefits.com")
+  it.each([
+    ["forwardTemplate", { forwardTemplate: "https://evil.com/{id}" }],
+    ["forwardTemplate", { forwardTemplate: "http://join.basicbenefits.com/{id}" }],
+    ["forwardTemplate", { forwardTemplate: "https://join.basicbenefits.com/" }],
+    ["forwardTemplate", { forwardTemplate: "https://join.basicbenefits.com/{id}/{id}" }],
+    ["forwardTemplate", { forwardTemplate: "https://basicbenefits.com.evil.com/{id}" }],
+    ["printed", { printed: "long" }],
+    ["printedTemplate", { printedTemplate: "join.basicbenefits.com/?id={id}" }],
+    ["printedTemplate", { printedTemplate: "join.basicbenefits.com/{id}/x" }],
+    ["printedTemplate", { printedTemplate: "evil.com/{id}" }],
+    ["printedTemplate", { printedTemplate: "a-very-long-enrollment-subdomain.neighbor.basicbenefits.com/{id}" }],
+    ["programUrl", { programUrl: "https://evil.com/" }],
+    ["programUrl", { programUrl: "https://join.basicbenefits.com/{id}" }],
+  ])("refuses a bad %s: %j", async (field, change) => {
+    expect((await lib()).checkEnrollInput({ ...NEW, ...change })).toMatchObject({ ok: false, field })
   })
 
-  it("refuses a domain that doesn't resolve, or answers an error, and keeps the old one", async () => {
-    const { setEnrollDomain, getEnrollDomain } = await lib()
-    r.answer = () => notFoundDns()
-    const a = await setEnrollDomain("neighbour.basicbenefits.com", "admin@x.test")
-    expect(a).toMatchObject({ ok: false, reason: "not_loading" })
-    expect(!a.ok && a.checks![0].error).toBe("the domain doesn't resolve (no DNS record)")
-    r.answer = (u) => new Response("", { status: u.endsWith("/858980") ? 404 : 200 })
-    const b = await setEnrollDomain("join.basicbenefits.com", "admin@x.test")
-    expect(!b.ok && b.checks!.find((c) => !c.ok)).toMatchObject({ url: "https://join.basicbenefits.com/858980", status: 404, error: "HTTP 404" })
-    expect(await getEnrollDomain()).toBe("neighbor.basicbenefits.com")
-    expect(r.l.size).toBe(0)
+  it("accepts the short template with or without https://, and the code option without one", async () => {
+    const { checkEnrollInput } = await lib()
+    expect(checkEnrollInput({ ...NEW, printedTemplate: " HTTPS://Join.BasicBenefits.com/{id} " })).toEqual({ ok: true, targets: { ...NEW, printed: "short" } })
+    expect(checkEnrollInput({ ...NEW, printed: "code", printedTemplate: "ignored" })).toEqual({ ok: true, targets: { ...NEW, printed: "code", printedTemplate: null } })
   })
 
-  it("refuses a domain whose printed link wouldn't fit the kit-v2 footer for a 10-digit Agent ID", async () => {
-    const out = await (await lib()).setEnrollDomain("a-very-long-enrollment-subdomain.neighbor.basicbenefits.com", "admin@x.test")
-    expect(out).toMatchObject({ ok: false, reason: "link_too_long" })
-    expect(r.fetched).toEqual([])
+  it("the URLs a save checks: the test agent's forward URL, their short printed address, and the program page", async () => {
+    const { enrollUrlsToCheck, checkEnrollTargets } = await lib()
+    const t = { ...NEW, printed: "short" as const }
+    expect(enrollUrlsToCheck(t, "858980")).toEqual({ agent: "https://neighbor.basicbenefits.com/member-enrollment?agent_code=858980", printed: "https://join.basicbenefits.com/858980", program: "https://neighbor.basicbenefits.com/" })
+    expect(enrollUrlsToCheck({ ...t, printed: "code", printedTemplate: null }, "858980").printed).toBeNull()
+    r.answer = (u) => new Response("", { status: u.includes("join.") ? 404 : 200 })
+    const out = await checkEnrollTargets(t, "858980")
+    expect(out.ok).toBe(false)
+    expect(out.checks.find((c) => !c.ok)).toMatchObject({ url: "https://join.basicbenefits.com/858980", error: "HTTP 404" })
+  })
+})
+
+describe("the full URL, test site, and Agent IDs as issued", () => {
+  const FULL = { ...NEW, printed: "full", printedTemplate: null }
+
+  it("full: the forward URL printed on two lines, split before the '?'; the ID kept exactly, URL-encoded", async () => {
+    const { checkEnrollInput } = await lib()
+    const { printedEnrollAddress, qrDestinationFor } = await import("@/lib/enterprise/nop-roster")
+    const out = checkEnrollInput(FULL)
+    expect(out).toEqual({ ok: true, targets: { ...NEW, printed: "full", printedTemplate: null } })
+    const t = out.ok ? out.targets : NEW as never
+    expect(qrDestinationFor("CP-VLN-H5J", t)).toBe("https://neighbor.basicbenefits.com/member-enrollment?agent_code=CP-VLN-H5J")
+    expect(qrDestinationFor("cp-vln-h5j", t)).toBe("https://neighbor.basicbenefits.com/member-enrollment?agent_code=cp-vln-h5j")
+    expect(printedEnrollAddress("CP-VLN-H5J", "Ab3dEf7", t).lines).toEqual(["neighbor.basicbenefits.com/member-enrollment", "?agent_code=CP-VLN-H5J"])
+    // Never anything that could break out of the query.
+    expect(qrDestinationFor("a&b=c", t)).toBe("https://neighbor.basicbenefits.com/member-enrollment?agent_code=a%26b%3Dc")
+  })
+
+  it("full needs a '?' to split at, and a first line that fits the footer at 15px", async () => {
+    const { checkEnrollInput } = await lib()
+    expect(checkEnrollInput({ ...FULL, forwardTemplate: "https://neighbor.basicbenefits.com/{id}" })).toMatchObject({ ok: false, field: "printed" })
+    expect(checkEnrollInput({ ...FULL, forwardTemplate: "https://a-much-longer-enrollment-host.neighbor.basicbenefits.com/member-enrollment?agent_code={id}" })).toMatchObject({ ok: false, field: "printed", message: expect.stringContaining("15px") })
+  })
+
+  it("their test site is allowed in local and test runs only, never on Vercel", async () => {
+    const { checkEnrollInput } = await lib()
+    const test = { forwardTemplate: "https://nop.v4test.vasquezplatform.com/member-enrollment?agent_code={id}", printed: "code", programUrl: "https://nop.v4test.vasquezplatform.com/" }
+    expect(checkEnrollInput(test).ok).toBe(true)
+    // The test site's own first line (427px) is too wide to print in full; the live address's (386px) fits.
+    expect(checkEnrollInput({ ...test, printed: "full" })).toMatchObject({ ok: false, field: "printed" })
+    vi.stubEnv("VERCEL", "1")
+    expect(checkEnrollInput(test)).toMatchObject({ ok: false, field: "forwardTemplate" })
+    expect(checkEnrollInput({ ...NEW, programUrl: "https://nop.v4test.vasquezplatform.com/" })).toMatchObject({ ok: false, field: "programUrl" })
+    // A saved test-site value is also ignored when read on Vercel: back to the old domain.
+    vi.unstubAllEnvs(); vi.stubEnv("SESSION_SECRET", "test-secret")
+    r.h.set("nop-flyers:settings", { enrollSettings: JSON.stringify({ ...test, printedTemplate: null, savedAt: "t", admin: "a" }) })
+    expect((await (await lib()).getEnrollTargets()).forwardTemplate).toBe(test.forwardTemplate)
+    vi.stubEnv("VERCEL", "1")
+    expect((await (await lib()).getEnrollTargets()).forwardTemplate).toBe("https://neighbor.basicbenefits.com/{id}")
+  })
+
+  it("the check agent: default 858980; any active roster agent, exactly as issued; logged", async () => {
+    const { getCheckAgentId, setCheckAgentId, listCheckAgentLog } = await lib()
+    expect(await getCheckAgentId()).toBe("858980")
+    expect(await setCheckAgentId("cp-vln-h5j", "admin@x.test")).toMatchObject({ ok: false, message: "cp-vln-h5j isn't on the roster." })
+    expect(await setCheckAgentId("XX-OLD-1", "admin@x.test")).toMatchObject({ ok: false, message: "XX-OLD-1 is suspended, not active." })
+    expect(await setCheckAgentId("#1", "admin@x.test")).toMatchObject({ ok: false })
+    expect(await setCheckAgentId(" CP-VLN-H5J ", "admin@x.test")).toMatchObject({ ok: true, entry: { from: "858980", to: "CP-VLN-H5J" } })
+    expect(await getCheckAgentId()).toBe("CP-VLN-H5J")
+    expect((await listCheckAgentLog())[0]).toMatchObject({ admin: "admin@x.test", to: "CP-VLN-H5J" })
+  })
+
+  it("flags (once) an Agent ID over 16 characters, or whose full URL wouldn't fit; never a typical one", async () => {
+    const { flagAgentIdIfTooLong, listAgentFlags } = await import("@/lib/enterprise/agents-store")
+    const full = { ...NEW, printed: "full" as const, printedTemplate: null }
+    expect(await flagAgentIdIfTooLong("CP-VLN-H5J", "a@x.test", full)).toBe(false)
+    expect(await flagAgentIdIfTooLong("858980", "a@x.test", full)).toBe(false)
+    expect(await flagAgentIdIfTooLong("ABCDEFGHIJKLMNOPQ", "b@x.test", "neighbor.basicbenefits.com")).toBe(true)
+    expect(await flagAgentIdIfTooLong("W".repeat(32), "c@x.test", full)).toBe(true)
+    expect(await flagAgentIdIfTooLong("W".repeat(32), "c@x.test", full)).toBe(true)
+    const flags = await listAgentFlags()
+    expect(flags.filter((f) => f.type === "agent_id_too_long")).toHaveLength(2)
+    expect(flags.find((f) => f.agentId === "W".repeat(32))?.reason).toContain("oneflyer.org/a/<code>")
   })
 })
 
 describe("admin route", () => {
   async function call(method: "GET" | "POST", who: string, body?: unknown) {
     const { createSessionToken, SESSION_COOKIE } = await import("@/lib/auth")
-    const mod = await import("@/app/api/admin/enterprise/nop/enroll-domain/route")
+    const mod = await import("@/app/api/admin/enterprise/nop/enroll-settings/route")
     const req = new NextRequest("http://x/api", { method, headers: { cookie: `${SESSION_COOKIE}=${await createSessionToken(who)}`, "content-type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) })
     const res = await mod[method](req)
     return { status: res.status, json: await res.json() }
   }
 
-  it("GET: the domain, the URL a test agent's QR forwards to, and whether it loads now", async () => {
+  it("GET before any save: derived from the old domain, not saved, what a test agent's QR forwards to and prints", async () => {
     r.answer = () => notFoundDns()
     const g = await call("GET", "admin@x.test")
-    expect(g.json).toMatchObject({ domain: "neighbor.basicbenefits.com", testAgentId: "858980", urls: { agent: "https://neighbor.basicbenefits.com/858980", program: "https://neighbor.basicbenefits.com/" } })
+    expect(g.json).toMatchObject({ saved: null, derivedFromDomain: "neighbor.basicbenefits.com", testAgentId: "858980", urls: { agent: "https://neighbor.basicbenefits.com/858980", program: "https://neighbor.basicbenefits.com/" }, printedExample: "neighbor.basicbenefits.com/858980" })
     expect(g.json.live.ok).toBe(false)
   })
 
-  it("POST saves with a live check and answers the new forward URL; refusals are 422 with the checks", async () => {
-    const ok = await call("POST", "admin@x.test", { domain: "join.basicbenefits.com" })
+  it("POST saves when everything loads and the test agent's page shows a partner; logged and audited", async () => {
+    const ok = await call("POST", "admin@x.test", NEW)
     expect(ok.status).toBe(200)
-    expect(ok.json.urls.agent).toBe("https://join.basicbenefits.com/858980")
+    expect(pg.opened).toEqual(["https://neighbor.basicbenefits.com/member-enrollment?agent_code=858980", "https://join.basicbenefits.com/858980"])
+    expect(ok.json).toMatchObject({ saved: { admin: "admin@x.test" }, derivedFromDomain: null, urls: { agent: "https://neighbor.basicbenefits.com/member-enrollment?agent_code=858980" }, printedExample: "join.basicbenefits.com/858980" })
+    expect(ok.json.log[0]).toMatchObject({ admin: "admin@x.test", to: NEW, savedDespiteWarning: false, from: { forwardTemplate: "https://neighbor.basicbenefits.com/{id}" } })
+    const { getSavedEnrollSettings } = await lib()
+    expect(await getSavedEnrollSettings()).toMatchObject(NEW)
+  })
+
+  it("POST refuses invalid input (422, nothing fetched) and URLs that don't load (422, nothing saved)", async () => {
+    const bad = await call("POST", "admin@x.test", { ...NEW, forwardTemplate: "https://join.basicbenefits.com/" })
+    expect(bad).toMatchObject({ status: 422, json: { error: "invalid", field: "forwardTemplate" } })
+    expect(r.fetched).toEqual([])
     r.answer = () => notFoundDns()
-    const bad = await call("POST", "admin@x.test", { domain: "neighbor.basicbenefits.com" })
-    expect(bad.status).toBe(422)
-    expect(bad.json.checks.length).toBe(2)
+    const dead = await call("POST", "admin@x.test", NEW)
+    expect(dead.status).toBe(422)
+    expect(dead.json.checks).toHaveLength(3)
+    expect(pg.opened).toEqual([])
+    expect(r.h.size).toBe(0)
+  })
+
+  it("'Partner Not Found' on the test agent's page: not saved unless the admin saves anyway, and the log says so", async () => {
+    pg.page = (url) => ({ url, ok: false, problem: "not_found", text: "Partner Not Found We couldn't find the enrollment portal you're looking for." })
+    const warn = await call("POST", "admin@x.test", NEW)
+    expect(warn).toMatchObject({ status: 409, json: { error: "page_warning" } })
+    expect(warn.json.message).toContain("Save anyway only if that's expected")
+    expect(r.h.size).toBe(0)
+    const anyway = await call("POST", "admin@x.test", { ...NEW, saveDespiteWarning: true })
+    expect(anyway.status).toBe(200)
+    expect(anyway.json.log[0]).toMatchObject({ savedDespiteWarning: true, page: { problem: "not_found" } })
+  })
+
+  it("POST { check: true } opens the current test agent's page and saves nothing", async () => {
+    const c = await call("POST", "admin@x.test", { check: true })
+    expect(c.json.pages).toEqual([expect.objectContaining({ url: "https://neighbor.basicbenefits.com/858980", ok: true })])
+    expect(r.h.size).toBe(0)
   })
 
   it("non-admins can't read or change it", async () => {
     expect((await call("GET", "agent@x.test")).status).toBe(401)
-    expect((await call("POST", "agent@x.test", { domain: "join.basicbenefits.com" })).status).toBe(401)
+    expect((await call("POST", "agent@x.test", NEW)).status).toBe(401)
     expect(r.h.size).toBe(0)
   })
 })
@@ -141,7 +272,7 @@ describe("name fit (kit-v2 footer)", () => {
     expect(r.l.size).toBe(0)
     await flagNameIfTooLongForFooter("858980", "a@x.test", "Maria Guadalupe Hernandez-Villanueva de la Cruz Rodriguez")
     const [flag] = [...r.l.values()][0] as Record<string, unknown>[]
-    expect(flag).toMatchObject({ type: "name_too_long_for_footer", agentId: "858980", account: "a@x.test", spacePx: 357 })
-    expect(flag.nameWidthPx).toBeGreaterThan(357)
+    expect(flag).toMatchObject({ type: "name_too_long_for_footer", agentId: "858980", account: "a@x.test", spacePx: 389 })
+    expect(flag.nameWidthPx).toBeGreaterThan(389)
   })
 })

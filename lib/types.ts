@@ -1039,8 +1039,11 @@ export interface AgentFlag {
    *   display name that may not fit the kit-v2 footer (footer-fit.ts).
    * signup_duplicate: a sign-up (email verified) for an Agent ID already
    *   held or on the roster. The person saw the normal "we'll review" reply.
+   * agent_id_too_long: an Agent ID longer than 16 characters, or one whose
+   *   full enrollment URL doesn't fit the kit-v2 footer (their flyers print
+   *   their oneflyer.org/a/<code> link instead). `reason` says which.
    */
-  type: "email_mismatch" | "id_already_registered" | "business_account_conflict" | "roster_email_changed" | "name_too_long_for_footer" | "signup_duplicate"
+  type: "email_mismatch" | "id_already_registered" | "business_account_conflict" | "roster_email_changed" | "name_too_long_for_footer" | "signup_duplicate" | "agent_id_too_long"
   agentId: string
   /** The OneFlyer account that made the attempt. */
   account: string
@@ -1054,6 +1057,8 @@ export interface AgentFlag {
   /** name_too_long_for_footer: the estimated width and the space, in CSS px. */
   nameWidthPx?: number
   spacePx?: number
+  /** agent_id_too_long: why. */
+  reason?: string
   at: string
 }
 

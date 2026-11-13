@@ -102,8 +102,8 @@ export function AdminAgentDataMove() {
       <h2 className="text-lg">Move an Agent ID&apos;s data</h2>
       <p className="mt-1 text-sm text-muted-foreground">Leads and QR scans belong to the Agent ID. This moves all of them from one Agent ID to another, keeping their dates. It can&apos;t be undone automatically; every move is logged below. QR codes never move: each stays with its Agent ID, so later scans of the old ID&apos;s flyers still count there.</p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
-        <label className="text-sm">From Agent ID<input value={from} onChange={(e) => { setFrom(e.target.value); setPreview(null) }} inputMode="numeric" className={`${input} w-40`} /></label>
-        <label className="text-sm">To Agent ID<input value={to} onChange={(e) => { setTo(e.target.value); setPreview(null) }} inputMode="numeric" className={`${input} w-40`} /></label>
+        <label className="text-sm">From Agent ID<input value={from} onChange={(e) => { setFrom(e.target.value); setPreview(null) }} autoCapitalize="off" spellCheck={false} className={`${input} w-40`} /></label>
+        <label className="text-sm">To Agent ID<input value={to} onChange={(e) => { setTo(e.target.value); setPreview(null) }} autoCapitalize="off" spellCheck={false} className={`${input} w-40`} /></label>
         <button type="button" onClick={() => void doPreview()} disabled={busy || !from || !to} className="min-h-11 rounded-lg border border-border px-4 text-sm disabled:opacity-50">Preview</button>
       </div>
       {preview && (

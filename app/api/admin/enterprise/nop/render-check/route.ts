@@ -8,6 +8,10 @@ import { getAgentIdOwner } from "@/lib/enterprise/agents-store"
 import { loadNopAgent } from "@/lib/enterprise/nop-render/agent-context"
 import { logNopRender } from "@/lib/enterprise/nop-render/log"
 import { v2VersionStamp } from "@/lib/enterprise/nop-render/kit-v2"
+import { RELEASE_CHECK_AGENT, measureFullLink } from "@/lib/enterprise/nop-render/kit-v2-release"
+import { checkEnrollInput } from "@/lib/enterprise/nop-enroll-domain"
+
+const FULL_LINK_FORWARD = "https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}"
 
 // GET /api/admin/enterprise/nop/render-check?template=NOP_P2_EN&format=print
 // GET /api/admin/enterprise/nop/render-check?template=NOP2_P1_EN_PRICE&format=letter|bleed|preview
@@ -20,13 +24,20 @@ import { v2VersionStamp } from "@/lib/enterprise/nop-render/kit-v2"
 //   if they have none, as their first flyer would. Written to the generation
 //   log under the admin's account, since it carries the agent's details.
 //
+// GET ...?measure=full-link[&forward=<forward URL template>]
+//   Every kit-v2 page (12 x Letter/bleed) with a sample agent and the full
+//   enrollment URL printed on two lines, without saving the setting: each
+//   line's width, the space beside the QR, the spare px, and any page that
+//   would fall back to the agent's code link. JSON; nothing is written.
+//
 // Admin-only, kept permanently: renders a template through the exact agent
 // pipeline (fonts, fitting, QR gate) with a fixed test agent, so the output
 // can be checked on any deployment — e.g. `pdffonts` on a Vercel preview to
 // prove Poppins is embedded on the real runtime. Needs no roster or agent
 // account, and is NOT written to the generation log: no agent produced it.
 
-export const maxDuration = 60
+// ?measure=full-link renders 24 pages; on Vercel each launches its own Chromium.
+export const maxDuration = 300
 export const dynamic = "force-dynamic"
 
 const TEST_AGENT = {
@@ -41,6 +52,19 @@ export async function GET(request: NextRequest) {
   if ("response" in who) return who.response
 
   const url = new URL(request.url)
+  if (url.searchParams.get("measure") === "full-link") {
+    // Read-only: nothing saved, logged or issued (a sample agent and a made-up code).
+    const input = checkEnrollInput({ forwardTemplate: url.searchParams.get("forward") ?? FULL_LINK_FORWARD, printed: "full", programUrl: "https://neighbor.basicbenefits.com/" })
+    if (!input.ok) return NextResponse.json({ error: "invalid", message: input.message }, { status: 422 })
+    const t0 = Date.now()
+    const results = await measureFullLink(input.targets)
+    const spare = results.filter((x) => x.printed === "full").map((x) => x.sparePx)
+    return NextResponse.json({
+      forwardTemplate: input.targets.forwardTemplate, sampleAgentId: RELEASE_CHECK_AGENT.agentId, platform: process.platform, ms: Date.now() - t0,
+      pages: results.length, fullUrl: spare.length, fellBack: results.filter((x) => x.printed === "code").map((x) => `${x.template} ${x.size}: ${x.fallback}`),
+      minSparePx: spare.length ? Math.min(...spare) : null, maxSparePx: spare.length ? Math.max(...spare) : null, results,
+    }, { headers: { "Cache-Control": "no-store" } })
+  }
   const template = url.searchParams.get("template") ?? "NOP_P2_EN"
   const format = (url.searchParams.get("format") ?? "print") as NopFormat
   if (isNopV2Template(template)) {

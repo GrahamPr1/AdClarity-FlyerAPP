@@ -67,7 +67,7 @@ export function NopAgentsAdmin({ base, role }: { base: string; role: "owner" | "
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return (agents.data?.agents ?? []).filter(
-      (a) => (!needle || a.name.toLowerCase().includes(needle) || a.email.includes(needle)) && (!org || a.orgId === org) && (!tier || a.tier === tier),
+      (a) => (!needle || a.name.toLowerCase().includes(needle) || a.email.includes(needle) || a.agentId.toLowerCase().includes(needle)) && (!org || a.orgId === org) && (!tier || a.tier === tier),
     )
   }, [agents.data, q, org, tier])
   const byOrg = useMemo(() => {
@@ -160,7 +160,7 @@ export function NopAgentsAdmin({ base, role }: { base: string; role: "owner" | "
               <summary className="min-h-11 cursor-pointer py-2">Preview kit v2 (admin only)</summary>
               <label className="mt-2 block">
                 As agent (optional): Agent ID of an active roster agent
-                <input value={testAgent} onChange={(e) => setTestAgent(e.target.value.replace(/\D/g, ""))} inputMode="numeric" data-testid="v2-test-agent"
+                <input value={testAgent} onChange={(e) => setTestAgent(e.target.value.trim())} autoCapitalize="off" spellCheck={false} data-testid="v2-test-agent"
                   className="mt-1 block min-h-11 w-40 rounded-lg border border-border bg-background px-3" />
               </label>
               <p className="mt-1 text-muted-foreground">With an Agent ID, each link is exactly the file that agent would download: their name, phone, enrollment link and QR, after every release check. It&apos;s logged under your account. Without one, the page as the program supplied it.</p>
@@ -189,7 +189,7 @@ export function NopAgentsAdmin({ base, role }: { base: string; role: "owner" | "
 
       <section className="mt-8">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">Search<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or email" className="mt-1 block min-h-11 w-64 rounded-lg border border-border bg-background px-3" /></label>
+          <label className="text-sm">Search<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, email or Agent ID" className="mt-1 block min-h-11 w-64 rounded-lg border border-border bg-background px-3" /></label>
           <label className="text-sm">Org<select value={org} onChange={(e) => setOrg(e.target.value)} className="mt-1 block min-h-11 rounded-lg border border-border bg-background px-3">
             <option value="">All</option>{features.data?.orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select></label>

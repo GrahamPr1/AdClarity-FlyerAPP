@@ -1,7 +1,7 @@
 import { getAgentIdOwner, getRosterRecord } from "@/lib/enterprise/agents-store"
 import { nopQrTarget, qrDestinationFor } from "@/lib/enterprise/nop-roster"
 import { agentIdForQrCode } from "@/lib/enterprise/nop-qr-code"
-import { getEnrollDomain } from "@/lib/enterprise/nop-enroll-domain"
+import { getEnrollTargets } from "@/lib/enterprise/nop-enroll-domain"
 import type { NopLang } from "@/lib/enterprise/nop-i18n"
 import type { LeadRecord } from "@/lib/types"
 import { canUse } from "./features"
@@ -25,7 +25,7 @@ export type QrLanding =
   | { state: "lead_page"; agentId: string; agentName: string; enrollUrl: string; owner: string; orgId: string; agentLang: NopLang }
 
 export async function qrLanding(code: string): Promise<QrLanding> {
-  const [agentId, domain] = await Promise.all([agentIdForQrCode(code), getEnrollDomain()])
+  const [agentId, domain] = await Promise.all([agentIdForQrCode(code), getEnrollTargets()])
   if (!agentId) return { state: "forward", agentId: null, onRoster: false, target: nopQrTarget(null, null, domain) }
   const roster = await getRosterRecord(agentId)
   const forward: QrLanding = { state: "forward", agentId, onRoster: !!roster, target: nopQrTarget(agentId, roster, domain) }

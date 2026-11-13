@@ -1,6 +1,6 @@
 # Agent portal (Neighborhood Outreach Program): status
 
-As of 11 November 2026, main `58f1bec`. For picking the work back up later.
+As of 12 November 2026 (kit-v2 spacing, the enrollment setting, issued Agent IDs). For picking the work back up later.
 Org switches are in admin → Agents → "Org features"; the defaults are in
 `lib/enterprise/portal/features.ts` (`FEATURES_OFF_BY_DEFAULT`).
 
@@ -52,14 +52,13 @@ Org switches are in admin → Agents → "Org features"; the defaults are in
 - **QR lead page** (QR opens a page with Enroll now + form instead of
   forwarding): off.
 - **Agent photo** on the personal page: off.
-- **Kit v2 flyers** (new agent footer): admin-only; agents stay on kit v1.1.1.
+- **Kit v2 flyers** (new agent footer, approved spacing on every page): admin-only;
+  agents stay on kit v1.1.1. Spanish kit v2 off (it can't be switched on unless
+  every Spanish page passes the release checks).
 
 ## Waiting on Basic Benefits
 
-- **Enrollment link**: the enrollment domain is an admin setting (currently
-  `join.basicbenefits.com/{Agent ID}`); the later format
-  `neighbor.basicbenefits.com/member-enrollment?agent_code={Agent ID}` needs
-  confirming against a real agent's link before kit v2 is switched on.
+- **Enrollment link**: see "When the enrollment link arrives" below.
 - **Templates**: the printed enrollment form (option 3 or 4, then the
   two-part template), the **event flyer** template (marked spot:
   `EVENT_FLYER_READY`), the **recruiting flyer** template
@@ -73,6 +72,45 @@ Org switches are in admin → Agents → "Org features"; the defaults are in
   - the string review CSVs (`NOP-*-Strings-EN-ES-for-review.csv`, one per
     part, plus `NOP-Plain-Wording-Changes-EN-ES-for-review.csv`). "Contactos"
     vs "Prospectos" for leads is flagged in them.
+
+## When the live enrollment address is ready
+
+The program's format (11/2026): Agent IDs are sent as AGENT_ID, like
+`CP-VLN-H5J` (letters, digits, dashes; case and dashes matter); the forward
+URL is `https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}`;
+the printed link is that full URL on two lines. Their test site
+(`nop.v4test.vasquezplatform.com`) works now but can only be used locally:
+production refuses it. Until the setting is saved, everything behaves as
+today (`join.basicbenefits.com/{Agent ID}`).
+
+1. **Confirm with the program** that
+   `https://neighbor.basicbenefits.com/member-enrollment?agent_code=<a real agent's ID>`
+   opens that agent's enrollment page (Member Enrollment, Step 1 of 7, their
+   name), on your phone.
+2. **Set the check agent** (admin → Agents → "NOP enrollment link" → Check
+   agent): a real, active agent's ID exactly as issued. "Set check agent";
+   it's logged.
+3. **Save the setting**:
+   - Forward URL: `https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}`
+   - Printed on kit-v2 flyers: "The full forward URL, on two lines"
+   - Program page: the program's page (ask them; e.g. `https://neighbor.basicbenefits.com/`)
+   - "Check and save". It must say "Saved" and "Shows a page". If it says
+     "Partner not found", don't "Save anyway": the check agent isn't set up
+     on their side (back to step 1).
+   Saving moves every agent's QR (printed kit v1.1.1 flyers too) to the new
+   URL, and kit v1.1.1 downloads start printing each agent's
+   `oneflyer.org/a/<code>` link. Agents whose ID makes the full URL too wide
+   get their code link on kit v2 too, and appear under flags in the NOP
+   console ("Agent ID too long for the printed link").
+4. **Verify**: "Check the check agent's page in a browser" says "Shows a
+   page". Download a kit-v2 flyer as that agent (admin, render-check with
+   their Agent ID, Letter), print it, scan the QR (their enrollment page),
+   and type the printed two-line address into your phone (the same page).
+5. **Switch agents to kit v2** (admin → Agents → NOP flyers) and confirm. It
+   refuses, saying why, unless the setting is saved, its URLs load and the
+   check agent's page shows a real partner.
+6. Tell me: I'll check production's forward log for real scans. Spanish
+   stays off until the program approves it.
 
 ## Paused: billing go-live checklist
 
