@@ -12,6 +12,9 @@ import { continuePipelineFromIntake } from "@/lib/agent-pipeline/pipeline"
 import { canCreateCampaign } from "@/lib/agent-pipeline/plan-features"
 import { emptyProduct } from "@/lib/product-profile"
 import { getCampaignInput } from "@/lib/campaign-inputs"
+import { designOfDeliverable } from "@/lib/flyer-design"
+import { templateById } from "@/lib/agent-pipeline/template-mode"
+import type { FlyerDeliverable } from "@/lib/types"
 import type { NormalizedIntake } from "@/lib/agent-pipeline/schemas/intake"
 
 /**
@@ -20,9 +23,11 @@ import type { NormalizedIntake } from "@/lib/agent-pipeline/schemas/intake"
  * new offer. It goes through the same pipeline and the same quota as every
  * other flyer; only the intake is pre-filled.
  *
- * Flyers made before per-campaign inputs were saved (campaign-inputs.ts) have
- * nothing to reuse, so those fall back to the saved Business Profile as a
- * standard flyer, and GET reports source "profile" so the UI can say so.
+ * Either way the new flyer keeps the source flyer's design — layout, colours
+ * and fonts, read from its stored HTML (lib/flyer-design.ts). Flyers made
+ * before per-campaign inputs were saved (campaign-inputs.ts) take the business
+ * details from the saved Business Profile instead, and GET reports source
+ * "profile" so the UI can say so.
  *
  * Gated server-side: Pro only, never enterprise org accounts or NOP agents.
  */
@@ -62,18 +67,18 @@ async function gate(req: NextRequest): Promise<Gate> {
   return { ok: true, email }
 }
 
-/** The flyer must be one of the caller's own. */
-async function ownsFlyer(email: string, flyerId: string): Promise<boolean> {
-  if (!flyerId) return false
+/** The flyer, if it is one of the caller's own. */
+async function ownFlyer(email: string, flyerId: string): Promise<FlyerDeliverable | null> {
+  if (!flyerId) return null
   const deliverables = await getDeliverablesForEmail(email)
-  return deliverables.flyers.some((f) => f.id === flyerId)
+  return deliverables.flyers.find((f) => f.id === flyerId) ?? null
 }
 
 export async function GET(req: NextRequest) {
   const g = await gate(req)
   if (!g.ok) return g.res
   const flyerId = req.nextUrl.searchParams.get("flyerId") ?? ""
-  if (!(await ownsFlyer(g.email, flyerId))) return NextResponse.json({ error: "Flyer not found" }, { status: 404 })
+  if (!(await ownFlyer(g.email, flyerId))) return NextResponse.json({ error: "Flyer not found" }, { status: 404 })
   const source: Source = (await getCampaignInput(flyerId)) ? "campaign" : "profile"
   return NextResponse.json({ available: true, source })
 }
@@ -99,9 +104,12 @@ export async function POST(req: NextRequest) {
   if (notes.length > MAX_NOTES) {
     return NextResponse.json({ error: "notes_too_long", message: `Keep the notes to ${MAX_NOTES} characters.` }, { status: 400 })
   }
-  if (!(await ownsFlyer(email, flyerId))) return NextResponse.json({ error: "Flyer not found" }, { status: 404 })
+  const sourceFlyer = await ownFlyer(email, flyerId)
+  if (!sourceFlyer) return NextResponse.json({ error: "Flyer not found" }, { status: 404 })
 
   const id = randomUUID()
+  const keepDesign = designOfDeliverable(sourceFlyer)
+  const kept = Object.keys(keepDesign).length ? { keepDesign } : {}
   let intake: NormalizedIntake
   let source: Source
   const saved = await getCampaignInput(flyerId)
@@ -121,7 +129,14 @@ export async function POST(req: NextRequest) {
     const product = { ...emptyProduct(id, offer), offer, ...(notes ? { description: notes } : {}) }
     const context = buildCampaignContext(await resolveBusinessProfile(email), product, { variations: 1, ids: [id] })
     if (!context.ok) return NextResponse.json({ error: context.reason, message: context.message }, { status: 400 })
-    intake = context.intake
+    // No saved format to go by: a kept template made for one format only
+    // (a door hanger's) says what the source flyer was.
+    const formats = keepDesign.templateId ? templateById(keepDesign.templateId)?.formatIds : undefined
+    const formatId = formats && !formats.includes("flyer") ? formats[0] : undefined
+    intake = {
+      ...context.intake,
+      flyerRequests: context.intake.flyerRequests.map((r) => ({ ...r, ...(formatId ? { formatId } : {}) })),
+    }
   }
 
   const client = await getOrCreateClient(email)
@@ -146,8 +161,14 @@ export async function POST(req: NextRequest) {
     purpose: r.purpose,
     notes: r.notes,
     ...(r.formatId ? { formatId: r.formatId } : {}),
+    // The design rides on the request the pipeline renders from, not on the
+    // stored intake.
+    ...kept,
   }))
-  console.log(`[new-promotion] ${id} from ${flyerId}: source=${source} format=${requests[0]?.formatId ?? "flyer"} photos=${intake.photos?.length ?? 0}`)
+  console.log(
+    `[new-promotion] ${id} from ${flyerId}: source=${source} format=${requests[0]?.formatId ?? "flyer"} photos=${intake.photos?.length ?? 0} ` +
+      `kept=${keepDesign.templateId ?? "-"}/${keepDesign.squareTemplateId ?? "-"} colours=${keepDesign.colors ? "yes" : "no"} fonts=${keepDesign.fonts ? "yes" : "no"}`,
+  )
   waitUntil(
     continuePipelineFromIntake(email, intake, requests, false).catch((err) => {
       console.error("[agent-pipeline] Unhandled new-promotion pipeline error:", err)
