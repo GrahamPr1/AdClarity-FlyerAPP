@@ -72,6 +72,8 @@ Org switches are in admin → Agents → "Org features"; the defaults are in
   - the string review CSVs (`NOP-*-Strings-EN-ES-for-review.csv`, one per
     part, plus `NOP-Plain-Wording-Changes-EN-ES-for-review.csv`). "Contactos"
     vs "Prospectos" for leads is flagged in them.
+    Latest: `NOP-Agent-Link-Mismatch-Strings-EN-ES-for-review.csv` (4
+    strings: the "This link is for another agent" screen on /agent).
 
 ## When the live enrollment address is ready
 
