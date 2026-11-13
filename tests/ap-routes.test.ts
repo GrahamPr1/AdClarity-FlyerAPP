@@ -323,6 +323,51 @@ describe("flyers (real render)", () => {
   }, 300_000)
 })
 
+describe("package file import (real render)", () => {
+  it("download -> import unchanged -> identical draft; the approved version never changes; a bad file changes nothing", async () => {
+    await createOrg("alpha-org")
+    const { listOrgs, saveContent, getContent, getApproved } = await import("@/lib/ap/store")
+    const { sampleSlots } = await import("@/lib/ap/templates/sample")
+    const org = (await listOrgs())[0]
+    await saveContent(org.id, [{ id: "pkg_testpkg1", layout: "P2", pricing: ["price"], variants: { en: sampleSlots("P2", "en"), es: sampleSlots("P2", "es") } }], "admin")
+    const approve = await import("@/app/api/admin/organizations/[id]/approve/route")
+    expect((await approve.POST(req(`/x`, { method: "POST", body: {}, cookies: await adminCookie() }), p({ id: org.id }))).status).toBe(200)
+    const approvedBefore = JSON.stringify(await getApproved(org.id))
+    const draftBefore = (await getContent(org.id))!.packages
+
+    const tpl = await import("@/app/api/admin/organizations/[id]/packages/template/route")
+    const dl = await tpl.GET(req("/x", { cookies: await adminCookie() }), p({ id: org.id }))
+    expect(dl.status).toBe(200)
+    expect(dl.headers.get("content-type")).toMatch(/spreadsheetml/)
+    const bytes = Buffer.from(await dl.arrayBuffer())
+
+    const imp = await import("@/app/api/admin/organizations/[id]/packages/import/route")
+    const send = async (b: Buffer, name = "alpha-packages.xlsx") => {
+      const fd = new FormData()
+      fd.set("file", new File([new Uint8Array(b)], name))
+      const { cookies } = { cookies: await adminCookie() }
+      return imp.POST(new NextRequest(`${BASE}/x`, { method: "POST", body: fd, headers: { cookie: Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join("; ") } }), p({ id: org.id }))
+    }
+    const ok = await send(bytes)
+    expect(ok.status).toBe(200)
+    expect((await getContent(org.id))!.packages).toEqual(draftBefore)
+    expect(JSON.stringify(await getApproved(org.id))).toBe(approvedBefore)
+
+    // A file with Basic Benefits text: refused, every problem listed, draft and approval untouched.
+    const { readXlsx, writeXlsx } = await import("@/lib/ap/xlsx")
+    const sheets = readXlsx(bytes).map((sh) => ({ name: sh.name, widths: [20, 20, 20, 20, 20], rows: sh.rows.map((r) => r.cells.map((v, c) => ({ v: r.cells[0] === "plus.title" && c === 3 ? "BenefitHub Lifestyle Savings" : r.cells[0] === "card2.title" && c === 4 ? "x".repeat(60) : v, s: 3 as const }))) }))
+    const bad = await send(writeXlsx(sheets))
+    expect(bad.status).toBe(422)
+    const body = await bad.json()
+    expect(body.error).toBe("import_rejected")
+    expect(body.messages).toHaveLength(2)
+    expect(body.messages.join("\n")).toMatch(/P2 row \d+ \(plus\.title, English\): Contains "BenefitHub"/)
+    expect(body.messages.join("\n")).toMatch(/P2 row \d+ \(card2\.title, Spanish\): At most/)
+    expect((await getContent(org.id))!.packages).toEqual(draftBefore)
+    expect(JSON.stringify(await getApproved(org.id))).toBe(approvedBefore)
+  }, 300_000)
+})
+
 afterAll(async () => {
   const { acquireBrowser } = await import("@/lib/pdf/flyer-pdf")
   const { browser } = await acquireBrowser()

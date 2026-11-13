@@ -23,7 +23,7 @@ describe("org config", () => {
     [{ slug: "-bad" }, "slug"],
     [{ slug: "q" + "" }, "slug"],
     [{ enrollment: { ...good.enrollment, forwardTemplate: "https://join.example.com/" } }, "enrollment.forwardTemplate"],
-    [{ enrollment: { ...good.enrollment, forwardTemplate: "http://join.example.com/{id}" } }, "enrollment.forwardTemplate"],
+    [{ enrollment: { ...good.enrollment, forwardTemplate: "ftp://join.example.com/{id}" } }, "enrollment.forwardTemplate"],
     [{ enrollment: { ...good.enrollment, forwardTemplate: "https://a.example/{id}/{id}" } }, "enrollment.forwardTemplate"],
     [{ enrollment: { ...good.enrollment, printed: "short", printedTemplate: "join.example.com" } }, "enrollment.printedTemplate"],
     [{ enrollment: { ...good.enrollment, programUrl: "javascript:alert(1)" } }, "enrollment.programUrl"],
@@ -67,5 +67,48 @@ describe("links", () => {
     expect(externalIdFromQuery(new URLSearchParams("AGENT_id=CP-1"), "agent_ID")).toBe("CP-1")
     expect(externalIdFromQuery(new URLSearchParams("agent_ID=1&agent_id=2"), "agent_ID")).toBeNull()
     expect(externalIdFromQuery(new URLSearchParams("agent_ID=%23bad"), "agent_ID")).toBeNull()
+  })
+})
+
+describe("URL fields: paste-and-go", () => {
+  const enr = (forwardTemplate: string, extra: Record<string, unknown> = {}) => checkOrgConfig({ ...good, enrollment: { forwardTemplate, printed: "full", programUrl: "https://join.example.com/", ...extra } })
+  const fwd = (v: string) => { const o = enr(v); return o.ok ? o.value.enrollment.forwardTemplate : `ERR ${!o.ok && o.field}: ${!o.ok && o.error}` }
+
+  it("keeps a pasted https URL and its {id}", () => expect(fwd("https://join.example.com/enroll?agent={id}")).toBe("https://join.example.com/enroll?agent={id}"))
+  it("adds https:// when there's no scheme", () => expect(fwd("join.example.com/enroll?agent={id}")).toBe("https://join.example.com/enroll?agent={id}"))
+  it("collapses a doubled scheme", () => {
+    expect(fwd("https://https://join.example.com/{id}")).toBe("https://join.example.com/{id}")
+    expect(fwd("http://https://join.example.com/{id}")).toBe("https://join.example.com/{id}")
+  })
+  it("trims spaces and line breaks, including a wrapped paste", () => {
+    expect(fwd("   https://join.example.com/{id}  \n")).toBe("https://join.example.com/{id}")
+    expect(fwd("https://join.example.com/en\nroll/{id}")).toBe("https://join.example.com/enroll/{id}")
+  })
+  it("upgrades http:// to https://", () => expect(fwd("http://join.example.com/{id}")).toBe("https://join.example.com/{id}"))
+  it("still requires {id}, naming the field", () => {
+    const o = enr("join.example.com/enroll")
+    expect(o).toMatchObject({ ok: false, field: "enrollment.forwardTemplate" })
+    if (!o.ok) expect(o.error).toMatch(/Enrollment URL pattern: must contain \{id\}/)
+  })
+  it("refuses what still isn't an https URL, naming the field", () => {
+    for (const bad of ["javascript:alert(1)//{id}", "not a url {id}", "localhost/{id}", "join.example.com:8443/{id}", ""]) {
+      const o = enr(bad)
+      expect(o.ok, bad).toBe(false)
+      if (!o.ok) expect(o.field).toBe("enrollment.forwardTemplate")
+    }
+    const p = enr("join.example.com/{id}", { programUrl: "ftp://files.example.com/" })
+    expect(p).toMatchObject({ ok: false, field: "enrollment.programUrl" })
+  })
+  it("normalizes the program page the same way", () => {
+    const o = enr("join.example.com/{id}", { programUrl: "  http://www.example.com/start " })
+    expect(o.ok && o.value.enrollment.programUrl).toBe("https://www.example.com/start")
+  })
+  it("keeps the printed address scheme-less: a pasted https:// is stripped, never added", () => {
+    const o = enr("join.example.com/{id}", { printed: "short", printedTemplate: " https://https://Join.Example.com/{id} " })
+    expect(o.ok && o.value.enrollment.printedTemplate).toBe("Join.Example.com/{id}")
+    const plain = enr("join.example.com/{id}", { printed: "short", printedTemplate: "example.org/{id}" })
+    expect(plain.ok && plain.value.enrollment.printedTemplate).toBe("example.org/{id}")
+    const noId = enr("join.example.com/{id}", { printed: "short", printedTemplate: "https://example.org/" })
+    expect(noId).toMatchObject({ ok: false, field: "enrollment.printedTemplate" })
   })
 })

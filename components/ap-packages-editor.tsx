@@ -28,6 +28,30 @@ export function ApPackagesEditor({ orgId, languages, initial }: { orgId: string;
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState<string | null>(null)
   const [saved, setSaved] = useState<ApPackage[]>(initial)
+  const [importProblems, setImportProblems] = useState<string[]>([])
+
+  async function importFile(file: File) {
+    setBusy(true)
+    setImportProblems([])
+    setErrors({})
+    setMsg("Checking every slot and rendering every page… (up to a minute)")
+    try {
+      const fd = new FormData()
+      fd.set("file", file)
+      const res = await fetch(`/api/admin/organizations/${orgId}/packages/import`, { method: "POST", body: fd })
+      const data = await res.json()
+      if (res.ok) {
+        setPkgs(data.content.packages)
+        setSaved(data.content.packages)
+        setMsg(`Imported ${file.name} into the draft. Every page fits. (The approved version is unchanged until you approve again.)`)
+      } else {
+        setImportProblems(data.messages ?? [data.message ?? data.error])
+        setMsg(`Not imported: ${data.messages?.length ?? 1} problem(s) in ${file.name}. Nothing was changed.`)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const setPkg = (i: number, p: Draft) => setPkgs(pkgs.map((x, j) => (j === i ? p : x)))
   const setSlot = (i: number, lang: ApLang, key: string, value: string) => {
@@ -127,7 +151,20 @@ export function ApPackagesEditor({ orgId, languages, initial }: { orgId: string;
         {LAYOUTS.map((l) => <Button key={l} type="button" variant="outline" size="sm" onClick={() => addPackage(l)}>Add {LAYOUT_NAMES[l]}</Button>)}
         <Button type="button" onClick={save} disabled={busy}>Save packages</Button>
       </div>
+      <div className="flex flex-wrap items-center gap-4 text-sm">
+        <a className="underline" href={`/api/admin/organizations/${orgId}/packages/template`} data-testid="ap-template-download">Download package template (.xlsx)</a>
+        <label className="inline-flex items-center gap-2">
+          Import package file
+          <input type="file" name="package-file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importFile(f) }} />
+        </label>
+      </div>
+      <p className="text-xs text-muted-foreground">The template has one sheet per package you&apos;ve added (save new packages first), prefilled with the current draft or sample text. Edit the language columns only; importing fills the draft and runs the same checks as Save.</p>
       {msg && <p className="text-sm" role="status" data-testid="ap-packages-status">{msg}</p>}
+      {importProblems.length > 0 && (
+        <ul className="list-disc space-y-0.5 pl-5 text-xs text-destructive" data-testid="ap-import-problems">
+          {importProblems.map((m, i) => <li key={i}>{m}</li>)}
+        </ul>
+      )}
       {Object.entries(errors).filter(([k]) => k.startsWith("fit.")).map(([k, v]) => <p key={k} className="text-xs text-destructive">{k.slice(4)}: {v}</p>)}
       {saved.length > 0 && <ApDraftPreviews orgId={orgId} packages={saved} languages={languages} />}
     </div>

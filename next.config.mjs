@@ -92,6 +92,7 @@ const nextConfig = {
     "/api/admin/organizations/\\[id\\]/preview": ["./lib/pdf/fonts/**", "./enterprise/ap/kit-v2/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
     "/api/admin/organizations/\\[id\\]/packages": ["./lib/pdf/fonts/**", "./enterprise/ap/kit-v2/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
     "/api/admin/organizations/\\[id\\]/approve": ["./lib/pdf/fonts/**", "./enterprise/ap/kit-v2/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    "/api/admin/organizations/\\[id\\]/packages/import": ["./lib/pdf/fonts/**", "./enterprise/ap/kit-v2/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
   },
 
   // Vanity paths people type or that appear in old links. Permanent, because

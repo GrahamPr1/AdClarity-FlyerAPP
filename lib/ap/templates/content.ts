@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto"
 import { LAYOUTS, SLOTS, type Layout } from "./slots"
+import { foreignBrandIn } from "./brand"
 import type { ApLang } from "../types"
 
 // An org's flyer content: packages entered by an admin, each filling one kit
@@ -39,7 +40,7 @@ export type ContentCheck = { ok: true; value: ApPackage[] } | { ok: false; error
 
 const clean = (v: string) => !/[\u0000-\u001f\u007f]/.test(v)
 
-/** Every package, every enabled language, every slot: present, within budget, no control characters. */
+/** Every package, every enabled language, every slot: present, within budget, no control characters, no Basic Benefits / NOP text. */
 export function checkPackages(raw: unknown, orgLangs: ApLang[]): ContentCheck {
   const errors: { path: string; error: string }[] = []
   const list = Array.isArray(raw) ? raw : null
@@ -70,6 +71,7 @@ export function checkPackages(raw: unknown, orgLangs: ApLang[]): ContentCheck {
         if (!s) errors.push({ path, error: "Required." })
         else if (slot.budget === "amount" ? !AMOUNT_RE.test(s) : s.length > slot.budget) errors.push({ path, error: slot.budget === "amount" ? "A price like $36 ($ and 1-4 digits)." : `At most ${slot.budget} characters (got ${s.length}).` })
         else if (!clean(s)) errors.push({ path, error: "Contains control characters." })
+        else if (foreignBrandIn(s)) errors.push({ path, error: `Contains "${foreignBrandIn(s)}": Basic Benefits / NOP text can't appear on another org's flyer.` })
         values[slot.key] = s
       }
       for (const k of Object.keys(v)) if (!SLOTS[layout as Layout].some((s) => s.key === k)) errors.push({ path: `${at}.variants.${lang}.${k}`, error: "Not a slot of this layout." })

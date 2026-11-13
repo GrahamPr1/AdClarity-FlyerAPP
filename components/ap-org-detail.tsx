@@ -84,7 +84,7 @@ export function ApOrgDetail({ initialOrg, initialAgents, log, signupLink, packag
           const out = await saveOrg(base, "PATCH", c)
           if (!out.ok) return out
           setOrg(out.org)
-          return null
+          return { saved: out.org }
         }} />
       </section>
 

@@ -64,9 +64,10 @@ function checkText(field: string, v: unknown, max: number, required = true): Che
 }
 
 function httpsUrl(v: string): URL | null {
+  if (/\s/.test(v)) return null
   try {
     const u = new URL(v)
-    return u.protocol === "https:" && !u.username && !u.password && !u.port ? u : null
+    return u.protocol === "https:" && !u.username && !u.password && !u.port && /^[^.]+(\.[^.]+)+$/.test(u.hostname) ? u : null
   } catch {
     return null
   }
@@ -74,27 +75,59 @@ function httpsUrl(v: string): URL | null {
 
 const tokenCount = (s: string) => s.split(ID_TOKEN).length - 1
 
+/**
+ * Paste-and-go for URL fields: an admin pastes a link as-is and this makes it
+ * a clean https URL, or says exactly why it can't.
+ *   - trims spaces, line breaks and tabs (anywhere: a paste can wrap)
+ *   - collapses a repeated scheme ("https://https://x" -> "https://x")
+ *   - adds https:// when there's no scheme; upgrades http:// to https://
+ *   - any other scheme (javascript:, ftp:, mailto:) is refused
+ * Returns the host-and-path without a scheme in `rest`, so the printed
+ * template can use the same cleaning without gaining one.
+ */
+export function cleanPastedUrl(raw: unknown): { ok: true; rest: string } | { ok: false; error: string } {
+  let s = typeof raw === "string" ? raw.replace(/[\r\n\t]+/g, "").trim() : ""
+  if (!s) return { ok: false, error: "Required." }
+  s = s.replace(/^(?:\s*https?:\/*)+/i, "")
+  if (/^[a-z][a-z0-9+.-]*:/i.test(s) && !/^[^/:]+:\d+(\/|$)/.test(s)) return { ok: false, error: "Must be a web address (https)." }
+  return { ok: true, rest: s.replace(/^\/+/, "") }
+}
+
+/** cleanPastedUrl, then "https://" + it, checked as a real https URL (with {id} replaced by a sample ID when present). */
+export function normalizeHttpsUrl(raw: unknown, field: string, label: string): Check<string> {
+  const c = cleanPastedUrl(raw)
+  if (!c.ok) return bad(field, `${label}: ${c.error}`)
+  const url = `https://${c.rest}`
+  if (url.length > LIMITS.url) return bad(field, `${label}: at most ${LIMITS.url} characters.`)
+  if (!httpsUrl(url.split(ID_TOKEN).join("TEST-1"))) return bad(field, `${label}: "${url}" isn't a valid web address (needs a domain like example.com, no spaces, port or password).`)
+  return { ok: true, value: url }
+}
+
 export function checkEnrollment(v: unknown): Check<ApEnrollment> {
   const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>
-  const forwardTemplate = str(o.forwardTemplate)
-  if (forwardTemplate.length > LIMITS.url) return bad("enrollment.forwardTemplate", `At most ${LIMITS.url} characters.`)
-  if (tokenCount(forwardTemplate) !== 1) return bad("enrollment.forwardTemplate", `Must contain ${ID_TOKEN} exactly once.`)
-  if (!httpsUrl(forwardTemplate.replace(ID_TOKEN, "TEST-1"))) return bad("enrollment.forwardTemplate", "Must be an https URL (no port or credentials).")
+  const fwd = normalizeHttpsUrl(o.forwardTemplate, "enrollment.forwardTemplate", "Enrollment URL pattern")
+  if (!fwd.ok) return fwd
+  const forwardTemplate = fwd.value
+  if (tokenCount(forwardTemplate) !== 1) return bad("enrollment.forwardTemplate", `Enrollment URL pattern: must contain ${ID_TOKEN} exactly once, where the agent's ID goes (e.g. https://join.example.com/?agent=${ID_TOKEN}).`)
 
   const printed = o.printed
   if (printed !== "full" && printed !== "short" && printed !== "code") return bad("enrollment.printed", "Choose full, short or code.")
 
   let printedTemplate: string | null = null
   if (printed === "short") {
-    printedTemplate = str(o.printedTemplate).replace(/^https?:\/\//, "")
-    if (printedTemplate.length > LIMITS.url) return bad("enrollment.printedTemplate", `At most ${LIMITS.url} characters.`)
-    if (tokenCount(printedTemplate) !== 1 || !printedTemplate.endsWith(ID_TOKEN)) return bad("enrollment.printedTemplate", `Must end with ${ID_TOKEN} (and contain it once).`)
-    if (!httpsUrl(`https://${printedTemplate.replace(ID_TOKEN, "TEST-1")}`)) return bad("enrollment.printedTemplate", "Must be a host and path, e.g. join.example.com/{id}.")
+    // Printed as-is on the flyer, so it stays WITHOUT a scheme: a pasted https:// is stripped, never added.
+    const c = cleanPastedUrl(o.printedTemplate)
+    if (!c.ok) return bad("enrollment.printedTemplate", `Short printed address: ${c.error}`)
+    printedTemplate = c.rest
+    if (printedTemplate.length > LIMITS.url) return bad("enrollment.printedTemplate", `Short printed address: at most ${LIMITS.url} characters.`)
+    if (tokenCount(printedTemplate) !== 1 || !printedTemplate.endsWith(ID_TOKEN)) return bad("enrollment.printedTemplate", `Short printed address: must end with ${ID_TOKEN} (and contain it once), e.g. join.example.com/${ID_TOKEN}.`)
+    if (!httpsUrl(`https://${printedTemplate.replace(ID_TOKEN, "TEST-1")}`)) return bad("enrollment.printedTemplate", `Short printed address: "${printedTemplate}" isn't a valid address (a domain and path, e.g. join.example.com/${ID_TOKEN}).`)
   }
 
-  const programUrl = str(o.programUrl)
-  if (programUrl.length > LIMITS.url || !httpsUrl(programUrl)) return bad("enrollment.programUrl", "Must be an https URL.")
-  if (programUrl.includes(ID_TOKEN)) return bad("enrollment.programUrl", `The program page can't contain ${ID_TOKEN}.`)
+  const prog = normalizeHttpsUrl(o.programUrl, "enrollment.programUrl", "Program page")
+  if (!prog.ok) return prog
+  const programUrl = prog.value
+  if (programUrl.includes(ID_TOKEN)) return bad("enrollment.programUrl", `Program page: can't contain ${ID_TOKEN} (it's the page for anyone, not one agent).`)
 
   return { ok: true, value: { forwardTemplate, printed, printedTemplate, programUrl } }
 }

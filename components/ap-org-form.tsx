@@ -15,14 +15,18 @@ export const EMPTY_CONFIG: OrgConfig = {
   name: "",
   slug: "",
   orgCode: "",
-  enrollment: { forwardTemplate: "https://", printed: "full", printedTemplate: null, programUrl: "https://" },
+  enrollment: { forwardTemplate: "", printed: "full", printedTemplate: null, programUrl: "" },
   agentIdParam: "agent_ID",
   languages: ["en"],
   footer: { programLine: "", taglineLine: "Sign in or enroll online" },
   tierRules: { defaultTier: "basic", signupApproval: "admin" },
 }
 
-export function ApOrgForm({ initial, submitLabel, onSubmit }: { initial: OrgConfig; submitLabel: string; onSubmit: (c: OrgConfig) => Promise<{ field?: string; message?: string } | null> }) {
+export function pickConfig(o: OrgConfig): OrgConfig {
+  return { name: o.name, slug: o.slug, orgCode: o.orgCode, enrollment: o.enrollment, agentIdParam: o.agentIdParam, languages: o.languages, footer: o.footer, tierRules: o.tierRules }
+}
+
+export function ApOrgForm({ initial, submitLabel, onSubmit }: { initial: OrgConfig; submitLabel: string; onSubmit: (c: OrgConfig) => Promise<{ field?: string; message?: string } | { saved: OrgConfig } | null> }) {
   const [c, setC] = useState<OrgConfig>(initial)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<{ field?: string; message?: string } | null>(null)
@@ -33,6 +37,13 @@ export function ApOrgForm({ initial, submitLabel, onSubmit }: { initial: OrgConf
     setBusy(true)
     setSaved(false)
     const out = await onSubmit(c).finally(() => setBusy(false))
+    if (out && "saved" in out) {
+      // Show back exactly what was stored (URLs normalized: scheme added or fixed, spaces removed).
+      setC(pickConfig(out.saved))
+      setErr(null)
+      setSaved(true)
+      return
+    }
     setErr(out)
     if (!out) setSaved(true)
   }
@@ -51,8 +62,8 @@ export function ApOrgForm({ initial, submitLabel, onSubmit }: { initial: OrgConf
       {text("name", "Organization name", c.name, (v) => setC({ ...c, name: v }), 60)}
       {text("slug", "Slug (URL)", c.slug, (v) => setC({ ...c, slug: v.toLowerCase() }), 40, "Agents sign up at /ap/<slug>/join")}
       {text("orgCode", "Org code (2-6 capitals, prints in the version stamp)", c.orgCode, (v) => setC({ ...c, orgCode: v.toUpperCase() }), 6)}
-      {text("enrollment.forwardTemplate", "Enrollment URL pattern", c.enrollment.forwardTemplate, (v) => setC({ ...c, enrollment: { ...c.enrollment, forwardTemplate: v } }), 300, "https URL with {id} once, e.g. https://join.example.com/?agent={id}")}
-      {text("enrollment.programUrl", "Program page (inactive agents' QR)", c.enrollment.programUrl, (v) => setC({ ...c, enrollment: { ...c.enrollment, programUrl: v } }), 300)}
+      {text("enrollment.forwardTemplate", "Enrollment URL pattern", c.enrollment.forwardTemplate, (v) => setC({ ...c, enrollment: { ...c.enrollment, forwardTemplate: v } }), 300, "Paste the link as-is, with {id} where the agent's ID goes, e.g. join.example.com/?agent={id}. https:// is added for you.")}
+      {text("enrollment.programUrl", "Program page (inactive agents' QR)", c.enrollment.programUrl, (v) => setC({ ...c, enrollment: { ...c.enrollment, programUrl: v } }), 300, "Paste the link as-is.")}
       <div className="space-y-1">
         <Label htmlFor="enrollment.printed">Printed address</Label>
         <select id="enrollment.printed" className="h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={c.enrollment.printed} onChange={(e) => setC({ ...c, enrollment: { ...c.enrollment, printed: e.target.value as OrgConfig["enrollment"]["printed"], printedTemplate: e.target.value === "short" ? c.enrollment.printedTemplate ?? "" : null } })}>
@@ -61,7 +72,7 @@ export function ApOrgForm({ initial, submitLabel, onSubmit }: { initial: OrgConf
           <option value="code">Agent&apos;s QR link</option>
         </select>
       </div>
-      {c.enrollment.printed === "short" ? text("enrollment.printedTemplate", "Short printed address", c.enrollment.printedTemplate ?? "", (v) => setC({ ...c, enrollment: { ...c.enrollment, printedTemplate: v } }), 300, "host/path ending in {id}") : <div />}
+      {c.enrollment.printed === "short" ? text("enrollment.printedTemplate", "Short printed address", c.enrollment.printedTemplate ?? "", (v) => setC({ ...c, enrollment: { ...c.enrollment, printedTemplate: v } }), 300, "As printed, ending in {id}, e.g. join.example.com/{id} (a pasted https:// is removed)") : <div />}
       {text("agentIdParam", "Agent ID parameter on the sign-up link", c.agentIdParam, (v) => setC({ ...c, agentIdParam: v }), 32)}
       <fieldset className="space-y-1">
         <legend className="text-sm font-medium">Languages</legend>

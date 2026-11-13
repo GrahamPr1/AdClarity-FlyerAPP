@@ -3,6 +3,7 @@ import path from "node:path"
 import { createHash } from "node:crypto"
 import type { Layout } from "./slots"
 import type { Size } from "./content"
+import { BANNED } from "./brand"
 
 // The platform's copy of the kit-v2 design (enterprise/ap/kit-v2, built by
 // scripts/ap-build-templates.py from NOP's kit, which is never read at run
@@ -151,10 +152,13 @@ export function kitFileFor(url: string): string | null {
   return fs.existsSync(file) && fs.statSync(file).isFile() ? file : null
 }
 
-/** Strings that must never reach a non-NOP flyer unless an org typed them into a slot. */
-export const BANNED = [/basic\s*benefits/i, /basicbenefits/i, /bb-logo/i, /\bNOP-P\d/, /\bNOP\b/, /benefithub/i, /healthyr/i, /neighborhood outreach/i]
+export { BANNED }
 
-/** Throws if the page carries a banned string that didn't come from this org's own slot values. */
+/**
+ * Throws if the page carries a banned string that didn't come from this org's
+ * own values. Slot content can't contain them (checkPackages refuses it on
+ * every save and import); this is the last check on the finished page.
+ */
 export function assertNoForeignBrand(html: string, ownValues: string[]): void {
   let rest = html
   for (const v of ownValues.filter(Boolean).sort((a, b) => b.length - a.length)) rest = rest.split(escText(v)).join("").split(esc(v)).join("")
