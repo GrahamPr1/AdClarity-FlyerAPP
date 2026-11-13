@@ -24,7 +24,7 @@ import { Redis } from "@upstash/redis"
 
 const redis = Redis.fromEnv()
 
-export type StockProvider = "unsplash" | "pexels"
+export type StockProvider = "unsplash" | "pexels" | "pixabay"
 
 /** Long enough that a burst of same-trade generations shares one search; short enough to pick up new library photos. */
 export const SEARCH_CACHE_TTL_SECONDS = 24 * 60 * 60
