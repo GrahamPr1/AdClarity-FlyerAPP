@@ -283,7 +283,15 @@ export async function POST(request: NextRequest) {
   // flow uses, so output parity (QR tracking, repurposing) is automatic,
   // not something to separately reimplement.
   waitUntil(
-    continuePipelineFromIntake(email, intake, [{ id: flyerRequestId, purpose: intake.flyerRequests[0].purpose, notes: intake.flyerRequests[0].notes }], false).catch((err) => {
+    // The chosen format travels on the request the pipeline renders from:
+    // without formatId it reads as "flyer", so a door hanger, social post,
+    // one-pager or proposal came out as a letter flyer.
+    continuePipelineFromIntake(
+      email,
+      intake,
+      [{ id: flyerRequestId, purpose: intake.flyerRequests[0].purpose, notes: intake.flyerRequests[0].notes, formatId: intake.flyerRequests[0].formatId }],
+      false,
+    ).catch((err) => {
       console.error("[agent-pipeline] Unhandled quick-prompt pipeline error:", err)
     }),
   )
