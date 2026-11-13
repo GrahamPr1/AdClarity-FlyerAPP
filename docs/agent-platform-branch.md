@@ -61,18 +61,31 @@ Production.
 | `STRIPE_PORTAL_CONFIGURATION_ID` | sandbox portal config |
 | `ISOLATION_PROBE_TOKEN` | random, for `/api/admin/isolation-probe` |
 
-Everything else is inherited from Preview (all branches):
+Everything else is inherited from Preview (all branches).
 
-- Redis is Preview's own Upstash database, marker `preview`.
-- Blob is the shared non-production store `oneflyer-nonprod`, marker `nonproduction`.
+> **Warning, found 2026-11-13.** The general Preview `UPSTASH_REDIS_REST_*`
+> variables point at the **production** Redis (`upstash-KV-Datbase-Oneflyer`).
+> Production's `__oneflyer_environment` label says `preview` because a preview
+> deploy claimed it first. Every preview branch without its own branch-scoped
+> Redis vars reads and writes live data. `docs/local-development.md` says
+> otherwise and is wrong on this point.
+
+- **Redis must be the `oneflyer-agent-platform` database.** Set
+  `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` scoped to
+  `Preview (agent-platform)`, with the values of `AP_KV_REST_API_URL` and
+  `AP_KV_REST_API_TOKEN`. Without them the branch falls back to production
+  Redis.
+- **Blob** uses the Development/Preview `BLOB_READ_WRITE_TOKEN`, labelled
+  `nonproduction`. The label is first-writer-wins like the Redis one, so it
+  isn't proof. Confirm in the Vercel Blob dashboard which store holds
+  `__isolation_probe/`.
 - `SESSION_SECRET` and `DASHBOARD_PASSWORD` are Preview's own values.
 - Anthropic and Resend keys are Preview's.
 
-Preview Redis and Blob are **shared with other preview branches** (e.g.
-`nop-admin`). They're isolated from production, not from other previews. If
-the agent platform needs its own database, add a second Upstash instance and
-scope `UPSTASH_REDIS_REST_URL`/`_TOKEN` to `Preview (agent-platform)`. The
-marker guard claims it on first boot.
+**Environment labels prove nothing.** `__oneflyer_environment` (Redis) and
+`__environment/*` (Blob) are written by whichever environment starts first,
+and production only warns on a mismatch. Identify a database by its URL, never
+by its label.
 
 ### Stripe on this branch
 
@@ -95,7 +108,7 @@ marker guard claims it on first boot.
 
 ## Creating an admin account on the copy site
 
-The copy site has its own database, so production accounts don't exist on it.
+Once the branch-scoped Redis vars are in, the copy site has its own empty database, so production accounts don't exist on it.
 
 1. **Owner login.** Open `<branch URL>/login`, click **"Site admin? Sign in with password"**,
    and enter the **Preview** `DASHBOARD_PASSWORD`. This gives you the built-in
@@ -122,12 +135,14 @@ Preview's Resend config, so they're real emails.
 ## Isolation check (repeatable)
 
 `/api/admin/isolation-probe` returns 404 in production and wherever
-`ISOLATION_PROBE_TOKEN` is unset.
+`ISOLATION_PROBE_TOKEN` is unset. It returns **409 without sending any Redis
+command** unless `UPSTASH_REDIS_REST_URL` equals `AP_KV_REST_API_URL`, i.e.
+unless the deployment is really on the `oneflyer-agent-platform` database.
 
 - `POST ?nonce=<n>` writes Redis key `__isolation_probe:<n>` (30-day TTL) and
   private blob `__isolation_probe/<n>`.
-- `GET ?nonce=<n>` reports whether each exists, plus each store's environment
-  marker and the `verdictForMarker` result.
+- `GET ?nonce=<n>` reports whether each exists and `redisIsAgentPlatformDb`.
+  The `marker` and `verdict` fields are informational only (see above).
 
 ```bash
 H=oneflyer-git-agent-platform-grahampr1s-projects.vercel.app
@@ -135,12 +150,7 @@ vercel curl "/api/admin/isolation-probe?nonce=ap-test-1234" --deployment https:/
   -- -X POST -H "x-isolation-probe-token: <token>"
 ```
 
-A healthy branch reports `redis.marker: "preview"` and
-`blob.marker: "nonproduction"`, both with verdict `ok` and
-`isProductionStore: false`. If either store ever carried the `production`
-marker, the guard would throw before the probe wrote anything.
-
-To check the production side directly (read-only), run
-`EXISTS __isolation_probe:<nonce>` in the Upstash console on the **production**
-database; it should return `0`. Also search `__isolation_probe/` in the
-`oneflyer-forms` Blob store; it should find nothing.
+**The isolation proof is the production-side check, not the label.** After a
+POST, run `EXISTS __isolation_probe:<nonce>` in the Upstash console on the
+production database (`upstash-KV-Datbase-Oneflyer`). It must return `0`. Run
+the same on `oneflyer-agent-platform`, where it must return `1`.

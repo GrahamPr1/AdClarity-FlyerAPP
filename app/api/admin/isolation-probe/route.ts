@@ -17,8 +17,10 @@ import { assertBlobMatchesEnvironment, readBlobEnvironmentMarker } from "@/lib/b
 // enforce at boot.
 //
 // Inert in production (404) and without ISOLATION_PROBE_TOKEN (404), which
-// is set only on Preview (agent-platform). Never reads or writes anything but
-// the probe key/blob and the existing markers.
+// is set only on Preview (agent-platform). Refuses (409, no Redis command)
+// unless connected to the oneflyer-agent-platform database — see
+// onAgentPlatformDatabase. The "marker" fields are reported for information
+// only; they are first-writer-wins labels and prove nothing on their own.
 
 const REDIS_PREFIX = "__isolation_probe:"
 const BLOB_PREFIX = "__isolation_probe/"
@@ -32,6 +34,32 @@ function authorised(request: NextRequest): boolean {
   const a = Buffer.from(expected)
   const b = Buffer.from(given)
   return a.length === b.length && timingSafeEqual(a, b)
+}
+
+/**
+ * The environment label in Redis is NOT evidence of which database this is:
+ * it is first-writer-wins, and production's database was labelled "preview"
+ * by a preview deploy (2026-11-13). The only trustworthy check is identity:
+ * the connected URL must equal the oneflyer-agent-platform database's own URL
+ * (AP_KV_REST_API_URL, injected by its Vercel integration). Anything else —
+ * including production Redis via the general Preview vars — is refused
+ * before a single Redis command is sent.
+ */
+function onAgentPlatformDatabase(): boolean {
+  const norm = (v: string | undefined) => v?.trim().replace(/\/+$/, "").toLowerCase() ?? ""
+  const connected = norm(process.env.UPSTASH_REDIS_REST_URL)
+  const own = norm(process.env.AP_KV_REST_API_URL)
+  return connected !== "" && connected === own
+}
+
+function refuseWrongDatabase() {
+  return NextResponse.json(
+    {
+      error: "Connected Redis is not the oneflyer-agent-platform database (UPSTASH_REDIS_REST_URL != AP_KV_REST_API_URL). No Redis command was sent.",
+      redisIsAgentPlatformDb: false,
+    },
+    { status: 409, headers: { "Cache-Control": "no-store" } },
+  )
 }
 
 async function report(nonce: string) {
@@ -52,6 +80,7 @@ async function report(nonce: string) {
   return {
     environment,
     agentPlatformEnabled: process.env.AGENT_PLATFORM_ENABLED === "true",
+    redisIsAgentPlatformDb: onAgentPlatformDatabase(),
     nonce,
     redis: {
       marker: redisMarker,
@@ -72,6 +101,7 @@ export async function POST(request: NextRequest) {
   if (!authorised(request)) return new NextResponse(null, { status: 404 })
   const nonce = request.nextUrl.searchParams.get("nonce") ?? ""
   if (!NONCE.test(nonce)) return NextResponse.json({ error: "nonce must match [a-z0-9-]{8,64}" }, { status: 400 })
+  if (!onAgentPlatformDatabase()) return refuseWrongDatabase()
 
   await assertRedisMatchesEnvironment()
   await assertBlobMatchesEnvironment()
@@ -85,5 +115,6 @@ export async function GET(request: NextRequest) {
   if (!authorised(request)) return new NextResponse(null, { status: 404 })
   const nonce = request.nextUrl.searchParams.get("nonce") ?? ""
   if (!NONCE.test(nonce)) return NextResponse.json({ error: "nonce must match [a-z0-9-]{8,64}" }, { status: 400 })
+  if (!onAgentPlatformDatabase()) return refuseWrongDatabase()
   return NextResponse.json(await report(nonce), { headers: { "Cache-Control": "no-store" } })
 }
