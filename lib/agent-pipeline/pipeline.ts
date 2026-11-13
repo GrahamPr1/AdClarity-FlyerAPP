@@ -28,7 +28,8 @@ import { planIncludesExtras, aiPhotosEnabled, stockPhotosEnabled, qrEnabled } fr
 import { assignDesignVariants, PRESERVE_EXISTING_VARIANT } from "./design-variants"
 import { palettePoolFor } from "./trade-palettes"
 import { runPolishAgent } from "./agents/polishAgent"
-import { fillTemplate, refitTemplateFlyer, selectTemplate, type ColorPolicy, type ContrastNote } from "./template-mode"
+import { fillTemplate, refitTemplateFlyer, type ColorPolicy, type ContrastNote } from "./template-mode"
+import { designInputs, templateForRequest } from "@/lib/flyer-design"
 import { resolveBrandColors, resolveFonts, renderableFonts, type BrandStylePreference } from "@/lib/brand-controls"
 import { loadBusinessProfileContext } from "./business-profile-context"
 import { applyLegibilityGuardrails } from "./legibility"
@@ -774,7 +775,9 @@ async function runTemplateFlyer(
   type Spec = Awaited<ReturnType<typeof runFlyerAgent>>["flyers"][number]
   const flyers: Spec[] = []
   for (const request of input.flyerRequests) {
-    const template = selectTemplate(request.id, getFormat(request.formatId).id)
+    // A kept design (new promotion from an existing flyer) wins when its
+    // template suits this format; otherwise the usual per-flyer choice.
+    const template = templateForRequest(request, getFormat(request.formatId).id)
     // No template for this canvas — fall back to the AI agent rather than
     // rendering the wrong aspect ratio. proposal/one-pager paginate and have
     // no template at all.
@@ -800,7 +803,7 @@ async function runTemplateFlyer(
       request.id,
     )
 
-    const palette = input.brandProfile?.colors ?? []
+    const { colors, fonts } = designInputs(request, input.brandProfile)
     const filled = fillTemplate({
       template,
       headline: polished.headline,
@@ -811,12 +814,8 @@ async function runTemplateFlyer(
       hasLogo: Boolean(intake.brandAssets.logoUrl),
       hasQr: Boolean(request.qrCodeDataUrl),
       photoUrl: input.photos[0]?.url ?? null,
-      colors: {
-        primary: palette[0]?.hex ?? "#12314f",
-        secondary: palette[1]?.hex ?? "#eef1f4",
-        accent: palette[2]?.hex ?? "#e39a2b",
-      },
-      fonts: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+      colors,
+      fonts,
       colorPolicy,
     })
     logContrastNotes(`flyer ${request.id}`, filled.contrast, colorPolicy)
@@ -829,7 +828,7 @@ async function runTemplateFlyer(
 
     // The square social template IS the Instagram asset — rendered here in
     // code rather than written as HTML by the Repurpose Agent.
-    const square = selectTemplate(request.id, "social-post")
+    const square = templateForRequest(request, "social-post", "square")
     if (square) {
       const sq = fillTemplate({
         template: square,
@@ -841,12 +840,8 @@ async function runTemplateFlyer(
         hasLogo: Boolean(intake.brandAssets.logoUrl),
         hasQr: false,
         photoUrl: input.photos[0]?.url ?? null,
-        colors: {
-          primary: palette[0]?.hex ?? "#12314f",
-          secondary: palette[1]?.hex ?? "#eef1f4",
-          accent: palette[2]?.hex ?? "#e39a2b",
-        },
-        fonts: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+        colors,
+        fonts,
         colorPolicy,
       })
       logContrastNotes(`flyer ${request.id} (Instagram)`, sq.contrast, colorPolicy)
@@ -868,12 +863,8 @@ async function runTemplateFlyer(
       cta: intake.contact.phone,
       disclaimer: null,
       html: filled.html,
-      paletteUsed: {
-        primary: palette[0]?.hex ?? "#12314f",
-        secondary: palette[1]?.hex ?? "#eef1f4",
-        accent: palette[2]?.hex ?? "#e39a2b",
-      },
-      fontsUsed: input.brandProfile?.fonts ?? { heading: "Georgia, serif", body: "Georgia, serif" },
+      paletteUsed: colors,
+      fontsUsed: fonts,
       repurposed: null,
     } as Spec)
   }

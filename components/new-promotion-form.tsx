@@ -3,10 +3,10 @@
 import { useState } from "react"
 
 /**
- * Pro: one new flyer from an existing one, with a new offer. The source is
- * looked up when the form opens: flyers made before per-campaign inputs were
- * saved come from the Business Profile instead, and the form says so before
- * anything is generated. /api/campaigns/new-promotion enforces the plan gate.
+ * Pro: one new flyer from an existing one, with a new offer and the same
+ * design. The source is looked up when the form opens: flyers made before
+ * per-campaign inputs were saved take their business details from the
+ * Business Profile instead, and the form says so before anything is generated. /api/campaigns/new-promotion enforces the plan gate.
  */
 export function NewPromotionForm({ flyerId, onCreated }: { flyerId: string; onCreated?: () => void }) {
   const [open, setOpen] = useState(false)
@@ -66,15 +66,17 @@ export function NewPromotionForm({ flyerId, onCreated }: { flyerId: string; onCr
         <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-2.5">
           {source === "campaign" && (
             <p className="rounded-lg border border-border bg-[var(--surface-soft)] px-3 py-2 text-xs text-muted-foreground">
-              Uses this flyer&apos;s business details, brand, photos and format. Only the offer changes.
+              Uses this flyer&apos;s business details, photos, format and design (layout, colours and fonts).
+              Only the offer changes.
               It counts as one flyer on your plan.
             </p>
           )}
           {source === "profile" && (
             <p className="rounded-lg border border-border bg-[var(--surface-soft)] px-3 py-2 text-xs text-muted-foreground">
-              This flyer was made before OneFlyer kept what each campaign was made from, so the new one
-              will be made from your saved Business Profile as a standard flyer, not from this flyer&apos;s
-              photos or format. It counts as one flyer on your plan.
+              The new flyer keeps this flyer&apos;s design: its layout, colours and fonts. This flyer was
+              made before OneFlyer kept what each campaign was made from, so the business details come from
+              your saved Business Profile, and its photos aren&apos;t carried over. It counts as one flyer on
+              your plan.
             </p>
           )}
           <div>

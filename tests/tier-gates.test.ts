@@ -12,7 +12,12 @@ const s = vi.hoisted(() => ({
   plans: new Map<string, string | null>(),
   sideEffects: [] as string[],
   campaignInputs: new Map<string, unknown>(),
-  generated: [] as { intake: { businessName: string; photos: unknown[]; flyerRequests: { id: string; purpose: string; notes: string | null; formatId?: string }[] } }[],
+  generated: [] as {
+    intake: { businessName: string; photos: unknown[]; flyerRequests: { id: string; purpose: string; notes: string | null; formatId?: string }[] }
+    requests: { id: string; formatId?: string; keepDesign?: Record<string, unknown> }[]
+  }[],
+  /** Extra fields on the caller's flyer f1 (e.g. its stored HTML). */
+  sourceFlyer: {} as Record<string, unknown>,
 }))
 vi.mock("@/lib/store", () => {
   const client = (email: string) => {
@@ -30,7 +35,7 @@ vi.mock("@/lib/store", () => {
     getFormFillsForEmail: async () => [],
     savePendingGoalCampaign: touched("savePendingGoalCampaign"),
     getPendingGoalCampaign: async () => null,
-    getDeliverablesForEmail: async (email: string) => ({ email, flyers: [{ id: "f1", trackingCode: `code-${email}` }] }),
+    getDeliverablesForEmail: async (email: string) => ({ email, flyers: [{ id: "f1", trackingCode: `code-${email}`, ...s.sourceFlyer }] }),
     getDeliverables: async () => ({ email: "trial@x.test", flyers: [{ id: "f1", trackingCode: "code-trial@x.test" }] }),
     getTrackingRecord: async (code: string) => ({ code, email: code.replace(/^code-/, ""), flyerId: "f1" }),
     getTrackingStats: async () => ({ scans: 12, clicks: 5 }),
@@ -52,7 +57,7 @@ vi.mock("@/lib/agent-pipeline/goal-parser", () => ({ parseMarketingGoal: async (
 vi.mock("@/lib/agent-pipeline/goal-campaign", () => ({ buildGoalCampaignPlan: async () => ({}), OfferRequiredError: class extends Error {} }))
 vi.mock("@/lib/agent-pipeline/goal-rate-limit", () => ({ checkGoalRateLimit: async () => ({ allowed: true, retryAfterSeconds: 0 }) }))
 vi.mock("@/lib/agent-pipeline/pipeline", () => ({
-  continuePipelineFromIntake: async (_email: string, intake: never) => void s.generated.push({ intake }),
+  continuePipelineFromIntake: async (_email: string, intake: never, requests: never) => void s.generated.push({ intake, requests }),
 }))
 vi.mock("@/lib/enterprise/generation-guard", () => ({
   nopAgentGenerationBlock: async (email: string) =>
@@ -77,6 +82,7 @@ beforeEach(() => {
   s.sideEffects = []
   s.campaignInputs = new Map()
   s.generated = []
+  s.sourceFlyer = {}
 })
 afterEach(() => vi.unstubAllEnvs())
 
@@ -239,5 +245,43 @@ describe("new promotion from this campaign: Pro only, on the server", () => {
     const r = await call(load as never, "/api/campaigns/new-promotion", "pro@x.test", body({ offer: "  " }))
     expect(r.status).toBe(400)
     expect(s.sideEffects).toEqual([])
+  })
+})
+
+describe("new promotion keeps the source flyer's design", () => {
+  const load = () => import("@/app/api/campaigns/new-promotion/route")
+  const colors = { primary: "#7a1f2b", secondary: "#f4e9e1", accent: "#d9a441" }
+  const fonts = { heading: "Georgia, serif", body: "Arial, sans-serif" }
+  async function stored(templateId: string) {
+    const { fillTemplate } = await import("@/lib/agent-pipeline/template-mode")
+    const { templateById } = await import("@/lib/agent-pipeline/templates")
+    const { encodeFlyerHtml } = await import("@/lib/flyer-data-url")
+    const html = fillTemplate({ template: templateById(templateId)!, headline: "Roof inspection", supporting: "Free this month.", businessName: "Pearl Roofing", phone: "270-555-0100", address: null, hasLogo: false, hasQr: true, photoUrl: null, colors, fonts }).html
+    return encodeFlyerHtml(html)
+  }
+  const body = JSON.stringify({ flyerId: "f1", offer: "Free gutter check with any roof repair" })
+
+  it("saved inputs: same layout, colours and fonts as the source", async () => {
+    s.sourceFlyer = { downloadUrl: await stored("split-vertical") }
+    s.campaignInputs.set("f1", {
+      intake: { businessName: "Pearl Roofing", photos: [], flyerRequests: [] },
+      request: { id: "f1", purpose: "Roof inspection", notes: null },
+      savedAt: "2026-11-12T20:04:52.000Z",
+    })
+    expect((await call(load as never, "/api/campaigns/new-promotion", "pro@x.test", body)).status).toBe(201)
+    expect(s.generated[0].requests[0].keepDesign).toEqual({ templateId: "split-vertical", colors, fonts })
+  })
+
+  it("fallback (older flyer): keeps the design too, and a door hanger stays a door hanger", async () => {
+    s.sourceFlyer = { downloadUrl: await stored("door-hanger-stack") }
+    expect((await call(load as never, "/api/campaigns/new-promotion", "pro@x.test", body)).body).toMatchObject({ source: "profile" })
+    const [request] = s.generated[0].requests
+    expect(request).toMatchObject({ formatId: "door-hanger", keepDesign: { templateId: "door-hanger-stack", colors, fonts } })
+  })
+
+  it("an AI-drawn source has no design to keep: the request carries none and is drawn as normal", async () => {
+    s.sourceFlyer = { downloadUrl: "data:text/html;charset=utf-8,<h1>Roof sale</h1>" }
+    await call(load as never, "/api/campaigns/new-promotion", "pro@x.test", body)
+    expect(s.generated[0].requests[0].keepDesign).toBeUndefined()
   })
 })

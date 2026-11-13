@@ -17,6 +17,28 @@ export const FlyerRequestSchema = z.object({
    * than silently reverting to a flyer.
    */
   formatId: z.string().optional(),
+  /**
+   * Keep an existing flyer's design: its layout template(s), colours and
+   * fonts, read from that flyer's stored HTML ("new promotion from this
+   * campaign"). Only the template path honours it, and a template that
+   * doesn't suit the format is ignored. Absent on every other request.
+   */
+  keepDesign: z
+    .object({
+      templateId: z.string().optional(),
+      squareTemplateId: z.string().optional(),
+      colors: z
+        .object({
+          primary: z.string().regex(/^#[0-9a-f]{3,8}$/i),
+          secondary: z.string().regex(/^#[0-9a-f]{3,8}$/i),
+          accent: z.string().regex(/^#[0-9a-f]{3,8}$/i),
+        })
+        .optional(),
+      fonts: z
+        .object({ heading: z.string().regex(/^[\w\s,"'-]+$/), body: z.string().regex(/^[\w\s,"'-]+$/) })
+        .optional(),
+    })
+    .optional(),
 })
 
 export type FlyerRequest = z.infer<typeof FlyerRequestSchema>
