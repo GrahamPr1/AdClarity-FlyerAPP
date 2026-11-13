@@ -96,9 +96,12 @@ export function ApOrgForm({ initial, submitLabel, onSubmit }: { initial: OrgConf
       <div className="space-y-1">
         <Label htmlFor="tierRules.signupApproval">Sign-up approval</Label>
         <select id="tierRules.signupApproval" className="h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={c.tierRules.signupApproval} onChange={(e) => setC({ ...c, tierRules: { ...c.tierRules, signupApproval: e.target.value as "auto" | "admin" } })}>
-          <option value="admin">An admin approves each sign-up</option>
+          <option value="admin">An admin approves each sign-up (default, safer)</option>
           <option value="auto">Active as soon as the email is verified</option>
         </select>
+        <p className="text-xs text-muted-foreground" data-testid="signup-approval-hint">
+          {c.tierRules.signupApproval === "admin" ? "New agents wait in the Agents table until an admin clicks Approve." : "Anyone with the sign-up link and a working email becomes an active agent at once."}
+        </p>
       </div>
       <div className="sm:col-span-2 flex items-center gap-3">
         <Button type="submit" disabled={busy}>{submitLabel}</Button>

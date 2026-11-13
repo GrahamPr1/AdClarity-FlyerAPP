@@ -118,10 +118,15 @@ export function agentAreaHtml(v: { name: string; phone: string; link: { href: st
 const DS_FONTS = "_ds/kit/assets/fonts"
 const ACCENT_METRICS = `<style>@font-face{font-family:'Opificio Rounded';src:url('${DS_FONTS}/Poppins-ExtraBold.ttf') format('truetype');font-weight:800;font-style:normal;ascent-override:70%;descent-override:19.8%;line-gap-override:4.9%;unicode-range:U+0020}</style>`
 
-const WATERMARK_STYLE = `<style>[data-ap-proof]{position:absolute;inset:0;z-index:50;pointer-events:none;overflow:hidden}[data-ap-proof] .w{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-30deg);font-family:'Poppins',sans-serif;font-weight:800;font-size:150px;letter-spacing:12px;color:rgba(220,38,38,.22);white-space:nowrap}[data-ap-proof] .b{position:absolute;left:0;right:0;top:0;background:rgba(220,38,38,.92);color:#fff;font-family:'Poppins',sans-serif;font-weight:700;font-size:12px;letter-spacing:2px;text-align:center;padding:4px 0}</style>`
+const WATERMARK_STYLE = `<style>[data-ap-proof]{position:absolute;inset:0;z-index:50;pointer-events:none;overflow:hidden}[data-ap-proof] .w{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-30deg);font-family:'Poppins',sans-serif;font-weight:800;font-size:150px;letter-spacing:12px;color:rgba(220,38,38,.22);white-space:nowrap}[data-ap-proof] .b{position:absolute;left:0;right:0;top:0;height:18px;box-sizing:border-box;background:rgba(220,38,38,.92);color:#fff;font-family:'Poppins',sans-serif;font-weight:700;font-size:10px;line-height:14px;letter-spacing:2px;text-align:center;padding:2px 0}</style>`
+// The band is 18px tall at the very top of the page; the header's logo row
+// starts 26px down (38px with bleed), so there's at least 8px of navy between
+// them (tests/ap-templates.test.ts measures it). It's an overlay: a proof lays
+// out exactly as the approved page will, so fit checks agree.
 const WATERMARK = `<div data-ap-proof><div class="w">PROOF</div><div class="b">PROOF · NOT FOR DISTRIBUTION</div></div>`
 
-function forRender(html: string, proof: boolean): string {
+/** The page as handed to the browser: base URL, accent metrics and, for proofs, the watermark. */
+export function forRender(html: string, proof: boolean): string {
   const head = /<head[^>]*>/i.exec(html)!
   const at = head.index + head[0].length
   let out = `${html.slice(0, at)}<base href="${AP_KIT_ORIGIN}/">${ACCENT_METRICS}${proof ? WATERMARK_STYLE : ""}${html.slice(at)}`
@@ -209,11 +214,29 @@ const MEASURE_JS = `(() => {
     }
     return tops.size;
   }
+  // A slot overflows only if ITS OWN text runs past its block's content box.
+  // (Checking the block's scrollWidth flagged every slot sharing the block,
+  // e.g. both title lines when only the first was too wide.)
+  function ownOverflow(el, block) {
+    if (!block) return false;
+    var b = block.getBoundingClientRect();
+    var cs = getComputedStyle(block);
+    var left = b.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft) - 0.5;
+    var right = b.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight) + 0.5;
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (var t = walker.nextNode(); t; t = walker.nextNode()) {
+      var range = document.createRange();
+      range.selectNodeContents(t);
+      var rects = range.getClientRects();
+      for (var i = 0; i < rects.length; i++) if (rects[i].width > 0 && (rects[i].right > right || rects[i].left < left)) return true;
+    }
+    return false;
+  }
   var slots = Array.from(document.querySelectorAll("[data-ap-slot]")).map(function (el) {
     var block = el.parentElement;
     while (block && getComputedStyle(block).display === "inline") block = block.parentElement;
     var visible = el.getClientRects().length > 0;
-    return { key: el.getAttribute("data-ap-slot"), lines: visible ? lineCount(el) : 0, overflow: !!block && block.scrollWidth > block.clientWidth + 0.5, visible: visible };
+    return { key: el.getAttribute("data-ap-slot"), lines: visible ? lineCount(el) : 0, overflow: visible && ownOverflow(el, block), visible: visible };
   });
   var main = document.querySelector("main");
   var pageEl = document.querySelector("section.page");
@@ -262,10 +285,12 @@ export function gateProblems(m: PageMeasure, layout: Layout, linkLines: number, 
     if (s.lines > allowed) out.push({ code: "slot_too_long", slot: s.key, message: `${s.key}: ${s.lines} lines, max ${allowed}` })
     else if (s.overflow) out.push({ code: "slot_too_long", slot: s.key, message: `${s.key}: doesn't fit its box` })
   }
-  if (m.mainOverflow > 0.5) out.push({ code: "page_overflow", message: `content overflows the page body by ${m.mainOverflow.toFixed(1)}px` })
-  if (m.pageOverflow > 0.5) out.push({ code: "page_overflow", message: `page overflows by ${m.pageOverflow.toFixed(1)}px` })
-  if (m.footerBottomOffset > 0.5) out.push({ code: "page_overflow", message: `footer ends ${m.footerBottomOffset.toFixed(1)}px off the page bottom` })
-  if (m.minGap < MIN_GAP_PX - 0.25) out.push({ code: "page_overflow", message: `blocks are ${m.minGap.toFixed(1)}px apart, minimum ${MIN_GAP_PX.toFixed(1)}px` })
+  // Page-level problems are knock-ons of a slot that's too long: report them only when no slot is at fault.
+  const slotFault = out.length > 0
+  if (!slotFault && m.mainOverflow > 0.5) out.push({ code: "page_overflow", message: `content overflows the page body by ${m.mainOverflow.toFixed(1)}px` })
+  if (!slotFault && m.pageOverflow > 0.5) out.push({ code: "page_overflow", message: `page overflows by ${m.pageOverflow.toFixed(1)}px` })
+  if (!slotFault && m.footerBottomOffset > 0.5) out.push({ code: "page_overflow", message: `footer ends ${m.footerBottomOffset.toFixed(1)}px off the page bottom` })
+  if (!slotFault && m.minGap < MIN_GAP_PX - 0.25) out.push({ code: "page_overflow", message: `blocks are ${m.minGap.toFixed(1)}px apart, minimum ${MIN_GAP_PX.toFixed(1)}px` })
   for (const f of m.agentFields) {
     const want = f.field === "enroll_link" ? linkLines : 1
     if (!f.ok || f.lines !== want) out.push({ code: f.field === "enroll_link" ? "master_invalid" : "slot_too_long", slot: `agent.${f.field}`, message: `agent ${f.field} doesn't fit beside the QR (${f.lines} lines, expected ${want})` })

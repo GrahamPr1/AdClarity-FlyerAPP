@@ -6,7 +6,7 @@ import { checkPackages, templatesFor, type ApPackage } from "@/lib/ap/templates/
 import { analyzeLogo, logoHtml, LOGO_BOX } from "@/lib/ap/templates/logo"
 import { SLOTS, LAYOUTS, type Layout } from "@/lib/ap/templates/slots"
 import { sampleSlots } from "@/lib/ap/templates/sample"
-import { ApRenderError, decodeQrFromPng, pageHtml, renderFlyer, type AgentValues } from "@/lib/ap/templates/render"
+import { ApRenderError, decodeQrFromPng, forRender, pageHtml, renderFlyer, type AgentValues } from "@/lib/ap/templates/render"
 import { acquireBrowser } from "@/lib/pdf/flyer-pdf"
 
 // The agent platform's flyer slots. Most checks run in the real renderer
@@ -250,4 +250,49 @@ describe("approved versions and proofs", () => {
     expect(templatesFor(pk, ["en"]).map((t) => t.id)).toEqual(["pkg_abcdefgh_EN_PRICE"])
     expect(templatesFor(pk, ["en", "es"]).map((t) => t.id)).toEqual(["pkg_abcdefgh_EN_PRICE"])
   })
+})
+
+describe("fit errors name only the slot that overflows", () => {
+  const problemsOf = async (layout: Layout, patch: Record<string, string>) => {
+    const err = await render(layout, { ...sampleSlots(layout, "en"), ...patch }).then(() => null, (e) => e)
+    expect(err).toBeInstanceOf(ApRenderError)
+    return (err as ApRenderError).problems
+  }
+
+  it("a too-wide first title line doesn't also blame the second line sharing its heading", async () => {
+    const p = await problemsOf("P1", { "header.titleLine1": "WWWWWWWWWWWWWWWWWW" })
+    expect(p.map((x) => x.slot)).toEqual(["header.titleLine1"])
+  }, SLOW)
+
+  it("the same for the engagement card's two-part heading", async () => {
+    const p = await problemsOf("P3", { "engage.line1": "WWWWWWWWWWWWWWWWWWWWWWWWW" })
+    expect(p.map((x) => x.slot)).toEqual(["engage.line1"])
+  }, SLOW)
+
+  it("a description with too many lines is the only problem: no knock-on page overflow or later slots", async () => {
+    const budget = SLOTS.P3.find((s) => s.key === "card1.description")!.budget as number
+    const p = await problemsOf("P3", { "card1.description": "Wide Mmmm ".repeat(20).slice(0, budget).trim() })
+    expect(p.length).toBeGreaterThan(0)
+    expect(p.every((x) => x.slot === "card1.description")).toBe(true)
+  }, SLOW)
+})
+
+describe("PROOF band", () => {
+  it.each(["letter", "bleed"] as const)("leaves at least 6px between the band and the logo chip (%s, real render)", async (size) => {
+    const a = analyzeLogo(LOGOS.navy)
+    if (!a.ok) throw new Error(a.error)
+    const html = pageHtml({ layout: "P2", lang: "en", size, showPrice: true, title: "t", screenLabel: "t", logoHtml: logoHtml({ dataUri: `data:image/png;base64,${LOGOS.navy.toString("base64")}`, analysis: a.analysis }, "Sample Benefits Co."), slots: { ...sampleSlots("P2", "en"), ...footer } }, "approved")
+    const { browser } = await acquireBrowser()
+    const ctx = await browser.newContext()
+    try {
+      const page = await ctx.newPage()
+      await page.setContent(forRender(html.replace("{{agent_area}}", ""), true), { waitUntil: "load" })
+      const band = (await page.locator("[data-ap-proof] .b").boundingBox())!
+      const chip = (await page.locator("[data-ap-logo] > div").boundingBox())!
+      expect(await page.locator("[data-ap-logo]").getAttribute("data-ap-logo")).toBe("chip")
+      expect(chip.y - (band.y + band.height)).toBeGreaterThanOrEqual(6)
+    } finally {
+      await ctx.close()
+    }
+  }, SLOW)
 })

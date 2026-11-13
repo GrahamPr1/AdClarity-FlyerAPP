@@ -1,9 +1,14 @@
 import Link from "next/link"
+import { cookies } from "next/headers"
 import { BillingOverview } from "@/components/admin/billing-overview"
+import { apAdminFromCookies } from "@/lib/ap/tenant"
 
 // Admin landing page. Billing comes first (counts, estimated MRR, and what
 // needs a human), then links to the other drill-downs.
-export default function AdminPage() {
+export default async function AdminPage() {
+  // Agent platform: only where it's switched on (AGENT_PLATFORM_ENABLED) and
+  // for an admin it lets in (owner login or AP_ADMIN_EMAILS); null otherwise.
+  const apAdmin = await apAdminFromCookies(await cookies())
   return (
     <div className="px-6 md:px-10 lg:px-16 py-10 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
@@ -11,6 +16,11 @@ export default function AdminPage() {
         <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to dashboard</Link>
       </div>
       <BillingOverview />
+      {apAdmin && (
+        <Link href="/admin/organizations" data-testid="admin-organizations-link" className="mt-8 inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">
+          Agent platform: Organizations →
+        </Link>
+      )}
       <h2 className="mt-12 text-xl">Everything else</h2>
       <div className="mt-4 flex flex-wrap gap-4">
         <Link href="/admin/users" className="text-sm text-[var(--brand-teal-bright)] hover:text-[var(--brand-teal)] transition-colors">

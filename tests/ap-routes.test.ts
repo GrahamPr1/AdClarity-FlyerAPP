@@ -368,6 +368,41 @@ describe("package file import (real render)", () => {
   }, 300_000)
 })
 
+describe("org form: sign-up approval round trip", () => {
+  it("defaults to admin approval, and each saved option is what the form shows after a re-read", async () => {
+    const { createElement } = await import("react")
+    const { renderToStaticMarkup } = await import("react-dom/server")
+    const { ApOrgForm, EMPTY_CONFIG, pickConfig } = await import("@/components/ap-org-form")
+    const formShows = (initial: Parameters<typeof pickConfig>[0]) => {
+      const html = renderToStaticMarkup(createElement(ApOrgForm, { initial, submitLabel: "Save", onSubmit: async () => null }))
+      const select = /<select id="tierRules\.signupApproval"[\s\S]*?<\/select>/.exec(html)![0]
+      return /<option value="(auto|admin)" selected/.exec(select)?.[1] ?? null
+    }
+    // A new org's form starts on the safer choice, explicitly.
+    expect(EMPTY_CONFIG.tierRules.signupApproval).toBe("admin")
+    expect(formShows(EMPTY_CONFIG)).toBe("admin")
+
+    const create = await import("@/app/api/admin/organizations/route")
+    const one = await import("@/app/api/admin/organizations/[id]/route")
+    for (const [i, choice] of (["auto", "admin"] as const).entries()) {
+      const body = { ...config(`round-trip-${i}`), tierRules: { defaultTier: "basic", signupApproval: choice } }
+      const made = await create.POST(req("/x", { method: "POST", body, cookies: await adminCookie() }))
+      const id = (await made.json()).org.id
+      const reread = await (await one.GET(req("/x", { cookies: await adminCookie() }), p({ id }))).json()
+      expect(reread.org.tierRules.signupApproval).toBe(choice)
+      expect(formShows(pickConfig(reread.org))).toBe(choice)
+
+      // Flip it with an edit, re-read, and the form follows.
+      const other = choice === "auto" ? "admin" : "auto"
+      const edited = await one.PATCH(req("/x", { method: "PATCH", body: { ...pickConfig(reread.org), tierRules: { ...reread.org.tierRules, signupApproval: other } }, cookies: await adminCookie() }), p({ id }))
+      expect(edited.status).toBe(200)
+      const again = await (await one.GET(req("/x", { cookies: await adminCookie() }), p({ id }))).json()
+      expect(again.org.tierRules.signupApproval).toBe(other)
+      expect(formShows(pickConfig(again.org))).toBe(other)
+    }
+  })
+})
+
 afterAll(async () => {
   const { acquireBrowser } = await import("@/lib/pdf/flyer-pdf")
   const { browser } = await acquireBrowser()
