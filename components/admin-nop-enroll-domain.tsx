@@ -88,7 +88,7 @@ export function AdminEnrollDomain() {
     const body = await res.json().catch(() => ({}))
     setBusy(null)
     if (!res.ok) return setResult({ ok: false, message: body.message ?? "Couldn't save.", checks: body.checks ?? [], pages: body.pages ?? [], warning: body.error === "page_warning" })
-    setResult({ ok: true, message: `Saved. A test agent's QR now forwards to ${body.urls.agent}, and flyers print ${body.printedExample}.`, checks: body.entry.checks, pages: body.pages ?? [], warning: false })
+    setResult({ ok: true, message: `Saved. The check agent's QR now forwards to ${body.urls.agent}, and their kit-v2 flyers print ${body.printedExample}.`, checks: body.entry.checks, pages: body.pages ?? [], warning: false })
     await mutate(body, { revalidate: false })
   }
 
@@ -168,7 +168,7 @@ export function AdminEnrollDomain() {
               <button type="submit" disabled={busy !== null} className="min-h-11 rounded-lg border border-border px-4 disabled:opacity-50" data-testid="enroll-save">{busy === "save" ? "Checking (up to a minute)…" : "Check and save"}</button>
             </div>
           </form>
-          <p className="mt-1 text-muted-foreground">basicbenefits.com addresses only. Saved only if the forward URL, the short address and the program page load now, and the printed address fits both kits.</p>
+          <p className="mt-1 text-muted-foreground">basicbenefits.com addresses only. Saved only if the forward URL, the short address and the program page load now, and the printed address fits the kit-v2 footer.</p>
           {result && (
             <div role="status" data-testid="enroll-domain-result" className={"mt-3 " + (result.ok ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400")}>
               <p>{result.message}</p>

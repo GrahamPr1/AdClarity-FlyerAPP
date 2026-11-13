@@ -29,7 +29,7 @@ async function state() {
     derivedFromDomain: saved ? null : domain,
     testAgentId: checkId,
     urls: enrollUrlsToCheck(targets, checkId),
-    printedExample: printedEnrollAddress(checkId, "Ab3dEf7", targets).lines.join(" "),
+    printedExample: targets.printed === "code" ? "oneflyer.org/a/<their code>" : printedEnrollAddress(checkId, "", targets).lines.join(" "),
     live,
     log,
     domainLog,
