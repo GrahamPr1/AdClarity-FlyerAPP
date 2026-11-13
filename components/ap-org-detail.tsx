@@ -3,19 +3,40 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ApOrgForm, saveOrg } from "@/components/ap-org-form"
+import { ApPackagesEditor } from "@/components/ap-packages-editor"
 import { ORG_STATUSES, type ApAgent, type ApOrg, type ApOrgLogEntry } from "@/lib/ap/types"
+import type { ApPackage } from "@/lib/ap/templates/content"
+import type { ApApproved } from "@/lib/ap/store"
 
-export function ApOrgDetail({ initialOrg, initialAgents, log, signupLink }: { initialOrg: ApOrg; initialAgents: ApAgent[]; log: ApOrgLogEntry[]; signupLink: string }) {
+export function ApOrgDetail({ initialOrg, initialAgents, log, signupLink, packages, initialApproved }: { initialOrg: ApOrg; initialAgents: ApAgent[]; log: ApOrgLogEntry[]; signupLink: string; packages: ApPackage[]; initialApproved: ApApproved | null }) {
   const [org, setOrg] = useState(initialOrg)
+  const [approved, setApproved] = useState(initialApproved)
+  const [approving, setApproving] = useState(false)
+  const [note, setNote] = useState("")
   const [agents, setAgents] = useState(initialAgents)
   const [msg, setMsg] = useState<string | null>(null)
   const base = `/api/admin/organizations/${org.id}`
+
+  async function approve() {
+    setApproving(true)
+    setMsg("Rendering every template at Letter and bleed… (can take a few minutes)")
+    try {
+      const res = await fetch(`${base}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note }) })
+      const data = await res.json()
+      if (res.ok) {
+        setApproved(data.approved)
+        setMsg(`Approved: version ${data.approved.version}, ${Object.keys(data.approved.templates).length} page renders pinned.`)
+      } else setMsg(`Not approved: ${data.message ?? data.error}`)
+    } finally {
+      setApproving(false)
+    }
+  }
 
   async function setStatus(status: string) {
     const res = await fetch(`${base}/status`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) })
     const data = await res.json()
     if (res.ok) setOrg(data.org)
-    setMsg(res.ok ? `Status: ${data.org.status}` : `Status not changed: ${data.error}`)
+    setMsg(res.ok ? `Status: ${data.org.status}` : `Status not changed: ${data.message ?? data.error}`)
   }
 
   async function upload(kind: "logo" | "reference", file: File) {
@@ -69,13 +90,13 @@ export function ApOrgDetail({ initialOrg, initialAgents, log, signupLink }: { in
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Files</h2>
-        <p className="text-sm text-muted-foreground">Logo: PNG or JPEG, up to 1 MB. Reference files: PDF, PNG or JPEG, up to 4 MB. Stored privately under ap/ in the non-production store.</p>
+        <p className="text-sm text-muted-foreground">Logo: PNG with transparency, up to 1 MB, at least 125px tall, between 1:1 and 8:1. It prints in a 200 × 40 box on the navy header; a logo that doesn&apos;t reach 3:1 contrast against the navy is put on a white chip automatically. Reference files: PDF, PNG or JPEG, up to 4 MB. Stored privately under ap/ in the non-production store.</p>
         <div className="flex flex-wrap gap-6">
-          <label className="text-sm">Logo <input type="file" name="logo" accept="image/png,image/jpeg" onChange={(e) => e.target.files?.[0] && upload("logo", e.target.files[0])} /></label>
+          <label className="text-sm">Logo <input type="file" name="logo" accept="image/png" onChange={(e) => e.target.files?.[0] && upload("logo", e.target.files[0])} /></label>
           <label className="text-sm">Reference file <input type="file" name="reference" accept="application/pdf,image/png,image/jpeg" onChange={(e) => e.target.files?.[0] && upload("reference", e.target.files[0])} /></label>
         </div>
         <ul className="text-sm" data-testid="ap-files">
-          {org.logo && <li>Logo: <a className="underline" href={`${base}/files/${org.logo.id}`} target="_blank">{org.logo.name}</a> ({Math.round(org.logo.size / 1024)} KB) <Button variant="ghost" size="sm" onClick={() => removeFile(org.logo!.id)}>Remove</Button></li>}
+          {org.logo && <li>Logo: <a className="underline" href={`${base}/files/${org.logo.id}`} target="_blank">{org.logo.name}</a> ({Math.round(org.logo.size / 1024)} KB{org.logo.logo ? `, ${org.logo.logo.width}×${org.logo.logo.height}px, ${Math.round(org.logo.logo.passShare * 100)}% of pixels at 3:1 on navy → ${org.logo.logo.chip ? "white chip" : "no chip"}` : ""}) <Button variant="ghost" size="sm" onClick={() => removeFile(org.logo!.id)}>Remove</Button></li>}
           {org.referenceFiles.map((f) => (
             <li key={f.id}><a className="underline" href={`${base}/files/${f.id}`} target="_blank">{f.name}</a> ({Math.round(f.size / 1024)} KB) <Button variant="ghost" size="sm" onClick={() => removeFile(f.id)}>Remove</Button></li>
           ))}
@@ -83,8 +104,32 @@ export function ApOrgDetail({ initialOrg, initialAgents, log, signupLink }: { in
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Flyers</h2>
-        <p className="text-sm text-muted-foreground">Package content and flyer previews arrive with the slot design (pending approval).</p>
+        <h2 className="text-lg font-semibold">Flyer packages</h2>
+        <ApPackagesEditor orgId={org.id} languages={org.languages} initial={packages} />
+      </section>
+
+      <section className="space-y-3" data-testid="ap-approval">
+        <h2 className="text-lg font-semibold">Approval</h2>
+        {approved ? (
+          <p className="text-sm">Approved version {approved.version} · {approved.approvedAt.slice(0, 16).replace("T", " ")} UTC by {approved.approvedBy}{approved.note ? ` · “${approved.note}”` : ""} · {Object.keys(approved.templates).length} page renders pinned. Agents get this version; drafts saved since don&apos;t reach them until approved again.</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">Not approved yet: every flyer (admin and agent) is a watermarked PROOF.</p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <input aria-label="Approval note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="Note (e.g. who approved the proofs)" className="h-9 w-72 rounded-md border bg-transparent px-3 text-sm" />
+          <Button onClick={approve} disabled={approving}>Mark proofs approved</Button>
+        </div>
+        {approved && (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4" data-testid="ap-approved-previews">
+            {[...new Set(Object.keys(approved.templates).map((k) => k.split(":")[0]))].map((id) => (
+              <figure key={id} className="space-y-1">
+                {/* eslint-disable-next-line @next/next/no-img-element -- a rendered flyer from our own API */}
+                <img src={`${base}/preview?template=${id}&size=letter&format=thumb&source=approved`} alt={`Approved ${id}`} loading="lazy" className="w-full rounded border" />
+                <figcaption className="text-[11px] break-all">{id} · <a className="underline" href={`${base}/preview?template=${id}&size=letter&format=pdf&source=approved`}>PDF</a></figcaption>
+              </figure>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="space-y-3">

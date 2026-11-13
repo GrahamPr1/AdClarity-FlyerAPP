@@ -7,10 +7,11 @@ import { apDict } from "@/lib/ap/i18n"
 import { enrollmentUrlFor } from "@/lib/ap/validate"
 import { qrLink, recruitLink } from "@/lib/ap/links"
 import { ApSignOut } from "@/components/ap-sign-out"
+import { ApFlyers } from "@/components/ap-flyers"
 
 // /ap/{org} — the agent portal. Same tenant rule as the API (tenantDecision):
 // only an active agent of THIS org with a valid ap_session sees it; anyone
-// else is sent to this org's sign-in. Flyers arrive with the slot work.
+// else is sent to this org's sign-in.
 export const dynamic = "force-dynamic"
 
 export default async function PortalPage({ params }: { params: Promise<{ org: string }> }) {
@@ -44,7 +45,7 @@ export default async function PortalPage({ params }: { params: Promise<{ org: st
         ))}
       </dl>
       <h2 className="mt-8 text-lg font-semibold">{t["portal.flyers"]}</h2>
-      <p className="mt-2 text-sm text-muted-foreground">{t["portal.flyers_pending"]}</p>
+      <ApFlyers slug={org.slug} labels={{ pending: t["portal.flyers_pending"], proof: t["portal.proof"], letter: t["portal.letter_pdf"], bleed: t["portal.bleed_pdf"], withPrices: t["portal.with_prices"], noPrices: t["portal.no_prices"] }} />
     </main>
   )
 }

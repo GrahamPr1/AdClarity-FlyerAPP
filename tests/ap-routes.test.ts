@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest"
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest"
 import { NextRequest } from "next/server"
 
 // Route-level checks on an in-memory Redis: the real handlers, real cookies.
@@ -238,4 +238,93 @@ describe("every key written is ap:", () => {
     expect(keys.length).toBeGreaterThan(8)
     for (const k of keys) expect(k).toMatch(/^ap:/)
   })
+})
+
+describe("flyers (real render)", () => {
+  const SLOW = 120_000
+  async function withContent(slug: string) {
+    await createOrg(slug)
+    const { listOrgs, saveContent } = await import("@/lib/ap/store")
+    const { sampleSlots } = await import("@/lib/ap/templates/sample")
+    const org = (await listOrgs()).find((o) => o.slug === slug)!
+    await saveContent(org.id, [{ id: "pkg_testpkg1", layout: "P1", pricing: ["price"], variants: { en: sampleSlots("P1", "en"), es: sampleSlots("P1", "es") } }], "admin")
+    return org
+  }
+
+  it("before approval: PROOFs only, enabled languages only; another org's session is refused", async () => {
+    const A = await withContent("alpha-org")
+    await createOrg("beta-org")
+    const a = await signUp("alpha-org", "AL-1", "a@example.com")
+    const b = await signUp("beta-org", "BE-1", "b@example.com")
+    const list = await import("@/app/api/ap/[org]/flyers/route")
+    const one = await import("@/app/api/ap/[org]/flyers/[template]/route")
+    const res = await list.GET(req("/api/ap/alpha-org/flyers", { cookies: { ap_session: a.session! } }), p({ org: "alpha-org" }))
+    const data = await res.json()
+    expect(data).toMatchObject({ proof: true, version: null })
+    expect(data.flyers.map((f: { id: string }) => f.id)).toEqual(["pkg_testpkg1_EN_PRICE", "pkg_testpkg1_ES_PRICE"])
+
+    const png = await one.GET(req("/api/ap/alpha-org/flyers/pkg_testpkg1_EN_PRICE?format=png", { cookies: { ap_session: a.session! } }), p({ org: "alpha-org", template: "pkg_testpkg1_EN_PRICE" }))
+    expect(png.status).toBe(200)
+    expect(png.headers.get("x-ap-proof")).toBe("1")
+    expect(png.headers.get("content-type")).toBe("image/png")
+
+    const cross = await one.GET(req("/api/ap/alpha-org/flyers/pkg_testpkg1_EN_PRICE?format=png", { cookies: { ap_session: b.session! } }), p({ org: "alpha-org", template: "pkg_testpkg1_EN_PRICE" }))
+    expect(cross.status).toBe(403)
+    const crossList = await list.GET(req("/api/ap/alpha-org/flyers", { cookies: { ap_session: b.session! } }), p({ org: "alpha-org" }))
+    expect(crossList.status).toBe(403)
+    // Org B's own route can't reach org A's template id either: not found in B's content.
+    const viaB = await one.GET(req("/api/ap/beta-org/flyers/pkg_testpkg1_EN_PRICE?format=png", { cookies: { ap_session: b.session! } }), p({ org: "beta-org", template: "pkg_testpkg1_EN_PRICE" }))
+    expect(viaB.status).toBe(404)
+
+    // Spanish switched off: Spanish flyers disappear and can't be fetched.
+    const { updateOrgConfig, getOrg } = await import("@/lib/ap/store")
+    const cur = (await getOrg(A.id))!
+    await updateOrgConfig(A.id, { name: cur.name, slug: cur.slug, orgCode: cur.orgCode, enrollment: cur.enrollment, agentIdParam: cur.agentIdParam, languages: ["en"], footer: cur.footer, tierRules: cur.tierRules }, "admin")
+    const es = await one.GET(req("/api/ap/alpha-org/flyers/pkg_testpkg1_ES_PRICE?format=png", { cookies: { ap_session: a.session! } }), p({ org: "alpha-org", template: "pkg_testpkg1_ES_PRICE" }))
+    expect(es.status).toBe(404)
+  }, SLOW)
+
+  it("after approval: agents get the approved, hash-pinned, unwatermarked PDF; live needs approval", async () => {
+    const A = await withContent("alpha-org")
+    const a = await signUp("alpha-org", "AL-1", "a@example.com")
+    const status = await import("@/app/api/admin/organizations/[id]/status/route")
+    const early = await status.POST(req(`/api/admin/organizations/${A.id}/status`, { method: "POST", body: { status: "live" }, cookies: await adminCookie() }), p({ id: A.id }))
+    expect(early.status).toBe(422)
+
+    const approve = await import("@/app/api/admin/organizations/[id]/approve/route")
+    const ar = await approve.POST(req(`/api/admin/organizations/${A.id}/approve`, { method: "POST", body: { note: "test" }, cookies: await adminCookie() }), p({ id: A.id }))
+    expect(ar.status).toBe(200)
+    const approved = (await ar.json()).approved
+    expect(Object.keys(approved.templates).sort()).toEqual(["pkg_testpkg1_EN_PRICE:bleed", "pkg_testpkg1_EN_PRICE:letter", "pkg_testpkg1_ES_PRICE:bleed", "pkg_testpkg1_ES_PRICE:letter"])
+    expect((await status.POST(req(`/api/admin/organizations/${A.id}/status`, { method: "POST", body: { status: "live" }, cookies: await adminCookie() }), p({ id: A.id }))).status).toBe(200)
+
+    const one = await import("@/app/api/ap/[org]/flyers/[template]/route")
+    const pdf = await one.GET(req("/api/ap/alpha-org/flyers/pkg_testpkg1_EN_PRICE?format=pdf&size=bleed", { cookies: { ap_session: a.session! } }), p({ org: "alpha-org", template: "pkg_testpkg1_EN_PRICE" }))
+    expect(pdf.status).toBe(200)
+    expect(pdf.headers.get("x-ap-proof")).toBe("0")
+    expect(pdf.headers.get("x-ap-hash")).toBe(approved.templates["pkg_testpkg1_EN_PRICE:bleed"].hash)
+    expect(Buffer.from(await pdf.arrayBuffer()).subarray(0, 5).toString()).toBe("%PDF-")
+
+    // A draft edit after approval doesn't reach agents: they still get the approved hash.
+    const { saveContent } = await import("@/lib/ap/store")
+    const { sampleSlots } = await import("@/lib/ap/templates/sample")
+    await saveContent(A.id, [{ id: "pkg_testpkg1", layout: "P1", pricing: ["price"], variants: { en: { ...sampleSlots("P1", "en"), disclaimer: "Edited after approval." }, es: sampleSlots("P1", "es") } }], "admin")
+    const again = await one.GET(req("/api/ap/alpha-org/flyers/pkg_testpkg1_EN_PRICE?format=png", { cookies: { ap_session: a.session! } }), p({ org: "alpha-org", template: "pkg_testpkg1_EN_PRICE" }))
+    expect(again.headers.get("x-ap-hash")).toBe(approved.templates["pkg_testpkg1_EN_PRICE:letter"].hash)
+
+    // Tampering with the stored snapshot makes renders refuse.
+    const { getApproved } = await import("@/lib/ap/store")
+    const snap = (await getApproved(A.id))!
+    snap.packages[0].variants.en!.disclaimer = "Tampered."
+    R.ref!.kv.set(`ap:org:${A.id}:approved`, JSON.stringify(snap))
+    const tampered = await one.GET(req("/api/ap/alpha-org/flyers/pkg_testpkg1_EN_PRICE?format=png", { cookies: { ap_session: a.session! } }), p({ org: "alpha-org", template: "pkg_testpkg1_EN_PRICE" }))
+    expect(tampered.status).toBe(409)
+    expect((await tampered.json()).error).toBe("hash_mismatch")
+  }, 300_000)
+})
+
+afterAll(async () => {
+  const { acquireBrowser } = await import("@/lib/pdf/flyer-pdf")
+  const { browser } = await acquireBrowser()
+  await browser.close().catch(() => undefined)
 })

@@ -1,7 +1,7 @@
 // Upload rules for org files. Pure: checks bytes, not the declared type.
 //
-// Logo: PNG or JPEG, at most 1 MB (the logo slot's box and minimum pixel size
-// are part of the pending slot design). Reference files: PDF, PNG or JPEG,
+// Logo: PNG only, at most 1 MB; its size, shape and contrast are checked by
+// lib/ap/templates/logo.ts (analyzeLogo). Reference files: PDF, PNG or JPEG,
 // at most 4 MB (a Vercel Function request body tops out at 4.5 MB). SVG is
 // refused: it can carry script.
 
@@ -24,8 +24,8 @@ export function checkUpload(kind: "logo" | "reference", bytes: Uint8Array): { ok
   const max = kind === "logo" ? LOGO_MAX_BYTES : REFERENCE_MAX_BYTES
   if (bytes.length === 0) return { ok: false, error: "The file is empty." }
   if (bytes.length > max) return { ok: false, error: `At most ${max / 1024 / 1024} MB.` }
-  if (!type) return { ok: false, error: kind === "logo" ? "Logo must be PNG or JPEG." : "Reference files must be PDF, PNG or JPEG." }
-  if (kind === "logo" && type === "application/pdf") return { ok: false, error: "Logo must be PNG or JPEG." }
+  if (!type) return { ok: false, error: kind === "logo" ? "Logo must be a PNG." : "Reference files must be PDF, PNG or JPEG." }
+  if (kind === "logo" && type !== "image/png") return { ok: false, error: "Logo must be a PNG." }
   return { ok: true, type }
 }
 

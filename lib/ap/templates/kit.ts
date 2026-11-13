@@ -27,6 +27,12 @@ export function readTemplate(layout: Layout): string {
   return t
 }
 
+/** For text content: & < > only (quotes are plain text there, as in the kit's own pages). */
+export function escText(v: string): string {
+  return v.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!)
+}
+
+/** For attribute values. */
 export function esc(v: string): string {
   return v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!)
 }
@@ -58,7 +64,7 @@ export function fillTemplate(f: FillInput): string {
   html = html.replace(/\{\{slot:([A-Za-z0-9.]+)\}\}/g, (_m, key: string) => {
     const v = f.slots[key]
     if (typeof v !== "string") throw new Error(`slot ${key} has no value`)
-    return esc(v)
+    return escText(v)
   })
   if (/\{\{(?!agent_area\}\})/.test(html)) throw new Error("template has an unfilled placeholder")
   return html
@@ -151,7 +157,7 @@ export const BANNED = [/basic\s*benefits/i, /basicbenefits/i, /bb-logo/i, /\bNOP
 /** Throws if the page carries a banned string that didn't come from this org's own slot values. */
 export function assertNoForeignBrand(html: string, ownValues: string[]): void {
   let rest = html
-  for (const v of ownValues.filter(Boolean).sort((a, b) => b.length - a.length)) rest = rest.split(esc(v)).join("")
+  for (const v of ownValues.filter(Boolean).sort((a, b) => b.length - a.length)) rest = rest.split(escText(v)).join("").split(esc(v)).join("")
   for (const re of BANNED) {
     const m = re.exec(rest)
     if (m) throw new Error(`foreign brand text on the page: ${JSON.stringify(m[0])}`)

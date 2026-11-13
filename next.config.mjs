@@ -85,6 +85,13 @@ const nextConfig = {
     // Kit v2 (Basic Benefits' final flyers): pages, their stylesheets, the six
     // bundled Poppins faces and the logo. Not reference/ (verification only).
     "/api/admin/enterprise/nop/render-check": ["./lib/pdf/fonts/**", "./enterprise/nop/kit-v1.1.1/{html,fonts,assets}/**", "./enterprise/nop/kit-v1.1.1/content.json", "./enterprise/nop/kit-v2/{html,previews}/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    // Agent platform (lib/ap): its own copy of the kit (enterprise/ap/kit-v2:
+    // slotted templates and the design system), read by path at runtime, plus
+    // the same browser packages and fonts. Never NOP's kit.
+    "/api/ap/\\[org\\]/flyers/\\[template\\]": ["./lib/pdf/fonts/**", "./enterprise/ap/kit-v2/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    "/api/admin/organizations/\\[id\\]/preview": ["./lib/pdf/fonts/**", "./enterprise/ap/kit-v2/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    "/api/admin/organizations/\\[id\\]/packages": ["./lib/pdf/fonts/**", "./enterprise/ap/kit-v2/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    "/api/admin/organizations/\\[id\\]/approve": ["./lib/pdf/fonts/**", "./enterprise/ap/kit-v2/**", "./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
   },
 
   // Vanity paths people type or that appear in old links. Permanent, because

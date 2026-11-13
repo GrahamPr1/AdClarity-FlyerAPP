@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { getOrg, listOrgAgents, listOrgLog } from "@/lib/ap/store"
+import { getApproved, getContent, getOrg, listOrgAgents, listOrgLog } from "@/lib/ap/store"
 import { signupLink } from "@/lib/ap/links"
 import { ApOrgDetail } from "@/components/ap-org-detail"
 
@@ -9,6 +9,6 @@ export const dynamic = "force-dynamic"
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const org = await getOrg((await params).id)
   if (!org) notFound()
-  const [agents, log] = await Promise.all([listOrgAgents(org.id), listOrgLog(org.id)])
-  return <ApOrgDetail initialOrg={org} initialAgents={agents} log={log} signupLink={signupLink(org)} />
+  const [agents, log, content, approved] = await Promise.all([listOrgAgents(org.id), listOrgLog(org.id), getContent(org.id), getApproved(org.id)])
+  return <ApOrgDetail initialOrg={org} initialAgents={agents} log={log} signupLink={signupLink(org)} packages={content?.packages ?? []} initialApproved={approved} />
 }
