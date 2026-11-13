@@ -26,12 +26,20 @@ vi.mock("@/lib/admin", () => ({ isAdminSession: async (sub: string | null | unde
 // The page check needs a browser (tested against the real pages by hand); here it answers r.page.
 const pg = vi.hoisted(() => ({ page: (url: string) => ({ url, ok: true, problem: null as string | null, text: "Enroll with Jordan" }), opened: [] as string[] }))
 vi.mock("@/lib/enterprise/nop-enroll-check", () => ({ checkEnrollPage: async (url: string) => (pg.opened.push(url), pg.page(url)) }))
+// The roster: who can be the check agent, and who a full-URL save flags.
+const roster = vi.hoisted(() => ({ records: {} as Record<string, { agentId: string; status: string }> }))
+vi.mock("@/lib/enterprise/agents-store", async (orig) => ({
+  ...(await orig<typeof import("@/lib/enterprise/agents-store")>()),
+  getRosterRecord: async (id: string) => roster.records[id] ?? null,
+  listRoster: async () => Object.values(roster.records).map((r) => ({ ...r, lockedTo: `${r.agentId}@x.test` })),
+}))
 
 const notFoundDns = () => Object.assign(new TypeError("fetch failed"), { cause: { code: "ENOTFOUND" } })
 
 beforeEach(() => {
   vi.stubEnv("SESSION_SECRET", "test-secret")
   r.h.clear(); r.l.clear(); r.fetched.length = 0; pg.opened.length = 0
+  roster.records = { "858980": { agentId: "858980", status: "active" }, "CP-VLN-H5J": { agentId: "CP-VLN-H5J", status: "active" }, "XX-OLD-1": { agentId: "XX-OLD-1", status: "suspended" } }
   pg.page = (url) => ({ url, ok: true, problem: null, text: "Enroll with Jordan" })
   r.answer = () => new Response("ok", { status: 200 })
   vi.stubGlobal("fetch", async (url: string) => {
@@ -63,7 +71,7 @@ describe("the setting", () => {
     expect(qrDestinationFor("123456", t)).toBe(qrDestinationFor("123456", "join.basicbenefits.com"))
     expect(qrDestinationFor("123456", t)).toBe("https://join.basicbenefits.com/123456")
     expect(programEnrollmentUrl(t)).toBe("https://join.basicbenefits.com/")
-    expect(printedEnrollAddress("123456", "Ab3dEf7", t)).toEqual({ prefix: "join.basicbenefits.com/", slot: "123456", text: "join.basicbenefits.com/123456", href: "https://join.basicbenefits.com/123456" })
+    expect(printedEnrollAddress("123456", "Ab3dEf7", t)).toEqual({ prefix: "join.basicbenefits.com/", slot: "123456", text: "join.basicbenefits.com/123456", href: "https://join.basicbenefits.com/123456", lines: ["join.basicbenefits.com/123456"] })
   })
 
   it("the three parts: forward URL with the ID in the query, a short printed address, or the agent's own link", async () => {
@@ -74,7 +82,7 @@ describe("the setting", () => {
     expect(nopQrTarget("123456", { status: "suspended" }, t)).toBe("https://neighbor.basicbenefits.com/")
     expect(printedEnrollAddress("123456", "Ab3dEf7", t).text).toBe("join.basicbenefits.com/123456")
     const code = { ...t, printed: "code" as const, printedTemplate: null }
-    expect(printedEnrollAddress("123456", "Ab3dEf7", code)).toEqual({ prefix: "oneflyer.org/a/", slot: "Ab3dEf7", text: "oneflyer.org/a/Ab3dEf7", href: "https://oneflyer.org/a/Ab3dEf7" })
+    expect(printedEnrollAddress("123456", "Ab3dEf7", code)).toEqual({ prefix: "oneflyer.org/a/", slot: "Ab3dEf7", text: "oneflyer.org/a/Ab3dEf7", href: "https://oneflyer.org/a/Ab3dEf7", lines: ["oneflyer.org/a/Ab3dEf7"] })
   })
 
   it.each([
@@ -103,12 +111,76 @@ describe("the setting", () => {
   it("the URLs a save checks: the test agent's forward URL, their short printed address, and the program page", async () => {
     const { enrollUrlsToCheck, checkEnrollTargets } = await lib()
     const t = { ...NEW, printed: "short" as const }
-    expect(enrollUrlsToCheck(t)).toEqual({ agent: "https://neighbor.basicbenefits.com/member-enrollment?agent_code=858980", printed: "https://join.basicbenefits.com/858980", program: "https://neighbor.basicbenefits.com/" })
-    expect(enrollUrlsToCheck({ ...t, printed: "code", printedTemplate: null }).printed).toBeNull()
+    expect(enrollUrlsToCheck(t, "858980")).toEqual({ agent: "https://neighbor.basicbenefits.com/member-enrollment?agent_code=858980", printed: "https://join.basicbenefits.com/858980", program: "https://neighbor.basicbenefits.com/" })
+    expect(enrollUrlsToCheck({ ...t, printed: "code", printedTemplate: null }, "858980").printed).toBeNull()
     r.answer = (u) => new Response("", { status: u.includes("join.") ? 404 : 200 })
-    const out = await checkEnrollTargets(t)
+    const out = await checkEnrollTargets(t, "858980")
     expect(out.ok).toBe(false)
     expect(out.checks.find((c) => !c.ok)).toMatchObject({ url: "https://join.basicbenefits.com/858980", error: "HTTP 404" })
+  })
+})
+
+describe("the full URL, test site, and Agent IDs as issued", () => {
+  const FULL = { ...NEW, printed: "full", printedTemplate: null }
+
+  it("full: the forward URL printed on two lines, split before the '?'; the ID kept exactly, URL-encoded", async () => {
+    const { checkEnrollInput } = await lib()
+    const { printedEnrollAddress, qrDestinationFor } = await import("@/lib/enterprise/nop-roster")
+    const out = checkEnrollInput(FULL)
+    expect(out).toEqual({ ok: true, targets: { ...NEW, printed: "full", printedTemplate: null } })
+    const t = out.ok ? out.targets : NEW as never
+    expect(qrDestinationFor("CP-VLN-H5J", t)).toBe("https://neighbor.basicbenefits.com/member-enrollment?agent_code=CP-VLN-H5J")
+    expect(qrDestinationFor("cp-vln-h5j", t)).toBe("https://neighbor.basicbenefits.com/member-enrollment?agent_code=cp-vln-h5j")
+    expect(printedEnrollAddress("CP-VLN-H5J", "Ab3dEf7", t).lines).toEqual(["neighbor.basicbenefits.com/member-enrollment", "?agent_code=CP-VLN-H5J"])
+    // Never anything that could break out of the query.
+    expect(qrDestinationFor("a&b=c", t)).toBe("https://neighbor.basicbenefits.com/member-enrollment?agent_code=a%26b%3Dc")
+  })
+
+  it("full needs a '?' to split at, and a first line that fits the footer at 15px", async () => {
+    const { checkEnrollInput } = await lib()
+    expect(checkEnrollInput({ ...FULL, forwardTemplate: "https://neighbor.basicbenefits.com/{id}" })).toMatchObject({ ok: false, field: "printed" })
+    expect(checkEnrollInput({ ...FULL, forwardTemplate: "https://a-much-longer-enrollment-host.neighbor.basicbenefits.com/member-enrollment?agent_code={id}" })).toMatchObject({ ok: false, field: "printed", message: expect.stringContaining("15px") })
+  })
+
+  it("their test site is allowed in local and test runs only, never on Vercel", async () => {
+    const { checkEnrollInput } = await lib()
+    const test = { forwardTemplate: "https://nop.v4test.vasquezplatform.com/member-enrollment?agent_code={id}", printed: "code", programUrl: "https://nop.v4test.vasquezplatform.com/" }
+    expect(checkEnrollInput(test).ok).toBe(true)
+    // The test site's own first line (427px) is too wide to print in full; the live address's (386px) fits.
+    expect(checkEnrollInput({ ...test, printed: "full" })).toMatchObject({ ok: false, field: "printed" })
+    vi.stubEnv("VERCEL", "1")
+    expect(checkEnrollInput(test)).toMatchObject({ ok: false, field: "forwardTemplate" })
+    expect(checkEnrollInput({ ...NEW, programUrl: "https://nop.v4test.vasquezplatform.com/" })).toMatchObject({ ok: false, field: "programUrl" })
+    // A saved test-site value is also ignored when read on Vercel: back to the old domain.
+    vi.unstubAllEnvs(); vi.stubEnv("SESSION_SECRET", "test-secret")
+    r.h.set("nop-flyers:settings", { enrollSettings: JSON.stringify({ ...test, printedTemplate: null, savedAt: "t", admin: "a" }) })
+    expect((await (await lib()).getEnrollTargets()).forwardTemplate).toBe(test.forwardTemplate)
+    vi.stubEnv("VERCEL", "1")
+    expect((await (await lib()).getEnrollTargets()).forwardTemplate).toBe("https://neighbor.basicbenefits.com/{id}")
+  })
+
+  it("the check agent: default 858980; any active roster agent, exactly as issued; logged", async () => {
+    const { getCheckAgentId, setCheckAgentId, listCheckAgentLog } = await lib()
+    expect(await getCheckAgentId()).toBe("858980")
+    expect(await setCheckAgentId("cp-vln-h5j", "admin@x.test")).toMatchObject({ ok: false, message: "cp-vln-h5j isn't on the roster." })
+    expect(await setCheckAgentId("XX-OLD-1", "admin@x.test")).toMatchObject({ ok: false, message: "XX-OLD-1 is suspended, not active." })
+    expect(await setCheckAgentId("#1", "admin@x.test")).toMatchObject({ ok: false })
+    expect(await setCheckAgentId(" CP-VLN-H5J ", "admin@x.test")).toMatchObject({ ok: true, entry: { from: "858980", to: "CP-VLN-H5J" } })
+    expect(await getCheckAgentId()).toBe("CP-VLN-H5J")
+    expect((await listCheckAgentLog())[0]).toMatchObject({ admin: "admin@x.test", to: "CP-VLN-H5J" })
+  })
+
+  it("flags (once) an Agent ID over 16 characters, or whose full URL wouldn't fit; never a typical one", async () => {
+    const { flagAgentIdIfTooLong, listAgentFlags } = await import("@/lib/enterprise/agents-store")
+    const full = { ...NEW, printed: "full" as const, printedTemplate: null }
+    expect(await flagAgentIdIfTooLong("CP-VLN-H5J", "a@x.test", full)).toBe(false)
+    expect(await flagAgentIdIfTooLong("858980", "a@x.test", full)).toBe(false)
+    expect(await flagAgentIdIfTooLong("ABCDEFGHIJKLMNOPQ", "b@x.test", "neighbor.basicbenefits.com")).toBe(true)
+    expect(await flagAgentIdIfTooLong("W".repeat(32), "c@x.test", full)).toBe(true)
+    expect(await flagAgentIdIfTooLong("W".repeat(32), "c@x.test", full)).toBe(true)
+    const flags = await listAgentFlags()
+    expect(flags.filter((f) => f.type === "agent_id_too_long")).toHaveLength(2)
+    expect(flags.find((f) => f.agentId === "W".repeat(32))?.reason).toContain("oneflyer.org/a/<code>")
   })
 })
 
@@ -200,7 +272,7 @@ describe("name fit (kit-v2 footer)", () => {
     expect(r.l.size).toBe(0)
     await flagNameIfTooLongForFooter("858980", "a@x.test", "Maria Guadalupe Hernandez-Villanueva de la Cruz Rodriguez")
     const [flag] = [...r.l.values()][0] as Record<string, unknown>[]
-    expect(flag).toMatchObject({ type: "name_too_long_for_footer", agentId: "858980", account: "a@x.test", spacePx: 357 })
-    expect(flag.nameWidthPx).toBeGreaterThan(357)
+    expect(flag).toMatchObject({ type: "name_too_long_for_footer", agentId: "858980", account: "a@x.test", spacePx: 389 })
+    expect(flag.nameWidthPx).toBeGreaterThan(389)
   })
 })

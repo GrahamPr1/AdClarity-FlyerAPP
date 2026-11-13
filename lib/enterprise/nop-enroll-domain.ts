@@ -1,6 +1,7 @@
 import { Redis } from "@upstash/redis"
-import { DEFAULT_ENROLL_DOMAIN, ENROLL_ID_TOKEN, enrollTargetsKey, isValidEnrollDomain, legacyEnrollTargets, printedEnrollAddress, programEnrollmentUrl, qrDestinationFor, type EnrollTargets } from "./nop-roster"
-import { FOOTER_SPACE_PX, addressFitsKitV2Footer, footerAddressWorstWidth } from "./nop-render/footer-fit"
+import { AGENT_ID_RE, DEFAULT_ENROLL_DOMAIN, ENROLL_ID_TOKEN, enrollTargetsKey, isGenerationStatus, isValidEnrollDomain, legacyEnrollTargets, printedEnrollAddress, programEnrollmentUrl, qrDestinationFor, type EnrollTargets } from "./nop-roster"
+import { FOOTER_SPACE_PX, addressFitsKitV2Footer, footerAddressWorstWidth, linesFitKitV2Footer, linkWidth } from "./nop-render/footer-fit"
+import { getRosterRecord } from "./agents-store"
 
 // The NOP enrollment setting, in three parts (EnrollTargets in nop-roster.ts):
 // the forward URL template, the printed address (a short template, or the
@@ -27,7 +28,7 @@ const KEY = "nop-flyers:settings"
 const LOG_KEY = "nop-flyers:enroll-domain-log"
 const SETTINGS_LOG_KEY = "nop-flyers:enroll-settings-log"
 
-/** Basic Benefits' test agent: the URL shown and checked for "a test agent's QR". */
+/** The default check agent (the program's original test ID); admin can set another (getCheckAgentId). */
 export const ENROLL_CHECK_AGENT_ID = "858980"
 
 /** The old single enrollment domain: only what the setting is derived from until it's saved in three parts. */
@@ -50,19 +51,35 @@ export async function getSavedEnrollSettings(): Promise<SavedEnrollSettings | nu
   return checked.ok ? { ...checked.targets, savedAt: String((v as SavedEnrollSettings).savedAt ?? ""), admin: String((v as SavedEnrollSettings).admin ?? "") } : null
 }
 
+/** The setting, and whether it's been saved in three parts (kit v1.1.1 prints differently once it has). */
+export async function getEnrollState(): Promise<{ targets: EnrollTargets; saved: boolean }> {
+  const saved = await getSavedEnrollSettings()
+  if (saved) return { targets: { forwardTemplate: saved.forwardTemplate, printed: saved.printed, printedTemplate: saved.printedTemplate, programUrl: saved.programUrl }, saved: true }
+  return { targets: legacyEnrollTargets(await getEnrollDomain()), saved: false }
+}
+
 /** What every caller uses: the saved three-part setting, else derived from the old domain (unchanged behavior). */
 export async function getEnrollTargets(): Promise<EnrollTargets> {
-  const saved = await getSavedEnrollSettings()
-  if (saved) return { forwardTemplate: saved.forwardTemplate, printed: saved.printed, printedTemplate: saved.printedTemplate, programUrl: saved.programUrl }
-  return legacyEnrollTargets(await getEnrollDomain())
+  return (await getEnrollState()).targets
 }
 
 export type EnrollField = "forwardTemplate" | "printed" | "printedTemplate" | "programUrl"
 
-const httpsUrlOnBasicBenefits = (v: string): URL | null => {
+/**
+ * Basic Benefits' test enrollment site (11/2026). Allowed only in local and
+ * test runs, never on Vercel (production or preview), so it can't be saved
+ * where real agents' QRs would follow it.
+ */
+export const TEST_ENROLL_HOSTS = ["nop.v4test.vasquezplatform.com"]
+
+export function isAllowedEnrollHost(host: string): boolean {
+  return isValidEnrollDomain(host) || (!process.env.VERCEL && TEST_ENROLL_HOSTS.includes(host))
+}
+
+const allowedHttpsUrl = (v: string): URL | null => {
   try {
     const u = new URL(v)
-    return u.protocol === "https:" && !u.port && !u.username && !u.hash && isValidEnrollDomain(u.hostname) ? u : null
+    return u.protocol === "https:" && !u.port && !u.username && !u.hash && isAllowedEnrollHost(u.hostname) ? u : null
   } catch {
     return null
   }
@@ -70,34 +87,78 @@ const httpsUrlOnBasicBenefits = (v: string): URL | null => {
 
 /**
  * Validates the three parts (no network). The forward template is an https
- * basicbenefits.com URL with exactly one {id} (path or query). The short
- * printed template is host/path ending in "/{id}", no scheme or query, at most
- * 32 characters before {id} (the kit-v1.1.1 card's box), and must fit the
- * kit-v2 footer for a 10-digit Agent ID. The program page is an https
- * basicbenefits.com URL.
+ * basicbenefits.com URL with exactly one {id} (path or query). What the
+ * kit-v2 footer prints: "full", the forward URL itself on two lines (it must
+ * have a "?" to split at, and its first line must fit at 15px); "short", a
+ * host/path ending in "/{id}" with no scheme or query that fits for a
+ * realistic 16-character Agent ID; or "code", the agent's oneflyer.org/a/<code>.
+ * (Kit v1.1.1 prints the code link once the setting is saved.) The program
+ * page is an https basicbenefits.com URL.
  */
 export function checkEnrollInput(raw: Record<string, unknown>): { ok: true; targets: EnrollTargets } | { ok: false; field: EnrollField; message: string } {
   const str = (k: string) => (typeof raw[k] === "string" ? (raw[k] as string).trim() : "")
   const forwardTemplate = str("forwardTemplate")
-  if (forwardTemplate.length > 300 || forwardTemplate.split(ENROLL_ID_TOKEN).length !== 2 || !httpsUrlOnBasicBenefits(forwardTemplate.replace(ENROLL_ID_TOKEN, "1234567890"))) {
+  if (forwardTemplate.length > 300 || forwardTemplate.split(ENROLL_ID_TOKEN).length !== 2 || !allowedHttpsUrl(forwardTemplate.replace(ENROLL_ID_TOKEN, "CP-VLN-H5J"))) {
     return { ok: false, field: "forwardTemplate", message: "Enter the forward URL as https://, a basicbenefits.com host, with {id} exactly once where the Agent ID goes, like https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}." }
   }
   const printed = raw.printed
-  if (printed !== "short" && printed !== "code") return { ok: false, field: "printed", message: "Choose what the flyers print." }
+  if (printed !== "full" && printed !== "short" && printed !== "code") return { ok: false, field: "printed", message: "Choose what the flyers print." }
   let printedTemplate: string | null = null
+  if (printed === "full") {
+    const line1 = forwardTemplate.replace(/^https:\/\//, "").split("?")[0]
+    if (!forwardTemplate.includes("?")) return { ok: false, field: "printed", message: "The full URL prints on two lines, split before the \"?\": this forward URL has no \"?\". Choose a short address or the agent's OneFlyer link." }
+    if (!linesFitKitV2Footer([line1])) return { ok: false, field: "printed", message: `The first line (${line1}) is about ${Math.round(linkWidth(line1))}px wide at 15px; the kit-v2 footer has ${Math.floor(FOOTER_SPACE_PX)}px.` }
+  }
   if (printed === "short") {
-    printedTemplate = str("printedTemplate").toLowerCase().replace(/^https?:\/\//, "")
-    const m = /^([a-z0-9.-]+)((?:\/[a-z0-9._~-]+)*)\/\{id\}$/.exec(printedTemplate)
-    if (!m || !isValidEnrollDomain(m[1])) return { ok: false, field: "printedTemplate", message: "Enter the printed address without https://, a basicbenefits.com host, ending in /{id}, like join.basicbenefits.com/{id}." }
+    printedTemplate = str("printedTemplate").replace(/^https?:\/\//i, "")
+    const m = /^([A-Za-z0-9.-]+)((?:\/[a-z0-9._~-]+)*)\/\{id\}$/.exec(printedTemplate)
+    if (m) printedTemplate = `${m[1].toLowerCase()}${m[2]}/${ENROLL_ID_TOKEN}`
+    if (!m || !isAllowedEnrollHost(m[1].toLowerCase())) return { ok: false, field: "printedTemplate", message: "Enter the printed address without https://, a basicbenefits.com host, ending in /{id}, like join.basicbenefits.com/{id}." }
     const prefix = printedTemplate.slice(0, -ENROLL_ID_TOKEN.length)
-    if (prefix.length > 32) return { ok: false, field: "printedTemplate", message: `The part before {id} is ${prefix.length} characters; the kit-v1.1.1 card has room for 32.` }
-    if (!addressFitsKitV2Footer(prefix, "id")) return { ok: false, field: "printedTemplate", message: `With a 10-digit Agent ID the printed address is about ${Math.round(footerAddressWorstWidth(prefix, "id"))}px wide; the kit-v2 footer has ${Math.floor(FOOTER_SPACE_PX)}px.` }
+    if (!addressFitsKitV2Footer(prefix, "id")) return { ok: false, field: "printedTemplate", message: `With a 16-character Agent ID the printed address is about ${Math.round(footerAddressWorstWidth(prefix, "id"))}px wide; the kit-v2 footer has ${Math.floor(FOOTER_SPACE_PX)}px.` }
   }
   const programUrl = str("programUrl")
-  if (programUrl.length > 300 || !httpsUrlOnBasicBenefits(programUrl) || programUrl.includes(ENROLL_ID_TOKEN)) {
+  if (programUrl.length > 300 || !allowedHttpsUrl(programUrl) || programUrl.includes(ENROLL_ID_TOKEN)) {
     return { ok: false, field: "programUrl", message: "Enter the program page as https:// with a basicbenefits.com host, like https://neighbor.basicbenefits.com/." }
   }
   return { ok: true, targets: { forwardTemplate, printed, printedTemplate, programUrl } }
+}
+
+// ---- The check agent --------------------------------------------------------
+// Whose forward URL the save check, "Check the test agent's page" and the
+// kit-v2 switch open: any active roster agent, admin-set and logged
+// (default 858980, the program's original test ID).
+
+const CHECK_AGENT_LOG_KEY = "nop-flyers:check-agent-log"
+
+export async function getCheckAgentId(): Promise<string> {
+  const v = await redis.hget<unknown>(KEY, "checkAgentId")
+  const id = v == null ? "" : String(v)
+  return AGENT_ID_RE.test(id) ? id : ENROLL_CHECK_AGENT_ID
+}
+
+export interface CheckAgentLogEntry {
+  at: string
+  admin: string
+  from: string
+  to: string
+}
+
+export async function setCheckAgentId(raw: string, admin: string): Promise<{ ok: true; entry: CheckAgentLogEntry } | { ok: false; message: string }> {
+  const to = raw.trim()
+  if (!AGENT_ID_RE.test(to)) return { ok: false, message: "Enter an Agent ID exactly as issued: letters, numbers and dashes." }
+  const roster = await getRosterRecord(to)
+  if (!roster) return { ok: false, message: `${to} isn't on the roster.` }
+  if (!isGenerationStatus(roster)) return { ok: false, message: `${to} is ${roster.status}, not active.` }
+  const entry: CheckAgentLogEntry = { at: new Date().toISOString(), admin, from: await getCheckAgentId(), to }
+  await redis.hset(KEY, { checkAgentId: to })
+  await redis.lpush(CHECK_AGENT_LOG_KEY, entry)
+  console.log(`[nop] ${admin} set the enrollment check agent ${entry.from} -> ${to}`)
+  return { ok: true, entry }
+}
+
+export async function listCheckAgentLog(limit = 50): Promise<CheckAgentLogEntry[]> {
+  return redis.lrange<CheckAgentLogEntry>(CHECK_AGENT_LOG_KEY, 0, limit - 1)
 }
 
 export interface UrlCheck {
@@ -121,21 +182,21 @@ export async function checkUrlLoads(url: string): Promise<UrlCheck> {
 }
 
 /**
- * The URLs a setting must serve, for the test agent: their forward URL, the
+ * The URLs a setting must serve, for the check agent: their forward URL, the
  * printed address when it's a short template (people type it in), and the
  * program page. A "code" printed address is OneFlyer's own link, which
  * forwards like the QR.
  */
-export function enrollUrlsToCheck(t: EnrollTargets): { agent: string; printed: string | null; program: string } {
+export function enrollUrlsToCheck(t: EnrollTargets, checkAgentId: string): { agent: string; printed: string | null; program: string } {
   return {
-    agent: qrDestinationFor(ENROLL_CHECK_AGENT_ID, t),
-    printed: t.printed === "short" ? printedEnrollAddress(ENROLL_CHECK_AGENT_ID, "", t).href : null,
+    agent: qrDestinationFor(checkAgentId, t),
+    printed: t.printed === "short" ? printedEnrollAddress(checkAgentId, "", t).href : null,
     program: programEnrollmentUrl(t),
   }
 }
 
-export async function checkEnrollTargets(t: EnrollTargets): Promise<{ ok: boolean; checks: UrlCheck[] }> {
-  const urls = enrollUrlsToCheck(t)
+export async function checkEnrollTargets(t: EnrollTargets, checkAgentId: string): Promise<{ ok: boolean; checks: UrlCheck[] }> {
+  const urls = enrollUrlsToCheck(t, checkAgentId)
   const list = [...new Set([urls.agent, urls.printed, urls.program].filter((u): u is string => !!u))]
   const checks = await Promise.all(list.map(checkUrlLoads))
   return { ok: checks.every((c) => c.ok), checks }

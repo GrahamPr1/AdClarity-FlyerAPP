@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { audit, requireNopAdmin } from "@/lib/enterprise/program-admins"
 import { AGENT_AREA_READY, getNopFlyerSettings, listNopFlyerSettingsLog, logNopFlyerSettingChange, setNopFlyerSetting } from "@/lib/enterprise/nop-render/kit-v2-access"
-import { ENROLL_CHECK_AGENT_ID, checkEnrollTargets, getEnrollTargets, getSavedEnrollSettings } from "@/lib/enterprise/nop-enroll-domain"
+import { checkEnrollTargets, getCheckAgentId, getEnrollTargets, getSavedEnrollSettings } from "@/lib/enterprise/nop-enroll-domain"
 import { checkEnrollPage } from "@/lib/enterprise/nop-enroll-check"
 import { qrDestinationFor } from "@/lib/enterprise/nop-roster"
 import { v2ReleaseFailures } from "@/lib/enterprise/nop-render/kit-v2-release"
@@ -12,8 +12,8 @@ import { v2ReleaseFailures } from "@/lib/enterprise/nop-render/kit-v2-release"
 // Every change is kept in the settings log (who, when, before and after),
 // which GET returns for the admin page.
 // Agents can't be switched to kit v2 until the enrollment setting is saved in
-// its three-part form, its URLs load, and the test agent's (858980) forward
-// URL shows a real partner page, not "Partner Not Found" (checked in a
+// its three-part form, its URLs load, and the check agent's (admin-set,
+// default 858980) forward URL shows a real partner page, not "Partner Not Found" (checked in a
 // browser: the page is drawn by script). Every kit-v2 QR and printed address
 // leads there.
 // Spanish kit v2 can't be switched on (or kept on while agents are switched to
@@ -49,15 +49,16 @@ export async function POST(request: NextRequest) {
     if (!saved) {
       return NextResponse.json({ error: "enroll_setting_not_saved", message: "Not switched: save the enrollment setting first (forward URL, printed address and program page, above). Until then it's still the old single domain." }, { status: 409 })
     }
-    const live = await checkEnrollTargets(saved)
+    const checkId = await getCheckAgentId()
+    const live = await checkEnrollTargets(saved, checkId)
     if (!live.ok) {
       const failed = live.checks.filter((c) => !c.ok).map((c) => `${c.url} (${c.error ?? `HTTP ${c.status}`})`).join(", ")
       return NextResponse.json({ error: "enroll_url_not_loading", message: `Not switched: the enrollment setting's URLs don't load right now: ${failed}. Confirm them with the Neighborhood Outreach Program and save the setting again.`, checks: live.checks }, { status: 409 })
     }
-    const page = await checkEnrollPage(qrDestinationFor(ENROLL_CHECK_AGENT_ID, saved))
+    const page = await checkEnrollPage(qrDestinationFor(checkId, saved))
     if (!page.ok) {
       const why = page.problem === "not_found" ? `shows "${page.text.slice(0, 120)}"` : page.problem === "blank" ? "showed nothing within 20 seconds" : `didn't load (${page.text})`
-      return NextResponse.json({ error: "enroll_partner_not_found", message: `Not switched: the test agent's enrollment page (${page.url}) ${why}. Every kit-v2 QR would lead to a page like it.`, page }, { status: 409 })
+      return NextResponse.json({ error: "enroll_partner_not_found", message: `Not switched: the check agent's (${checkId}) enrollment page (${page.url}) ${why}. Every kit-v2 QR would lead to a page like it.`, page }, { status: 409 })
     }
   }
   const before = await getNopFlyerSettings()

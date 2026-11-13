@@ -6,7 +6,8 @@ import { KIT_V2_ORIGIN, V2_PAGE_POINTS, kitV2FileFor, readV2Html, v2HtmlForRende
 import { agentAreaHtml } from "./agent-area"
 import { assertOnlyFooterChanged, placeAgentAreaInFooter } from "./footer-placement"
 import { decodeQrFromPng } from "./qr-gate"
-import { printedEnrollAddress, qrDestinationFor } from "@/lib/enterprise/nop-roster"
+import { enrollTargets, printedEnrollAddress, qrDestinationFor, type Enroll } from "@/lib/enterprise/nop-roster"
+import { linesFitKitV2Footer } from "./footer-fit"
 import { getEnrollTargets } from "@/lib/enterprise/nop-enroll-domain"
 
 // Renders a kit-v2 page. renderNopV2 is the page exactly as Basic Benefits
@@ -114,9 +115,12 @@ export interface NopV2Fit {
 }
 
 /** The page markup with the agent area in the footer, after the locked-sections check. */
-export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, qrLink: string, printedHref: string): Promise<string> {
+/** The printed enrollment address as the footer prints it: its link target and its line(s). */
+export type NopV2Link = { href: string; lines: string[] }
+
+export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, qrLink: string, link: NopV2Link): Promise<string> {
   const src = readV2Html(id, size)
-  const area = agentAreaHtml({ name: agent.displayName, phone: agent.displayPhone, enrollUrl: printedHref, qrSvg: await qrSvg(qrLink) })
+  const area = agentAreaHtml({ name: agent.displayName, phone: agent.displayPhone, link, qrSvg: await qrSvg(qrLink) })
   const { pkg, lang } = v2Parts(id)
   let placed: string
   try {
@@ -136,7 +140,7 @@ export async function v2AgentHtml(id: NopV2Id, size: NopV2Size, agent: NopV2Agen
  * exactly the agent's printed enrollment address (the setting's short
  * template, or their oneflyer.org/a/<code> link).
  */
-async function checkAgentLayout(page: Page, printedHref: string): Promise<NopV2Fit> {
+async function checkAgentLayout(page: Page, link: NopV2Link): Promise<NopV2Fit> {
   // No named functions inside evaluate: some bundlers wrap them in a helper
   // that doesn't exist inside the page.
   const r = await page.evaluate(() => {
@@ -162,9 +166,15 @@ async function checkAgentLayout(page: Page, printedHref: string): Promise<NopV2F
     const fields = ["enroll_link", "name", "phone"].map((f) => {
       const el = document.querySelector(`[data-agent-field="${f}"]`)
       if (!el) return { f, b: null, lines: 0 }
-      const range = document.createRange()
-      range.selectNodeContents(el)
-      const lines = new Set(Array.from(range.getClientRects()).filter((x) => x.width > 0).map((x) => Math.round(x.top))).size
+      // Lines of text only (the link's lines are spans: their boxes would count twice).
+      const tops = new Set<number>()
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+        const range = document.createRange()
+        range.selectNodeContents(t)
+        for (const x of Array.from(range.getClientRects())) if (x.width > 0) tops.add(Math.round(x.top))
+      }
+      const lines = tops.size
       const b = el.getBoundingClientRect()
       return { f, b: { left: b.left, right: b.right, top: b.top, bottom: b.bottom }, lines }
     })
@@ -185,13 +195,14 @@ async function checkAgentLayout(page: Page, printedHref: string): Promise<NopV2F
   }
   const { page: pg, footer, left, area, qr } = r.box
   if (!pg || !footer || !left || !area || !qr || !r.main || !r.pageScroll) fail("master_invalid", "agent area or page structure not found")
-  if (r.href !== printedHref || r.linkText !== printedHref.replace(/^https?:\/\//, "").replace(/\/$/, "")) fail("master_invalid", `enrollment link is ${r.href} / ${r.linkText}, expected ${printedHref}`)
+  if (r.href !== link.href || r.linkText !== link.lines.join("")) fail("master_invalid", `enrollment link is ${r.href} / ${r.linkText}, expected ${link.href} / ${link.lines.join(" ")}`)
   for (const { f, b, lines } of r.fields) {
     const field = f === "name" ? "agent_name" : f === "phone" ? "agent_phone" : "enroll_link"
     const code = field === "enroll_link" ? "master_invalid" : "field_too_long"
-    if (!b || lines !== 1) fail(code, `${field} is on ${lines} lines`, field)
-    // Clear of the footer's own text column and of the QR box, inside the footer band.
-    if (b!.left < left!.right + 8 || b!.right > qr!.left - 8 || b!.top < footer!.top || b!.bottom > footer!.bottom) fail(code, `${field} doesn't fit beside the QR`, field)
+    const want = f === "enroll_link" ? link.lines.length : 1
+    if (!b || lines !== want) fail(code, `${field} is on ${lines} lines, expected ${want}`, field)
+    // Clear of the footer's own text column and of the QR box (8px each side, to within rounding), inside the footer band.
+    if (b!.left < left!.right + 7.5 || b!.right > qr!.left - 7.5 || b!.top < footer!.top || b!.bottom > footer!.bottom) fail(code, `${field} doesn't fit beside the QR`, field)
   }
   if (Math.abs(qr!.width - 0.9 * 96) > 0.5 || Math.abs(qr!.height - 0.9 * 96) > 0.5) fail("master_invalid", `QR box is ${qr!.width}x${qr!.height}px, expected 0.9in`)
   if (qr!.right > footer!.right || qr!.top < footer!.top || qr!.bottom > footer!.bottom) fail("master_invalid", "QR box is outside the footer")
@@ -227,7 +238,35 @@ export async function renderNopV2ForAgent(id: NopV2Id, size: NopV2Size, agent: N
   // One read of the enrollment setting: the printed address and the QR's forward can't disagree.
   const enroll = await getEnrollTargets()
   const expected = await checkedQrLink(agent.agentId, qrDestinationFor(agent.agentId, enroll), enroll)
-  return renderNopV2WithAgentArea(id, size, agent, printedEnrollAddress(agent.agentId, qrCodeOf(expected), enroll).href, expected, output)
+  const code = qrCodeOf(expected)
+  const printed = v2PrintedLink(agent.agentId, code, enroll)
+  try {
+    return await renderNopV2WithAgentArea(id, size, agent, printed.link, expected, output)
+  } catch (err) {
+    // The estimate said the full URL fits but the laid-out page says it doesn't: print the code link instead, never smaller text.
+    if (printed.fullUrl && err instanceof NopRenderError && err.field === "enroll_link") {
+      console.warn(`[nop] agent ${agent.agentId}: full enrollment URL doesn't fit the kit-v2 footer, printing their code link`)
+      return renderNopV2WithAgentArea(id, size, agent, codeLink(agent.agentId, code, enroll), expected, output)
+    }
+    throw err
+  }
+}
+
+const codeLink = (agentId: string, code: string, enroll: Enroll): NopV2Link => {
+  const p = printedEnrollAddress(agentId, code, { ...enrollTargets(enroll), printed: "code", printedTemplate: null })
+  return { href: p.href, lines: p.lines }
+}
+
+/**
+ * What an agent's kit-v2 footer prints: the setting's printed address, except
+ * that a full URL whose ID line wouldn't fit at 15px is replaced by the
+ * agent's own oneflyer.org/a/<code> link (the QR is the same either way). The
+ * agent is flagged for admin when that happens (flagAgentIdIfTooLong).
+ */
+export function v2PrintedLink(agentId: string, code: string, enroll: Enroll): { link: NopV2Link; fullUrl: boolean } {
+  const p = printedEnrollAddress(agentId, code, enroll)
+  if (enrollTargets(enroll).printed !== "full") return { link: { href: p.href, lines: p.lines }, fullUrl: false }
+  return linesFitKitV2Footer(p.lines) ? { link: { href: p.href, lines: p.lines }, fullUrl: true } : { link: codeLink(agentId, code, enroll), fullUrl: false }
 }
 
 /**
@@ -236,12 +275,12 @@ export async function renderNopV2ForAgent(id: NopV2Id, size: NopV2Size, agent: N
  * reach it through renderNopV2ForAgent; the kit-v2 release check
  * (kit-v2-release.ts) calls it with fixed test values.
  */
-export async function renderNopV2WithAgentArea(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, printedHref: string, expected: string, output: NopV2Output): Promise<NopV2AgentRendered> {
-  const html = v2HtmlForRender(id, size, await v2AgentHtml(id, size, agent, expected, printedHref))
+export async function renderNopV2WithAgentArea(id: NopV2Id, size: NopV2Size, agent: NopV2AgentValues, link: NopV2Link, expected: string, output: NopV2Output): Promise<NopV2AgentRendered> {
+  const html = v2HtmlForRender(id, size, await v2AgentHtml(id, size, agent, expected, link))
   let qr = ""
   let fit: NopV2Fit = { footerMargin: 0, minGap: 0 }
   const rendered = await renderV2Page(id, size, html, output, V2_AGENT_DSF, async (page) => {
-    fit = await checkAgentLayout(page, printedHref)
+    fit = await checkAgentLayout(page, link)
     qr = await checkAgentQr(page, expected)
   })
   return { ...rendered, qr, fit }

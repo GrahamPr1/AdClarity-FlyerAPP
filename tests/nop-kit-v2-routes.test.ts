@@ -18,6 +18,7 @@ vi.mock("@/lib/enterprise/program-admins", async (orig) => ({
 }))
 vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({
   ENROLL_CHECK_AGENT_ID: "858980",
+  getCheckAgentId: async () => "858980",
   getEnrollDomain: async () => "neighbor.basicbenefits.com",
   getEnrollTargets: async () => "neighbor.basicbenefits.com",
   getSavedEnrollSettings: async () => (s.enrollSaved ? { forwardTemplate: "https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}", printed: "short", printedTemplate: "join.basicbenefits.com/{id}", programUrl: "https://neighbor.basicbenefits.com/", savedAt: "t", admin: "admin" } : null),

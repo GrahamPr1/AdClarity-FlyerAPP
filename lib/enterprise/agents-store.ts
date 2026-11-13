@@ -1,9 +1,9 @@
 import { Redis } from "@upstash/redis"
 import type { AgentFlag, AgentProfile, EnterpriseOrg, RosterRecord } from "@/lib/types"
 import { deleteAgentProfile, getAgentProfile, getEnterpriseOrg, saveAgentProfile, saveEnterpriseOrg } from "@/lib/store"
-import { NOP_ORG_ID, NOP_ORG_NAME, isGenerationStatus, qrDestinationFor, type Enroll } from "./nop-roster"
+import { NOP_ORG_ID, NOP_ORG_NAME, enrollTargets, isGenerationStatus, printedEnrollAddress, qrDestinationFor, type Enroll } from "./nop-roster"
 import { getEnrollTargets } from "./nop-enroll-domain"
-import { FOOTER_SPACE_PX, footerNameWidth, nameFitsKitV2Footer } from "./nop-render/footer-fit"
+import { FOOTER_SPACE_PX, WORST_AGENT_ID_LENGTH, footerNameWidth, linesFitKitV2Footer, nameFitsKitV2Footer } from "./nop-render/footer-fit"
 import { clearRetentionClock, startRetentionClock } from "./portal/retention"
 
 // Redis layer for locked-agent registration. Additive: none of these keys
@@ -272,6 +272,23 @@ export function buildAgentProfile(
 export async function flagNameIfTooLongForFooter(agentId: string, account: string, displayName: string): Promise<void> {
   if (nameFitsKitV2Footer(displayName)) return
   await addAgentFlag({ type: "name_too_long_for_footer", agentId, account, nameWidthPx: Math.round(footerNameWidth(displayName)), spacePx: Math.floor(FOOTER_SPACE_PX) })
+}
+
+/**
+ * Flags (once per agent) an Agent ID longer than the 16 characters the
+ * printed addresses are checked for, or whose full enrollment URL wouldn't
+ * fit the kit-v2 footer under the current setting: their flyers then print
+ * their oneflyer.org/a/<code> link instead (render-v2.ts), never smaller text.
+ */
+export async function flagAgentIdIfTooLong(agentId: string, account: string, enroll?: Enroll): Promise<boolean> {
+  const e = enroll ?? (await getEnrollTargets())
+  const reasons: string[] = []
+  if (agentId.length > WORST_AGENT_ID_LENGTH) reasons.push(`the Agent ID is ${agentId.length} characters (addresses are checked for up to ${WORST_AGENT_ID_LENGTH})`)
+  if (enrollTargets(e).printed === "full" && !linesFitKitV2Footer(printedEnrollAddress(agentId, "", e).lines)) reasons.push("the full enrollment URL doesn't fit the kit-v2 footer for this ID, so their kit-v2 flyers print their oneflyer.org/a/<code> link instead (the QR is the same)")
+  if (reasons.length === 0) return false
+  const already = (await listAgentFlags(500)).some((f) => f.type === "agent_id_too_long" && f.agentId === agentId)
+  if (!already) await addAgentFlag({ type: "agent_id_too_long", agentId, account, reason: reasons.join("; ") })
+  return true
 }
 
 /** True when this account holds a NOP Agent ID. Drives the SMB generation guard. */

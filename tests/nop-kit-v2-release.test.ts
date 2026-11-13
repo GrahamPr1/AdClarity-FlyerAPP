@@ -17,7 +17,8 @@ import { acquireBrowser } from "@/lib/pdf/flyer-pdf"
  * Prints each page's footer margin.
  */
 
-const DOMAIN = "join.basicbenefits.com"
+// The setting as it will be saved: the full forward URL printed on two lines.
+const DOMAIN = { forwardTemplate: "https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}", printed: "full" as const, printedTemplate: null, programUrl: "https://neighbor.basicbenefits.com/" }
 const CASES = NOP_V2_TEMPLATES.flatMap((id) => V2_SIZES.map((size) => [id, size] as const))
 const margins: string[] = []
 

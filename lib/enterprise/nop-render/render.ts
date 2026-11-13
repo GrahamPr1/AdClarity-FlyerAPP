@@ -12,8 +12,8 @@ import {
 } from "./kit"
 import { decodeQrFromPng } from "./qr-gate"
 import { getRosterRecord } from "@/lib/enterprise/agents-store"
-import { nopQrLink, nopQrTarget, printedEnrollAddress, qrDestinationFor, type Enroll } from "@/lib/enterprise/nop-roster"
-import { getEnrollTargets } from "@/lib/enterprise/nop-enroll-domain"
+import { nopQrLink, nopQrTarget, printedEnrollAddress, qrDestinationFor, type Enroll, type EnrollTargets } from "@/lib/enterprise/nop-roster"
+import { getEnrollState } from "@/lib/enterprise/nop-enroll-domain"
 import { agentIdForQrCode, getOrIssueAgentQrCode } from "@/lib/enterprise/nop-qr-code"
 
 // Renders Basic Benefits' NOP masters with an agent's details. No AI, no
@@ -95,6 +95,16 @@ function textValues(content: KitContent, id: NopTemplateId, agent: NopAgentValue
     version_stamp: versionStamp(content, id),
     ...priceValues(content, id),
   }
+}
+
+/**
+ * Kit v1.1.1 is being retired (11/2026): until the enrollment setting is
+ * saved it prints exactly as before; once saved, it prints the agent's own
+ * oneflyer.org/a/<code> link, which always fits its card (the full URL
+ * doesn't, and its layout isn't changed).
+ */
+function v1Printed(enroll: EnrollTargets, saved: boolean): EnrollTargets {
+  return saved ? { ...enroll, printed: "code", printedTemplate: null } : enroll
 }
 
 export async function qrSvg(url: string): Promise<string> {
@@ -287,7 +297,7 @@ export async function checkedQrLink(agentId: string, enrollment: string, enroll:
 export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, format: NopFormat): Promise<NopRendered> {
   const t0 = Date.now()
   const content = readKitContent()
-  const enroll = await getEnrollTargets()
+  const { targets: enroll, saved } = await getEnrollState()
   const expected = await checkedQrLink(agent.agentId, qrDestinationFor(agent.agentId, enroll), enroll)
   const dsf = format === "social" ? SOCIAL.w / DIGITAL_BASE_W : format === "preview" ? 1 : format === "thumb" ? THUMB_DSF : 2
   const { page, close } = await newPage(dsf)
@@ -296,7 +306,7 @@ export async function renderNopFlyer(id: NopTemplateId, agent: NopAgentValues, f
     if (format === "social") await toDigitalLayout(page)
     if (format === "home") await toHomeLayout(page)
 
-    await inject(page, textValues(content, id, agent, enroll, qrCodeOf(expected)), readKitFileBase64(content.default_logo), await qrSvg(expected))
+    await inject(page, textValues(content, id, agent, v1Printed(enroll, saved), qrCodeOf(expected)), readKitFileBase64(content.default_logo), await qrSvg(expected))
     await assertFonts(page)
     const tooWide = await fitAndCheck(page)
     if (tooWide.length) {
@@ -436,7 +446,8 @@ export async function inspectNopFlyer(id: NopTemplateId, agent: NopAgentValues):
   try {
     await page.setContent(masterWithInlineFonts(id), { waitUntil: "load" })
     const code = await getOrIssueAgentQrCode(agent.agentId)
-    await inject(page, textValues(content, id, agent, await getEnrollTargets(), code), readKitFileBase64(content.default_logo), await qrSvg(nopQrLink(code)))
+    const { targets, saved } = await getEnrollState()
+    await inject(page, textValues(content, id, agent, v1Printed(targets, saved), code), readKitFileBase64(content.default_logo), await qrSvg(nopQrLink(code)))
     await assertFonts(page)
     const tooWide = await fitAndCheck(page)
     const measured = await page.evaluate(() => {

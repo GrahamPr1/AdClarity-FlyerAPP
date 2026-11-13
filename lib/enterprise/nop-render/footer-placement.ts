@@ -9,7 +9,8 @@ import type { NopV2Lang, NopV2Pkg } from "./kit-v2-ids"
 //     the agent area; the version stamp moves under "Sign in or enroll online",
 //     and that column is fixed (flex:none) so it never wraps;
 //   - the footer's top/bottom padding goes from 16px to 8px, so the band grows
-//     by the QR box less the padding saved (0.9in box: 75px -> 102.4px tall);
+//     by the QR box less the padding saved (0.9in box: 75px -> 102.4px tall),
+//     and its side padding from 48px to 32px (0.33in from the trim);
 //   - pages without that much free space above the disclaimer get tighter
 //     vertical spacing (SPACING): <main>'s padding and gaps, and the cards'
 //     top/bottom padding. No text, block, image or price moves sideways or
@@ -19,7 +20,9 @@ import type { NopV2Lang, NopV2Pkg } from "./kit-v2-ids"
 // mis-edited.
 
 const FOOTER_PAD_FROM = "padding:16px calc(48px + var(--bleed, 0px)) calc(16px + var(--bleed, 0px));"
-const FOOTER_PAD_TO = "padding:8px calc(48px + var(--bleed, 0px)) calc(8px + var(--bleed, 0px));"
+// Sides 48 -> 32px (0.33in from the trim, Letter and bleed alike), approved
+// 11/2026 so the full enrollment URL fits beside the QR at 15px.
+const FOOTER_PAD_TO = "padding:8px calc(32px + var(--bleed, 0px)) calc(8px + var(--bleed, 0px));"
 
 const RIGHT_COLUMN =
   /<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">\s*<a href="https:\/\/neighbor\.basicbenefits\.com" [^>]*>neighbor\.basicbenefits\.com<\/a>\s*(<span [^>]*>[^<]*<\/span>)\s*<\/div>/g
@@ -45,24 +48,24 @@ const P1_P3_MAIN = MAIN(22, 18, 16)
  */
 export const SPACING: Record<NopV2Pkg, Record<NopV2Lang, SpacingEdit[]>> = {
   // English: 1in free above the disclaimer absorbs the footer as is.
-  // Spanish (taller cards): -28px: <main> padding 22/18 -> 16/12, gaps 16 -> 12
-  // (3 gaps), card padding 16/18 -> 14/16.
+  // Spanish (taller cards): -35px: <main> padding 22/18 -> 14/12, gaps 16 -> 11
+  // (3 gaps), card padding 16/18 -> 12/14.
   P1: {
     EN: [],
     ES: [
-      { from: P1_P3_MAIN, to: MAIN(16, 12, 12), count: 1, what: "<main> spacing" },
-      { from: "padding:16px 16px 18px;", to: "padding:14px 16px 16px;", count: 3, what: "benefit card padding" },
+      { from: P1_P3_MAIN, to: MAIN(14, 12, 11), count: 1, what: "<main> spacing" },
+      { from: "padding:16px 16px 18px;", to: "padding:12px 16px 14px;", count: 3, what: "benefit card padding" },
     ],
   },
-  // -22px: <main> padding 16/12 -> 10/8 (approved 11/2026), gaps 10 -> 8
-  // (3 gaps; the approved 6 was under 0.08in), card padding 12/14 -> 10/12
-  // (two rows of benefit cards) and 12 -> 10 (wide card).
+  // -27px: <main> padding 16/12 -> 9/8, gaps 10 -> 8 (3 gaps; the approved 6
+  // was under 0.08in), card padding 12/14 -> 9/11 (two rows of benefit cards)
+  // and 12 -> 9 (wide card).
   P2: {
     EN: p2(),
     ES: p2(),
   },
-  // -30px: the approved -18px (bottom padding 18 -> 12, gaps 16 -> 12), plus top
-  // padding 22 -> 18 and card padding 16/18 -> 14/16 (benefit cards), 16 -> 14
+  // -36px: the approved -18px (bottom padding 18 -> 12, gaps 16 -> 12), plus top
+  // padding 22 -> 16 and card padding 16/18 -> 13/15 (benefit cards), 16 -> 13
   // (wide card). Both languages: English had 0.01in to spare.
   P3: {
     EN: p3(),
@@ -72,17 +75,17 @@ export const SPACING: Record<NopV2Pkg, Record<NopV2Lang, SpacingEdit[]>> = {
 
 function p2(): SpacingEdit[] {
   return [
-    { from: MAIN(16, 12, 10), to: MAIN(10, 8, 8), count: 1, what: "<main> spacing" },
-    { from: "padding:12px 18px 14px;", to: "padding:10px 18px 12px;", count: 4, what: "benefit card padding" },
-    { from: "padding:12px 18px;", to: "padding:10px 18px;", count: 1, what: "wide card padding" },
+    { from: MAIN(16, 12, 10), to: MAIN(9, 8, 8), count: 1, what: "<main> spacing" },
+    { from: "padding:12px 18px 14px;", to: "padding:9px 18px 11px;", count: 4, what: "benefit card padding" },
+    { from: "padding:12px 18px;", to: "padding:9px 18px;", count: 1, what: "wide card padding" },
   ]
 }
 
 function p3(): SpacingEdit[] {
   return [
-    { from: P1_P3_MAIN, to: MAIN(18, 12, 12), count: 1, what: "<main> spacing" },
-    { from: "padding:16px 18px 18px;", to: "padding:14px 18px 16px;", count: 2, what: "benefit card padding" },
-    { from: "padding:16px 20px;", to: "padding:14px 20px;", count: 1, what: "wide card padding" },
+    { from: P1_P3_MAIN, to: MAIN(16, 12, 12), count: 1, what: "<main> spacing" },
+    { from: "padding:16px 18px 18px;", to: "padding:13px 18px 15px;", count: 2, what: "benefit card padding" },
+    { from: "padding:16px 20px;", to: "padding:13px 20px;", count: 1, what: "wide card padding" },
   ]
 }
 

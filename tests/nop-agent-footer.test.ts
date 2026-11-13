@@ -13,7 +13,7 @@ import { agentFlyerKit } from "@/lib/enterprise/nop-render/kit-v2-access"
  * else on every page stays byte-for-byte as Basic Benefits supplied it.
  */
 
-const area = agentAreaHtml({ name: "Jordan Rivera", phone: "(555) 010-0142", enrollUrl: "https://neighbor.basicbenefits.com/123456", qrSvg: '<svg viewBox="0 0 29 29"></svg>' })
+const area = agentAreaHtml({ name: "Jordan Rivera", phone: "(555) 010-0142", link: { href: "https://neighbor.basicbenefits.com/member-enrollment?agent_code=CP-VLN-H5J", lines: ["neighbor.basicbenefits.com/member-enrollment", "?agent_code=CP-VLN-H5J"] }, qrSvg: '<svg viewBox="0 0 29 29"></svg>' })
 const footerOf = (h: string) => /<footer[\s\S]*<\/footer>/.exec(h)![0]
 const PAGES = NOP_V2_TEMPLATES.flatMap((id) => (["letter", "bleed"] as NopV2Size[]).map((size) => [id, size] as const))
 
@@ -47,17 +47,37 @@ describe("placing the agent area in the footer", () => {
 
 describe("the agent area", () => {
   it("prints exactly the agent's values, escaped, and the QR at 0.7in in a 0.9in white box", () => {
-    const html = agentAreaHtml({ name: `<b>Pat & "Lee"</b>`, phone: "555", enrollUrl: "https://neighbor.basicbenefits.com/1", qrSvg: "<svg viewBox='0 0 1 1'></svg>" })
+    const html = agentAreaHtml({ name: `<b>Pat & "Lee"</b>`, phone: "555", link: { href: "https://neighbor.basicbenefits.com/1", lines: ["neighbor.basicbenefits.com/1"] }, qrSvg: "<svg viewBox='0 0 1 1'></svg>" })
     expect(html).toContain("&lt;b&gt;Pat &amp; &quot;Lee&quot;&lt;/b&gt;")
     expect(html).not.toContain("<b>")
     expect(html).toContain('href="https://neighbor.basicbenefits.com/1"')
-    expect(html).toContain(">neighbor.basicbenefits.com/1<")
+    expect(html).toContain("><span>neighbor.basicbenefits.com/1</span></a>")
     expect(html).toMatch(/width:0\.9in;height:0\.9in;padding:0\.1in;background:#fff/)
     expect(html).toContain('<svg width="0.7in" height="0.7in"')
   })
 
   it("prints the link without the scheme", () => {
     expect(printedLink("https://neighbor.basicbenefits.com/858980")).toBe("neighbor.basicbenefits.com/858980")
+  })
+
+  it("prints the full URL on two lines, split before the '?', linking the whole URL; the ID exactly as issued", async () => {
+    const { printedEnrollAddress } = await import("@/lib/enterprise/nop-roster")
+    const full = { forwardTemplate: "https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}", printed: "full" as const, printedTemplate: null, programUrl: "https://neighbor.basicbenefits.com/" }
+    const p = printedEnrollAddress("CP-VLN-H5J", "Ab3dEf7", full)
+    expect(p.lines).toEqual(["neighbor.basicbenefits.com/member-enrollment", "?agent_code=CP-VLN-H5J"])
+    expect(p.href).toBe("https://neighbor.basicbenefits.com/member-enrollment?agent_code=CP-VLN-H5J")
+    const html = agentAreaHtml({ name: "Jordan Rivera", phone: "555", link: { href: p.href, lines: p.lines }, qrSvg: "<svg viewBox='0 0 1 1'></svg>" })
+    expect(html).toContain('href="https://neighbor.basicbenefits.com/member-enrollment?agent_code=CP-VLN-H5J"')
+    expect(html).toContain("<span>neighbor.basicbenefits.com/member-enrollment</span><span>?agent_code=CP-VLN-H5J</span>")
+    expect(html).toContain("gap:8px")
+  })
+
+  it("an ID too wide for the second line prints the agent's code link instead; text never shrinks", async () => {
+    const { v2PrintedLink } = await import("@/lib/enterprise/nop-render/render-v2")
+    const full = { forwardTemplate: "https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}", printed: "full" as const, printedTemplate: null, programUrl: "https://neighbor.basicbenefits.com/" }
+    expect(v2PrintedLink("CP-VLN-H5J", "Ab3dEf7", full)).toEqual({ fullUrl: true, link: { href: "https://neighbor.basicbenefits.com/member-enrollment?agent_code=CP-VLN-H5J", lines: ["neighbor.basicbenefits.com/member-enrollment", "?agent_code=CP-VLN-H5J"] } })
+    expect(v2PrintedLink("MW-QmwO-8M4W-Qmd", "Ab3dEf7", full).fullUrl).toBe(true)
+    expect(v2PrintedLink("W".repeat(32), "Ab3dEf7", full)).toEqual({ fullUrl: false, link: { href: "https://oneflyer.org/a/Ab3dEf7", lines: ["oneflyer.org/a/Ab3dEf7"] } })
   })
 })
 
@@ -77,7 +97,7 @@ describe("release check: locked sections", () => {
     expect(() => assertOnlyFooterChanged(src, out, "P1", "EN")).toThrow(/locked section/)
     const p1 = readV2Html("NOP2_P1_ES_PRICE", "letter"), p1Out = placeAgentAreaInFooter(p1, "P1", "ES", area)
     expect(() => assertOnlyFooterChanged(p1, p1Out, "P1", "EN")).toThrow(/locked section/)
-    expect(() => assertOnlyFooterChanged(p1, p1Out.replace("padding:14px 16px 16px;", "padding:10px 16px 16px;"), "P1", "ES")).toThrow(/locked section/)
+    expect(() => assertOnlyFooterChanged(p1, p1Out.replace("padding:12px 16px 14px;", "padding:10px 16px 14px;"), "P1", "ES")).toThrow(/locked section/)
   })
 })
 

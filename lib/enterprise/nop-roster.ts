@@ -2,7 +2,7 @@ import kitContent from "@/enterprise/nop/kit-v1.1.1/content.json"
 import type { AgentRosterStatus, RosterRecord } from "@/lib/types"
 import { tNop, type NopLang } from "./nop-i18n"
 import { CANONICAL_SITE_URL } from "@/lib/site-url"
-import { FOOTER_SPACE_PX, footerNameWidth, nameFitsKitV2Footer } from "./nop-render/footer-fit"
+import { FOOTER_SPACE_PX, WORST_AGENT_ID_LENGTH, footerNameWidth, nameFitsKitV2Footer } from "./nop-render/footer-fit"
 
 // Pure, dependency-free roster logic for the Neighborhood Outreach Program.
 //
@@ -87,10 +87,12 @@ export function isValidEnrollDomain(v: string): boolean {
  *   - forwardTemplate: where an agent's QR forwards while they're active, e.g.
  *     "https://join.basicbenefits.com/{id}" or
  *     "https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}";
- *   - printed: the address printed on the flyers. "short": a short template
- *     ending in "/{id}" (e.g. "join.basicbenefits.com/{id}"), which must itself
- *     load; "code": the agent's own OneFlyer link (oneflyer.org/a/<code>), which
- *     forwards like the QR;
+ *   - printed: the address printed on kit-v2 flyers. "full": the forward URL
+ *     itself, on two lines (before and from the "?"); "short": a short
+ *     template ending in "/{id}" (e.g. "join.basicbenefits.com/{id}"), which
+ *     must itself load; "code": the agent's own OneFlyer link
+ *     (oneflyer.org/a/<code>), which forwards like the QR. Kit v1.1.1 prints
+ *     the code link once the setting is saved (render.ts);
  *   - programUrl: the program's own page, for a QR whose agent isn't active.
  * {id} is always the Agent ID, from the roster-locked record. Never taken from
  * the roster's enrollment_url: that's NOP-typed data, and a typo there would
@@ -101,7 +103,7 @@ export function isValidEnrollDomain(v: string): boolean {
  */
 export interface EnrollTargets {
   forwardTemplate: string
-  printed: "short" | "code"
+  printed: "full" | "short" | "code"
   /** For "short" only. */
   printedTemplate: string | null
   programUrl: string
@@ -137,17 +139,33 @@ export function programEnrollmentUrl(enroll: Enroll): string {
 }
 
 /**
- * The address printed on an agent's flyers, split where the kit-v1.1.1 card
- * prints it (prefix right-aligned against the slot): "join.basicbenefits.com/"
- * + Agent ID, or "oneflyer.org/a/" + the agent's QR code. `href` is what the
- * printed link opens in a PDF.
+ * The address printed on an agent's flyers. `prefix` + `slot` is how the
+ * kit-v1.1.1 card prints it (prefix right-aligned against the slot):
+ * "join.basicbenefits.com/" + Agent ID, or "oneflyer.org/a/" + the agent's QR
+ * code. `lines` is how the kit-v2 footer prints it: one line, or for "full"
+ * two, split before the "?". `href` is what the printed link opens in a PDF.
  */
-export function printedEnrollAddress(agentId: string, qrCode: string, enroll: Enroll): { prefix: string; slot: string; text: string; href: string } {
+export interface PrintedAddress {
+  prefix: string
+  slot: string
+  text: string
+  href: string
+  lines: string[]
+}
+
+export function printedEnrollAddress(agentId: string, qrCode: string, enroll: Enroll): PrintedAddress {
   const e = enrollTargets(enroll)
+  if (e.printed === "full") {
+    const href = qrDestinationFor(agentId, e)
+    const text = href.replace(/^https:\/\//, "")
+    const q = text.indexOf("?")
+    const slot = encodeURIComponent(agentId)
+    return { prefix: text.slice(0, text.length - slot.length), slot, text, href, lines: q > 0 ? [text.slice(0, q), text.slice(q)] : [text] }
+  }
   const [prefix, slot] = e.printed === "code" || !e.printedTemplate
     ? [`${CANONICAL_SITE_URL.replace(/^https?:\/\//, "")}${NOP_QR_PATH}/`, qrCode]
     : [e.printedTemplate.slice(0, -ENROLL_ID_TOKEN.length), agentId]
-  return { prefix, slot, text: prefix + slot, href: `https://${prefix}${slot}` }
+  return { prefix, slot, text: prefix + slot, href: `https://${prefix}${slot}`, lines: [prefix + slot] }
 }
 
 /**
@@ -362,6 +380,9 @@ export function validateRosterCsv(text: string, domain: Enroll): RosterParseResu
     }
     if (!nameFitsKitV2Footer(get("agent_name"))) {
       result.flagged.push({ line, agentId, reason: `agent_name is about ${Math.round(footerNameWidth(get("agent_name")))}px wide; the kit-v2 footer has ${Math.floor(FOOTER_SPACE_PX)}px. Kit-v2 downloads would be refused until the agent shortens their display name.` })
+    }
+    if (AGENT_ID_RE.test(agentId) && agentId.length > WORST_AGENT_ID_LENGTH) {
+      result.flagged.push({ line, agentId, reason: `agent_id is ${agentId.length} characters; printed addresses are checked for up to ${WORST_AGENT_ID_LENGTH}. If the full URL doesn't fit, their kit-v2 flyers print their oneflyer.org/a/<code> link instead.` })
     }
 
     result.accepted.push({

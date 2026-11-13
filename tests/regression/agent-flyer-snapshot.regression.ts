@@ -32,6 +32,7 @@ vi.mock("@/lib/enterprise/nop-enroll-domain", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/nop-enroll-domain")>()),
   getEnrollDomain: async () => (await import("@/lib/enterprise/nop-roster")).DEFAULT_ENROLL_DOMAIN,
   getEnrollTargets: async () => (await import("@/lib/enterprise/nop-roster")).DEFAULT_ENROLL_DOMAIN,
+  getEnrollState: async () => ({ targets: (await import("@/lib/enterprise/nop-roster")).legacyEnrollTargets((await import("@/lib/enterprise/nop-roster")).DEFAULT_ENROLL_DOMAIN), saved: false }),
 }))
 vi.mock("@/lib/enterprise/nop-qr-code", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/nop-qr-code")>()),
@@ -71,7 +72,7 @@ describe.runIf(!!OUT)("agent flyer regression snapshot", () => {
     const { qrDestinationFor, nopQrLink, DEFAULT_ENROLL_DOMAIN } = await import("@/lib/enterprise/nop-roster")
     const enrollment = qrDestinationFor(AGENT.agentId, DEFAULT_ENROLL_DOMAIN)
     for (const id of NOP_V2_TEMPLATES) {
-      write(`nop-v2/${id}.letter.html`, await v2AgentHtml(id, "letter", AGENT, nopQrLink(QR_CODE), enrollment))
+      write(`nop-v2/${id}.letter.html`, await v2AgentHtml(id, "letter", AGENT, nopQrLink(QR_CODE), { href: enrollment, lines: [enrollment.replace(/^https:\/\//, "")] }))
       // A gate refusing to render is behaviour too: record it rather than stop.
       try {
         const r = await renderNopV2ForAgent(id, "letter", AGENT, "preview")

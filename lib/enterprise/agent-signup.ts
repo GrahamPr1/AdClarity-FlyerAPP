@@ -7,7 +7,7 @@ import {
   adminUnlockAgentId,
   buildAgentProfile,
   deleteRosterRecord,
-  flagNameIfTooLongForFooter,
+  flagAgentIdIfTooLong, flagNameIfTooLongForFooter,
   getAgentIdOwner,
   getRosterRecord,
   listRoster,
@@ -121,6 +121,7 @@ export async function submitSignup(d: SignupDetails): Promise<"created" | "dupli
     preferredLanguage: d.lang,
   })
   await flagNameIfTooLongForFooter(d.agentId, d.email, d.name)
+  await flagAgentIdIfTooLong(d.agentId, d.email)
   if (recruitedBy) await addRecruit(recruitedBy, d.agentId, new Date(now))
   return "created"
 }

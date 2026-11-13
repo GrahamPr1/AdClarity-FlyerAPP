@@ -11,7 +11,8 @@ import { nopQrLink, printedEnrollAddress, type Enroll } from "@/lib/enterprise/n
 // the Spanish switch (a language can't go live while one of its flyers fails)
 // and by tests/nop-kit-v2-release.test.ts.
 
-export const RELEASE_CHECK_AGENT = { agentId: "858980", displayName: "Render Check Agent", displayPhone: "(270) 555-0100" }
+// A typical issued Agent ID (letters, digits and dashes).
+export const RELEASE_CHECK_AGENT = { agentId: "CP-VLN-H5J", displayName: "Render Check Agent", displayPhone: "(270) 555-0100" }
 const RELEASE_CHECK_CODE = "RndrChk"
 export const V2_SIZES: NopV2Size[] = ["letter", "bleed"]
 
@@ -32,7 +33,7 @@ export interface V2ReleaseFailure {
 /** One template at one size; throws NopRenderError on the first failed check. Returns the measured fit. */
 export async function checkV2Release(id: NopV2Id, size: NopV2Size, enroll: Enroll): Promise<NopV2Fit> {
   const printed = printedEnrollAddress(RELEASE_CHECK_AGENT.agentId, RELEASE_CHECK_CODE, enroll)
-  const { fit } = await renderNopV2WithAgentArea(id, size, RELEASE_CHECK_AGENT, printed.href, nopQrLink(RELEASE_CHECK_CODE), "pdf")
+  const { fit } = await renderNopV2WithAgentArea(id, size, RELEASE_CHECK_AGENT, { href: printed.href, lines: printed.lines }, nopQrLink(RELEASE_CHECK_CODE), "pdf")
   const inches = (px: number) => `${(px / 96).toFixed(3)}in`
   if (fit.footerMargin < MIN_FOOTER_MARGIN_PX) throw new NopRenderError("master_invalid", `only ${inches(fit.footerMargin)} to spare above the footer, need ${inches(MIN_FOOTER_MARGIN_PX)}`)
   if (fit.minGap < MIN_GAP_PX) throw new NopRenderError("master_invalid", `blocks only ${inches(fit.minGap)} apart, need ${inches(MIN_GAP_PX)}`)
