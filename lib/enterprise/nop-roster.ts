@@ -12,8 +12,14 @@ import { FOOTER_SPACE_PX, footerNameWidth, nameFitsKitV2Footer } from "./nop-ren
 export const NOP_ORG_ID = "nop"
 export const NOP_ORG_NAME = kitContent.program.name
 
-/** Issued by NOP. Digits only, so a pasted "858980 " or "#858980" is not silently a different agent. */
-export const AGENT_ID_RE = /^\d{1,10}$/
+/**
+ * Issued by NOP (sent to OneFlyer as AGENT_ID): letters, digits and dashes,
+ * 1-32 characters, e.g. "CP-VLN-H5J" or the older numeric "858980". Kept
+ * exactly as issued, case and dashes included: it's what credits the agent in
+ * the enrollment URL, so "cp-vln-h5j" is a different (unknown) ID. Anything
+ * else ("#858980", spaces inside) is refused, never silently changed.
+ */
+export const AGENT_ID_RE = /^[A-Za-z0-9-]{1,32}$/
 
 /**
  * ?agent_ID=<Agent ID> on the program's "Open OneFlyer" link (any case:
@@ -318,7 +324,7 @@ export function validateRosterCsv(text: string, domain: Enroll): RosterParseResu
     }
     const filled = (col: (typeof COLUMNS)[number]) => !isPlaceholder(get(col))
 
-    if (filled("agent_id") && !AGENT_ID_RE.test(agentId)) reasons.push("agent_id must be 1-10 digits")
+    if (filled("agent_id") && !AGENT_ID_RE.test(agentId)) reasons.push("agent_id must be 1-32 letters, digits or dashes")
     if (filled("roster_email") && !isValidEmail(get("roster_email"))) reasons.push("roster_email is not a valid email")
     if (filled("roster_phone") && !formatUsPhone(get("roster_phone"))) reasons.push("roster_phone is not a 10-digit US number")
     if (filled("referral_code") && !/^[A-Za-z0-9_-]{1,64}$/.test(get("referral_code"))) {

@@ -31,8 +31,9 @@ const row = (over: Partial<Record<string, string>> = {}) => {
 }
 
 describe("Agent ID format", () => {
-  it.each(["1", "858980", "1234567890"])("accepts %s", (id) => expect(AGENT_ID_RE.test(id)).toBe(true))
-  it.each(["", "12345678901", "85898O", " 858980", "858-980", "#858980"])("rejects %j", (id) => expect(AGENT_ID_RE.test(id)).toBe(false))
+  // As issued: letters, digits and dashes, 1-32, case kept (the older numeric IDs still valid).
+  it.each(["1", "858980", "1234567890", "CP-VLN-H5J", "cp-vln-h5j", "85898O", "858-980", "A".repeat(32)])("accepts %s", (id) => expect(AGENT_ID_RE.test(id)).toBe(true))
+  it.each(["", "A".repeat(33), " 858980", "858980 ", "#858980", "CP VLN H5J", "CP_VLN_H5J", "CP-VLN-H5J/x", "CP-VLN-H5J?a=1", "Ñ-1"])("rejects %j", (id) => expect(AGENT_ID_RE.test(id)).toBe(false))
 })
 
 describe("QR destination", () => {
@@ -90,7 +91,7 @@ describe("roster validation", () => {
   })
 
   it("rejects bad ids, emails and statuses rather than skipping them", () => {
-    const r = validateRosterCsv([HEADER, row({ agent_id: "85898O" }), row({ agent_id: "1", roster_email: "nope" }), row({ agent_id: "2", status: "retired" })].join("\n"), D)
+    const r = validateRosterCsv([HEADER, row({ agent_id: "#85898" }), row({ agent_id: "1", roster_email: "nope" }), row({ agent_id: "2", status: "retired" })].join("\n"), D)
     expect(r.accepted).toHaveLength(0)
     expect(r.rejected.map((x) => x.line)).toEqual([2, 3, 4])
   })

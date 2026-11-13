@@ -219,7 +219,7 @@ function DeleteAccount({ agentId, base }: { agentId: string; base: string }) {
             {summary.paidPro && <strong> Their paid Pro subscription will be cancelled and the unused part refunded.</strong>}
           </p>
           <label className="font-medium">Type the Agent ID to confirm
-            <input value={typed} onChange={(e) => setTyped(e.target.value)} inputMode="numeric" data-testid="delete-confirm-id" className="mt-1 block min-h-11 w-48 rounded-lg border border-border bg-background px-3" />
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} autoCapitalize="off" spellCheck={false} data-testid="delete-confirm-id" className="mt-1 block min-h-11 w-48 rounded-lg border border-border bg-background px-3" />
           </label>
           <div className="flex flex-wrap gap-2">
             <button type="button" className={`${btn} border-red-400 text-red-700 dark:text-red-300`} disabled={busy || typed.trim() !== summary.agentId} onClick={() => void remove()} data-testid="delete-confirm">Delete permanently</button>

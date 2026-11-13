@@ -83,7 +83,7 @@ function RenderLog() {
       <p className="mt-1 text-sm text-muted-foreground">Every preview and download, never trimmed.</p>
       <form className="mt-3 flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); setApplied(agentId.trim()) }}>
         <label htmlFor="log-agent" className="text-sm">Agent ID</label>
-        <input id="log-agent" value={agentId} onChange={(e) => setAgentId(e.target.value)} inputMode="numeric" placeholder="All agents"
+        <input id="log-agent" value={agentId} onChange={(e) => setAgentId(e.target.value)} autoCapitalize="off" spellCheck={false} placeholder="All agents"
           className="w-36 rounded-lg border border-border bg-[var(--surface-soft)] px-3 py-1.5 text-sm" />
         <button type="submit" className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-[var(--surface-sunken)]">Filter</button>
         {applied && <button type="button" onClick={() => { setAgentId(""); setApplied("") }} className="text-sm text-muted-foreground hover:text-foreground">Clear</button>}

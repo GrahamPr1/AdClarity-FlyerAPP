@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { from?: unknown; to?: unknown; action?: unknown; confirm?: unknown; expected?: { leads?: unknown; scans?: unknown } } | null
   const from = typeof body?.from === "string" ? body.from.trim() : ""
   const to = typeof body?.to === "string" ? body.to.trim() : ""
-  if (!AGENT_ID_RE.test(from) || !AGENT_ID_RE.test(to)) return NextResponse.json({ error: "invalid", message: "Both must be Agent IDs (digits only)." }, { status: 400 })
+  if (!AGENT_ID_RE.test(from) || !AGENT_ID_RE.test(to)) return NextResponse.json({ error: "invalid", message: "Both must be Agent IDs (letters, numbers and dashes, as issued)." }, { status: 400 })
   if (from === to) return NextResponse.json({ error: "same_id", message: "Pick two different Agent IDs." }, { status: 400 })
   if (!(await getRosterRecord(to))) return NextResponse.json({ error: "target_not_on_roster", message: `Agent ID ${to} isn't on the roster.` }, { status: 422 })
 

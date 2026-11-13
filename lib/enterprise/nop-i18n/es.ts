@@ -66,7 +66,7 @@ export const es: Record<NopStringKey, string> = {
   "profile.save_failed": "No se pudo guardar. Inténtelo de nuevo.",
 
   // ---- Server messages: registration ----
-  "err.id_format": "El ID de agente tiene de 1 a 10 dígitos.",
+  "err.id_format": "Escriba su ID de agente tal como se lo envió el programa: letras, números y guiones.",
   "err.not_recognized": "ID de agente no reconocido. Comuníquese con el administrador de su programa.",
   "err.inactive": "Este ID de agente no se puede registrar en este momento. Comuníquese con el administrador de su programa.",
   "err.taken": "Este ID de agente ya está registrado en otra cuenta. Se notificó al administrador de su programa.",

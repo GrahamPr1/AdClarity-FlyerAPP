@@ -52,7 +52,7 @@ export const NOP_STRING_WHERE: Record<NopStringKey, { where: string; note?: stri
   "profile.saving": { where: "Profile, button while saving" },
   "profile.saved": { where: "Profile, confirmation after saving" },
   "profile.save_failed": { where: "Profile, error after a failed save" },
-  "err.id_format": { where: "Register step 1 error: ID isn't 1-10 digits" },
+  "err.id_format": { where: "Register step 1 error: ID isn't 1-32 letters, numbers or dashes" },
   "err.not_recognized": { where: "Register error: unknown Agent ID" },
   "err.inactive": { where: "Register error: ID suspended or terminated", note: REGISTRARSE },
   "err.taken": { where: "Register error: ID already held by another account" },
