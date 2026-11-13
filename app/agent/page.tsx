@@ -4,10 +4,11 @@ import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
 import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { loadNopAgent } from "@/lib/enterprise/nop-render/agent-context"
-import { agentIdParam, withAgentId } from "@/lib/enterprise/nop-roster"
+import { agentIdParam, agentLinkView, withAgentId } from "@/lib/enterprise/nop-roster"
 import { NopPageShell } from "../enterprise/nop/nop-page-shell"
 import { portalPageOrNull } from "@/lib/enterprise/portal/page"
 import { PortalHome } from "./portal-home"
+import { NopAgentLinkMismatch } from "@/components/nop-agent"
 
 export const dynamic = "force-dynamic"
 
@@ -22,18 +23,29 @@ const big =
 // oneflyer.org/agent (and /agente): the agent portal's Home for a signed-in
 // agent (or an admin viewing one, read-only); otherwise the one front door for
 // Neighborhood Outreach Program agents, two choices and nothing else to read.
+// The "Open OneFlyer" link's ?agent_ID= decides between them (agentLinkView).
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams
+  // Carried to Get started (prefill only) and Sign in; never signs anyone in.
+  const agentCode = agentIdParam(params)
   const portal = await portalPageOrNull()
-  if (portal) {
-    const billing = (await searchParams).billing
+  if (portal && agentLinkView(agentCode, { agentId: portal.ctx.agent.agentId, viewingAs: portal.readOnly }) === "home") {
+    const billing = params.billing
     return <PortalHome page={portal} billingNotice={billing === "success" || billing === "cancelled" ? billing : null} />
   }
   const session = await getSessionIdentity({ cookies: await cookies() })
-  const agent = session && session.sub !== ADMIN_SUB ? await loadNopAgent(session.sub) : null
+  const agent = portal && !portal.readOnly ? portal.ctx.agent : session && session.sub !== ADMIN_SUB ? await loadNopAgent(session.sub) : null
   const { lang, source } = await nopLangForPage(session?.sub ?? null)
   const t = (k: Parameters<typeof tNop>[1]) => tNop(lang, k)
-  // The "Open OneFlyer" link's ?agent_ID=: carried to Get started (prefill only) and Sign in.
-  const agentCode = agentIdParam(await searchParams)
+
+  if (agent && agentCode && agentLinkView(agentCode, { agentId: agent.agentId, viewingAs: false }) === "mismatch") {
+    const name = agent.profile.displayName || agent.profile.name || agent.agentId
+    return (
+      <NopPageShell lang={lang} source={source} title={t("agent.mismatch_title")} intro={tNop(lang, "agent.mismatch_body", { name, id: agent.agentId, link_id: agentCode })}>
+        <NopAgentLinkMismatch name={name} linkId={agentCode} />
+      </NopPageShell>
+    )
+  }
 
   return (
     <NopPageShell lang={lang} source={source} title={t("agent.title")} intro={t("agent.intro")}>

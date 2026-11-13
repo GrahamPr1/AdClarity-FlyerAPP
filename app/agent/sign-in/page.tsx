@@ -6,7 +6,7 @@ import { tNop } from "@/lib/enterprise/nop-i18n"
 import { nopLangForPage } from "@/lib/enterprise/nop-i18n/server"
 import { loadNopAgent } from "@/lib/enterprise/nop-render/agent-context"
 import { NopSignIn } from "@/components/nop-access"
-import { agentIdParam } from "@/lib/enterprise/nop-roster"
+import { agentIdParam, withAgentId } from "@/lib/enterprise/nop-roster"
 import { NopPageShell } from "../../enterprise/nop/nop-page-shell"
 
 export const dynamic = "force-dynamic"
@@ -20,7 +20,7 @@ export async function generateMetadata() {
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const agentCode = agentIdParam(await searchParams)
   const session = await getSessionIdentity({ cookies: await cookies() })
-  if (session && session.sub !== ADMIN_SUB && (await loadNopAgent(session.sub))) redirect("/agent")
+  if (session && session.sub !== ADMIN_SUB && (await loadNopAgent(session.sub))) redirect(withAgentId("/agent", agentCode))
   const { lang, source } = await nopLangForPage(null)
   return (
     <NopPageShell

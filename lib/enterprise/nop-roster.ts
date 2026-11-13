@@ -53,6 +53,26 @@ export function withAgentId(path: string, agentId: string | null): string {
   return agentId ? `${path}?${AGENT_ID_PARAM}=${agentId}` : path
 }
 
+/**
+ * What /agent shows for the "Open OneFlyer" link's Agent ID (agentIdParam),
+ * given who is signed in:
+ *   - "home": the signed-in agent's own Home (no ID in the link, or theirs,
+ *     compared exactly: "cp-vln-h5j" is not "CP-VLN-H5J");
+ *   - "mismatch": a different agent is signed in; never their Home silently;
+ *   - "door": Get started / Sign in with the ID carried. Signed out, or not an
+ *     agent (admin, program admin, SMB customer), or an admin viewing an agent
+ *     read-only: the link is for an agent, so it never opens that view.
+ * The link signs no one in, whatever it says.
+ */
+export type AgentLinkView = "home" | "mismatch" | "door"
+
+export function agentLinkView(linkId: string | null, signedIn: { agentId: string; viewingAs: boolean } | null): AgentLinkView {
+  if (!signedIn) return "door"
+  if (!linkId) return "home"
+  if (signedIn.viewingAs) return "door"
+  return linkId === signedIn.agentId ? "home" : "mismatch"
+}
+
 export const ROSTER_STATUSES: readonly AgentRosterStatus[] = ["pending", "active", "suspended", "terminated"]
 
 const COLUMNS = [
