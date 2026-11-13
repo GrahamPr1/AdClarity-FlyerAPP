@@ -1,21 +1,28 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionIdentity, ADMIN_SUB } from "@/lib/auth"
+import { receivesPublicEmails } from "@/lib/public-email-access"
 import { getEmailPreferences, LEAD_EMAIL_MODES, digestLive, monthlyLive, setEmailPreferences, type EmailPreferences, type LeadEmailMode } from "@/lib/email-preferences"
 
 // GET/PUT /api/account/email-preferences — which public emails the signed-in
 // account gets. Same shape as /api/account/theme: per person, server-side so
 // it holds on every device, admin excluded (a shared credential, not a person).
+// Enterprise org and NOP accounts are refused: they get none of these emails
+// (lib/public-email-access.ts).
 export const dynamic = "force-dynamic"
+
+const notAvailable = () => NextResponse.json({ error: "not_available", message: "Email settings aren't available on this account." }, { status: 403 })
 
 export async function GET(request: NextRequest) {
   const session = await getSessionIdentity(request)
   if (!session || session.sub === ADMIN_SUB) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await receivesPublicEmails(session.sub))) return notAvailable()
   return NextResponse.json({ preferences: await getEmailPreferences(session.sub), digestAvailable: digestLive(), resultsAvailable: monthlyLive() }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function PUT(request: NextRequest) {
   const session = await getSessionIdentity(request)
   if (!session || session.sub === ADMIN_SUB) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await receivesPublicEmails(session.sub))) return notAvailable()
 
   let body: { leads?: string; results?: unknown }
   try {
