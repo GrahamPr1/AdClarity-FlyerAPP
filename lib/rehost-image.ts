@@ -261,7 +261,7 @@ export function isOwnPhotoUrl(rawUrl: string): boolean {
   }
 }
 
-export type RehostPurpose = "logo" | "ai-photo"
+export type RehostPurpose = "logo" | "ai-photo" | "stock-photo"
 
 /**
  * Returns an /api/photos URL for our own Blob copy of the image, or null if it

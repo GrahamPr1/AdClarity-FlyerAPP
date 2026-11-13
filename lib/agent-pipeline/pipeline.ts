@@ -18,7 +18,7 @@ import { toAssetContext, findVerbatimViolations, findInventedComplianceLanguage 
 import type { CampaignSource } from "@/lib/types"
 import { runRepurposeAgent } from "./agents/repurposeAgent"
 import { generateImage, MAX_PROMPT_CHARS } from "./higgsfield"
-import { finalizePhotoUsage } from "@/lib/unsplash"
+import { finalizePhotoUsage, type UnsplashPhoto } from "@/lib/unsplash"
 import { repairContrast } from "./contrast-repair"
 import { saveCampaignInputs } from "@/lib/campaign-inputs"
 import { repairRedundancy } from "./redundancy"
@@ -336,13 +336,14 @@ export function buildAiPhotoPrompt(intake: NormalizedIntake, request: FlyerReque
 /**
  * Sources one candidate photo per flyer request.
  *
- * Order is Unsplash, then Pexels, then Higgsfield, then CSS-only.
+ * Order is Pixabay, then Unsplash, then Pexels, then Higgsfield, then
+ * CSS-only (the stock order is decided in lib/stock-photos.ts).
  *
  * Stock is primary because it returns real photographs at no per-image
  * cost; Higgsfield generates a bespoke image but bills credits per call, so
- * it runs only when stock has nothing on-topic. Pexels is skipped entirely
- * for enterprise and NOP agent accounts (gates.allowPexels, decided by
- * pexelsAllowedFor in lib/stock-photos.ts). The two sources are gated
+ * it runs only when stock has nothing on-topic. Pixabay and Pexels are
+ * skipped entirely for enterprise and NOP agent accounts (gates.allowPexels,
+ * decided by pexelsAllowedFor in lib/stock-photos.ts). The two sources are gated
  * separately (see lib/agent-pipeline/plan-features.ts): stock photos are on
  * for EVERY tier with no opt-in (stockPhotosEnabled), while generation needs
  * the Pro plan AND the client's explicit wantsAiPhotos opt-in
@@ -464,8 +465,8 @@ async function buildPhotoPool(
 /**
  * Honours the obligations that come with using a stock photo, for the
  * photos that genuinely reached this flyer's final HTML: a credit for every
- * stock photo, and Unsplash's download trigger for Unsplash ones (Pexels has
- * no equivalent).
+ * stock photo, and Unsplash's download trigger for Unsplash ones (Pexels and
+ * Pixabay have no equivalent).
  *
  * Kept as one function on purpose: the API Guidelines require BOTH a credit
  * and a download trigger, and pairing them here means neither can be
@@ -496,7 +497,8 @@ export async function applyPhotoObligations(
     }
     return html
   }
-  await finalizePhotoUsage(used.filter((p) => p.provider !== "pexels"), context)
+  // Only Unsplash photos are reported to Unsplash.
+  await finalizePhotoUsage(used.filter((p): p is UnsplashPhoto => p.provider === "unsplash"), context)
   return injectPhotoAttribution(html, used, getFormat(formatId).medium)
 }
 

@@ -138,14 +138,17 @@ describe("Pexels dormant: no PEXELS_API_KEY", () => {
   it("lets the chain fall straight through when Unsplash fails, so the caller moves on to AI or the no-photo layout", async () => {
     unsplash = () => new Response("", { status: 500 })
     const promoMiss = await findStockForPromotion(promo, true)
-    expect(promoMiss).toMatchObject({ ok: false, reason: "error" })
+    // Nothing a broader search could fix: the primary's (unconfigured
+    // Pixabay's) reason is reported, with every provider in the detail.
+    expect(promoMiss).toMatchObject({ ok: false, reason: "not_configured" })
+    expect(promoMiss.ok === false && promoMiss.detail).toContain("unsplash: error")
     expect(promoMiss.ok === false && promoMiss.detail).toContain("pexels: not_configured")
     const fallbackMiss = await findFallbackStock({ industry: "Roofing", context: "t" }, true)
     expect(fallbackMiss.ok).toBe(false)
     expect(hosts()).not.toContain("api.pexels.com")
   })
 
-  it("keeps Unsplash's own miss reason, so the post-AI broad stock search still runs after a thin Unsplash result", async () => {
+  it("reports Unsplash's thin result (not an unconfigured provider's), so the post-AI broad stock search still runs", async () => {
     unsplash = () => unsplashPage(5, ["roof"])
     expect(await findStockForPromotion(promo, true)).toMatchObject({ ok: false, reason: "thin_results" })
   })

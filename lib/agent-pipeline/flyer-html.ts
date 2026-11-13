@@ -456,8 +456,8 @@ export interface PhotoCredit {
   url: string
   photographerName: string
   photographerUrl: string
-  provider?: "unsplash" | "pexels"
-  /** Pexels only: the photo's own page, which the Pexels credit links to. */
+  provider?: "unsplash" | "pexels" | "pixabay"
+  /** Pexels and Pixabay: the photo's own page, which their credit links to. */
   pageUrl?: string
 }
 
@@ -527,6 +527,16 @@ export function injectPhotoAttribution(html: string, credits: PhotoCredit[], med
   const inner = credits
     .map((c) => {
       const name = escapeHtml(c.photographerName)
+      if (c.provider === "pixabay") {
+        // "Photo by <user> on Pixabay", linking to the photo's own page.
+        if (medium === "print") return `Photo by ${name} on Pixabay`
+        const profile = escapeHtml(c.photographerUrl)
+        const page = escapeHtml(c.pageUrl ?? "https://pixabay.com")
+        return (
+          `Photo by <a href="${profile}" rel="noopener noreferrer nofollow" target="_blank">${name}</a>` +
+          ` on <a href="${page}" rel="noopener noreferrer nofollow" target="_blank">Pixabay</a>`
+        )
+      }
       if (c.provider === "pexels") {
         // Pexels' guideline: "Photo by <name> on Pexels", linking to the photo.
         if (medium === "print") return `Photo by ${name} on Pexels`
