@@ -4,6 +4,7 @@ import { cloneElement, isValidElement, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useNop } from "@/components/nop-i18n"
+import { withAgentId } from "@/lib/enterprise/nop-roster"
 
 export const field =
   "min-h-11 w-full rounded-lg bg-[var(--surface-soft)] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[var(--brand-teal-bright)] focus:ring-1 focus:ring-[var(--brand-teal-bright)] transition-colors"
@@ -164,6 +165,38 @@ const STATUS_KEYS = {
 function statusLabel(t: ReturnType<typeof useNop>["t"], status: string | null): string {
   if (status && status in STATUS_KEYS) return t(STATUS_KEYS[status as keyof typeof STATUS_KEYS])
   return t("status.not_on_roster")
+}
+
+/**
+ * /agent?agent_ID=<another ID> while a different agent is signed in (the page
+ * intro says who is signed in and who the link is for). Continue goes to their own Home; Sign
+ * out and switch signs out, then shows Get started / Sign in for the link's ID.
+ */
+export function NopAgentLinkMismatch({ name, linkId }: { name: string; linkId: string }) {
+  const { t } = useNop()
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
+  const big = "flex min-h-14 w-full items-center justify-center rounded-xl px-5 py-4 text-center text-base font-semibold transition-colors disabled:opacity-60"
+  return (
+    <div data-testid="agent-link-mismatch" className="flex flex-col gap-3">
+      <Link href="/agent" className={`${big} bg-[var(--brand-teal-bright)] text-[var(--primary-foreground)] hover:bg-[var(--brand-teal)]`}>
+        {t("agent.mismatch_continue", { name })}
+      </Link>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true)
+          await fetch("/api/auth/logout", { method: "POST" }).catch(() => {})
+          router.push(withAgentId("/agent", linkId))
+          router.refresh()
+        }}
+        className={`${big} border-2 border-[var(--brand-teal-bright)] text-foreground hover:bg-[var(--surface-sunken)]`}
+      >
+        {t("agent.mismatch_switch")}
+      </button>
+    </div>
+  )
 }
 
 /** The way out of the NOP pages while /dashboard sends agents back here. */
