@@ -1,8 +1,8 @@
 import { NOP_V2_TEMPLATES, v2Parts, type NopV2Id, type NopV2Size } from "./kit-v2"
 import type { NopV2Lang } from "./kit-v2-ids"
-import { renderNopV2WithAgentArea, type NopV2Fit } from "./render-v2"
+import { renderNopV2WithAgentArea, v2PrintedLink, type NopV2Fit } from "./render-v2"
 import { NopRenderError } from "./render"
-import { nopQrLink, printedEnrollAddress, type Enroll } from "@/lib/enterprise/nop-roster"
+import { enrollTargets, nopQrLink, printedEnrollAddress, type Enroll } from "@/lib/enterprise/nop-roster"
 
 // Kit-v2 release check: every template, at both sizes, through the agent
 // pipeline (renderNopV2WithAgentArea: locked sections, layout gates, fonts, QR
@@ -53,4 +53,52 @@ export async function v2ReleaseFailures(lang: NopV2Lang, enroll: Enroll): Promis
     }
   }
   return failures
+}
+
+export interface FullLinkMeasure {
+  template: NopV2Id
+  size: NopV2Size
+  /** What the page printed: the full URL, or (if it didn't fit) the agent's code link. */
+  printed: "full" | "code"
+  lineWidths: number[]
+  space: number
+  /** space minus the widest line, in CSS px (96 per inch). */
+  sparePx: number
+  footerMarginPx: number
+  minGapPx: number
+  /** Why the full URL fell back, with the measured widths. */
+  fallback: string | null
+}
+
+/**
+ * Admin measurement (render-check ?measure=full-link): every template at both
+ * sizes with the sample agent and the full-URL option, exactly as an agent's
+ * download would lay it out, without saving or writing anything. Records how
+ * much room line 1 has, and whether any page falls back to the code link.
+ */
+export async function measureFullLink(enroll: Enroll): Promise<FullLinkMeasure[]> {
+  const out: FullLinkMeasure[] = []
+  const qrLink = nopQrLink(RELEASE_CHECK_CODE)
+  for (const template of NOP_V2_TEMPLATES) {
+    for (const size of V2_SIZES) {
+      const chosen = v2PrintedLink(RELEASE_CHECK_AGENT.agentId, RELEASE_CHECK_CODE, enroll)
+      let fallback: string | null = chosen.fullUrl ? null : "the estimate says the full URL doesn't fit"
+      let fit: NopV2Fit
+      try {
+        fit = (await renderNopV2WithAgentArea(template, size, RELEASE_CHECK_AGENT, chosen.link, qrLink, "preview")).fit
+      } catch (err) {
+        if (!(chosen.fullUrl && err instanceof NopRenderError && err.field === "enroll_link")) throw err
+        fallback = err.message
+        const code = v2PrintedLink(RELEASE_CHECK_AGENT.agentId, RELEASE_CHECK_CODE, { ...enrollTargets(enroll), printed: "code", printedTemplate: null })
+        fit = (await renderNopV2WithAgentArea(template, size, RELEASE_CHECK_AGENT, code.link, qrLink, "preview")).fit
+      }
+      const r1 = (n: number) => Math.round(n * 10) / 10
+      out.push({
+        template, size, printed: fallback ? "code" : "full",
+        lineWidths: fit.linkLineWidths.map(r1), space: r1(fit.linkSpace), sparePx: r1(fit.linkSpace - Math.max(...fit.linkLineWidths)),
+        footerMarginPx: r1(fit.footerMargin), minGapPx: r1(fit.minGap), fallback,
+      })
+    }
+  }
+  return out
 }

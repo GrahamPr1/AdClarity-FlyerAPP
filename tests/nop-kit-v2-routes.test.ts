@@ -9,14 +9,15 @@ import { NextRequest } from "next/server"
  * kit-v2 previews are admin-only.
  */
 
-const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[], enrollOk: true as boolean | undefined, settingsLog: [] as unknown[], esFailures: [] as unknown[], releaseChecks: 0, enrollSaved: true, partnerOk: true, pagesOpened: [] as string[] }))
+const s = vi.hoisted(() => ({ settings: { agentKit: "v1", spanishV2: false } as Record<string, unknown>, rendered: [] as string[], values: [] as unknown[], logged: [] as unknown[], admins: new Set(["admin"]), saved: [] as unknown[], enrollOk: true as boolean | undefined, settingsLog: [] as unknown[], esFailures: [] as unknown[], releaseChecks: 0, enrollSaved: true, partnerOk: true, pagesOpened: [] as string[], measured: [] as string[], measureFallback: false }))
 vi.mock("@/lib/enterprise/program-admins", async (orig) => ({
   ...(await orig<typeof import("@/lib/enterprise/program-admins")>()),
   audit: async () => {},
   logNopAdminAction: async () => {},
   programAdminFrom: async () => null,
 }))
-vi.mock("@/lib/enterprise/nop-enroll-domain", () => ({
+vi.mock("@/lib/enterprise/nop-enroll-domain", async (orig) => ({
+  checkEnrollInput: (await orig<typeof import("@/lib/enterprise/nop-enroll-domain")>()).checkEnrollInput,
   ENROLL_CHECK_AGENT_ID: "858980",
   getCheckAgentId: async () => "858980",
   getEnrollDomain: async () => "neighbor.basicbenefits.com",
@@ -56,12 +57,17 @@ vi.mock("@/lib/enterprise/nop-render/render-v2", () => ({
   ),
 }))
 vi.mock("@/lib/enterprise/nop-render/kit-v2-release", () => ({
+  RELEASE_CHECK_AGENT: { agentId: "CP-VLN-H5J", displayName: "Render Check Agent", displayPhone: "(270) 555-0100" },
   v2ReleaseFailures: async (lang: string) => (s.releaseChecks++, lang === "ES" ? s.esFailures : []),
+  measureFullLink: async (e: { forwardTemplate: string }) => (s.measured.push(e.forwardTemplate), [
+    { template: "NOP2_P1_EN_PRICE", size: "letter", printed: "full", lineWidths: [386.4, 211], space: 389.3, sparePx: 2.9, footerMarginPx: 90.7, minGapPx: 16, fallback: null },
+    { template: "NOP2_P2_EN_PRICE", size: "bleed", printed: s.measureFallback ? "code" : "full", lineWidths: [386.4, 211], space: 389.3, sparePx: s.measureFallback ? 15 : 2.9, footerMarginPx: 8, minGapPx: 8, fallback: s.measureFallback ? "enroll_link doesn't fit beside the QR (widest line 390.1px, space 389.3px)" : null },
+  ]),
 }))
 vi.mock("@/lib/enterprise/agents-store", async (orig) => ({ ...(await orig<typeof import("@/lib/enterprise/agents-store")>()), getAgentIdOwner: async (id: string) => (id === "858980" ? "agent@x.test" : null) }))
 vi.mock("@/lib/enterprise/nop-i18n/server", () => ({ nopLangForRequest: async () => "en" }))
 
-beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0; s.enrollOk = true; s.settingsLog.length = 0; s.esFailures = []; s.releaseChecks = 0; s.enrollSaved = true; s.partnerOk = true; s.pagesOpened.length = 0 })
+beforeEach(() => { vi.stubEnv("SESSION_SECRET", "test-secret"); s.settings = { agentKit: "v1", spanishV2: false }; s.rendered.length = 0; s.values.length = 0; s.logged.length = 0; s.saved.length = 0; s.enrollOk = true; s.settingsLog.length = 0; s.esFailures = []; s.releaseChecks = 0; s.enrollSaved = true; s.partnerOk = true; s.pagesOpened.length = 0; s.measured.length = 0; s.measureFallback = false })
 afterEach(() => vi.unstubAllEnvs())
 
 async function cookie(sub: string) {
@@ -222,6 +228,22 @@ describe("admin-only kit-v2 tools", () => {
     s.partnerOk = true
     expect((await call(settings, "POST", "/x", "admin", undefined, { agentKit: "v2" })).status).toBe(200)
     expect(s.saved).toEqual([{ spanishV2: undefined, agentKit: "v2" }])
+  })
+
+  it("render-check ?measure=full-link: admin-only, read-only, the full URL's spare px on every page and any fallback", async () => {
+    expect((await call(check, "GET", "/api/admin/enterprise/nop/render-check?measure=full-link", "agent@x.test")).status).toBe(401)
+    expect(s.measured).toEqual([])
+    const r = await call(check, "GET", "/api/admin/enterprise/nop/render-check?measure=full-link", "admin")
+    expect(r.status).toBe(200)
+    expect(s.measured).toEqual(["https://neighbor.basicbenefits.com/member-enrollment?agent_code={id}"])
+    expect(r.json).toMatchObject({ sampleAgentId: "CP-VLN-H5J", pages: 2, fullUrl: 2, fellBack: [], minSparePx: 2.9 })
+    s.measureFallback = true
+    const f = await call(check, "GET", "/api/admin/enterprise/nop/render-check?measure=full-link", "admin")
+    expect(f.json.fellBack).toEqual(["NOP2_P2_EN_PRICE bleed: enroll_link doesn't fit beside the QR (widest line 390.1px, space 389.3px)"])
+    const bad = await call(check, "GET", "/api/admin/enterprise/nop/render-check?measure=full-link&forward=https://evil.com/{id}", "admin")
+    expect(bad.status).toBe(422)
+    expect(s.saved).toEqual([])
+    expect(s.logged).toEqual([])
   })
 
   it("render-check as a real agent: that agent's own file, every release check, logged under the admin", async () => {
