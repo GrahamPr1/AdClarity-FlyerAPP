@@ -3,11 +3,11 @@
 Status: **draft for approval**. Built from the code on `agent-platform` at
 `0162743` (2026-11-13), not from memory.
 
-> **The mockup files are not in the repo yet.** `docs/design/refresh-mockup/`
-> (Main, Agents, Dashboard, Admin `.dc.html`) was never created: the files
-> weren't in `~/Downloads`. The "New home" column below follows the structure
-> the brief describes and is **provisional** until the mockup is in hand.
-> Step 0 item 5 (the preview hero and header) waits for it.
+> **Mockup status:** only `Admin.dc.html` is in `docs/design/refresh-mockup/`.
+> §4 (Admin) is final, from that file. §1 (homepage), §3 (client app) and the
+> Agents page still follow the brief's description and are **provisional**
+> until `Main`, `Dashboard` and `Agents` arrive. Step 0 item 5 (the preview
+> hero and header) waits for `Main`.
 
 Legend for **Change**: `same` = reached the same way, just restyled ·
 `moved` = new location, old URL redirects or still works · `new` = new UI.
@@ -20,11 +20,11 @@ Legend for **Change**: `same` = reached the same way, just restyled ·
 | Feature (route) | What it does today | New home | Change | Verified |
 |---|---|---|---|---|
 | Homepage `/` | Hero (3D flyer, CTA), sections: what-you-get, how-it-works, see-it (sample gallery + interactive campaign demo), pricing (monthly/annual switch), use-cases, FAQ, footer | Main mockup: sticky header, hero + B2C video slot, "Run a team of agents?" card, five-outputs, how-it-works, Agents band, pricing | restyled | |
-| ↳ Sample gallery (real output) | Real generated examples | **Not in the brief's mockup description.** Proposed: keep as a "See real output" section after five-outputs | moved | |
-| ↳ Interactive campaign demo | Visitor types a business and offer, sees the shape of a campaign | **Not described.** Proposed: keep, under how-it-works ("Try it") | moved | |
-| ↳ Use cases | Industry examples | **Not described.** Proposed: keep, compact, before pricing | moved | |
-| ↳ FAQ | Full answers (also the target of `/faq`) | **Not described.** Proposed: keep, after pricing; `/faq` redirect unchanged | moved | |
-| ↳ Pricing + Monthly/Annual switch | `PricingCards` from `lib/plans.ts`, "Save N%", renewal disclosure, checkout switch (`CHECKOUT_ENABLED`) | Pricing section | restyled | |
+| ↳ Sample gallery (real output) | Real generated examples | **Decided:** the "real example output" slot under How it works | moved | |
+| ↳ Interactive campaign demo | Visitor types a business and offer, sees the shape of a campaign | **Decided:** inside How it works, after the three steps | moved | |
+| ↳ Use cases | Industry examples | **Decided:** its own section after the five-outputs row | moved | |
+| ↳ FAQ | Full answers (also the target of `/faq`) | **Decided:** homepage FAQ section, anchor `#faq`; `/faq` keeps redirecting to it | moved | |
+| ↳ Pricing + Monthly/Annual switch | `PricingCards` from `lib/plans.ts`, "Save N%", renewal disclosure, checkout switch (`CHECKOUT_ENABLED`) | Pricing section. **Decided:** real Stripe prices from config (Basic $180/yr = $15/mo, Pro $360/yr = $30/mo); badge "Save 20%+" | restyled | |
 | ↳ Header "Agents / Agentes" → `/agent` | NOP agent portal front door | Header, kept exactly (desktop row and phone menu) | same | |
 | ↳ Account links (signed in) | `FooterAccountLinks`, `account-menu` | Header and footer | same | |
 | `/about`, `/contact` (+ contact form → `/api/contact`) | Company page, contact form | Restyled with new tokens | same | |
@@ -34,15 +34,15 @@ Legend for **Change**: `same` = reached the same way, just restyled ·
 | `/unsubscribe` | Email preference landing | Restyled | same | |
 | `/checkout` (route) | Starts Stripe checkout for a plan | Unchanged behaviour | same | |
 | `/faq`, `/pricing` and other vanity redirects (`next.config.mjs`) | Permanent redirects to homepage sections | Same targets (section ids kept) | same | |
-| 404 / error | **No site-wide `not-found` or `error` page exists today** (only `/r/[code]`) | Proposed **new**: `app/not-found.tsx` in the new design. NOP routes render through it too, so it must not change any NOP page that calls `notFound()` | new (flag) | |
+| 404 / error | **No site-wide `not-found` or `error` page exists today** (only `/r/[code]`) | **Decided: new** site-wide 404 in the new design. It's a new page, not a restyle of NOP: NOP pages render exactly as before (screenshot-checked) | new | |
 | **OneFlyer for Agents** (B2B) | Doesn't exist | **`/for-agents`** (see §5) | new | |
 
 ## 2. Auth
 
 | Feature | Today | New home | Change | Verified |
 |---|---|---|---|---|
-| `/login`: client sign-in, sign-up mode, forgot-password mode, "Site admin? Sign in with password" | One page, several modes; **contains NOP sections** (EN/ES strings, `?lang`, NOP agent redirect) | **Proposed: leave its look unchanged in Brief D**, because it's listed in NOP_FROZEN §3 and NOP agents use it. Alternative: restyle only the non-NOP render path, with NOP before/after screenshots | same (flag) | |
-| `/reset-password` | Reset form; NOP section per NOP_FROZEN §3 | As `/login` | same (flag) | |
+| `/login`: client sign-in, sign-up mode, forgot-password mode, "Site admin? Sign in with password" | One page, several modes; **contains NOP sections** (EN/ES strings, `?lang`, NOP agent redirect) | **Decided: look unchanged in Brief D** (NOP_FROZEN §3; NOP agents use it) | same | |
+| `/reset-password` | Reset form; NOP section per NOP_FROZEN §3 | **Decided: look unchanged in Brief D** | same | |
 | `/api/auth/*` (login, client-login, signup, logout, forgot/reset, session) | | Unchanged | same | |
 
 ## 3. SMB client app
@@ -75,22 +75,25 @@ Legend for **Change**: `same` = reached the same way, just restyled ·
 
 | Feature | Today | New home (Admin mockup: navy sidebar) | Change | Verified |
 |---|---|---|---|---|
-| `/admin` landing: billing overview, links | `admin/billing-overview`, link list (incl. the new Organizations link) | Sidebar: **Overview** | moved | |
-| Users `/admin/users`, `/admin/users/[email]` (set plan, set admin) | | Sidebar: **Users** | same URLs | |
-| Billing members, activity, audit `/admin/billing/*` | | Sidebar: **Billing** (Members · Activity · Audit) | same URLs | |
-| AI costs `/admin/costs` | | Sidebar: **Costs** | same | |
-| Test-data audit `/admin/audit` (GET, DELETE) | | Sidebar: **Audit** | same | |
-| Waitlist `/admin/waitlist` (+ notify) | | Sidebar: **Waitlist** | same | |
-| Enterprise demo `/admin/enterprise-demo` | | Sidebar: **Enterprise demo** | same | |
-| Leads admin, clients API (`/api/admin/leads`, `/clients`) | Used by admin views | Under Users | same | |
-| **Organizations** `/admin/organizations` (+ `[id]`) | Agent platform admin | Sidebar: **Organizations** (top-level, per brief) | moved into sidebar | |
-| NOP admin `/admin/enterprise/nop`, `/admin/enterprise/agents/*` | **Frozen** | Sidebar link to it ("NOP agents"), page itself untouched and rendered outside the new layout | link only | |
+| `/admin` landing: billing overview, links | `admin/billing-overview`, link list | **Overview** (mockup): number tiles Clients · Paying clients · Flyers this month · Organizations live; Organizations cards; Clients table; "+ New organization". The billing overview (counts, estimated MRR, what needs a human) stays on Overview, below the tiles | restyled | |
+| Users `/admin/users`, `/admin/users/[email]` (set plan, set admin) | | **Clients** (mockup: searchable table, Business · Plan pill · Flyers used of limit · Last active · View). Same URLs; "Users" becomes "Clients" | renamed | |
+| Billing members, activity, audit `/admin/billing/*` | | **Not in the mockup's sidebar.** Proposed: **Settings** sub-menu (Billing: Members · Activity · Audit) | moved (flag) | |
+| AI costs `/admin/costs` | | **Not in the mockup.** Proposed: Settings sub-menu | moved (flag) | |
+| Test-data audit `/admin/audit` (GET, DELETE) | | **Not in the mockup.** Proposed: Settings sub-menu | moved (flag) | |
+| Waitlist `/admin/waitlist` (+ notify) | | **Not in the mockup.** Proposed: Settings sub-menu | moved (flag) | |
+| Enterprise demo `/admin/enterprise-demo` | | **Not in the mockup.** Proposed: Settings sub-menu | moved (flag) | |
+| Leads admin, clients API (`/api/admin/leads`, `/clients`) | Used by admin views | Under Clients | same | |
+| **Organizations** `/admin/organizations` (+ `[id]`) | Agent platform admin | **Organizations** (mockup: top-level, "Agents" tag; cards with status pill, layouts + languages, approval version, agents and pending counts; "View all") | moved into sidebar | |
+| **All flyers** (mockup sidebar item) | **Doesn't exist today** | New admin view over existing flyer data: a feature, not a restyle | new (flag) | |
+| **Flyers this month** tile | **No such metric today** | New count from existing flyer data | new (flag) | |
+| NOP admin `/admin/enterprise/nop`, `/admin/enterprise/agents/*` | **Frozen** | **Not in the mockup.** Proposed: Settings sub-menu link "NOP agents"; the pages themselves untouched, outside the new layout | link only | |
+| Sign out | account menu | Sidebar footer (mockup) | moved | |
 | Agent platform portal `/ap/[org]`, `/join`, `/sign-in` | Platform agent pages | Restyled in step E | same URLs | |
 | Pro free trial (owner only) | `admin-pro-trial` (a NOP-section shared file) | Untouched | same | |
 | Emails: password reset, contact, lead notification, waitlist, operational alert, platform sign-in code; NOP emails (frozen) | `lib/email.ts`, `lib/ap/email.ts` | **Not part of the visual redesign.** Proposed: unchanged in Brief D | same | |
 | Crons (`public-emails`, 4× NOP) | `vercel.json` | Unchanged | same | |
 | Analytics: GA4, GTM, Vercel Analytics, conversion events | `google-analytics`, `google-tag-manager`, `vercel-analytics`, `conversion-events` | Unchanged; new GA4 events added in step G | same | |
-| Intro animation | `intro-animation` | **Not described.** Proposed: drop on the new homepage only if the mockup has none (flag; it's a homepage-only effect) | flag | |
+| Intro animation | `intro-animation` | **Intentionally removed** (decided): the hero video slot replaces it. Not a lost feature | removed by decision | |
 
 ---
 
@@ -136,17 +139,16 @@ global h1–h3 DM Serif rule. Changing any of those in place would change NOP.
    - signed in locally against the dev Redis with
      `scripts/seed-enterprise-demo.ts` (staging has no NOP data)
 
-## 7. Decisions needed
+## 7. Decisions (2026-11-13)
 
-1. **Annual prices.** The brief says Basic $15.20/mo billed $182.40/yr and Pro
-   $31.20/mo billed $374.40/yr (20% off). The real Stripe sandbox prices
-   (checked read-only) and `lib/plans.ts` are **$180/yr** and **$360/yr**
-   ($15.00 and $30.00 a month, 21% and 23% off). The page reads from config,
-   so it will show $180 and $360 unless new Stripe prices are created and the
-   config updated. Recommendation: keep $180 and $360.
-2. Homes for the sections the mockup description doesn't show: sample
-   gallery, campaign demo, use cases, FAQ, intro animation (§1, §4).
-3. `/login` and `/reset-password`: leave as they are (recommended) or restyle
-   the non-NOP path only.
-4. A new site-wide 404 page: yes or no.
-5. The mockup files themselves.
+1. Annual prices: Stripe's real prices from config (Basic $180/yr = $15/mo,
+   Pro $360/yr = $30/mo); badge "Save 20%+".
+2. Sample gallery → How it works' real-output slot; campaign demo → inside
+   How it works after the three steps; use cases → after five-outputs; FAQ →
+   `#faq` (`/faq` redirects there); intro animation intentionally removed.
+3. `/login` and `/reset-password` keep their look in Brief D.
+4. New site-wide 404 in the new design; NOP pages render exactly as before.
+
+**Still open:** where the admin views missing from the mockup's sidebar go
+(proposed: a Settings sub-menu), and whether "All flyers" and "Flyers this
+month" should be built (they're new features).
