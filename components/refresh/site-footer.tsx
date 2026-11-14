@@ -1,8 +1,9 @@
 import Link from "next/link"
 import { FOR_AGENTS_HREF } from "./site-header"
 
-// Site footer (Main mockup, plus the links the parity map keeps: About,
-// Contact, Refund policy, and NOP's "Agents / Agentes").
+// Site footer (Main mockup, including "Built in Louisville, KY", confirmed
+// accurate; plus the links the parity map keeps: About, Contact, Refund
+// policy, and NOP's "Agents / Agentes").
 const LINKS = [
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
@@ -17,6 +18,7 @@ export function RefreshSiteFooter() {
     <footer className="rf-footer">
       <div style={{ width: "100%", maxWidth: 1200, display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16, fontSize: 14 }}>
         <span style={{ color: "#FFFFFF", fontWeight: 700 }}>OneFlyer</span>
+        <span>Built in Louisville, KY</span>
         <nav aria-label="Footer" style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px" }}>
           {LINKS.map((l) => <Link key={l.href} href={l.href}>{l.label}</Link>)}
           <Link href={FOR_AGENTS_HREF} className="rf-footer-amber">OneFlyer for Agents</Link>
