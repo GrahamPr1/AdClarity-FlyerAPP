@@ -1,0 +1,142 @@
+/*
+ * OneFlyer refresh design (Brief D). Scoped: every token and class here
+ * applies only inside an element with data-design="refresh". Nothing in
+ * app/globals.css is changed, so NOP and every unconverted page render
+ * exactly as before.
+ *
+ * Light values are the approved mockup's. Dark values are proposed here;
+ * every text/background pair used is WCAG AA (checked by the contrast audit).
+ */
+
+[data-design="refresh"] {
+  --rf-navy: #13294B;
+  --rf-navy-2: #1B3A63;
+  --rf-ink: #0E1B2E;
+  --rf-blue: #2C5F8A;
+  --rf-blue-hover: #13294B;
+  --rf-amber: #F0A13B;
+  --rf-amber-ink: #7A4A00;
+  --rf-on-amber: #0E1B2E;
+  --rf-bg: #F7F5F0;
+  --rf-surface: #FFFFFF;
+  --rf-border: #E6E1D6;
+  --rf-divider: #EFEBE2;
+  --rf-text: #0E1B2E;
+  --rf-text-2: #3A4658;
+  --rf-muted: #5B6577;
+  --rf-link: #2C5F8A;
+  --rf-on-primary: #FFFFFF;
+  --rf-on-navy: #FFFFFF;
+  --rf-on-navy-2: #C9D6E6;
+  --rf-on-navy-3: #B9C8DD;
+  --rf-tint-blue: #E3EEF8;
+  --rf-tint-teal: #DDF2EF;
+  --rf-tint-pink: #FCE3EC;
+  --rf-tint-green: #E6F3DC;
+  --rf-tint-amber: #FDEBCB;
+  --rf-header-bg: rgba(247, 245, 240, 0.92);
+  --rf-shadow: 0 6px 24px rgba(19, 41, 75, 0.06);
+  --rf-cta-shadow: 0 8px 20px rgba(44, 95, 138, 0.28);
+  --rf-video-frame: #13294B;
+  --rf-video-stage: #1B3A63;
+
+  font-family: var(--font-rf-sans), system-ui, sans-serif;
+  color: var(--rf-text);
+  background: var(--rf-bg);
+}
+
+/* Dark: proposed. Navy surfaces deepen, the blue lightens so it reads on dark. */
+.dark [data-design="refresh"] {
+  --rf-ink: #EEF2F8;
+  --rf-blue: #7FB0DE;
+  --rf-blue-hover: #A9CBEB;
+  --rf-amber: #F0A13B;
+  --rf-amber-ink: #F6C47A;
+  --rf-on-amber: #0E1B2E;
+  --rf-bg: #0B1422;
+  --rf-surface: #13213A;
+  --rf-border: #26385A;
+  --rf-divider: #1F2E49;
+  --rf-text: #EEF2F8;
+  --rf-text-2: #C3CDDB;
+  --rf-muted: #9AA8BC;
+  --rf-link: #8FBCE6;
+  --rf-on-primary: #0B1422;
+  --rf-navy: #162B4D;
+  --rf-navy-2: #21406B;
+  --rf-tint-blue: #1C3352;
+  --rf-tint-amber: #3A2A10;
+  --rf-header-bg: rgba(11, 20, 34, 0.9);
+  --rf-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  --rf-cta-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  --rf-video-frame: #162B4D;
+  --rf-video-stage: #21406B;
+}
+
+[data-design="refresh"] .rf-serif {
+  font-family: var(--font-dm-serif), Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+
+[data-design="refresh"] a.rf-link { color: var(--rf-link); }
+[data-design="refresh"] a.rf-link:hover { color: var(--rf-blue-hover); }
+
+[data-design="refresh"] .rf-focus:focus-visible,
+[data-design="refresh"] a:focus-visible,
+[data-design="refresh"] button:focus-visible {
+  outline: 3px solid var(--rf-amber);
+  outline-offset: 2px;
+}
+
+/* ---- Buttons ---- */
+[data-design="refresh"] .rf-btn-primary {
+  background: var(--rf-blue);
+  color: var(--rf-on-primary);
+  font-weight: 600;
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s;
+}
+[data-design="refresh"] .rf-btn-primary:hover { background: var(--rf-blue-hover); }
+[data-design="refresh"] .rf-btn-outline {
+  background: var(--rf-surface);
+  color: var(--rf-text);
+  border: 1.5px solid var(--rf-text);
+  font-weight: 600;
+  border-radius: 999px;
+  text-decoration: none;
+}
+[data-design="refresh"] .rf-btn-outline:hover { background: var(--rf-bg); }
+
+/* ---- Header: one row on desktop; logo + Start free + menu under 920px ---- */
+[data-design="refresh"] .rf-mob { display: none !important; }
+@media (max-width: 920px) {
+  [data-design="refresh"] .rf-desk { display: none !important; }
+  [data-design="refresh"] .rf-mob { display: flex !important; }
+  [data-design="refresh"] .rf-mob-inline { display: inline !important; }
+}
+[data-design="refresh"] .rf-mob-inline { display: none; }
+@media (max-width: 920px) {
+  [data-design="refresh"] .rf-desk-inline { display: none !important; }
+}
+
+[data-design="refresh"] .rf-navlink {
+  color: var(--rf-text-2);
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+[data-design="refresh"] .rf-navlink:hover { background: var(--rf-bg); color: var(--rf-text); }
+
+[data-design="refresh"] .rf-pill-amber {
+  color: var(--rf-amber-ink);
+  background: var(--rf-tint-amber);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-design="refresh"] * { transition: none !important; }
+}

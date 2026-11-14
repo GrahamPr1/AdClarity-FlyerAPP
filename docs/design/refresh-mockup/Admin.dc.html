@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Admin portal</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F7F5F0}
+a{color:#2C5F8A}a:hover{color:#13294B}
+</style>
+</helmet>
+<div style="font-family: 'DM Sans', system-ui, sans-serif; color: #0E1B2E; background: #F7F5F0; width: 100%; min-height: 100vh; display: flex; flex-wrap: wrap; align-items: flex-start">
+
+<aside style="flex: 1 1 240px; max-width: 100%; box-sizing: border-box; background: #0E1B2E; color: #FFFFFF; padding: 22px 16px; display: flex; flex-direction: column; gap: 22px; align-self: stretch">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 0 8px">
+<span style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 19px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 50%; background: #F0A13B; display: inline-block"></span>OneFlyer</span>
+<span style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; background: #F0A13B; color: #0E1B2E; padding: 3px 8px; border-radius: 999px">ADMIN</span>
+</div>
+<nav aria-label="Admin" style="display: flex; flex-wrap: wrap; gap: 4px; font-size: 15px">
+<a href="#" style="flex: 1 1 180px; display: flex; align-items: center; gap: 10px; color: #FFFFFF; background: #1B3A63; text-decoration: none; padding: 11px 12px; border-radius: 12px; font-weight: 600">Overview</a>
+<a href="#clients" style="flex: 1 1 180px; display: flex; align-items: center; gap: 10px; color: #C9D6E6; text-decoration: none; padding: 11px 12px; border-radius: 12px">Clients</a>
+<a href="#orgs" style="flex: 1 1 180px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #C9D6E6; text-decoration: none; padding: 11px 12px; border-radius: 12px">Organizations <span style="font-size: 11px; font-weight: 700; color: #0E1B2E; background: #FDEBCB; padding: 2px 8px; border-radius: 999px">Agents</span></a>
+<a href="#" style="flex: 1 1 180px; display: flex; align-items: center; gap: 10px; color: #C9D6E6; text-decoration: none; padding: 11px 12px; border-radius: 12px">All flyers</a>
+<a href="#" style="flex: 1 1 180px; display: flex; align-items: center; gap: 10px; color: #C9D6E6; text-decoration: none; padding: 11px 12px; border-radius: 12px">Settings</a>
+</nav>
+<a href="#" style="margin-top: auto; color: #C9D6E6; font-size: 14px; text-decoration: none; padding: 0 8px">Sign out</a>
+</aside>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px clamp(16px, 3vw, 40px) 56px; display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 14px; color: #5B6577">Sample data shown</p>
+<h1 style="margin: 0; font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; font-size: 40px">Overview</h1>
+</div>
+<a href="#orgs" style="background: #2C5F8A; color: #FFFFFF; text-decoration: none; font-weight: 600; font-size: 15px; padding: 12px 18px; border-radius: 999px">+ New organization</a>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px">
+<div style="background: #FFFFFF; border: 1px solid #E6E1D6; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #5B6577">Clients</span><span style="font-family: 'DM Serif Display', Georgia, serif; font-size: 36px">[#]</span></div>
+<div style="background: #FFFFFF; border: 1px solid #E6E1D6; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #5B6577">Paying clients</span><span style="font-family: 'DM Serif Display', Georgia, serif; font-size: 36px; color: #17766F">[#]</span></div>
+<div style="background: #FFFFFF; border: 1px solid #E6E1D6; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #5B6577">Flyers this month</span><span style="font-family: 'DM Serif Display', Georgia, serif; font-size: 36px; color: #2C5F8A">[#]</span></div>
+<div style="background: #13294B; color: #FFFFFF; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #C9D6E6">Organizations live</span><span style="font-family: 'DM Serif Display', Georgia, serif; font-size: 36px; color: #F0A13B">[#]</span></div>
+</div>
+
+<section id="orgs" style="background: #FFFFFF; border: 1px solid #E6E1D6; border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 20px">Organizations <span style="font-weight: 500; color: #5B6577; font-size: 15px">· OneFlyer for Agents</span></h2>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none">View all →</a>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px">
+<div style="border: 1px solid #E6E1D6; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><span style="font-weight: 700">Sample Benefits Co.</span><span style="font-size: 12px; font-weight: 700; background: #DDF2EF; color: #17766F; padding: 4px 10px; border-radius: 999px">LIVE</span></div>
+<p style="margin: 0; font-size: 14px; color: #5B6577">P1 · English + Spanish · approved v1</p>
+<div style="display: flex; gap: 16px; font-size: 13px; color: #3A4658"><span>Agents: [#]</span><span>Pending: [#]</span></div>
+</div>
+<div style="border: 1px solid #E6E1D6; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><span style="font-weight: 700">Demo Coverage Group</span><span style="font-size: 12px; font-weight: 700; background: #FDEBCB; color: #7A4A00; padding: 4px 10px; border-radius: 999px">PROOF</span></div>
+<p style="margin: 0; font-size: 14px; color: #5B6577">P3 · English only · awaiting approval</p>
+<div style="display: flex; gap: 16px; font-size: 13px; color: #3A4658"><span>Agents: [#]</span><span>Pending: [#]</span></div>
+</div>
+</div>
+</section>
+
+<section id="clients" style="background: #FFFFFF; border: 1px solid #E6E1D6; border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 20px">Clients</h2>
+<label for="csearch" style="position: absolute; left: -9999px">Search clients</label>
+<input id="csearch" type="search" placeholder="Search by name or email" style="font: inherit; font-size: 14px; padding: 10px 12px; border-radius: 12px; border: 1px solid #E6E1D6; width: 240px; max-width: 100%">
+</div>
+<div style="overflow-x: auto">
+<table style="width: 100%; min-width: 640px; border-collapse: collapse; font-size: 14px">
+<thead>
+<tr style="text-align: left; color: #5B6577; font-size: 12px; letter-spacing: 0.06em">
+<th style="padding: 10px 8px; border-bottom: 1px solid #EFEBE2; font-weight: 700">BUSINESS</th>
+<th style="padding: 10px 8px; border-bottom: 1px solid #EFEBE2; font-weight: 700">PLAN</th>
+<th style="padding: 10px 8px; border-bottom: 1px solid #EFEBE2; font-weight: 700">FLYERS</th>
+<th style="padding: 10px 8px; border-bottom: 1px solid #EFEBE2; font-weight: 700">LAST ACTIVE</th>
+<th style="padding: 10px 8px; border-bottom: 1px solid #EFEBE2"></th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{clients}}" as="c" hint-placeholder-count="5">
+<tr>
+<td style="padding: 14px 8px; border-bottom: 1px solid #EFEBE2"><div style="font-weight: 600">{{c.name}}</div><div style="font-size: 13px; color: #5B6577">{{c.email}}</div></td>
+<td style="padding: 14px 8px; border-bottom: 1px solid #EFEBE2"><span style="{{c.planStyle}}">{{c.plan}}</span></td>
+<td style="padding: 14px 8px; border-bottom: 1px solid #EFEBE2">{{c.flyers}}</td>
+<td style="padding: 14px 8px; border-bottom: 1px solid #EFEBE2; color: #5B6577">{{c.last}}</td>
+<td style="padding: 14px 8px; border-bottom: 1px solid #EFEBE2; text-align: right"><a href="#" style="font-weight: 600; text-decoration: none">View</a></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+renderVals() {
+const pill = (p) => {
+const c = p === 'Pro' ? '#2C5F8A; color: #FFFFFF' : p === 'Basic' ? '#E3EEF8; color: #13294B' : '#EDEAE3; color: #3A4658';
+return 'font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: ' + c;
+};
+const rows = [
+['Bluegrass Roofing', 'owner@example.com', 'Pro', '12 of 50', 'Today'],
+['Derby City HVAC', 'office@example.com', 'Basic', '7 of 25', 'Yesterday'],
+['River Road Plumbing', 'hello@example.com', 'Free trial', '2 of 3', '3 days ago'],
+['Highlands Landscaping', 'team@example.com', 'Basic', '19 of 25', 'Nov 6'],
+['Crescent Hill Remodeling', 'info@example.com', 'Free trial', '0 of 3', 'Nov 2']
+];
+return { clients: rows.map((r) => ({ name: r[0], email: r[1], plan: r[2], planStyle: pill(r[2]), flyers: r[3], last: r[4] })) };
+}
+}
+</script>
+</body>
+</html>
