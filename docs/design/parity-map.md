@@ -165,3 +165,23 @@ No fabricated claims: these are replaced with real values or flagged.
 **Still open:** where the admin views missing from the mockup's sidebar go
 (proposed: a Settings sub-menu), and whether "All flyers" and "Flyers this
 month" should be built (they're new features).
+
+## 8. Decisions (2026-11-13, after the preview)
+
+- Dark-mode colours approved as proposed (reviewed live on staging).
+- "Agents / Agentes" next to Sign in on desktop, above Sign in in the phone
+  menu; same text, same `/agent` target.
+- **Copy fixes in the build:** the Pro card drops "+ stock photos" and shows the
+  real Pro-vs-Basic differences from `lib/plans.ts`. The Agents page drops
+  "every scan is counted" and the "Agent Pro … separate plan" line.
+- The Main footer keeps About, Contact and Refund policy (with Privacy, Terms,
+  OneFlyer for Agents, Agents / Agentes).
+- **Dashboard rule:** every flagged item gets a home. Primary actions go in the
+  sidebar; settings-type items are grouped under an account/settings area.
+  Nothing is more than one click deeper than today. Flagged items: AI Control
+  Center, print requests, forms, email settings, dark mode, pause/resume, offer
+  page editor, new promotion, sign out.
+
+## Backlog (not in Brief D)
+
+- Count scans on the platform's `/ap/q/{code}` redirects, as NOP's `/a/{code}` does.
